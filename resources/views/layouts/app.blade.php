@@ -80,10 +80,6 @@
                     {!! navItem('reports.index', 'Laporan Penjualan', 'reports.index') !!}
                     {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
                 @endif
-                @if($u->isSuperAdmin())
-                    {!! navItem('audit-logs.index', 'Audit Log', 'audit-logs.index') !!}
-                    {!! navItem('settings.index', 'Pengaturan Sistem', 'settings.index') !!}
-                @endif
             @endif
         </nav>
 
