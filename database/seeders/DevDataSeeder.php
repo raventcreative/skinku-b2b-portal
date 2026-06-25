@@ -3,7 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\Product;
+use App\Models\PurchaseOrder;
 use App\Models\User;
+use App\Services\PurchaseOrderService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -73,6 +75,38 @@ class DevDataSeeder extends Seeder
             );
         }
 
-        $this->command?->info('Demo data (5 produk + 5 user) berhasil dibuat. Password demo: password123');
+        // Sample Purchase Orders so dashboard & reports aren't empty.
+        try {
+            $svc = app(PurchaseOrderService::class);
+            $distBali = User::where('username', 'dist_bali')->first();
+            $distJkt = User::where('username', 'dist_jkt')->first();
+            $resSanti = User::where('username', 'res_santi')->first();
+            $prodA = Product::where('sku', 'SKN-ABW-01')->first();
+            $prodB = Product::where('sku', 'SKN-BBS-02')->first();
+
+            if ($distBali && $prodA && $prodB && PurchaseOrder::count() === 0) {
+                // 1) Completed PO — runs full inventory transaction (populates stock + reports).
+                $po1 = $svc->createForPartner($distBali, [
+                    ['product_id' => $prodA->id, 'qty' => 20],
+                    ['product_id' => $prodB->id, 'qty' => 10],
+                ], $distBali->address, 'Contoh PO selesai');
+                $svc->setShipping($po1, 25000);
+                $po1->update(['payment_status' => PurchaseOrder::PAYMENT_PAID, 'paid_at' => now()]);
+                foreach (['approved', 'processing', 'shipped', 'completed'] as $st) {
+                    $svc->updateStatus($po1->fresh(), $st);
+                }
+
+                // 2) Pending, ongkir set, waiting for payment.
+                $po2 = $svc->createForPartner($distJkt, [['product_id' => $prodA->id, 'qty' => 15]], $distJkt->address, 'Contoh PO menunggu pembayaran');
+                $svc->setShipping($po2, 18000);
+
+                // 3) Brand-new pending PO from reseller.
+                $svc->createForPartner($resSanti, [['product_id' => $prodB->id, 'qty' => 5]], $resSanti->address, 'Contoh PO baru');
+            }
+        } catch (\Throwable $e) {
+            $this->command?->warn('Seeding PO contoh dilewati: '.$e->getMessage());
+        }
+
+        $this->command?->info('Demo data (5 produk + 5 user + 3 PO contoh) berhasil dibuat. Password demo: password123');
     }
 }
