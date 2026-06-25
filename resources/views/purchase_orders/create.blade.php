@@ -42,6 +42,7 @@
                 <div class="flex justify-between text-sm mb-2"><span class="text-stone-500">Total Item</span><span id="totalQty" class="font-semibold">0</span></div>
                 <div class="flex justify-between text-lg border-t border-stone-100 pt-3"><span class="text-stone-600 text-sm">Total Bayar</span><span id="totalAmount" class="font-bold text-emerald-700">Rp 0</span></div>
                 <p class="text-[10px] text-stone-400 mt-2">Total dihitung ulang otomatis di server berdasarkan harga & role Anda.</p>
+                <p class="text-[10px] text-amber-600 mt-1">Ongkir belum termasuk — akan ditetapkan admin setelah PO dibuat, lalu Anda transfer & unggah bukti.</p>
             </div>
             <div class="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
                 <div>

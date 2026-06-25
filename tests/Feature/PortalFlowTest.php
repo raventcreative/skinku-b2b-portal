@@ -129,6 +129,7 @@ class PortalFlowTest extends TestCase
         $service = app(PurchaseOrderService::class);
 
         $po = $service->createForPartner($dist, [['product_id' => $p->id, 'qty' => 10]], 'Jl. Test', null);
+        $po->update(['payment_status' => PurchaseOrder::PAYMENT_PAID]); // payment gate: must be paid to fulfil
 
         // walk the status chain to completed
         $service->updateStatus($po, PurchaseOrder::STATUS_APPROVED);

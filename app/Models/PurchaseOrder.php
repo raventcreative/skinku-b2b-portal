@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class PurchaseOrder extends Model
 {
@@ -47,9 +48,18 @@ class PurchaseOrder extends Model
         self::STATUS_CANCELLED => [],
     ];
 
+    public const PAYMENT_UNPAID = 'unpaid';
+
+    public const PAYMENT_AWAITING = 'awaiting_verification';
+
+    public const PAYMENT_PAID = 'paid';
+
+    public const PAYMENT_REJECTED = 'rejected';
+
     protected $fillable = [
         'po_number', 'created_by', 'user_id', 'company_name', 'user_role',
-        'status', 'subtotal', 'discount', 'total_amount',
+        'status', 'subtotal', 'discount', 'shipping_cost', 'total_amount',
+        'payment_status', 'payment_proof_path', 'payment_note', 'paid_at', 'payment_verified_by',
         'shipping_address', 'notes', 'revision_notes', 'completed_at', 'deleted_by',
     ];
 
@@ -58,8 +68,10 @@ class PurchaseOrder extends Model
         return [
             'subtotal' => 'decimal:2',
             'discount' => 'decimal:2',
+            'shipping_cost' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'completed_at' => 'datetime',
+            'paid_at' => 'datetime',
         ];
     }
 
@@ -81,5 +93,23 @@ class PurchaseOrder extends Model
     public function canTransitionTo(string $next): bool
     {
         return in_array($next, self::TRANSITIONS[$this->status] ?? [], true);
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->payment_status === self::PAYMENT_PAID;
+    }
+
+    /** Recompute total = subtotal - discount + shipping. */
+    public function recalcTotal(): void
+    {
+        $this->total_amount = max(0, (float) $this->subtotal - (float) $this->discount + (float) $this->shipping_cost);
+    }
+
+    public function paymentProofUrl(): ?string
+    {
+        return $this->payment_proof_path
+            ? Storage::disk('public')->url($this->payment_proof_path)
+            : null;
     }
 }

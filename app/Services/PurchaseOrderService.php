@@ -82,7 +82,9 @@ class PurchaseOrderService
                 'status' => PurchaseOrder::STATUS_PENDING,
                 'subtotal' => $subtotal,
                 'discount' => 0,
+                'shipping_cost' => 0,
                 'total_amount' => $subtotal,
+                'payment_status' => PurchaseOrder::PAYMENT_UNPAID,
                 'shipping_address' => $shippingAddress ?: $buyer->address,
                 'notes' => $notes,
             ]);
@@ -116,6 +118,12 @@ class PurchaseOrderService
 
         if (! $po->canTransitionTo($next)) {
             throw new RuntimeException("Transisi status dari '{$po->status}' ke '{$next}' tidak diizinkan.");
+        }
+
+        // Payment gate: barang baru boleh diproses/dikirim setelah pembayaran lunas (terverifikasi).
+        $fulfilment = [PurchaseOrder::STATUS_PROCESSING, PurchaseOrder::STATUS_SHIPPED, PurchaseOrder::STATUS_COMPLETED];
+        if (in_array($next, $fulfilment, true) && ! $po->isPaid()) {
+            throw new RuntimeException('PO belum lunas. Verifikasi bukti pembayaran (TF) dulu sebelum memproses/mengirim barang.');
         }
 
         if ($next === PurchaseOrder::STATUS_COMPLETED) {
@@ -229,6 +237,79 @@ class PurchaseOrderService
             targetId: $po->id,
             before: ['status' => $before],
             after: ['status' => PurchaseOrder::STATUS_CANCELLED, 'reason' => $reason],
+        );
+
+        return $po;
+    }
+
+    /** Admin sets/updates the shipping cost; total is recomputed. */
+    public function setShipping(PurchaseOrder $po, float $shippingCost, ?float $discount = null): PurchaseOrder
+    {
+        $before = ['shipping_cost' => (float) $po->shipping_cost, 'total_amount' => (float) $po->total_amount];
+
+        $po->shipping_cost = max(0, $shippingCost);
+        if ($discount !== null) {
+            $po->discount = max(0, $discount);
+        }
+        $po->recalcTotal();
+        $po->save();
+
+        AuditService::log(
+            action: 'set_po_shipping',
+            targetType: 'purchase_order',
+            targetId: $po->id,
+            before: $before,
+            after: ['shipping_cost' => (float) $po->shipping_cost, 'total_amount' => (float) $po->total_amount],
+        );
+
+        return $po;
+    }
+
+    /** Buyer uploads a transfer proof; payment moves to awaiting verification. */
+    public function recordPaymentProof(PurchaseOrder $po, string $proofPath, ?string $note = null): PurchaseOrder
+    {
+        $po->payment_proof_path = $proofPath;
+        $po->payment_status = PurchaseOrder::PAYMENT_AWAITING;
+        $po->payment_note = $note;
+        $po->paid_at = null;
+        $po->payment_verified_by = null;
+        $po->save();
+
+        AuditService::log(
+            action: 'upload_payment_proof',
+            targetType: 'purchase_order',
+            targetId: $po->id,
+            after: ['payment_status' => $po->payment_status],
+        );
+
+        return $po;
+    }
+
+    /** Admin verifies (approve = paid) or rejects a payment. */
+    public function verifyPayment(PurchaseOrder $po, bool $approve, ?int $verifierId, ?string $note = null): PurchaseOrder
+    {
+        $before = $po->payment_status;
+
+        if ($approve) {
+            $po->payment_status = PurchaseOrder::PAYMENT_PAID;
+            $po->paid_at = now();
+            $po->payment_verified_by = $verifierId;
+        } else {
+            $po->payment_status = PurchaseOrder::PAYMENT_REJECTED;
+            $po->paid_at = null;
+            $po->payment_verified_by = $verifierId;
+        }
+        if ($note) {
+            $po->payment_note = $note;
+        }
+        $po->save();
+
+        AuditService::log(
+            action: $approve ? 'verify_payment_paid' : 'verify_payment_rejected',
+            targetType: 'purchase_order',
+            targetId: $po->id,
+            before: ['payment_status' => $before],
+            after: ['payment_status' => $po->payment_status],
         );
 
         return $po;

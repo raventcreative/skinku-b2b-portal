@@ -3,7 +3,17 @@
 @section('heading', 'Detail Purchase Order')
 
 @section('content')
-@php $u = $user; @endphp
+@php
+    $u = $user;
+    $po = $purchaseOrder;
+    $payBadge = [
+        'unpaid'                => ['Belum Dibayar', 'bg-stone-100 text-stone-600'],
+        'awaiting_verification' => ['Menunggu Verifikasi', 'bg-amber-100 text-amber-700'],
+        'paid'                  => ['Lunas', 'bg-emerald-100 text-emerald-700'],
+        'rejected'              => ['Bukti Ditolak', 'bg-rose-100 text-rose-700'],
+    ][$po->payment_status] ?? ['-', 'bg-stone-100 text-stone-600'];
+    $isOwner = $u->isPartner() && $po->user_id === $u->id;
+@endphp
 <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-6">
         <div class="bg-white rounded-2xl border border-stone-200 p-6">
@@ -12,7 +22,10 @@
                     <h3 class="text-lg font-bold text-stone-900">{{ $purchaseOrder->po_number }}</h3>
                     <p class="text-xs text-stone-500 mt-1">{{ $purchaseOrder->created_at?->format('d M Y H:i') }}</p>
                 </div>
-                <span class="px-3 py-1 rounded-full text-xs font-bold bg-stone-100 text-stone-700">{{ $purchaseOrder->status }}</span>
+                <div class="flex flex-col items-end gap-1.5">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-stone-100 text-stone-700">{{ $purchaseOrder->status }}</span>
+                    <span class="px-3 py-1 rounded-full text-[10px] font-bold {{ $payBadge[1] }}">{{ $payBadge[0] }}</span>
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4 mt-5 text-xs">
@@ -42,8 +55,24 @@
                     @endforeach
                 </tbody>
                 <tfoot>
+                    <tr class="border-t border-stone-100">
+                        <td colspan="4" class="px-4 py-1.5 text-right text-stone-500">Subtotal Barang</td>
+                        <td class="px-4 py-1.5 text-right text-stone-700">Rp {{ number_format($purchaseOrder->subtotal, 0, ',', '.') }}</td>
+                    </tr>
+                    @if($purchaseOrder->discount > 0)
+                    <tr>
+                        <td colspan="4" class="px-4 py-1.5 text-right text-stone-500">Diskon</td>
+                        <td class="px-4 py-1.5 text-right text-rose-600">- Rp {{ number_format($purchaseOrder->discount, 0, ',', '.') }}</td>
+                    </tr>
+                    @endif
+                    <tr>
+                        <td colspan="4" class="px-4 py-1.5 text-right text-stone-500">Ongkir
+                            @if($purchaseOrder->shipping_cost == 0)<span class="text-[10px] text-amber-600">(menunggu admin)</span>@endif
+                        </td>
+                        <td class="px-4 py-1.5 text-right text-stone-700">Rp {{ number_format($purchaseOrder->shipping_cost, 0, ',', '.') }}</td>
+                    </tr>
                     <tr class="border-t-2 border-stone-200 font-bold">
-                        <td colspan="4" class="px-4 py-3 text-right">Total</td>
+                        <td colspan="4" class="px-4 py-3 text-right">Total Bayar</td>
                         <td class="px-4 py-3 text-right text-emerald-700">Rp {{ number_format($purchaseOrder->total_amount, 0, ',', '.') }}</td>
                     </tr>
                 </tfoot>
@@ -52,6 +81,84 @@
     </div>
 
     <div class="space-y-4">
+        {{-- Ongkir (admin) --}}
+        @if($u->canDo('update_po_status') && !in_array($po->status, ['completed','cancelled','deleted']))
+            <div class="bg-white rounded-2xl border border-stone-200 p-5">
+                <h3 class="text-sm font-bold text-stone-800 mb-3">Ongkir & Diskon</h3>
+                <form method="POST" action="{{ route('purchase-orders.shipping', $po) }}" class="space-y-3">
+                    @csrf
+                    <div>
+                        <label class="block text-xs font-semibold text-stone-700 mb-1">Ongkir (Rp)</label>
+                        <input type="number" name="shipping_cost" min="0" step="100" value="{{ (int) $po->shipping_cost }}"
+                               class="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-stone-700 mb-1">Diskon (Rp, opsional)</label>
+                        <input type="number" name="discount" min="0" step="100" value="{{ (int) $po->discount }}"
+                               class="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg">
+                    </div>
+                    <button class="w-full py-2.5 bg-stone-800 hover:bg-stone-900 text-white text-sm font-semibold rounded-xl">Simpan Ongkir</button>
+                </form>
+                <p class="text-[10px] text-stone-400 mt-2">Total otomatis dihitung ulang: subtotal − diskon + ongkir.</p>
+            </div>
+        @endif
+
+        {{-- Pembayaran --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-5">
+            <h3 class="text-sm font-bold text-stone-800 mb-3">Pembayaran</h3>
+
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-xs text-stone-500">Status</span>
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold {{ $payBadge[1] }}">{{ $payBadge[0] }}</span>
+            </div>
+
+            @if($po->paymentProofUrl())
+                <a href="{{ $po->paymentProofUrl() }}" target="_blank" class="block mb-3">
+                    <img src="{{ $po->paymentProofUrl() }}" class="w-full rounded-lg border border-stone-200" alt="Bukti transfer">
+                    <span class="text-[10px] text-stone-400">Klik untuk perbesar</span>
+                </a>
+            @endif
+            @if($po->payment_note)
+                <p class="text-[11px] text-stone-500 mb-3">Catatan: {{ $po->payment_note }}</p>
+            @endif
+
+            {{-- Buyer uploads proof (when ongkir already set & not yet paid) --}}
+            @if($isOwner && in_array($po->payment_status, ['unpaid','rejected']))
+                @if($po->shipping_cost == 0)
+                    <p class="text-[11px] text-amber-600">Menunggu admin menetapkan ongkir. Setelah total final muncul, Anda bisa transfer & unggah bukti.</p>
+                @else
+                    <form method="POST" action="{{ route('purchase-orders.payment-proof', $po) }}" enctype="multipart/form-data" class="space-y-2">
+                        @csrf
+                        <p class="text-[11px] text-stone-600">Total yang harus dibayar: <strong class="text-emerald-700">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</strong></p>
+                        <input type="file" name="proof" accept="image/*" required class="w-full text-xs">
+                        <input type="text" name="note" placeholder="Catatan (opsional)" class="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                        <button class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Unggah Bukti Transfer</button>
+                    </form>
+                @endif
+            @endif
+
+            {{-- Admin verifies proof --}}
+            @if($u->canDo('update_po_status') && $po->payment_status === 'awaiting_verification')
+                <div class="space-y-2 border-t border-stone-100 pt-3 mt-1">
+                    <form method="POST" action="{{ route('purchase-orders.verify-payment', $po) }}" class="space-y-2">
+                        @csrf
+                        <input type="hidden" name="decision" value="approve">
+                        <button class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl" onclick="return confirm('Tandai pembayaran LUNAS?')">✓ Verifikasi Lunas</button>
+                    </form>
+                    <form method="POST" action="{{ route('purchase-orders.verify-payment', $po) }}" class="space-y-2">
+                        @csrf
+                        <input type="hidden" name="decision" value="reject">
+                        <input type="text" name="note" placeholder="Alasan ditolak (opsional)" class="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                        <button class="w-full py-2 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl hover:bg-rose-50">Tolak Bukti</button>
+                    </form>
+                </div>
+            @endif
+
+            @if($po->isPaid())
+                <p class="text-[11px] text-emerald-600 mt-2">Lunas pada {{ $po->paid_at?->format('d M Y H:i') }}.</p>
+            @endif
+        </div>
+
         {{-- Status update --}}
         @if($u->canDo('update_po_status') && count($nextStatuses) > 0)
             <div class="bg-white rounded-2xl border border-stone-200 p-5">
@@ -68,6 +175,9 @@
                 @if(in_array('completed', $nextStatuses))
                     <p class="text-[10px] text-amber-600 mt-2">Menyelesaikan PO akan otomatis mengurangi stok pusat & menambah stok mitra (transaksi DB).</p>
                 @endif
+                @unless($po->isPaid())
+                    <p class="text-[10px] text-rose-600 mt-2">⚠ PO belum lunas — status processing/shipped/completed terkunci sampai pembayaran diverifikasi.</p>
+                @endunless
             </div>
         @endif
 

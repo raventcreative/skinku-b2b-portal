@@ -150,4 +150,63 @@ class PurchaseOrderController extends Controller
         return redirect()->route('purchase-orders.index')
             ->with('status', "PO {$purchaseOrder->po_number} berhasil dihapus (soft delete).");
     }
+
+    /** Admin sets the manual shipping cost (ongkir) for a PO. */
+    public function setShipping(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $data = $request->validate([
+            'shipping_cost' => ['required', 'numeric', 'min:0'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $this->service->setShipping(
+            $purchaseOrder,
+            (float) $data['shipping_cost'],
+            isset($data['discount']) ? (float) $data['discount'] : null,
+        );
+
+        return back()->with('status', 'Ongkir & total PO berhasil diperbarui.');
+    }
+
+    /** Buyer uploads a transfer proof image. */
+    public function uploadPayment(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $user = $request->user();
+        if ($user->isPartner() && $purchaseOrder->user_id !== $user->id) {
+            abort(403, 'Anda hanya dapat mengunggah bukti untuk PO Anda sendiri.');
+        }
+
+        $data = $request->validate([
+            'proof' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $path = $request->file('proof')->store('payment-proofs', 'public');
+
+        $this->service->recordPaymentProof($purchaseOrder, $path, $data['note'] ?? null);
+
+        return back()->with('status', 'Bukti transfer berhasil diunggah. Menunggu verifikasi admin.');
+    }
+
+    /** Admin verifies (paid) or rejects a payment proof. */
+    public function verifyPayment(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(['approve', 'reject'])],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->service->verifyPayment(
+            $purchaseOrder,
+            $data['decision'] === 'approve',
+            $request->user()->id,
+            $data['note'] ?? null,
+        );
+
+        $msg = $data['decision'] === 'approve'
+            ? 'Pembayaran ditandai LUNAS. PO siap diproses.'
+            : 'Pembayaran ditolak. Mitra perlu mengunggah ulang bukti.';
+
+        return back()->with('status', $msg);
+    }
 }
