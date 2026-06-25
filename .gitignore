@@ -25,3 +25,14 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Hostinger deployment
+.htaccess
+.user.ini
+deploy.php
+deploy.zip
+*.zip
+/public/.htaccess
+
+# SQL files in public folder
+/public/*.sql
