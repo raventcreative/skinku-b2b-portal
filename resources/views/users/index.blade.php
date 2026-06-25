@@ -179,19 +179,35 @@
             .replace(/^_+|_+$/g, '')                           // trim underscores
             .slice(0, 30);
     }
+    // Short role labels for the username combo.
+    const ROLE_SHORT = { super_admin: 'sadmin', admin: 'admin', gudang: 'gudang', distributor: 'dist', reseller: 'resel' };
+    function firstWordSlug(s) { return slugUsername(((s || '').trim().split(/\s+/)[0]) || ''); }
+    // username = nama(1 kata) + role(singkat) + region(1 kata), ringkas.
+    function buildUsername(name, role, region) {
+        const parts = [firstWordSlug(name), (ROLE_SHORT[role] || slugUsername(role || '')), firstWordSlug(region)].filter(Boolean);
+        return parts.join('_').slice(0, 30);
+    }
 
     (function () {
         const cf = document.getElementById('createUserForm');
         if (!cf) return;
         const nameInput = cf.querySelector('[name=fullname]');
+        const roleInput = cf.querySelector('[name=role]');
+        const regionInput = cf.querySelector('[name=region]');
         const userInput = cf.querySelector('[name=username]');
         // Mark the username as manually edited so we stop overwriting it.
         userInput.addEventListener('input', function () { userInput.dataset.touched = '1'; });
-        nameInput.addEventListener('input', function () {
-            if (userInput.dataset.touched !== '1') {
-                userInput.value = slugUsername(nameInput.value);
-            }
-        });
+        function refreshUsername() {
+            if (userInput.dataset.touched === '1') return;
+            userInput.value = buildUsername(
+                nameInput.value,
+                roleInput ? roleInput.value : '',
+                regionInput ? regionInput.value : ''
+            );
+        }
+        nameInput.addEventListener('input', refreshUsername);
+        if (roleInput) roleInput.addEventListener('change', refreshUsername);
+        if (regionInput) regionInput.addEventListener('input', refreshUsername);
         // keep hidden confirmation synced if admin edits password manually
         const pw = cf.querySelector('#genPassword');
         const pwc = cf.querySelector('#genPasswordConfirm');
