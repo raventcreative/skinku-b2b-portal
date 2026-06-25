@@ -1,0 +1,175 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--font-sans);font-size:13px}
+.wrap{background:#F5F4F2;border-radius:12px;overflow:hidden;border:0.5px solid var(--color-border-tertiary)}
+.topbar{background:#fff;border-bottom:0.5px solid #E7E5E4;padding:12px 20px;display:flex;align-items:center;gap:10px}
+.tb-t{font-size:14px;font-weight:600;color:#1C1917;flex:1}
+.btn-primary{display:flex;align-items:center;gap:5px;background:#E8763A;color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}
+.btn-primary i{font-size:13px}
+.filter-bar{padding:12px 20px;background:#fff;border-bottom:0.5px solid #E7E5E4;display:flex;align-items:center;gap:8px}
+.inp{border:0.5px solid #E7E5E4;border-radius:7px;padding:6px 10px;font-size:12px;color:#1C1917;background:#fff;outline:none}
+.inp::placeholder{color:#A8A29E}
+.inp-search{flex:1;max-width:280px;display:flex;align-items:center;gap:6px;border:0.5px solid #E7E5E4;border-radius:7px;padding:6px 10px;background:#fff}
+.inp-search input{border:none;outline:none;font-size:12px;flex:1;background:transparent;color:#1C1917}
+.inp-search input::placeholder{color:#A8A29E}
+.sel{border:0.5px solid #E7E5E4;border-radius:7px;padding:6px 10px;font-size:12px;color:#1C1917;background:#fff;outline:none}
+.btn-filter{border:0.5px solid #E7E5E4;border-radius:7px;padding:6px 12px;font-size:12px;background:#fff;color:#57534E;cursor:pointer;display:flex;align-items:center;gap:4px}
+.table-wrap{background:#fff;overflow:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:9px 16px;text-align:left;font-size:9px;font-weight:600;color:#A8A29E;letter-spacing:.08em;text-transform:uppercase;background:#FAFAF9;border-bottom:0.5px solid #E7E5E4;white-space:nowrap}
+td{padding:10px 16px;border-bottom:0.5px solid #F3F2F0;color:#1C1917;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FAFAF9}
+.name-cell{display:flex;align-items:center;gap:8px}
+.av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0}
+.av-a{background:#9F1239}
+.av-d{background:#1E40AF}
+.av-r{background:#065F46}
+.name-text{font-weight:500;color:#1C1917;font-size:12px}
+.email-text{font-size:10px;color:#A8A29E;margin-top:1px}
+.role-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;white-space:nowrap}
+.r-sa{background:#FFF4EE;color:#C05A20}
+.r-ad{background:#DBEAFE;color:#1E40AF}
+.r-di{background:#EDE9FE;color:#6D28D9}
+.r-re{background:#DCFCE7;color:#166534}
+.status-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500}
+.s-on{background:#DCFCE7;color:#166534}
+.s-off{background:#F3F4F6;color:#6B7280}
+.s-dot{width:5px;height:5px;border-radius:50%}
+.act{display:flex;align-items:center;gap:4px}
+.ab{width:28px;height:28px;border-radius:6px;border:0.5px solid #E7E5E4;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;flex-shrink:0}
+.ab:hover{background:#F3F2F0}
+.ab i{font-size:13px}
+.ab.view i{color:#6B7280}
+.ab.edit i{color:#2E6FD9}
+.ab.lock i{color:#D97706}
+.ab.del i{color:#DC2626}
+.ab.tog i{color:#D97706}
+.ab.tog.on i{color:#16A34A}
+/* tooltip hint */
+.ab[title]{position:relative}
+.footer{padding:10px 16px;background:#fff;border-top:0.5px solid #E7E5E4;display:flex;align-items:center;justify-content:space-between;color:#A8A29E;font-size:11px}
+.page-btns{display:flex;gap:4px}
+.pg{width:26px;height:26px;border:0.5px solid #E7E5E4;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;color:#57534E;background:#fff}
+.pg.active{background:#E8763A;color:#fff;border-color:#E8763A;font-weight:600}
+</style>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="tb-t">Kelola Anggota</div>
+    <button class="btn-primary"><i class="ti ti-plus" aria-hidden="true"></i>Tambah User</button>
+  </div>
+  <div class="filter-bar">
+    <div class="inp-search">
+      <i class="ti ti-search" style="font-size:13px;color:#A8A29E" aria-hidden="true"></i>
+      <input type="text" placeholder="Cari nama, username, atau email...">
+    </div>
+    <select class="sel">
+      <option>Semua Role</option>
+      <option>Super Admin</option>
+      <option>Admin</option>
+      <option>Distributor</option>
+      <option>Reseller</option>
+    </select>
+    <select class="sel">
+      <option>Semua Status</option>
+      <option>Aktif</option>
+      <option>Nonaktif</option>
+    </select>
+    <button class="btn-filter"><i class="ti ti-filter" style="font-size:12px" aria-hidden="true"></i>Filter</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nama / Email</th>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Perusahaan</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="name-cell"><div class="av av-a">SU</div><div><div class="name-text">Super Admin SKINKU</div><div class="email-text">superadmin@skinku.id</div></div></div></td>
+          <td style="color:#78716C">superadmin</td>
+          <td><span class="role-pill r-sa">Super Admin</span></td>
+          <td>SKINKU Indonesia (HQ)</td>
+          <td><span class="status-pill s-on"><span class="s-dot" style="background:#16A34A"></span>Aktif</span></td>
+          <td><div class="act">
+            <div class="ab view" title="Lihat detail"><i class="ti ti-eye" aria-hidden="true"></i></div>
+            <div class="ab edit" title="Edit data"><i class="ti ti-pencil" aria-hidden="true"></i></div>
+            <div class="ab lock" title="Reset password"><i class="ti ti-lock-open" aria-hidden="true"></i></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><div class="name-cell"><div class="av av-a">DU</div><div><div class="name-text">Dudu Sudrajat</div><div class="email-text">dudu@gmail.com</div></div></div></td>
+          <td style="color:#78716C">dudu</td>
+          <td><span class="role-pill r-ad">Admin</span></td>
+          <td>abc</td>
+          <td><span class="status-pill s-on"><span class="s-dot" style="background:#16A34A"></span>Aktif</span></td>
+          <td><div class="act">
+            <div class="ab view" title="Lihat detail"><i class="ti ti-eye" aria-hidden="true"></i></div>
+            <div class="ab edit" title="Edit data"><i class="ti ti-pencil" aria-hidden="true"></i></div>
+            <div class="ab lock" title="Reset password"><i class="ti ti-lock-open" aria-hidden="true"></i></div>
+            <div class="ab tog" title="Nonaktifkan"><i class="ti ti-toggle-right" aria-hidden="true"></i></div>
+            <div class="ab del" title="Hapus user"><i class="ti ti-trash" aria-hidden="true"></i></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><div class="name-cell"><div class="av av-d">RA</div><div><div class="name-text">Raka Distribusi</div><div class="email-text">raka@distrib-jaya.co.id</div></div></div></td>
+          <td style="color:#78716C">raka.dist</td>
+          <td><span class="role-pill r-di">Distributor</span></td>
+          <td>CV Distribusi Jaya</td>
+          <td><span class="status-pill s-on"><span class="s-dot" style="background:#16A34A"></span>Aktif</span></td>
+          <td><div class="act">
+            <div class="ab view" title="Lihat detail"><i class="ti ti-eye" aria-hidden="true"></i></div>
+            <div class="ab edit" title="Edit data"><i class="ti ti-pencil" aria-hidden="true"></i></div>
+            <div class="ab lock" title="Reset password"><i class="ti ti-lock-open" aria-hidden="true"></i></div>
+            <div class="ab tog" title="Nonaktifkan"><i class="ti ti-toggle-right" aria-hidden="true"></i></div>
+            <div class="ab del" title="Hapus user"><i class="ti ti-trash" aria-hidden="true"></i></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><div class="name-cell"><div class="av av-r">SI</div><div><div class="name-text">Siti Reseller Bandung</div><div class="email-text">siti@tokohemat.com</div></div></div></td>
+          <td style="color:#78716C">siti.bdg</td>
+          <td><span class="role-pill r-re">Reseller</span></td>
+          <td>Toko Hemat Bandung</td>
+          <td><span class="status-pill s-off"><span class="s-dot" style="background:#9CA3AF"></span>Nonaktif</span></td>
+          <td><div class="act">
+            <div class="ab view" title="Lihat detail"><i class="ti ti-eye" aria-hidden="true"></i></div>
+            <div class="ab edit" title="Edit data"><i class="ti ti-pencil" aria-hidden="true"></i></div>
+            <div class="ab lock" title="Reset password"><i class="ti ti-lock-open" aria-hidden="true"></i></div>
+            <div class="ab tog on" title="Aktifkan"><i class="ti ti-toggle-left" aria-hidden="true"></i></div>
+            <div class="ab del" title="Hapus user"><i class="ti ti-trash" aria-hidden="true"></i></div>
+          </div></td>
+        </tr>
+        <tr>
+          <td><div class="name-cell"><div class="av" style="background:#7C3AED">BW</div><div><div class="name-text">Bowo Reseller Solo</div><div class="email-text">bowo@warungbowo.id</div></div></div></td>
+          <td style="color:#78716C">bowo.solo</td>
+          <td><span class="role-pill r-re">Reseller</span></td>
+          <td>Warung Bowo Solo</td>
+          <td><span class="status-pill s-on"><span class="s-dot" style="background:#16A34A"></span>Aktif</span></td>
+          <td><div class="act">
+            <div class="ab view" title="Lihat detail"><i class="ti ti-eye" aria-hidden="true"></i></div>
+            <div class="ab edit" title="Edit data"><i class="ti ti-pencil" aria-hidden="true"></i></div>
+            <div class="ab lock" title="Reset password"><i class="ti ti-lock-open" aria-hidden="true"></i></div>
+            <div class="ab tog" title="Nonaktifkan"><i class="ti ti-toggle-right" aria-hidden="true"></i></div>
+            <div class="ab del" title="Hapus user"><i class="ti ti-trash" aria-hidden="true"></i></div>
+          </div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="footer">
+    <span>Menampilkan 5 dari 28 anggota</span>
+    <div class="page-btns">
+      <div class="pg"><i class="ti ti-chevron-left" style="font-size:11px" aria-hidden="true"></i></div>
+      <div class="pg active">1</div>
+      <div class="pg">2</div>
+      <div class="pg">3</div>
+      <div class="pg"><i class="ti ti-chevron-right" style="font-size:11px" aria-hidden="true"></i></div>
+    </div>
+  </div>
+</div>
