@@ -19,7 +19,7 @@
         </select>
         <button class="px-4 py-2 text-sm bg-stone-200 rounded-lg hover:bg-stone-300">Filter</button>
     </form>
-    <button onclick="toggleModal('createUserModal')" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah User</button>
+    <button onclick="openCreateUser()" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah User</button>
 </div>
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
@@ -86,7 +86,7 @@
             <h3 class="text-sm font-bold text-stone-900">Tambah User Baru</h3>
             <button onclick="toggleModal('createUserModal')" class="text-stone-400 hover:text-stone-700">✕</button>
         </div>
-        <form method="POST" action="{{ route('users.store') }}" class="grid grid-cols-2 gap-3 text-sm">
+        <form method="POST" id="createUserForm" action="{{ route('users.store') }}" class="grid grid-cols-2 gap-3 text-sm">
             @csrf
             @include('users._fields', ['roles' => $roles, 'isSuper' => $isSuper])
             <div class="col-span-2">
@@ -163,8 +163,35 @@
         document.getElementById('resetPwName').textContent = name;
         toggleModal('resetPwModal');
     }
-    @if($errors->any() && old('_token'))
-        // reopen create modal if validation failed on create
-    @endif
+
+    // ---- Auto-generate username from full name on the CREATE form ----
+    function slugUsername(s) {
+        return (s || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')                       // non-alnum -> underscore
+            .replace(/^_+|_+$/g, '')                           // trim underscores
+            .slice(0, 30);
+    }
+
+    (function () {
+        const cf = document.getElementById('createUserForm');
+        if (!cf) return;
+        const nameInput = cf.querySelector('[name=fullname]');
+        const userInput = cf.querySelector('[name=username]');
+        // Mark the username as manually edited so we stop overwriting it.
+        userInput.addEventListener('input', function () { userInput.dataset.touched = '1'; });
+        nameInput.addEventListener('input', function () {
+            if (userInput.dataset.touched !== '1') {
+                userInput.value = slugUsername(nameInput.value);
+            }
+        });
+        window.openCreateUser = function () {
+            cf.reset();
+            userInput.dataset.touched = '';
+            toggleModal('createUserModal');
+        };
+    })();
+    // Fallback if create form is absent for some reason.
+    if (!window.openCreateUser) { window.openCreateUser = function () { toggleModal('createUserModal'); }; }
 </script>
 @endpush
