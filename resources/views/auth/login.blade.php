@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login · {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="h-full bg-stone-100 flex items-center justify-center p-4">
     <div class="w-full max-w-4xl bg-white rounded-3xl shadow-xl overflow-hidden grid md:grid-cols-2 min-h-[520px] border border-stone-200">
@@ -16,7 +16,6 @@
                 <p class="mt-10 text-2xl font-serif leading-snug text-red-50">Sinergi Keindahan &amp; Sistem Distribusi Cerdas.</p>
                 <div class="w-16 h-[2px] bg-white mt-6"></div>
             </div>
-            <p class="text-[11px] text-red-200">Sumber data utama: SQL Database. Aman, cepat, dan terkontrol.</p>
         </div>
 
         {{-- Form side --}}
@@ -42,7 +41,8 @@
                                class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600"
                                placeholder="username atau email">
                     </div>
-                    <div>
+                    <div class="relative">
+                          <div>
                         <div class="flex justify-between items-center mb-1">
                             <label class="block text-xs font-semibold text-stone-700">Password</label>
                             <a href="{{ route('password.request') }}" class="text-xs text-stone-500 hover:text-stone-800 hover:underline">Lupa Password?</a>
@@ -50,6 +50,12 @@
                         <input type="password" name="password" required
                                class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600"
                                placeholder="password">
+                        <button type="button" 
+                        onclick="onst i=this.previousElementSibling; i.type=i.type==='password'?'text':'password'"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            👁️
+                        </button>
+                    </div>
                     </div>
                     <label class="flex items-center gap-2 text-xs text-stone-600">
                         <input type="checkbox" name="remember" class="rounded border-stone-300"> Ingat saya

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
         tailwind.config = {
@@ -95,6 +95,7 @@
     {{-- Main --}}
     <div class="flex-1 ml-64 flex flex-col min-h-screen">
         <header class="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-8 sticky top-0 z-20">
+          <i class="fi fi-br-home"></i>
             <h2 class="text-sm font-bold text-stone-800">@yield('heading', 'Dashboard')</h2>
             <div class="text-[11px] text-stone-400 font-mono">{{ config('app.name') }}</div>
         </header>
@@ -115,7 +116,7 @@
         </main>
 
         <footer class="py-4 border-t border-stone-200 bg-white/50 px-8 text-[11px] text-stone-400 flex justify-between">
-            <span>&copy; {{ date('Y') }} SKINKU B2B Portal. Powered by SQL + Laravel.</span>
+            <span>&copy; {{ date('Y') }} SKINKU B2B Portal. Built from AIprenuership</span>
             <span>HQ Jakarta, Indonesia</span>
         </footer>
     </div>
