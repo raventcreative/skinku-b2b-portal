@@ -21,7 +21,7 @@ class Product extends Model
     public const GALLERY = 'product_gallery';
 
     protected $fillable = [
-        'name', 'sku', 'category', 'description', 'image',
+        'name', 'sku', 'category', 'description',
         'price_distributor', 'price_reseller', 'price_retail', 'cogs',
         'hq_stock', 'status',
     ];
