@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\LearningModule;
 use App\Models\Lesson;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -88,5 +89,37 @@ class LearningTest extends TestCase
     {
         Lesson::create(['title' => 'Umum', 'video_url' => 'https://youtu.be/dQw4w9WgXcQ', 'is_published' => true]);
         $this->actingAs($this->user(User::ROLE_DISTRIBUTOR))->get('/learning')->assertOk();
+    }
+
+    public function test_manager_creates_module_and_assigns_lesson(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        $this->actingAs($admin)->post('/learning-modules', [
+            'title' => 'Modul 1 — Onboarding', 'description' => 'Dasar', 'is_published' => '1',
+        ])->assertRedirect();
+
+        $module = LearningModule::first();
+        $this->assertNotNull($module);
+
+        $this->actingAs($admin)->post('/learning', [
+            'module_id' => $module->id,
+            'title' => 'Materi 1.1', 'video_url' => 'https://youtu.be/dQw4w9WgXcQ', 'is_published' => '1',
+        ])->assertRedirect();
+
+        $lesson = Lesson::first();
+        $this->assertEquals($module->id, $lesson->module_id);
+        $this->assertEquals(1, $module->lessons()->count());
+
+        // deleting the module keeps the lesson (becomes ungrouped)
+        $this->actingAs($admin)->delete('/learning-modules/'.$module->id)->assertRedirect();
+        $this->assertNull($lesson->fresh()->module_id);
+        $this->assertDatabaseHas('lessons', ['id' => $lesson->id]);
+    }
+
+    public function test_reseller_cannot_create_module(): void
+    {
+        $this->actingAs($this->user(User::ROLE_RESELLER))
+            ->post('/learning-modules', ['title' => 'x'])->assertForbidden();
     }
 }

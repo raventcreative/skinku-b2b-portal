@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Lesson extends Model
 {
     protected $fillable = [
-        'title', 'description', 'video_url', 'category',
+        'module_id', 'title', 'description', 'video_url', 'category',
         'audience', 'sort_order', 'is_published', 'created_by',
     ];
 
@@ -58,6 +58,11 @@ class Lesson extends Model
         }
 
         return in_array($user->role, $this->audience, true);
+    }
+
+    public function module()
+    {
+        return $this->belongsTo(LearningModule::class, 'module_id');
     }
 
     public function creator()

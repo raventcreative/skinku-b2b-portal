@@ -124,6 +124,10 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/learning', [LearningController::class, 'store'])->name('learning.store');
         Route::put('/learning/{lesson}', [LearningController::class, 'update'])->name('learning.update');
         Route::delete('/learning/{lesson}', [LearningController::class, 'destroy'])->name('learning.destroy');
+
+        Route::post('/learning-modules', [LearningController::class, 'storeModule'])->name('learning.modules.store');
+        Route::put('/learning-modules/{module}', [LearningController::class, 'updateModule'])->name('learning.modules.update');
+        Route::delete('/learning-modules/{module}', [LearningController::class, 'destroyModule'])->name('learning.modules.destroy');
     });
 
     /* ---------------- Permission management (super_admin) ---------------- */
