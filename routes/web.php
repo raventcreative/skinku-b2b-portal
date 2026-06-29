@@ -111,9 +111,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     });
 
-    Route::middleware('permission:system_settings')->group(function () {
-        Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
-    });
+
 
     /* ---------------- Permission management (super_admin) ---------------- */
     Route::middleware('permission:manage_permissions')->group(function () {
