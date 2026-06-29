@@ -134,6 +134,8 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::middleware('permission:manage_permissions')->group(function () {
         Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
         Route::post('/permissions', [PermissionController::class, 'update'])->name('permissions.update');
+        Route::post('/roles', [PermissionController::class, 'storeRole'])->name('roles.store');
+        Route::delete('/roles/{role}', [PermissionController::class, 'destroyRole'])->name('roles.destroy');
     });
 
     /* Stock movements visible to partners too (their own) */

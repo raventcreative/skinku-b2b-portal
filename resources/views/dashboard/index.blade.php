@@ -3,6 +3,24 @@
 @section('heading', 'Dashboard Utama')
 
 @section('content')
+@if($limited ?? false)
+    <div class="bg-white rounded-2xl border border-stone-200 p-8 max-w-2xl">
+        <h3 class="text-lg font-bold text-stone-900">Selamat datang, {{ $user->displayName() }} 👋</h3>
+        <p class="text-sm text-stone-500 mt-1">Berikut menu yang bisa Anda akses:</p>
+        <div class="grid sm:grid-cols-2 gap-3 mt-5">
+            @if($user->canDo('view_learning'))
+                <a href="{{ route('learning.index') }}" class="flex items-center gap-3 p-4 rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50 transition">
+                    <span class="w-10 h-10 rounded-lg bg-red-600 text-white flex items-center justify-center text-lg">▶</span>
+                    <div><p class="font-bold text-stone-800 text-sm">Pembelajaran</p><p class="text-[11px] text-stone-500">Materi video pelatihan</p></div>
+                </a>
+            @endif
+            <a href="{{ route('account.password') }}" class="flex items-center gap-3 p-4 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50 transition">
+                <span class="w-10 h-10 rounded-lg bg-stone-700 text-white flex items-center justify-center text-lg">🔑</span>
+                <div><p class="font-bold text-stone-800 text-sm">Ubah Password</p><p class="text-[11px] text-stone-500">Ganti kata sandi akun</p></div>
+            </a>
+        </div>
+    </div>
+@else
 @php
     $cards = [
         ['Total Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), 'emerald'],
@@ -84,9 +102,11 @@
         @endforelse
     </div>
 </div>
+@endif
 @endsection
 
 @push('scripts')
+@unless($limited ?? false)
 <script>
     const trend = @json($salesTrend);
     const poStatus = @json($poStatus);
@@ -109,4 +129,5 @@
         options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
     });
 </script>
+@endunless
 @endpush

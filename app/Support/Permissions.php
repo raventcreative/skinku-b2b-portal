@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Role;
 use App\Models\RolePermission;
 use App\Models\User;
 
@@ -51,17 +52,32 @@ class Permissions
         'manage_learning' => [User::ROLE_ADMIN],
     ];
 
-    /** Roles shown as columns in the matrix. */
-    public const ROLES = [
-        User::ROLE_SUPER_ADMIN,
-        User::ROLE_ADMIN,
-        User::ROLE_GUDANG,
-        User::ROLE_DISTRIBUTOR,
-        User::ROLE_RESELLER,
+    /** Fallback role list if the roles table is empty (pre-seed). */
+    private const FALLBACK_ROLES = [
+        User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_GUDANG,
+        User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER,
     ];
 
-    /** Per-request cache of DB overrides: [role][key] => bool. */
     private static ?array $overrides = null;
+
+    private static ?array $roleNames = null;
+
+    /** All role names (system + custom), system first. Cached per request. */
+    public static function roleNames(): array
+    {
+        if (self::$roleNames === null) {
+            try {
+                self::$roleNames = Role::ordered()->pluck('name')->all();
+            } catch (\Throwable $e) {
+                self::$roleNames = [];
+            }
+            if (empty(self::$roleNames)) {
+                self::$roleNames = self::FALLBACK_ROLES;
+            }
+        }
+
+        return self::$roleNames;
+    }
 
     private static function overrides(): array
     {
@@ -78,6 +94,7 @@ class Permissions
     public static function flushCache(): void
     {
         self::$overrides = null;
+        self::$roleNames = null;
     }
 
     /** Does a given role hold a permission key right now? */
@@ -104,7 +121,7 @@ class Permissions
     {
         $matrix = [];
         foreach (array_keys(self::DEFINITIONS) as $key) {
-            foreach (self::ROLES as $role) {
+            foreach (self::roleNames() as $role) {
                 $matrix[$key][$role] = self::roleHas($role, $key);
             }
         }
@@ -118,7 +135,7 @@ class Permissions
      */
     public static function save(array $input): void
     {
-        foreach (self::ROLES as $role) {
+        foreach (self::roleNames() as $role) {
             if ($role === User::ROLE_SUPER_ADMIN) {
                 continue;
             }

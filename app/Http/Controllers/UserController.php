@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
@@ -41,7 +42,7 @@ class UserController extends Controller
         return view('users.index', [
             'users' => $users,
             'filters' => $filters,
-            'roles' => User::ROLES,
+            'roles' => Role::ordered()->get(),
         ]);
     }
 
@@ -54,7 +55,7 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
             'username' => ['required', 'string', 'max:100', 'alpha_dash', 'unique:users,username'],
             'password' => ['required', 'confirmed', PasswordRule::min(8)],
-            'role' => ['required', Rule::in(User::ROLES)],
+            'role' => ['required', Rule::in(Role::pluck('name')->all())],
             'company_name' => ['nullable', 'string', 'max:150'],
             'phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],
@@ -100,7 +101,7 @@ class UserController extends Controller
             'fullname' => ['required', 'string', 'max:150'],
             'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id)],
             'username' => ['required', 'string', 'max:100', 'alpha_dash', Rule::unique('users', 'username')->ignore($user->id)],
-            'role' => ['required', Rule::in(User::ROLES)],
+            'role' => ['required', Rule::in(Role::pluck('name')->all())],
             'company_name' => ['nullable', 'string', 'max:150'],
             'phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],

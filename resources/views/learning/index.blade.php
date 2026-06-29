@@ -113,7 +113,7 @@
                 <label class="block text-xs font-semibold mb-1">Tujukan untuk role <span class="text-stone-400 font-normal">(kosongkan = semua)</span></label>
                 <div class="flex flex-wrap gap-3 text-xs">
                     @foreach($audienceRoles as $r)
-                        <label class="flex items-center gap-1"><input type="checkbox" name="audience[]" value="{{ $r }}" class="lesson-aud accent-red-600"> {{ $r }}</label>
+                        <label class="flex items-center gap-1"><input type="checkbox" name="audience[]" value="{{ $r->name }}" class="lesson-aud accent-red-600"> {{ $r->label }}</label>
                     @endforeach
                 </div>
             </div>

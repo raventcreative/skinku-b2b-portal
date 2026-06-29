@@ -11,7 +11,7 @@
                class="px-3 py-2 text-sm border border-stone-300 rounded-lg w-64">
         <select name="role" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
             <option value="">Semua Role</option>
-            @foreach($roles as $r)<option value="{{ $r }}" @selected(($filters['role'] ?? '')===$r)>{{ $r }}</option>@endforeach
+            @foreach($roles as $r)<option value="{{ $r->name }}" @selected(($filters['role'] ?? '')===$r->name)>{{ $r->label }}</option>@endforeach
         </select>
         <select name="status" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
             <option value="">Semua Status</option>

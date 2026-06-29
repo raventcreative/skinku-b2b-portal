@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LearningModule;
 use App\Models\Lesson;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
@@ -27,7 +28,7 @@ class LearningController extends Controller
             ->filter(fn (Lesson $l) => $canManage || $l->visibleTo($user))
             ->values();
 
-        $audienceRoles = [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER];
+        $audienceRoles = Role::ordered()->where('name', '!=', User::ROLE_SUPER_ADMIN)->get();
 
         return view('learning.index', compact('modules', 'lessons', 'canManage', 'audienceRoles'));
     }
@@ -110,7 +111,7 @@ class LearningController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
             'video_url' => ['required', 'url', 'max:255'],
             'audience' => ['nullable', 'array'],
-            'audience.*' => [Rule::in([User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER])],
+            'audience.*' => [Rule::in(Role::where('name', '!=', User::ROLE_SUPER_ADMIN)->pluck('name')->all())],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_published' => ['nullable', 'boolean'],
         ]);
