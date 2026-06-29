@@ -116,7 +116,7 @@
             <div id="videoField"><label class="block text-xs font-semibold mb-1">Link YouTube *</label><input name="video_url" id="lessonVideoUrl" placeholder="https://www.youtube.com/watch?v=..." class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div id="docFields" class="hidden space-y-3">
                 <div>
-                    <label class="block text-xs font-semibold mb-1">File Dokumen (PPT/Word/PDF, maks 20MB)</label>
+                    <label class="block text-xs font-semibold mb-1">File Dokumen (PPT/Word/PDF, maks 50MB)</label>
                     <input type="file" name="document_file" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx" class="w-full text-xs">
                     <p id="docCurrent" class="text-[10px] text-stone-400 mt-1 hidden"></p>
                 </div>

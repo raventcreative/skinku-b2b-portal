@@ -152,7 +152,7 @@ class LearningController extends Controller
             'title' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:2000'],
             'video_url' => ['nullable', 'url', 'max:255', 'required_if:type,video'],
-            'document_file' => ['nullable', 'file', 'mimes:pdf,ppt,pptx,doc,docx,xls,xlsx', 'max:20480'],
+            'document_file' => ['nullable', 'file', 'mimes:pdf,ppt,pptx,doc,docx,xls,xlsx', 'max:51200'],
             'cover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
             'audience' => ['nullable', 'array'],
             'audience.*' => [Rule::in(Role::where('name', '!=', User::ROLE_SUPER_ADMIN)->pluck('name')->all())],
