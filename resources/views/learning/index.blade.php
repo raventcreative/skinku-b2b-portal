@@ -105,20 +105,15 @@
                     @foreach($modules as $m)<option value="{{ $m->id }}">{{ $m->title }}</option>@endforeach
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-semibold mb-1">Tipe Materi *</label>
-                <select name="type" id="lessonType" onchange="toggleLessonType()" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
-                    <option value="video">Video (YouTube)</option>
-                    <option value="document">Dokumen (PPT / Word / PDF)</option>
-                </select>
-            </div>
             <div><label class="block text-xs font-semibold mb-1">Judul Materi *</label><input name="title" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
-            <div id="videoField"><label class="block text-xs font-semibold mb-1">Link YouTube *</label><input name="video_url" id="lessonVideoUrl" placeholder="https://www.youtube.com/watch?v=..." class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
-            <div id="docFields" class="hidden space-y-3">
+            <p class="text-[11px] text-stone-500 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">Isi <b>video</b>, <b>dokumen</b>, atau <b>keduanya</b> — minimal salah satu.</p>
+            <div><label class="block text-xs font-semibold mb-1">Link YouTube <span class="text-stone-400 font-normal">(opsional)</span></label><input name="video_url" id="lessonVideoUrl" placeholder="https://www.youtube.com/watch?v=..." class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
+            <div class="space-y-3">
                 <div>
-                    <label class="block text-xs font-semibold mb-1">File Dokumen (PPT/Word/PDF, maks 50MB)</label>
+                    <label class="block text-xs font-semibold mb-1">File Dokumen <span class="text-stone-400 font-normal">(PPT/Word/PDF, maks 50MB, opsional)</span></label>
                     <input type="file" name="document_file" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx" class="w-full text-xs">
                     <p id="docCurrent" class="text-[10px] text-stone-400 mt-1 hidden"></p>
+                    <label id="docRemoveWrap" class="hidden items-center gap-1 text-[11px] text-rose-600 mt-1"><input type="checkbox" name="remove_document" value="1" class="accent-rose-600"> Hapus dokumen yang ada</label>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold mb-1">Gambar Cover <span class="text-stone-400 font-normal">(opsional, untuk thumbnail)</span></label>
@@ -169,22 +164,17 @@
         toggleModal('moduleModal');
     }
 
-    function toggleLessonType() {
-        const type = document.getElementById('lessonType').value;
-        const isVideo = type === 'video';
-        document.getElementById('videoField').classList.toggle('hidden', !isVideo);
-        document.getElementById('docFields').classList.toggle('hidden', isVideo);
-        document.getElementById('lessonVideoUrl').required = isVideo;
-    }
-
     function openLesson(l) {
         const f = document.getElementById('lessonForm');
         if (!f) return;
         f.reset();
         f.querySelectorAll('.lesson-aud').forEach(c => c.checked = false);
         const docCurrent = document.getElementById('docCurrent');
+        const docRemoveWrap = document.getElementById('docRemoveWrap');
         docCurrent.classList.add('hidden');
         docCurrent.textContent = '';
+        docRemoveWrap.classList.add('hidden');
+        docRemoveWrap.classList.remove('flex');
         if (l) {
             f.action = '/learning/' + l.id;
             document.getElementById('lessonMethod').value = 'PUT';
@@ -193,7 +183,6 @@
                 if (f.querySelector('[name='+k+']')) f.querySelector('[name='+k+']').value = l[k] ?? '';
             }
             f.querySelector('[name=module_id]').value = l.module_id ?? '';
-            document.getElementById('lessonType').value = l.type || 'video';
             document.getElementById('lessonPublished').checked = !!l.is_published;
             (l.audience || []).forEach(role => {
                 const cb = f.querySelector('.lesson-aud[value="'+role+'"]');
@@ -202,15 +191,15 @@
             if (l.doc_name) {
                 docCurrent.textContent = 'File saat ini: ' + l.doc_name + ' (biarkan kosong jika tidak ingin mengganti)';
                 docCurrent.classList.remove('hidden');
+                docRemoveWrap.classList.remove('hidden');
+                docRemoveWrap.classList.add('flex');
             }
         } else {
             f.action = '{{ route('learning.store') }}';
             document.getElementById('lessonMethod').value = 'POST';
             document.getElementById('lessonModalTitle').textContent = 'Tambah Materi';
-            document.getElementById('lessonType').value = 'video';
             document.getElementById('lessonPublished').checked = true;
         }
-        toggleLessonType();
         toggleModal('lessonModal');
     }
 </script>

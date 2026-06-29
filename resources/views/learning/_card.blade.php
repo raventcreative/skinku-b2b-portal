@@ -8,9 +8,12 @@
                 <span class="text-4xl">📄</span>
                 <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-stone-800 text-white text-[10px] font-bold">{{ $ext }}</span>
             @endif
+            @if($lesson->isVideo() && $lesson->isDocument())
+                <span class="absolute top-2 right-2 px-2 py-0.5 rounded bg-stone-800 text-white text-[10px] font-bold">+ DOK</span>
+            @endif
         </div>
         <span class="absolute inset-0 flex items-center justify-center">
-            <span class="w-12 h-12 rounded-full {{ $lesson->isDocument() ? 'bg-stone-800/80' : 'bg-red-600/90' }} text-white flex items-center justify-center text-xl shadow-lg">{{ $lesson->isDocument() ? '📑' : '▶' }}</span>
+            <span class="w-12 h-12 rounded-full {{ $lesson->isVideo() ? 'bg-red-600/90' : 'bg-stone-800/80' }} text-white flex items-center justify-center text-xl shadow-lg">{{ $lesson->isVideo() ? '▶' : '📑' }}</span>
         </span>
         @unless($lesson->is_published)<span class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">DRAFT</span>@endunless
     </a>

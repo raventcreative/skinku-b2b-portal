@@ -51,25 +51,25 @@ class Lesson extends Model
         return $id ? "https://www.youtube.com/embed/{$id}" : null;
     }
 
+    /** A materi can have a video and/or a document — both are optional. */
     public function isVideo(): bool
     {
-        return $this->type !== self::TYPE_DOCUMENT;
+        return ! empty($this->video_url);
     }
 
     public function isDocument(): bool
     {
-        return $this->type === self::TYPE_DOCUMENT;
+        return $this->documentFile() !== null;
     }
 
-    /** Card thumbnail: YouTube thumb for video, uploaded cover for document. */
+    /** Card thumbnail: YouTube thumb if video, else uploaded cover. */
     public function thumbnailUrl(): ?string
     {
-        if ($this->isDocument()) {
-            return $this->firstFileUrl(self::COVER);
+        if ($this->isVideo() && $this->youtubeId()) {
+            return "https://img.youtube.com/vi/{$this->youtubeId()}/hqdefault.jpg";
         }
-        $id = $this->youtubeId();
 
-        return $id ? "https://img.youtube.com/vi/{$id}/hqdefault.jpg" : null;
+        return $this->firstFileUrl(self::COVER);
     }
 
     public function documentFile(): ?File

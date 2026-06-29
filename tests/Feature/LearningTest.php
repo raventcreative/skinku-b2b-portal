@@ -146,10 +146,29 @@ class LearningTest extends TestCase
         Storage::disk('public')->assertExists($file->path);
     }
 
-    public function test_document_type_requires_a_file(): void
+    public function test_lesson_can_have_both_video_and_document(): void
+    {
+        Storage::fake('public');
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        $this->actingAs($admin)->post('/learning', [
+            'title' => 'Video + Handout',
+            'video_url' => 'https://youtu.be/dQw4w9WgXcQ',
+            'document_file' => UploadedFile::fake()->create('handout.pdf', 100, 'application/pdf'),
+            'is_published' => '1',
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $lesson = Lesson::first();
+        $this->assertTrue($lesson->isVideo());
+        $this->assertTrue($lesson->isDocument());
+        $this->assertEquals('dQw4w9WgXcQ', $lesson->youtubeId());
+        $this->assertNotNull($lesson->documentFile());
+    }
+
+    public function test_lesson_requires_video_or_document(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);
-        $this->actingAs($admin)->post('/learning', ['type' => 'document', 'title' => 'Tanpa File'])
+        $this->actingAs($admin)->post('/learning', ['title' => 'Kosong'])
             ->assertSessionHasErrors('document_file');
     }
 }

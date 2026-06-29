@@ -51,15 +51,12 @@ class LearningController extends Controller
     {
         $data = $this->validateLesson($request);
 
-        if ($data['type'] === Lesson::TYPE_DOCUMENT && ! $request->hasFile('document_file')) {
-            return back()->withErrors(['document_file' => 'Unggah file dokumen (PPT/Word/PDF) untuk materi tipe dokumen.'])->withInput();
-        }
-        if ($data['type'] === Lesson::TYPE_DOCUMENT) {
-            $data['video_url'] = null;
+        if (empty($data['video_url']) && ! $request->hasFile('document_file')) {
+            return back()->withErrors(['document_file' => 'Isi minimal salah satu: link video YouTube ATAU file dokumen (PPT/Word/PDF).'])->withInput();
         }
         $data['created_by'] = $request->user()->id;
 
-        $lesson = Lesson::create(Arr::except($data, ['document_file', 'cover_image']));
+        $lesson = Lesson::create(Arr::except($data, ['document_file', 'cover_image', 'remove_document']));
         $this->attachLessonFiles($request, $lesson);
 
         AuditService::log(action: 'create_lesson', targetType: 'lesson', targetId: $lesson->id, after: ['title' => $lesson->title]);
@@ -71,14 +68,13 @@ class LearningController extends Controller
     {
         $data = $this->validateLesson($request);
 
-        if ($data['type'] === Lesson::TYPE_DOCUMENT) {
-            if (! $lesson->documentFile() && ! $request->hasFile('document_file')) {
-                return back()->withErrors(['document_file' => 'Unggah file dokumen (PPT/Word/PDF) untuk materi tipe dokumen.'])->withInput();
-            }
-            $data['video_url'] = null;
+        // After this update, will the lesson still have a video or a document?
+        $keepsDocument = ($lesson->documentFile() && ! $request->boolean('remove_document')) || $request->hasFile('document_file');
+        if (empty($data['video_url']) && ! $keepsDocument) {
+            return back()->withErrors(['document_file' => 'Materi harus punya minimal satu: link video YouTube ATAU file dokumen.'])->withInput();
         }
 
-        $lesson->update(Arr::except($data, ['document_file', 'cover_image']));
+        $lesson->update(Arr::except($data, ['document_file', 'cover_image', 'remove_document']));
         $this->attachLessonFiles($request, $lesson);
 
         AuditService::log(action: 'update_lesson', targetType: 'lesson', targetId: $lesson->id, after: ['title' => $lesson->title]);
@@ -86,9 +82,12 @@ class LearningController extends Controller
         return back()->with('status', "Materi \"{$lesson->title}\" berhasil diperbarui.");
     }
 
-    /** Attach/replace the document file and optional cover image. */
+    /** Attach/replace the document file and optional cover image. A materi may keep both a video and a document. */
     private function attachLessonFiles(Request $request, Lesson $lesson): void
     {
+        if ($request->boolean('remove_document')) {
+            $lesson->filesIn(Lesson::DOC)->get()->each->delete();
+        }
         if ($request->hasFile('document_file')) {
             $lesson->filesIn(Lesson::DOC)->get()->each->delete();
             $this->images->attach($lesson, $request->file('document_file'), Lesson::DOC);
@@ -96,10 +95,6 @@ class LearningController extends Controller
         if ($request->hasFile('cover_image')) {
             $lesson->filesIn(Lesson::COVER)->get()->each->delete();
             $this->images->attach($lesson, $request->file('cover_image'), Lesson::COVER, 800);
-        }
-        // Switching back to video: drop any attached document/cover.
-        if ($lesson->type === Lesson::TYPE_VIDEO) {
-            $lesson->filesIn(Lesson::DOC)->get()->each->delete();
         }
     }
 
@@ -148,12 +143,12 @@ class LearningController extends Controller
     {
         $validated = $request->validate([
             'module_id' => ['nullable', 'integer', 'exists:learning_modules,id'],
-            'type' => ['required', Rule::in([Lesson::TYPE_VIDEO, Lesson::TYPE_DOCUMENT])],
             'title' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:2000'],
-            'video_url' => ['nullable', 'url', 'max:255', 'required_if:type,video'],
+            'video_url' => ['nullable', 'url', 'max:255'],
             'document_file' => ['nullable', 'file', 'mimes:pdf,ppt,pptx,doc,docx,xls,xlsx', 'max:51200'],
             'cover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            'remove_document' => ['nullable', 'boolean'],
             'audience' => ['nullable', 'array'],
             'audience.*' => [Rule::in(Role::where('name', '!=', User::ROLE_SUPER_ADMIN)->pluck('name')->all())],
             'sort_order' => ['nullable', 'integer', 'min:0'],
@@ -164,6 +159,8 @@ class LearningController extends Controller
         $validated['audience'] = $validated['audience'] ?? [];
         $validated['sort_order'] = $validated['sort_order'] ?? 0;
         $validated['is_published'] = $request->boolean('is_published');
+        // `type` is kept for display/filtering; derive it from whether a video link is set.
+        $validated['type'] = ! empty($validated['video_url']) ? Lesson::TYPE_VIDEO : Lesson::TYPE_DOCUMENT;
 
         return $validated;
     }
