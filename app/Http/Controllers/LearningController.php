@@ -7,12 +7,16 @@ use App\Models\Lesson;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\ImageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 
 class LearningController extends Controller
 {
+    public function __construct(private ImageService $images) {}
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -46,9 +50,18 @@ class LearningController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validateLesson($request);
+
+        if ($data['type'] === Lesson::TYPE_DOCUMENT && ! $request->hasFile('document_file')) {
+            return back()->withErrors(['document_file' => 'Unggah file dokumen (PPT/Word/PDF) untuk materi tipe dokumen.'])->withInput();
+        }
+        if ($data['type'] === Lesson::TYPE_DOCUMENT) {
+            $data['video_url'] = null;
+        }
         $data['created_by'] = $request->user()->id;
 
-        $lesson = Lesson::create($data);
+        $lesson = Lesson::create(Arr::except($data, ['document_file', 'cover_image']));
+        $this->attachLessonFiles($request, $lesson);
+
         AuditService::log(action: 'create_lesson', targetType: 'lesson', targetId: $lesson->id, after: ['title' => $lesson->title]);
 
         return back()->with('status', "Materi \"{$lesson->title}\" berhasil ditambahkan.");
@@ -56,10 +69,38 @@ class LearningController extends Controller
 
     public function update(Request $request, Lesson $lesson): RedirectResponse
     {
-        $lesson->update($this->validateLesson($request));
+        $data = $this->validateLesson($request);
+
+        if ($data['type'] === Lesson::TYPE_DOCUMENT) {
+            if (! $lesson->documentFile() && ! $request->hasFile('document_file')) {
+                return back()->withErrors(['document_file' => 'Unggah file dokumen (PPT/Word/PDF) untuk materi tipe dokumen.'])->withInput();
+            }
+            $data['video_url'] = null;
+        }
+
+        $lesson->update(Arr::except($data, ['document_file', 'cover_image']));
+        $this->attachLessonFiles($request, $lesson);
+
         AuditService::log(action: 'update_lesson', targetType: 'lesson', targetId: $lesson->id, after: ['title' => $lesson->title]);
 
         return back()->with('status', "Materi \"{$lesson->title}\" berhasil diperbarui.");
+    }
+
+    /** Attach/replace the document file and optional cover image. */
+    private function attachLessonFiles(Request $request, Lesson $lesson): void
+    {
+        if ($request->hasFile('document_file')) {
+            $lesson->filesIn(Lesson::DOC)->get()->each->delete();
+            $this->images->attach($lesson, $request->file('document_file'), Lesson::DOC);
+        }
+        if ($request->hasFile('cover_image')) {
+            $lesson->filesIn(Lesson::COVER)->get()->each->delete();
+            $this->images->attach($lesson, $request->file('cover_image'), Lesson::COVER, 800);
+        }
+        // Switching back to video: drop any attached document/cover.
+        if ($lesson->type === Lesson::TYPE_VIDEO) {
+            $lesson->filesIn(Lesson::DOC)->get()->each->delete();
+        }
     }
 
     public function destroy(Request $request, Lesson $lesson): RedirectResponse
@@ -107,9 +148,12 @@ class LearningController extends Controller
     {
         $validated = $request->validate([
             'module_id' => ['nullable', 'integer', 'exists:learning_modules,id'],
+            'type' => ['required', Rule::in([Lesson::TYPE_VIDEO, Lesson::TYPE_DOCUMENT])],
             'title' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:2000'],
-            'video_url' => ['required', 'url', 'max:255'],
+            'video_url' => ['nullable', 'url', 'max:255', 'required_if:type,video'],
+            'document_file' => ['nullable', 'file', 'mimes:pdf,ppt,pptx,doc,docx,xls,xlsx', 'max:20480'],
+            'cover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
             'audience' => ['nullable', 'array'],
             'audience.*' => [Rule::in(Role::where('name', '!=', User::ROLE_SUPER_ADMIN)->pluck('name')->all())],
             'sort_order' => ['nullable', 'integer', 'min:0'],

@@ -6,7 +6,9 @@ use App\Models\LearningModule;
 use App\Models\Lesson;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class LearningTest extends TestCase
@@ -45,9 +47,9 @@ class LearningTest extends TestCase
         $admin = $this->user(User::ROLE_ADMIN); // has manage_learning by default
 
         $this->actingAs($admin)->post('/learning', [
+            'type' => 'video',
             'title' => 'Cara Pakai Portal',
             'video_url' => 'https://youtu.be/dQw4w9WgXcQ',
-            'category' => 'Onboarding',
             'audience' => [User::ROLE_DISTRIBUTOR],
             'is_published' => '1',
         ])->assertRedirect();
@@ -103,7 +105,7 @@ class LearningTest extends TestCase
         $this->assertNotNull($module);
 
         $this->actingAs($admin)->post('/learning', [
-            'module_id' => $module->id,
+            'module_id' => $module->id, 'type' => 'video',
             'title' => 'Materi 1.1', 'video_url' => 'https://youtu.be/dQw4w9WgXcQ', 'is_published' => '1',
         ])->assertRedirect();
 
@@ -121,5 +123,33 @@ class LearningTest extends TestCase
     {
         $this->actingAs($this->user(User::ROLE_RESELLER))
             ->post('/learning-modules', ['title' => 'x'])->assertForbidden();
+    }
+
+    public function test_create_document_lesson(): void
+    {
+        Storage::fake('public');
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        $this->actingAs($admin)->post('/learning', [
+            'type' => 'document',
+            'title' => 'Panduan PDF',
+            'document_file' => UploadedFile::fake()->create('panduan.pdf', 200, 'application/pdf'),
+            'is_published' => '1',
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $lesson = Lesson::first();
+        $this->assertTrue($lesson->isDocument());
+        $this->assertNull($lesson->video_url);
+        $file = $lesson->documentFile();
+        $this->assertNotNull($file);
+        $this->assertTrue($lesson->isPdf());
+        Storage::disk('public')->assertExists($file->path);
+    }
+
+    public function test_document_type_requires_a_file(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->actingAs($admin)->post('/learning', ['type' => 'document', 'title' => 'Tanpa File'])
+            ->assertSessionHasErrors('document_file');
     }
 }

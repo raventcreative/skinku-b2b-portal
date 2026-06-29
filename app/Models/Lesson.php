@@ -2,12 +2,23 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasFiles;
 use Illuminate\Database\Eloquent\Model;
 
 class Lesson extends Model
 {
+    use HasFiles;
+
+    public const TYPE_VIDEO = 'video';
+
+    public const TYPE_DOCUMENT = 'document';
+
+    public const COVER = 'lesson_cover';   // optional thumbnail image
+
+    public const DOC = 'lesson_file';      // the PPT/Word/PDF file
+
     protected $fillable = [
-        'module_id', 'title', 'description', 'video_url', 'category',
+        'module_id', 'type', 'title', 'description', 'video_url', 'category',
         'audience', 'sort_order', 'is_published', 'created_by',
     ];
 
@@ -40,11 +51,69 @@ class Lesson extends Model
         return $id ? "https://www.youtube.com/embed/{$id}" : null;
     }
 
+    public function isVideo(): bool
+    {
+        return $this->type !== self::TYPE_DOCUMENT;
+    }
+
+    public function isDocument(): bool
+    {
+        return $this->type === self::TYPE_DOCUMENT;
+    }
+
+    /** Card thumbnail: YouTube thumb for video, uploaded cover for document. */
     public function thumbnailUrl(): ?string
     {
+        if ($this->isDocument()) {
+            return $this->firstFileUrl(self::COVER);
+        }
         $id = $this->youtubeId();
 
         return $id ? "https://img.youtube.com/vi/{$id}/hqdefault.jpg" : null;
+    }
+
+    public function documentFile(): ?File
+    {
+        return $this->filesIn(self::DOC)->first();
+    }
+
+    public function documentUrl(): ?string
+    {
+        $f = $this->documentFile();
+
+        return $f ? url($f->url()) : null; // absolute (needed for Office viewer)
+    }
+
+    public function documentName(): ?string
+    {
+        return $this->documentFile()?->original_name;
+    }
+
+    public function documentExtension(): ?string
+    {
+        $f = $this->documentFile();
+
+        return $f ? strtolower(pathinfo($f->path, PATHINFO_EXTENSION)) : null;
+    }
+
+    public function isPdf(): bool
+    {
+        return $this->documentExtension() === 'pdf';
+    }
+
+    /** In-browser preview URL for the document. */
+    public function previewUrl(): ?string
+    {
+        $url = $this->documentUrl();
+        if (! $url) {
+            return null;
+        }
+        if ($this->isPdf()) {
+            return $url; // browsers render PDF natively in an iframe
+        }
+
+        // PPT/Word/Excel via Microsoft Office Online viewer (file must be public).
+        return 'https://view.officeapps.live.com/op/embed.aspx?src='.urlencode($url);
     }
 
     /** Is this lesson visible to the given user? */

@@ -1,12 +1,16 @@
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden flex flex-col">
     <a href="{{ route('learning.show', $lesson) }}" class="block relative group">
-        <div class="aspect-video bg-stone-100 overflow-hidden">
+        <div class="aspect-video bg-stone-100 overflow-hidden flex items-center justify-center">
             @if($lesson->thumbnailUrl())
                 <img src="{{ $lesson->thumbnailUrl() }}" class="w-full h-full object-cover group-hover:scale-105 transition" alt="{{ $lesson->title }}">
+            @elseif($lesson->isDocument())
+                @php $ext = strtoupper($lesson->documentExtension() ?? 'DOC'); @endphp
+                <span class="text-4xl">📄</span>
+                <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-stone-800 text-white text-[10px] font-bold">{{ $ext }}</span>
             @endif
         </div>
         <span class="absolute inset-0 flex items-center justify-center">
-            <span class="w-12 h-12 rounded-full bg-red-600/90 text-white flex items-center justify-center text-xl shadow-lg">▶</span>
+            <span class="w-12 h-12 rounded-full {{ $lesson->isDocument() ? 'bg-stone-800/80' : 'bg-red-600/90' }} text-white flex items-center justify-center text-xl shadow-lg">{{ $lesson->isDocument() ? '📑' : '▶' }}</span>
         </span>
         @unless($lesson->is_published)<span class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">DRAFT</span>@endunless
     </a>
@@ -16,7 +20,7 @@
         @if($canManage)
             <div class="mt-3 pt-3 border-t border-stone-100 flex items-center gap-3 text-xs">
                 <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                    onclick='openLesson({{ json_encode($lesson->only(["id","module_id","title","description","video_url","sort_order","is_published"]) + ["audience" => $lesson->audience ?? []]) }})'>Edit</button>
+                    onclick='openLesson({{ json_encode($lesson->only(["id","module_id","type","title","description","video_url","sort_order","is_published"]) + ["audience" => $lesson->audience ?? [], "doc_name" => $lesson->documentName()]) }})'>Edit</button>
                 <form method="POST" action="{{ route('learning.destroy', $lesson) }}" onsubmit="return confirm('Hapus materi ini?')">
                     @csrf @method('DELETE')
                     <button class="text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
