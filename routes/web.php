@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\LearningController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseOrderController;
@@ -112,6 +113,17 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     Route::middleware('permission:system_settings')->group(function () {
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
+    });
+
+    /* ---------------- Learning / LMS ---------------- */
+    Route::middleware('permission:view_learning')->group(function () {
+        Route::get('/learning', [LearningController::class, 'index'])->name('learning.index');
+        Route::get('/learning/{lesson}', [LearningController::class, 'show'])->name('learning.show');
+    });
+    Route::middleware('permission:manage_learning')->group(function () {
+        Route::post('/learning', [LearningController::class, 'store'])->name('learning.store');
+        Route::put('/learning/{lesson}', [LearningController::class, 'update'])->name('learning.update');
+        Route::delete('/learning/{lesson}', [LearningController::class, 'destroy'])->name('learning.destroy');
     });
 
     /* ---------------- Permission management (super_admin) ---------------- */

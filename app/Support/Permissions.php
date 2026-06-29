@@ -30,6 +30,8 @@ class Permissions
         'view_audit_log' => 'Lihat Audit Log',
         'system_settings' => 'Pengaturan Sistem',
         'manage_permissions' => 'Manajemen Hak Akses',
+        'view_learning' => 'Akses Pembelajaran',
+        'manage_learning' => 'Kelola Materi Pembelajaran',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -45,6 +47,8 @@ class Permissions
         'view_audit_log' => [],
         'system_settings' => [],
         'manage_permissions' => [],
+        'view_learning' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER],
+        'manage_learning' => [User::ROLE_ADMIN],
     ];
 
     /** Roles shown as columns in the matrix. */

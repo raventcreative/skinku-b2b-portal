@@ -83,6 +83,10 @@
                 {!! navItem('reports.index', $u->isPartner() ? 'Laporan Pembelian' : 'Laporan Penjualan', 'reports.index') !!}
             @endif
 
+            @if($u->canDo('view_learning'))
+                {!! navItem('learning.index', 'Pembelajaran', 'learning.*') !!}
+            @endif
+
             @if($u->canDo('manage_users'))
                 {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
             @endif
