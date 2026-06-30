@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login · {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    
 </head>
 <body class="h-full bg-stone-100 flex items-center justify-center p-4">
     <div class="w-full max-w-4xl bg-white rounded-3xl shadow-xl overflow-hidden grid md:grid-cols-2 min-h-[520px] border border-stone-200">
