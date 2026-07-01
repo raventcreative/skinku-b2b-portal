@@ -11,7 +11,8 @@
 @if($u->canDo('manage_hq_stock'))
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-6">
         <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">Stok Pusat (HQ)</div>
-        <table class="w-full text-xs">
+        <div class="overflow-x-auto">
+        <table class="w-full text-xs whitespace-nowrap">
             <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
                 <tr><th class="text-left px-4 py-2">Produk</th><th class="text-left">SKU</th><th class="text-right">Stok</th><th class="text-right px-4 w-72">Penyesuaian</th></tr>
             </thead>
@@ -38,12 +39,14 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 @endif
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
     <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">{{ $u->isPartner() ? 'Stok Saya' : 'Stok Mitra' }}</div>
-    <table class="w-full text-xs">
+    <div class="overflow-x-auto">
+    <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
                 @if(!$u->isPartner())<th class="text-left px-4 py-2">Mitra</th>@endif
@@ -75,6 +78,7 @@
             @endforelse
         </tbody>
     </table>
+    </div>
 </div>
 <div class="mt-4">{{ $partnerStock->links() }}</div>
 @endsection

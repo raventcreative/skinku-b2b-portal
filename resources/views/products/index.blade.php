@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="flex justify-between items-center mb-4">
-    <form method="GET" class="flex gap-2">
+    <form method="GET" class="flex flex-wrap gap-2">
         <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari nama/SKU…" class="px-3 py-2 text-sm border border-stone-300 rounded-lg w-56">
         <select name="status" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
             <option value="">Semua Status</option>
@@ -16,7 +16,8 @@
 </div>
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-    <table class="w-full text-xs">
+    <div class="overflow-x-auto">
+    <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
                 <th class="text-left px-4 py-3">Produk</th>
@@ -76,6 +77,7 @@
             @endforelse
         </tbody>
     </table>
+    </div>
 </div>
 <div class="mt-4">{{ $products->links() }}</div>
 

@@ -3,7 +3,7 @@
 @section('heading', 'Riwayat Pergerakan Stok')
 
 @section('content')
-<form method="GET" class="flex gap-2 mb-4">
+<form method="GET" class="flex flex-wrap gap-2 mb-4">
     <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari produk/SKU…" class="px-3 py-2 text-sm border border-stone-300 rounded-lg w-56">
     <select name="type" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
         <option value="">Semua Tipe</option>
@@ -13,7 +13,8 @@
 </form>
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-    <table class="w-full text-xs">
+    <div class="overflow-x-auto">
+    <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
                 <th class="text-left px-4 py-3">Waktu</th>
@@ -50,6 +51,7 @@
             @endforelse
         </tbody>
     </table>
+    </div>
 </div>
 <div class="mt-4">{{ $movements->links() }}</div>
 @endsection

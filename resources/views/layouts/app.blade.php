@@ -26,9 +26,13 @@
 @endphp
 
 <div class="min-h-full flex">
+    {{-- Mobile overlay (behind sidebar, above content) --}}
+    <div id="sidebarOverlay" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/50 z-30 lg:hidden"></div>
+
     {{-- Sidebar --}}
-    <aside class="w-64 bg-red-800 text-red-50 flex flex-col fixed inset-y-0 left-0 z-30">
-        <div class="p-6 border-b border-red-900/50">
+    <aside id="sidebar" class="w-64 bg-red-800 text-red-50 flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out">
+        <div class="p-6 border-b border-red-900/50 relative">
+            <button onclick="closeSidebar()" class="lg:hidden absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg text-red-100 hover:bg-red-900/60 text-lg" aria-label="Tutup menu">✕</button>
             <h1 class="text-2xl font-bold tracking-tight text-white">SKINKU<span class="text-white text-3xl leading-none">.</span></h1>
             <p class="text-[10px] uppercase tracking-widest text-red-200 font-semibold mt-1">B2B Distributor Portal</p>
         </div>
@@ -114,13 +118,18 @@
     </aside>
 
     {{-- Main --}}
-    <div class="flex-1 ml-64 flex flex-col min-h-screen">
-        <header class="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-8 sticky top-0 z-20">
-            <h2 class="text-sm font-bold text-stone-800">@yield('heading', 'Dashboard')</h2>
-            <div class="text-[11px] text-stone-400 font-mono">{{ config('app.name') }}</div>
+    <div class="flex-1 lg:ml-64 flex flex-col min-h-screen w-full min-w-0">
+        <header class="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-20">
+            <div class="flex items-center gap-3 min-w-0">
+                <button onclick="openSidebar()" class="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-100 shrink-0" aria-label="Buka menu">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+                <h2 class="text-sm font-bold text-stone-800 truncate">@yield('heading', 'Dashboard')</h2>
+            </div>
+            <div class="text-[11px] text-stone-400 font-mono hidden sm:block">{{ config('app.name') }}</div>
         </header>
 
-        <main class="p-8 flex-1">
+        <main class="p-4 sm:p-8 flex-1">
             @if(session('status'))
                 <div class="mb-5 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{{ session('status') }}</div>
             @endif
@@ -135,7 +144,7 @@
             @yield('content')
         </main>
 
-        <footer class="py-4 border-t border-stone-200 bg-white/50 px-8 text-[11px] text-stone-400 flex justify-between">
+        <footer class="py-4 border-t border-stone-200 bg-white/50 px-4 sm:px-8 text-[11px] text-stone-400 flex flex-col sm:flex-row gap-1 sm:justify-between">
             <span>&copy; {{ date('Y') }} SKINKU B2B Portal. Powered by SQL + Laravel.</span>
             <span>HQ Jakarta, Indonesia</span>
         </footer>
@@ -150,6 +159,21 @@
         const el = document.getElementById(id);
         if (el) el.classList.toggle('hidden');
     }
+    // Mobile sidebar drawer.
+    function openSidebar() {
+        document.getElementById('sidebar').classList.remove('-translate-x-full');
+        document.getElementById('sidebarOverlay').classList.remove('hidden');
+    }
+    function closeSidebar() {
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebarOverlay').classList.add('hidden');
+    }
+    // On mobile, tapping a menu link should close the drawer.
+    document.querySelectorAll('#sidebar nav a').forEach(function (a) {
+        a.addEventListener('click', function () {
+            if (window.matchMedia('(max-width: 1023px)').matches) closeSidebar();
+        });
+    });
     // Clickable + swipeable product photo galleries.
     if (window.GLightbox) {
         window.skinkuLightbox = GLightbox({ selector: '.glightbox', loop: true, touchNavigation: true });

@@ -40,7 +40,8 @@
 
         <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
             <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">Item PO</div>
-            <table class="w-full text-xs">
+            <div class="overflow-x-auto">
+            <table class="w-full text-xs whitespace-nowrap">
                 <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
                     <tr><th class="text-left px-4 py-2">Produk</th><th class="text-left">SKU</th><th class="text-right">Qty</th><th class="text-right">Harga</th><th class="text-right px-4">Subtotal</th></tr>
                 </thead>
@@ -78,6 +79,7 @@
                     </tr>
                 </tfoot>
             </table>
+            </div>
         </div>
     </div>
 

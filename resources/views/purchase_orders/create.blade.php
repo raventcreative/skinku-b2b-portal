@@ -8,7 +8,8 @@
     <div class="grid lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 bg-white rounded-2xl border border-stone-200 overflow-hidden">
             <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">Katalog Produk · Harga {{ $user->role }}</div>
-            <table class="w-full text-xs">
+            <div class="overflow-x-auto">
+            <table class="w-full text-xs whitespace-nowrap">
                 <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
                     <tr><th class="text-left px-4 py-2">Produk</th><th class="text-right">Harga Satuan</th><th class="text-right">Stok Pusat</th><th class="text-center w-32">Qty</th></tr>
                 </thead>
@@ -48,6 +49,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
 
         <div class="space-y-4">
