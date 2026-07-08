@@ -79,6 +79,10 @@
 
             {!! navItem('inventory.index', $u->isPartner() ? 'Stok Saya' : 'Pemantauan Stok', 'inventory.index') !!}
 
+            @if($u->canDo('receive_stock'))
+                {!! navItem('stock-receipts.index', 'Stok Masuk (HPP)', 'stock-receipts.*') !!}
+            @endif
+
             @if($u->canDo('manage_hq_stock'))
                 {!! navItem('stock-movements.index', 'Stock Movement', 'stock-movements.index') !!}
             @endif

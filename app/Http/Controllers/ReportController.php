@@ -24,8 +24,9 @@ class ReportController extends Controller
             'inventory' => $this->reports->inventoryMonitoring(12),
         ];
 
-        // Partner-breakdown charts are HQ-only.
+        // Partner-breakdown charts + profit are HQ-only.
         if ($user->isStaff()) {
+            $data['grossProfit'] = $this->reports->grossProfit();
             $data['salesByDistributor'] = $this->reports->salesByPartner(User::ROLE_DISTRIBUTOR);
             $data['salesByReseller'] = $this->reports->salesByPartner(User::ROLE_RESELLER);
             $data['salesByRegion'] = $this->reports->salesByRegion();

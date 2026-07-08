@@ -11,6 +11,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\StockMovementController;
+use App\Http\Controllers\StockReceiptController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -78,6 +79,14 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::middleware('permission:manage_hq_stock')->group(function () {
         Route::post('/inventory/hq-adjust', [InventoryController::class, 'adjustHq'])->name('inventory.hq-adjust');
         Route::get('/stock-movements', [StockMovementController::class, 'index'])->name('stock-movements.index');
+    });
+
+    /* ---------------- Stock receipts (incoming stock + HPP average) ---------------- */
+    Route::middleware('permission:receive_stock')->group(function () {
+        Route::get('/stock-receipts', [StockReceiptController::class, 'index'])->name('stock-receipts.index');
+        Route::get('/stock-receipts/create', [StockReceiptController::class, 'create'])->name('stock-receipts.create');
+        Route::post('/stock-receipts', [StockReceiptController::class, 'store'])->name('stock-receipts.store');
+        Route::get('/stock-receipts/{stockReceipt}', [StockReceiptController::class, 'show'])->name('stock-receipts.show');
     });
 
     /* ---------------- Reports ---------------- */

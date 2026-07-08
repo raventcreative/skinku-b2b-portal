@@ -51,6 +51,33 @@ class ReportService
         ];
     }
 
+    /**
+     * Gross-profit estimate for completed POs, using each product's current
+     * average HPP (products.cogs). Goods revenue = sum of item subtotals (before
+     * discount/shipping) so it lines up with COGS of goods sold.
+     */
+    public function grossProfit(): array
+    {
+        $rows = DB::table('purchase_order_items as poi')
+            ->join('purchase_orders as po', 'po.id', '=', 'poi.purchase_order_id')
+            ->join('products as p', 'p.id', '=', 'poi.product_id')
+            ->where('po.status', self::REVENUE_STATUS)
+            ->whereNull('po.deleted_at')
+            ->selectRaw('COALESCE(SUM(poi.total_price), 0) as revenue, COALESCE(SUM(poi.qty * p.cogs), 0) as cogs')
+            ->first();
+
+        $revenue = (float) ($rows->revenue ?? 0);
+        $cogs = (float) ($rows->cogs ?? 0);
+        $profit = $revenue - $cogs;
+
+        return [
+            'revenue' => round($revenue, 2),
+            'cogs' => round($cogs, 2),
+            'profit' => round($profit, 2),
+            'margin' => $revenue > 0 ? round($profit / $revenue * 100, 1) : 0.0,
+        ];
+    }
+
     /** Sales totals grouped by day/week/month for the trend line chart. */
     public function salesTrend(string $granularity = 'day', int $points = 14, ?User $viewer = null): array
     {

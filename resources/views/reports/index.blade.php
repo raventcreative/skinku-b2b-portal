@@ -40,6 +40,28 @@
     @endforeach
 </div>
 
+@isset($grossProfit)
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-2xl border border-stone-200 p-5">
+        <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">Omzet Barang (selesai)</p>
+        <p class="text-xl font-bold text-stone-900 mt-2">Rp {{ number_format($grossProfit['revenue'], 0, ',', '.') }}</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-stone-200 p-5">
+        <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">HPP (COGS)</p>
+        <p class="text-xl font-bold text-stone-700 mt-2">Rp {{ number_format($grossProfit['cogs'], 0, ',', '.') }}</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5">
+        <p class="text-[11px] uppercase tracking-wide text-emerald-600 font-semibold">Laba Kotor</p>
+        <p class="text-xl font-bold text-emerald-700 mt-2">Rp {{ number_format($grossProfit['profit'], 0, ',', '.') }}</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-stone-200 p-5">
+        <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">Margin Kotor</p>
+        <p class="text-xl font-bold text-stone-900 mt-2">{{ number_format($grossProfit['margin'], 1, ',', '.') }}%</p>
+    </div>
+</div>
+<p class="text-[11px] text-stone-400 -mt-2 mb-6">HPP memakai rata-rata bergerak terkini dari menu Stok Masuk. Omzet barang = nilai produk pada PO selesai (belum termasuk ongkir).</p>
+@endisset
+
 <div class="grid lg:grid-cols-2 gap-6">
     <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">{{ $isPartner ? 'Tren Pembelian Saya' : 'Tren Penjualan' }}</h3><canvas id="trendChart" height="140"></canvas></div>
     <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">{{ $isPartner ? 'Produk Paling Sering Saya Beli' : 'Top 10 Produk' }}</h3><canvas id="productChart" height="140"></canvas></div>
