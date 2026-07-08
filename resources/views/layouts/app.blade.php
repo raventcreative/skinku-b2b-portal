@@ -79,8 +79,13 @@
 
             {!! navItem('inventory.index', $u->isPartner() ? 'Stok Saya' : 'Pemantauan Stok', 'inventory.index') !!}
 
+            @if($u->canDo('manage_production'))
+                {!! navItem('materials.index', 'Bahan Baku', 'materials.*') !!}
+                {!! navItem('productions.index', 'Produksi (HPP)', 'productions.*') !!}
+            @endif
+
             @if($u->canDo('receive_stock'))
-                {!! navItem('stock-receipts.index', 'Stok Masuk (HPP)', 'stock-receipts.*') !!}
+                {!! navItem('stock-receipts.index', 'Stok Masuk (beli jadi)', 'stock-receipts.*') !!}
             @endif
 
             @if($u->canDo('manage_hq_stock'))

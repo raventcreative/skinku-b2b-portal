@@ -5,7 +5,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LearningController;
+use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReportController;
@@ -87,6 +89,21 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/stock-receipts/create', [StockReceiptController::class, 'create'])->name('stock-receipts.create');
         Route::post('/stock-receipts', [StockReceiptController::class, 'store'])->name('stock-receipts.store');
         Route::get('/stock-receipts/{stockReceipt}', [StockReceiptController::class, 'show'])->name('stock-receipts.show');
+    });
+
+    /* ---------------- Materials & Production (HPP produksi) ---------------- */
+    Route::middleware('permission:manage_production')->group(function () {
+        // Raw materials master + purchases
+        Route::get('/materials', [MaterialController::class, 'index'])->name('materials.index');
+        Route::post('/materials', [MaterialController::class, 'store'])->name('materials.store');
+        Route::put('/materials/{material}', [MaterialController::class, 'update'])->name('materials.update');
+        Route::post('/materials/purchase', [MaterialController::class, 'purchase'])->name('materials.purchase');
+
+        // Production batches
+        Route::get('/productions', [ProductionController::class, 'index'])->name('productions.index');
+        Route::get('/productions/create', [ProductionController::class, 'create'])->name('productions.create');
+        Route::post('/productions', [ProductionController::class, 'store'])->name('productions.store');
+        Route::get('/productions/{production}', [ProductionController::class, 'show'])->name('productions.show');
     });
 
     /* ---------------- Reports ---------------- */
