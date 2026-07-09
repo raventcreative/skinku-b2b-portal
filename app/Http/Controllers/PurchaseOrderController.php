@@ -152,6 +152,28 @@ class PurchaseOrderController extends Controller
             ->with('status', "PO {$purchaseOrder->po_number} berhasil dihapus (soft delete).");
     }
 
+    /** Permanently remove a PO (for cleaning up test data). Irreversible. */
+    public function forceDestroy(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user->canDo('delete_po') && $user->isStaff(), 403, 'Anda tidak memiliki hak akses untuk menghapus PO.');
+
+        $number = $purchaseOrder->po_number;
+        $purchaseOrder->files()->get()->each->delete(); // remove attached files (payment proof)
+        $purchaseOrder->items()->delete();
+        $purchaseOrder->forceDelete();
+
+        AuditService::log(
+            action: 'force_delete_po',
+            targetType: 'purchase_order',
+            targetId: $purchaseOrder->id,
+            after: ['po_number' => $number],
+        );
+
+        return redirect()->route('purchase-orders.index')
+            ->with('status', "PO {$number} dihapus permanen.");
+    }
+
     /** Admin sets the manual shipping cost (ongkir) for a PO. */
     public function setShipping(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
     {

@@ -39,8 +39,14 @@
                     <td class="text-stone-500">{{ $po->created_at?->format('d M Y H:i') }}</td>
                     <td class="text-right">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</td>
                     <td><span class="px-2 py-0.5 rounded-full text-[10px] bg-stone-100 text-stone-700">{{ $po->status }}</span></td>
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
                         <a href="{{ route('purchase-orders.show', $po) }}" class="text-stone-600 hover:text-red-600 font-semibold">Detail</a>
+                        @if($u->isStaff() && $u->canDo('delete_po'))
+                            <form method="POST" action="{{ route('purchase-orders.force-destroy', $po) }}" class="inline ml-2" onsubmit="return confirm('Hapus PERMANEN PO {{ $po->po_number }}? Tidak bisa dikembalikan. Gunakan untuk membersihkan data test.')">
+                                @csrf @method('DELETE')
+                                <button class="text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                            </form>
+                        @endif
                     </td>
                 </tr>
             @empty

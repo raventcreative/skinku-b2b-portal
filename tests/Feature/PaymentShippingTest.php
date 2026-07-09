@@ -71,6 +71,25 @@ class PaymentShippingTest extends TestCase
         $this->assertEquals(215000, (float) $po->total_amount); // 200000 - 10000 + 25000
     }
 
+    public function test_admin_can_force_delete_po(): void
+    {
+        $po = $this->makePo($this->partner(), $this->product());
+
+        $this->actingAs($this->admin())->delete('/purchase-orders/'.$po->id.'/force')->assertRedirect();
+
+        $this->assertDatabaseMissing('purchase_orders', ['id' => $po->id]); // hard gone, not just trashed
+        $this->assertDatabaseMissing('purchase_order_items', ['purchase_order_id' => $po->id]);
+    }
+
+    public function test_partner_cannot_force_delete_po(): void
+    {
+        $partner = $this->partner();
+        $po = $this->makePo($partner, $this->product());
+
+        $this->actingAs($partner)->delete('/purchase-orders/'.$po->id.'/force')->assertForbidden();
+        $this->assertDatabaseHas('purchase_orders', ['id' => $po->id]);
+    }
+
     public function test_cannot_process_until_paid(): void
     {
         $svc = app(PurchaseOrderService::class);

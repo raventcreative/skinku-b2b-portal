@@ -72,6 +72,7 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     Route::middleware('permission:delete_po')->group(function () {
         Route::delete('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'destroy'])->name('purchase-orders.destroy');
+        Route::delete('/purchase-orders/{purchaseOrder}/force', [PurchaseOrderController::class, 'forceDestroy'])->name('purchase-orders.force-destroy');
     });
 
     /* ---------------- Inventory & Stock Movements ---------------- */
