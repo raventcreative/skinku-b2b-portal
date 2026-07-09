@@ -85,9 +85,12 @@
                 {!! navItem('productions.index', 'Produksi (HPP)', 'productions.*') !!}
             @endif
 
+            {{-- "Stok Masuk (beli jadi)" disembunyikan atas permintaan (SKINKU selalu produksi/repack sendiri).
+                 Kode, route, & tabel tetap ada — untuk memunculkan lagi, aktifkan blok di bawah ini.
             @if($u->canDo('receive_stock'))
                 {!! navItem('stock-receipts.index', 'Stok Masuk (beli jadi)', 'stock-receipts.*') !!}
             @endif
+            --}}
 
             @if($u->canDo('manage_hq_stock'))
                 {!! navItem('stock-movements.index', 'Stock Movement', 'stock-movements.index') !!}
