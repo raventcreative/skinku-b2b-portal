@@ -67,6 +67,9 @@
                     <td class="text-right font-bold {{ $p->hq_stock <= 0 ? 'text-rose-600' : 'text-stone-800' }}">{{ $p->hq_stock }}</td>
                     <td><span class="px-2 py-0.5 rounded-full text-[10px] {{ $p->status==='active' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-600' }}">{{ $p->status }}</span></td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
+                        @if(auth()->user()->canDo('manage_production'))
+                            <a href="{{ route('products.hpp-history', $p) }}" class="text-emerald-700 hover:text-emerald-900 font-semibold mr-2">Riwayat HPP</a>
+                        @endif
                         @if($p->status !== 'deleted')
                             @php $gallery = $p->fileGallery(\App\Models\Product::GALLERY); @endphp
                             <button class="text-stone-500 hover:text-stone-900 font-semibold"

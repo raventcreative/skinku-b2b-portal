@@ -81,7 +81,6 @@
 
             @if($u->canDo('manage_production'))
                 {!! navItem('materials.index', 'Bahan Baku', 'materials.*') !!}
-                {!! navItem('suppliers.index', 'Supplier', 'suppliers.*') !!}
                 {!! navItem('productions.index', 'Produksi (HPP)', 'productions.*') !!}
             @endif
 
@@ -110,6 +109,10 @@
 
             @if($u->canDo('view_audit_log'))
                 {!! navItem('audit-logs.index', 'Audit Log', 'audit-logs.index') !!}
+            @endif
+
+            @if($u->canDo('manage_production'))
+                {!! navItem('suppliers.index', 'Supplier', 'suppliers.*') !!}
             @endif
 
             @if($u->canDo('system_settings'))
