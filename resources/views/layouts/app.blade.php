@@ -81,6 +81,7 @@
 
             @if($u->canDo('manage_production'))
                 {!! navItem('materials.index', 'Bahan Baku', 'materials.*') !!}
+                {!! navItem('suppliers.index', 'Supplier', 'suppliers.*') !!}
                 {!! navItem('productions.index', 'Produksi (HPP)', 'productions.*') !!}
             @endif
 

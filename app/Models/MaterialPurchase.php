@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class MaterialPurchase extends Model
 {
     protected $fillable = [
-        'material_id', 'material_name', 'quantity', 'unit_cost', 'subtotal',
+        'material_id', 'material_name', 'supplier_id', 'quantity', 'unit_cost', 'subtotal',
         'cost_before', 'cost_after', 'supplier_name', 'purchased_at', 'notes', 'created_by',
     ];
 
@@ -26,6 +26,11 @@ class MaterialPurchase extends Model
     public function material()
     {
         return $this->belongsTo(Material::class);
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     public function creator()

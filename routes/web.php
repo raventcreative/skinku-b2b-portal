@@ -14,6 +14,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockReceiptController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -98,6 +99,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/materials', [MaterialController::class, 'store'])->name('materials.store');
         Route::put('/materials/{material}', [MaterialController::class, 'update'])->name('materials.update');
         Route::post('/materials/purchase', [MaterialController::class, 'purchase'])->name('materials.purchase');
+
+        // Supplier master
+        Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+        Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+        Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+        Route::delete('/suppliers/{supplier}', [SupplierController::class, 'destroy'])->name('suppliers.destroy');
 
         // Production batches
         Route::get('/productions', [ProductionController::class, 'index'])->name('productions.index');

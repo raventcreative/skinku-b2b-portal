@@ -54,13 +54,13 @@ class ProductionTest extends TestCase
         $this->actingAs($this->user(User::ROLE_ADMIN));
         $m = $this->material('Botol', 0, 0);
 
-        app(MaterialService::class)->addStock($m, 1000, 4000, 'Supplier A', '2026-06-01');
+        app(MaterialService::class)->addStock($m, 1000, 4000, null, 'Supplier A', '2026-06-01');
         $m->refresh();
         $this->assertEquals(1000, (float) $m->stock);
         $this->assertEquals(4000, (float) $m->avg_cost);
 
         // (1000*4000 + 1000*6000) / 2000 = 5000
-        app(MaterialService::class)->addStock($m, 1000, 6000, 'Supplier A', '2026-06-05');
+        app(MaterialService::class)->addStock($m, 1000, 6000, null, 'Supplier A', '2026-06-05');
         $m->refresh();
         $this->assertEquals(2000, (float) $m->stock);
         $this->assertEquals(5000, (float) $m->avg_cost);

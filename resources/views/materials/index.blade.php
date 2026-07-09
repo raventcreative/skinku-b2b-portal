@@ -102,6 +102,7 @@
                     <select name="status" class="w-full px-3 py-2 border border-stone-300 rounded-lg"><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select>
                 </div>
             </div>
+            <div id="hppWrap" class="hidden"><label class="block text-xs font-semibold mb-1">HPP / unit <span class="text-stone-400 font-normal">(isi untuk set manual; kosongkan = tidak diubah)</span></label><input type="number" step="0.01" min="0" name="avg_cost" class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">Catatan</label><input name="notes" class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div class="flex justify-end gap-2 mt-2">
                 <button type="button" onclick="toggleModal('materialModal')" class="px-4 py-2 text-stone-600 rounded-lg">Batal</button>
@@ -131,9 +132,22 @@
                 <div><label class="block text-xs font-semibold mb-1">Qty *</label><input type="number" step="0.001" min="0.001" name="quantity" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
                 <div><label class="block text-xs font-semibold mb-1">Harga / unit *</label><input type="number" step="0.01" min="0" name="unit_cost" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             </div>
+            <div>
+                <label class="block text-xs font-semibold mb-1">Metode HPP bahan *</label>
+                <div class="space-y-1.5">
+                    <label class="flex items-start gap-2"><input type="radio" name="cost_mode" value="average" checked class="mt-0.5 accent-red-600"><span>Rata-rata bergerak <span class="text-stone-400">— campur dengan stok lama (default)</span></span></label>
+                    <label class="flex items-start gap-2"><input type="radio" name="cost_mode" value="direct" class="mt-0.5 accent-red-600"><span>Harga langsung <span class="text-stone-400">— HPP = harga di atas (harga asli supplier, tidak dicampur)</span></span></label>
+                </div>
+            </div>
             <div class="grid grid-cols-2 gap-3">
                 <div><label class="block text-xs font-semibold mb-1">Tanggal *</label><input type="date" name="purchased_at" value="{{ date('Y-m-d') }}" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
-                <div><label class="block text-xs font-semibold mb-1">Supplier</label><input name="supplier_name" class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
+                <div><label class="block text-xs font-semibold mb-1">Supplier</label>
+                    <select name="supplier_id" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+                        <option value="">— tanpa supplier —</option>
+                        @foreach($suppliers as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
+                    </select>
+                    @if($suppliers->isEmpty())<p class="text-[10px] text-stone-400 mt-1">Belum ada supplier — tambahkan di menu <b>Supplier</b>.</p>@endif
+                </div>
             </div>
             <div><label class="block text-xs font-semibold mb-1">Catatan</label><input name="notes" class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div class="flex justify-end gap-2 mt-2">
@@ -151,6 +165,8 @@
         const f = document.getElementById('materialForm');
         f.reset();
         const statusWrap = document.getElementById('statusWrap');
+        const hppWrap = document.getElementById('hppWrap');
+        f.querySelector('[name=avg_cost]').value = '';
         if (m) {
             f.action = '/materials/' + m.id;
             document.getElementById('materialMethod').value = 'PUT';
@@ -160,11 +176,13 @@
             f.querySelector('[name=notes]').value = m.notes ?? '';
             f.querySelector('[name=status]').value = m.status ?? 'active';
             statusWrap.classList.remove('hidden');
+            hppWrap.classList.remove('hidden');
         } else {
             f.action = '{{ route('materials.store') }}';
             document.getElementById('materialMethod').value = 'POST';
             document.getElementById('materialModalTitle').textContent = 'Tambah Bahan Baku';
             statusWrap.classList.add('hidden');
+            hppWrap.classList.add('hidden');
         }
         toggleModal('materialModal');
     }
