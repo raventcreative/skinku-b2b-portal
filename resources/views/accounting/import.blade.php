@@ -33,20 +33,31 @@
 {{-- STEP 2: pemetaan kolom --}}
 <div id="mapCard" class="hidden bg-white rounded-2xl border border-stone-200 p-5 mt-4 text-sm">
     <h3 class="font-bold text-stone-800 mb-3">Cocokkan Kolom</h3>
-    <label class="flex items-center gap-2 text-xs mb-3"><input type="checkbox" id="hasHeader" checked onchange="onHeaderToggle()" class="accent-red-600"> Baris pertama adalah judul kolom (header)</label>
-    <div class="grid sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Tanggal *</label><select id="mapDate" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
-        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Keterangan</label><select id="mapDesc" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
-        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Uang Keluar (debit)</label><select id="mapOut" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
-        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Uang Masuk (kredit)</label><select id="mapIn" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
-        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Format Tgl</label>
-            <select id="dateFmt" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"><option value="dmy">DD/MM/YYYY</option><option value="ymd">YYYY-MM-DD</option><option value="mdy">MM/DD/YYYY</option></select>
-        </div>
-        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Pemisah ribuan</label>
-            <select id="numSep" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"><option value="titik">1.000.000 (titik)</option><option value="koma">1,000,000 (koma)</option></select>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Baris header (ke-)</label><input type="number" id="headerRow" min="0" value="1" onchange="populateColMaps()" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"><span class="text-[9px] text-stone-400">0 = tidak ada header</span></div>
+        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Format Tanggal</label><select id="dateFmt" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"><option value="dmy">DD/MM/YYYY</option><option value="ymd">YYYY-MM-DD</option><option value="mdy">MM/DD/YYYY</option></select></div>
+        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Format Angka</label><select id="numSep" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"><option value="auto">Auto</option><option value="titik">1.000.000 (titik ribuan)</option><option value="koma">1,000,000 (koma ribuan)</option></select></div>
+        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Mode Nominal</label>
+            <select id="amtMode" onchange="onAmtMode()" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg">
+                <option value="split">Kolom Debit &amp; Kredit terpisah</option>
+                <option value="single">1 kolom Jumlah + kolom Tipe (DB/CR)</option>
+            </select>
         </div>
     </div>
-    <button type="button" onclick="buildPreview()" class="mt-4 px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">Proses & Pratinjau →</button>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Tanggal *</label><select id="mapDate" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
+        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Keterangan</label><select id="mapDesc" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
+
+        {{-- mode split --}}
+        <div class="mode-split"><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Uang Keluar (debit)</label><select id="mapOut" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
+        <div class="mode-split"><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Uang Masuk (kredit)</label><select id="mapIn" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
+
+        {{-- mode single --}}
+        <div class="mode-single hidden"><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Kolom Jumlah</label><select id="mapJumlah" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
+        <div class="mode-single hidden"><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Kolom Tipe (DB/CR)</label><select id="mapTipe" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
+        <div class="mode-single hidden"><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Nilai u/ Uang Keluar</label><input id="outFlag" value="DB" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"><span class="text-[9px] text-stone-400">selain ini = uang masuk</span></div>
+    </div>
+    <button type="button" onclick="buildPreview()" class="mt-4 px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">Proses &amp; Pratinjau →</button>
 </div>
 
 {{-- STEP 3: assign COA + simpan --}}
@@ -97,6 +108,8 @@
     let RAW = [];
     let ri = 0;
 
+    const cell = (row, i) => String((row && row[i] != null) ? row[i] : '').replace(/^'/, '').trim();
+
     function accOptions(sel) {
         let h = '<option value="">— pilih akun —</option>';
         ACCOUNTS.forEach(a => h += `<option value="${a.id}" ${a.id == sel ? 'selected' : ''}>${a.code} · ${a.name}</option>`);
@@ -143,14 +156,35 @@
         const firstLine = text.split(/\r?\n/)[0] || '';
         RAW = parseCSV(text, detectDelim(firstLine));
         if (!RAW.length) { alert('File kosong / tidak terbaca.'); return; }
+
+        // Auto-deteksi baris header: baris pertama yang punya sel "Tanggal/Date".
+        let hIdx = 0;
+        for (let i = 0; i < Math.min(RAW.length, 30); i++) {
+            if (RAW[i].some(c => /tangg|date/i.test(String(c || '')))) { hIdx = i; break; }
+        }
+        document.getElementById('headerRow').value = hIdx + 1; // 1-based
+
+        // Auto-deteksi mode nominal: ada kolom debit & kredit → split, kalau tidak → single.
+        const names = RAW[hIdx].map(String);
+        const hasDebit = names.some(n => /debe?t|keluar/i.test(n));
+        const hasKredit = names.some(n => /kredit|credit|masuk/i.test(n));
+        document.getElementById('amtMode').value = (hasDebit && hasKredit) ? 'split' : 'single';
+        onAmtMode();
+
         populateColMaps();
         document.getElementById('mapCard').classList.remove('hidden');
     }
 
+    function headerIdx() {
+        const v = parseInt(document.getElementById('headerRow').value);
+        return (isNaN(v) || v <= 0) ? -1 : v - 1;
+    }
+    function dataStart() { const h = headerIdx(); return h < 0 ? 0 : h + 1; }
+
     function headerNames() {
-        const has = document.getElementById('hasHeader').checked;
-        const cols = RAW[0].length;
-        return Array.from({ length: cols }, (_, i) => has ? (RAW[0][i] || ('Kolom ' + (i + 1))) : ('Kolom ' + (i + 1)));
+        const h = headerIdx();
+        const cols = (h < 0 ? RAW[0] : RAW[h]).length;
+        return Array.from({ length: cols }, (_, i) => (h < 0 ? ('Kolom ' + (i + 1)) : (String(RAW[h][i] || '').trim() || ('Kolom ' + (i + 1)))));
     }
 
     function colOptions(names, guessRe) {
@@ -163,64 +197,86 @@
 
     function populateColMaps() {
         const names = headerNames();
-        document.getElementById('mapDate').innerHTML = colOptions(names, /tgl|tangg|date/i);
+        document.getElementById('mapDate').innerHTML = colOptions(names, /tangg|date/i);
         document.getElementById('mapDesc').innerHTML = colOptions(names, /ket|urai|desc|transaksi|remark|berita|narasi/i);
-        document.getElementById('mapOut').innerHTML = colOptions(names, /debe?t|keluar|db\b/i);
-        document.getElementById('mapIn').innerHTML = colOptions(names, /kredit|credit|masuk|cr\b/i);
+        document.getElementById('mapOut').innerHTML = colOptions(names, /debe?t|keluar\b/i);
+        document.getElementById('mapIn').innerHTML = colOptions(names, /kredit|credit|masuk\b/i);
+        document.getElementById('mapJumlah').innerHTML = colOptions(names, /jumlah|amount|nominal|mutasi/i);
+        document.getElementById('mapTipe').innerHTML = colOptions(names, /tipe|d\/?k|db.?cr/i);
     }
-    function onHeaderToggle() { populateColMaps(); }
+
+    function onAmtMode() {
+        const single = document.getElementById('amtMode').value === 'single';
+        document.querySelectorAll('.mode-split').forEach(el => el.classList.toggle('hidden', single));
+        document.querySelectorAll('.mode-single').forEach(el => el.classList.toggle('hidden', !single));
+    }
 
     function normDate(raw, fmt) {
-        if (!raw) return '';
-        const p = raw.trim().split(/[\/\-.\s]+/).filter(Boolean);
+        const p = String(raw || '').replace(/^['"]+/, '').trim().split(/[\/\-.\s]+/).filter(Boolean);
         if (p.length < 3) return '';
         let d, m, y;
         if (fmt === 'ymd') { [y, m, d] = p; } else if (fmt === 'mdy') { [m, d, y] = p; } else { [d, m, y] = p; }
         if (y.length === 2) y = '20' + y;
         d = d.padStart(2, '0'); m = m.padStart(2, '0');
-        if (+m < 1 || +m > 12 || +d < 1 || +d > 31) return '';
+        if (+m < 1 || +m > 12 || +d < 1 || +d > 31 || y.length !== 4) return '';
         return `${y}-${m}-${d}`;
     }
 
     function parseAmt(raw, sep) {
-        if (!raw) return 0;
-        let s = String(raw).replace(/[^0-9.,\-]/g, '');
-        if (sep === 'titik') s = s.replace(/\./g, '').replace(',', '.');
-        else s = s.replace(/,/g, '');
+        let s = String(raw || '').replace(/[^0-9.,\-]/g, '');
+        if (!s) return 0;
+        if (sep === 'titik') { s = s.replace(/\./g, '').replace(',', '.'); }
+        else if (sep === 'koma') { s = s.replace(/,/g, ''); }
+        else { // auto
+            const ld = s.lastIndexOf('.'), lc = s.lastIndexOf(',');
+            if (ld >= 0 && lc >= 0) { s = ld > lc ? s.replace(/,/g, '') : s.replace(/\./g, '').replace(',', '.'); }
+            else if (lc >= 0) { s = (s.split(',').length === 2 && s.length - lc - 1 <= 2) ? s.replace(',', '.') : s.replace(/,/g, ''); }
+            else if (ld >= 0 && ! (s.split('.').length === 2 && s.length - ld - 1 <= 2)) { s = s.replace(/\./g, ''); }
+        }
         return Math.abs(parseFloat(s) || 0);
     }
 
     function buildPreview() {
-        const has = document.getElementById('hasHeader').checked;
-        const start = has ? 1 : 0;
+        const single = document.getElementById('amtMode').value === 'single';
+        const fmt = document.getElementById('dateFmt').value;
+        const sep = document.getElementById('numSep').value;
         const cDate = document.getElementById('mapDate').value;
         const cDesc = document.getElementById('mapDesc').value;
         const cOut = document.getElementById('mapOut').value;
         const cIn = document.getElementById('mapIn').value;
-        const fmt = document.getElementById('dateFmt').value;
-        const sep = document.getElementById('numSep').value;
-        if (cDate === '' || (cOut === '' && cIn === '')) { alert('Petakan minimal kolom Tanggal + salah satu kolom nominal (keluar/masuk).'); return; }
+        const cJum = document.getElementById('mapJumlah').value;
+        const cTipe = document.getElementById('mapTipe').value;
+        const outFlag = (document.getElementById('outFlag').value || 'DB').trim().toUpperCase();
+
+        if (cDate === '') { alert('Petakan kolom Tanggal dulu.'); return; }
+        if (single && (cJum === '' || cTipe === '')) { alert('Mode single: petakan kolom Jumlah + kolom Tipe.'); return; }
+        if (!single && cOut === '' && cIn === '') { alert('Petakan minimal salah satu kolom nominal (keluar/masuk).'); return; }
 
         const tbody = document.getElementById('importRows');
         tbody.innerHTML = ''; ri = 0;
         let count = 0;
-        for (let r = start; r < RAW.length; r++) {
+        for (let r = dataStart(); r < RAW.length; r++) {
             const row = RAW[r];
-            const date = normDate(row[cDate], fmt);
-            const out = cOut !== '' ? parseAmt(row[cOut], sep) : 0;
-            const inn = cIn !== '' ? parseAmt(row[cIn], sep) : 0;
+            const date = normDate(cell(row, cDate), fmt);
+            if (!date) continue; // baris footer / non-transaksi otomatis terlewat
             let amount = 0, dir = '';
-            if (out > 0) { amount = out; dir = 'keluar'; } else if (inn > 0) { amount = inn; dir = 'masuk'; } else continue;
-            if (!date) continue;
-            const desc = cDesc !== '' ? (row[cDesc] || '') : '';
-            addPreviewRow(date, desc, dir, amount);
+            if (single) {
+                amount = parseAmt(cell(row, cJum), sep);
+                if (amount <= 0) continue;
+                dir = (cell(row, cTipe).toUpperCase() === outFlag) ? 'keluar' : 'masuk';
+            } else {
+                const out = cOut !== '' ? parseAmt(cell(row, cOut), sep) : 0;
+                const inn = cIn !== '' ? parseAmt(cell(row, cIn), sep) : 0;
+                if (out > 0) { amount = out; dir = 'keluar'; } else if (inn > 0) { amount = inn; dir = 'masuk'; } else continue;
+            }
+            addPreviewRow(date, cDesc !== '' ? cell(row, cDesc) : '', dir, amount);
             count++;
         }
         document.getElementById('rowCount').textContent = count;
         document.getElementById('bulkCoa').innerHTML = accOptions('');
         document.getElementById('bankAccountHidden').value = document.getElementById('bankAccount').value;
         document.getElementById('importForm').classList.remove('hidden');
-        if (!count) alert('Tidak ada baris valid terbaca. Cek pemetaan kolom / format tanggal.');
+        if (!count) alert('Tidak ada baris valid terbaca. Cek baris header, pemetaan kolom, & format tanggal.');
     }
 
     function addPreviewRow(date, desc, dir, amount) {
@@ -228,9 +284,10 @@
         const tr = document.createElement('tr');
         tr.className = 'border-t border-stone-100';
         const dirBadge = dir === 'keluar' ? '<span class="px-2 py-0.5 rounded bg-rose-50 text-rose-700">Keluar</span>' : '<span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">Masuk</span>';
+        const dEsc = desc.replace(/"/g, '&quot;');
         tr.innerHTML = `
             <td class="px-4 py-2 text-stone-600">${date}<input type="hidden" name="rows[${i}][date]" value="${date}"></td>
-            <td class="text-stone-600 max-w-xs truncate" title="${desc.replace(/"/g,'&quot;')}">${desc}<input type="hidden" name="rows[${i}][description]" value="${desc.replace(/"/g,'&quot;')}"></td>
+            <td class="text-stone-600 max-w-xs truncate" title="${dEsc}">${desc}<input type="hidden" name="rows[${i}][description]" value="${dEsc}"></td>
             <td>${dirBadge}<input type="hidden" name="rows[${i}][direction]" value="${dir}"></td>
             <td class="text-right font-semibold text-stone-800">${'Rp ' + Math.round(amount).toLocaleString('id-ID')}<input type="hidden" name="rows[${i}][amount]" value="${amount}"></td>
             <td><select name="rows[${i}][account_id]" class="coa-sel w-52 px-2 py-1.5 border border-stone-300 rounded-lg">${accOptions('')}</select></td>
