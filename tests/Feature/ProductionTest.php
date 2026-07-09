@@ -233,6 +233,29 @@ class ProductionTest extends TestCase
         $this->actingAs($this->user(User::ROLE_ADMIN))->get('/materials')->assertOk();
     }
 
+    public function test_hpp_history_shows_production_entries(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $product = $this->product();
+        $mat = $this->material('Sabun', 1000, 10000);
+
+        app(ProductionService::class)->produce(
+            ['product_id' => $product->id, 'produced_at' => '2026-06-20', 'output_qty' => 100],
+            [['material_id' => $mat->id, 'quantity' => 100]], []
+        );
+
+        $this->actingAs($admin)->get('/products/'.$product->id.'/hpp')
+            ->assertOk()
+            ->assertSee('PRD-00001')
+            ->assertSee('JSON.parse(', false); // chart data rendered as valid JS
+    }
+
+    public function test_hpp_history_forbidden_for_reseller(): void
+    {
+        $product = $this->product();
+        $this->actingAs($this->user(User::ROLE_RESELLER))->get('/products/'.$product->id.'/hpp')->assertForbidden();
+    }
+
     public function test_reseller_cannot_access_production_and_materials(): void
     {
         $r = $this->user(User::ROLE_RESELLER);

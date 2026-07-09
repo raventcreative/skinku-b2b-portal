@@ -57,7 +57,13 @@
                     <td class="text-right">Rp {{ number_format($p->price_distributor, 0, ',', '.') }}</td>
                     <td class="text-right">Rp {{ number_format($p->price_reseller, 0, ',', '.') }}</td>
                     <td class="text-right">Rp {{ number_format($p->price_retail, 0, ',', '.') }}</td>
-                    <td class="text-right text-stone-500">Rp {{ number_format($p->cogs, 0, ',', '.') }}</td>
+                    <td class="text-right text-stone-500">
+                        @if(auth()->user()->canDo('manage_production'))
+                            <a href="{{ route('products.hpp-history', $p) }}" class="hover:text-red-600 hover:underline" title="Lihat riwayat HPP">Rp {{ number_format($p->cogs, 0, ',', '.') }}</a>
+                        @else
+                            Rp {{ number_format($p->cogs, 0, ',', '.') }}
+                        @endif
+                    </td>
                     <td class="text-right font-bold {{ $p->hq_stock <= 0 ? 'text-rose-600' : 'text-stone-800' }}">{{ $p->hq_stock }}</td>
                     <td><span class="px-2 py-0.5 rounded-full text-[10px] {{ $p->status==='active' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-600' }}">{{ $p->status }}</span></td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">

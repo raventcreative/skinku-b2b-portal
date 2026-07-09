@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Material;
 use App\Models\Product;
 use App\Models\Production;
+use App\Models\StockReceiptItem;
 use App\Services\AuditService;
 use App\Services\ProductionService;
 use Illuminate\Http\RedirectResponse;
@@ -117,5 +118,43 @@ class ProductionController extends Controller
         $production->load('materials', 'costs', 'product', 'creator');
 
         return view('productions.show', ['production' => $production]);
+    }
+
+    /** HPP (cogs) history for one finished product, across productions + stock receipts. */
+    public function hppHistory(Product $product)
+    {
+        $entries = collect();
+
+        Production::where('product_id', $product->id)->orderBy('produced_at')->orderBy('id')->get()
+            ->each(fn (Production $p) => $entries->push([
+                'date' => $p->produced_at,
+                'source' => 'Produksi',
+                'ref' => $p->production_number,
+                'batch' => (float) $p->hpp_per_unit,
+                'qty' => (int) $p->output_qty,
+                'before' => (float) $p->cogs_before,
+                'after' => (float) $p->cogs_after,
+            ]));
+
+        StockReceiptItem::where('product_id', $product->id)->with('receipt')->get()
+            ->each(function (StockReceiptItem $it) use ($entries) {
+                if (! $it->receipt) {
+                    return;
+                }
+                $entries->push([
+                    'date' => $it->receipt->received_at,
+                    'source' => 'Stok Masuk',
+                    'ref' => $it->receipt->receipt_number,
+                    'batch' => (float) $it->unit_cost,
+                    'qty' => (int) $it->quantity,
+                    'before' => (float) $it->cogs_before,
+                    'after' => (float) $it->cogs_after,
+                ]);
+            });
+
+        $entries = $entries->sortBy('date')->values();
+        $chart = $entries->map(fn ($e) => ['label' => $e['date']?->format('d M y'), 'hpp' => $e['after']])->values();
+
+        return view('productions.hpp_history', compact('product', 'entries', 'chart'));
     }
 }
