@@ -7,7 +7,8 @@
 
 @php $rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.'); @endphp
 
-<div class="flex justify-end mb-4">
+<div class="flex justify-end gap-2 mb-4">
+    <a href="{{ route('accounting.templates') }}" class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">⚙ Template Transaksi</a>
     <a href="{{ route('accounting.journals.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Input Jurnal</a>
 </div>
 

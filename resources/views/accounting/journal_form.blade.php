@@ -26,9 +26,24 @@
     </div>
 
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-        <div class="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
+        <div class="px-5 py-3 border-b border-stone-100 flex items-center justify-between gap-3 flex-wrap">
             <h3 class="text-sm font-bold text-stone-800">Baris Jurnal</h3>
-            <button type="button" onclick="addRow()" class="px-3 py-1.5 text-xs bg-stone-800 text-white rounded-lg hover:bg-stone-900">+ Baris</button>
+            <div class="flex items-end gap-2 flex-wrap">
+                @if(count($templates))
+                    <div>
+                        <label class="block text-[10px] text-stone-400 font-semibold uppercase">Pakai Template</label>
+                        <select onchange="applyTemplate(this.value)" class="px-3 py-1.5 text-xs border border-stone-300 rounded-lg">
+                            <option value="">— tanpa template —</option>
+                            @foreach($templates as $t)<option value="{{ $t['id'] }}">{{ $t['name'] }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-stone-400 font-semibold uppercase">Nominal cepat</label>
+                        <input type="number" step="0.01" min="0" oninput="quickFill(this.value)" placeholder="isi semua baris" class="w-32 px-3 py-1.5 text-xs border border-stone-300 rounded-lg text-right">
+                    </div>
+                @endif
+                <button type="button" onclick="addRow()" class="px-3 py-1.5 text-xs bg-stone-800 text-white rounded-lg hover:bg-stone-900">+ Baris</button>
+            </div>
         </div>
         <div class="overflow-x-auto">
         <table class="w-full text-xs whitespace-nowrap">
@@ -70,26 +85,52 @@
 @push('scripts')
 <script>
     const ACCOUNTS = {{ \Illuminate\Support\Js::from($accounts->map(fn ($a) => ['id' => $a->id, 'code' => $a->code, 'name' => $a->name])) }};
+    const TEMPLATES = {{ \Illuminate\Support\Js::from($templates) }};
     let ri = 0;
     const rupiah = n => 'Rp ' + (Math.round(n) || 0).toLocaleString('id-ID');
 
-    function accOptions() {
+    function accOptions(selected) {
         let h = '<option value="">— pilih akun —</option>';
-        ACCOUNTS.forEach(a => h += `<option value="${a.id}">${a.code} · ${a.name}</option>`);
+        ACCOUNTS.forEach(a => h += `<option value="${a.id}" ${a.id == selected ? 'selected' : ''}>${a.code} · ${a.name}</option>`);
         return h;
     }
 
-    function addRow() {
+    function addRow(accountId, side) {
         const i = ri++;
         const tr = document.createElement('tr');
         tr.className = 'border-t border-stone-100';
+        if (side) tr.dataset.side = side;
         tr.innerHTML = `
-            <td class="px-4 py-2"><select name="lines[${i}][account_id]" class="w-56 px-2 py-1.5 border border-stone-300 rounded-lg">${accOptions()}</select></td>
+            <td class="px-4 py-2"><select name="lines[${i}][account_id]" class="w-56 px-2 py-1.5 border border-stone-300 rounded-lg">${accOptions(accountId)}</select></td>
             <td class="px-2"><input name="lines[${i}][memo]" class="w-40 px-2 py-1.5 border border-stone-300 rounded-lg" placeholder="opsional"></td>
             <td class="text-right"><input type="number" step="0.01" min="0" name="lines[${i}][debit]" oninput="recalc()" class="w-32 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="text-right"><input type="number" step="0.01" min="0" name="lines[${i}][credit]" oninput="recalc()" class="w-32 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
         document.getElementById('rows').appendChild(tr);
+        return tr;
+    }
+
+    // Pilih template → isi baris akun otomatis (akun kosong = pilih manual, mis. Kas/Bank).
+    function applyTemplate(id) {
+        if (!id) return;
+        const tpl = TEMPLATES.find(t => t.id == id);
+        if (!tpl) return;
+        document.getElementById('rows').innerHTML = '';
+        ri = 0;
+        (tpl.lines || []).forEach(l => addRow(l.account_id, l.side));
+        recalc();
+    }
+
+    // Nominal cepat → isi tiap baris di kolom sesuai sisi (debit/kredit) template.
+    function quickFill(v) {
+        const val = parseFloat(v) || 0;
+        document.querySelectorAll('#rows tr').forEach(tr => {
+            const side = tr.dataset.side;
+            if (!side) return;
+            tr.querySelector('[name$="[debit]"]').value = side === 'debit' ? (val || '') : '';
+            tr.querySelector('[name$="[credit]"]').value = side === 'credit' ? (val || '') : '';
+        });
+        recalc();
     }
 
     function recalc() {

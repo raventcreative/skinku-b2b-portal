@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountingController;
+use App\Http\Controllers\AccTemplateController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -137,6 +138,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/accounting/jurnal/baru', [AccountingController::class, 'journalCreate'])->name('accounting.journals.create');
         Route::post('/accounting/jurnal', [AccountingController::class, 'journalStore'])->name('accounting.journals.store');
         Route::post('/accounting/jurnal/{journal}/void', [AccountingController::class, 'journalVoid'])->name('accounting.journals.void');
+
+        // Template Transaksi (preset jurnal)
+        Route::get('/accounting/template', [AccTemplateController::class, 'index'])->name('accounting.templates');
+        Route::post('/accounting/template', [AccTemplateController::class, 'store'])->name('accounting.templates.store');
+        Route::put('/accounting/template/{template}', [AccTemplateController::class, 'update'])->name('accounting.templates.update');
+        Route::delete('/accounting/template/{template}', [AccTemplateController::class, 'destroy'])->name('accounting.templates.destroy');
     });
 
     /* ---------------- Product management ---------------- */

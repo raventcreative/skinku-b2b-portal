@@ -6,6 +6,7 @@ use App\Exceptions\AccountingException;
 use App\Models\AccAccount;
 use App\Models\AccBranch;
 use App\Models\AccJournal;
+use App\Models\AccTemplate;
 use App\Services\AccountingService;
 use App\Services\AuditService;
 use App\Services\FinancialReportService;
@@ -101,9 +102,17 @@ class AccountingController extends Controller
 
     public function journalCreate()
     {
+        $templates = AccTemplate::active()->with('lines')->orderBy('name')->get()
+            ->map(fn ($t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'lines' => $t->lines->map(fn ($l) => ['account_id' => $l->account_id, 'side' => $l->side])->values(),
+            ]);
+
         return view('accounting.journal_form', [
             'accounts' => AccAccount::active()->orderBy('code')->get(['id', 'code', 'name', 'normal_balance']),
             'branch' => AccBranch::active()->orderBy('id')->first(),
+            'templates' => $templates,
         ]);
     }
 
