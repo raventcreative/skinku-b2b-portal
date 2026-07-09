@@ -73,15 +73,35 @@
 
             {!! navItem('purchase-orders.index', $u->isPartner() ? 'Riwayat PO' : 'Purchase Orders', 'purchase-orders.index') !!}
 
-            @if($u->canDo('manage_products'))
-                {!! navItem('products.index', 'Manajemen Produk', 'products.index') !!}
-            @endif
+            @php
+                // Staff yang mengelola produk/stok/produksi → tampilkan grup accordion "Manajemen Produk".
+                $isProdukManager = $u->canDo('manage_products') || $u->canDo('manage_production') || $u->canDo('manage_hq_stock');
+                $produkGroupOpen = request()->routeIs('products.index') || request()->routeIs('inventory.index')
+                    || request()->routeIs('materials.*') || request()->routeIs('productions.*') || request()->routeIs('stock-movements.index');
+            @endphp
 
-            {!! navItem('inventory.index', $u->isPartner() ? 'Stok Saya' : 'Pemantauan Stok', 'inventory.index') !!}
-
-            @if($u->canDo('manage_production'))
-                {!! navItem('materials.index', 'Bahan Baku', 'materials.*') !!}
-                {!! navItem('productions.index', 'Produksi (HPP)', 'productions.*') !!}
+            @if($isProdukManager)
+                <button type="button" onclick="toggleNavGroup('grpProduk')"
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $produkGroupOpen ? 'text-white' : '' }}">
+                    <span>Manajemen Produk</span>
+                    <svg id="grpProdukChevron" class="w-3.5 h-3.5 transition-transform {{ $produkGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="grpProduk" class="{{ $produkGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                    @if($u->canDo('manage_products'))
+                        {!! navItem('products.index', 'Produk Master', 'products.index') !!}
+                    @endif
+                    {!! navItem('inventory.index', 'Pemantauan Stok', 'inventory.index') !!}
+                    @if($u->canDo('manage_production'))
+                        {!! navItem('materials.index', 'Bahan Baku', 'materials.*') !!}
+                        {!! navItem('productions.index', 'Produksi (HPP)', 'productions.*') !!}
+                    @endif
+                    @if($u->canDo('manage_hq_stock'))
+                        {!! navItem('stock-movements.index', 'Stock Movement', 'stock-movements.index') !!}
+                    @endif
+                </div>
+            @else
+                {{-- Partner: cukup "Stok Saya" datar (bukan manajer produk). --}}
+                {!! navItem('inventory.index', 'Stok Saya', 'inventory.index') !!}
             @endif
 
             {{-- "Stok Masuk (beli jadi)" disembunyikan atas permintaan (SKINKU selalu produksi/repack sendiri).
@@ -90,10 +110,6 @@
                 {!! navItem('stock-receipts.index', 'Stok Masuk (beli jadi)', 'stock-receipts.*') !!}
             @endif
             --}}
-
-            @if($u->canDo('manage_hq_stock'))
-                {!! navItem('stock-movements.index', 'Stock Movement', 'stock-movements.index') !!}
-            @endif
 
             @if($u->canDo('view_reports'))
                 {!! navItem('reports.index', $u->isPartner() ? 'Laporan Pembelian' : 'Laporan Penjualan', 'reports.index') !!}
@@ -187,6 +203,14 @@
     function closeSidebar() {
         document.getElementById('sidebar').classList.add('-translate-x-full');
         document.getElementById('sidebarOverlay').classList.add('hidden');
+    }
+    // Collapsible sidebar groups (accordion).
+    function toggleNavGroup(id) {
+        const el = document.getElementById(id);
+        const chev = document.getElementById(id + 'Chevron');
+        if (!el) return;
+        const hidden = el.classList.toggle('hidden');
+        if (chev) chev.classList.toggle('rotate-180', !hidden);
     }
     // On mobile, tapping a menu link should close the drawer.
     document.querySelectorAll('#sidebar nav a').forEach(function (a) {
