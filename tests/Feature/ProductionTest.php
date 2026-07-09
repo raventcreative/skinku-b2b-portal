@@ -133,10 +133,10 @@ class ProductionTest extends TestCase
         $mat = $this->material('Langka', 10, 5000);
 
         $this->actingAs($admin)->post('/productions', [
-            'product_id' => $product->id,
             'produced_at' => '2026-06-12',
-            'output_qty' => 50,
-            'materials' => [['material_id' => $mat->id, 'quantity' => 100]],
+            'blocks' => [
+                ['product_id' => $product->id, 'output_qty' => 50, 'materials' => [['material_id' => $mat->id, 'quantity' => 100]]],
+            ],
         ])->assertSessionHasNoErrors()->assertRedirect();
 
         $this->assertEquals(1, Production::count());
@@ -152,16 +152,40 @@ class ProductionTest extends TestCase
         $mat = $this->material('Sabun', 500, 10000);
 
         $this->actingAs($admin)->post('/productions', [
-            'product_id' => $product->id,
             'produced_at' => '2026-06-14',
-            'output_qty' => 100,
-            'materials' => [['material_id' => $mat->id, 'quantity' => 100, 'unit_cost' => 15000]],
+            'blocks' => [
+                ['product_id' => $product->id, 'output_qty' => 100, 'materials' => [['material_id' => $mat->id, 'quantity' => 100, 'unit_cost' => 15000]]],
+            ],
         ])->assertRedirect();
 
         $prod = Production::first();
         // typed 15000 used, not avg 10000: 100*15000 = 1.500.000 ; /100 = 15.000
         $this->assertEquals(1500000, (float) $prod->material_cost);
         $this->assertEquals(15000, (float) $prod->hpp_per_unit);
+    }
+
+    public function test_multiple_finished_products_in_one_submit(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $p1 = $this->product();
+        $p2 = $this->product();
+        $mat = $this->material('Sabun', 1000, 10000);
+
+        $this->actingAs($admin)->post('/productions', [
+            'produced_at' => '2026-06-20',
+            'blocks' => [
+                ['product_id' => $p1->id, 'output_qty' => 100, 'materials' => [['material_id' => $mat->id, 'quantity' => 100]]],
+                ['product_id' => $p2->id, 'output_qty' => 50, 'materials' => [['material_id' => $mat->id, 'quantity' => 50, 'unit_cost' => 20000]]],
+            ],
+        ])->assertSessionHasNoErrors()->assertRedirect(route('productions.index'));
+
+        $this->assertEquals(2, Production::count());
+        $this->assertEquals(100, $p1->refresh()->hq_stock);
+        $this->assertEquals(50, $p2->refresh()->hq_stock);
+        $this->assertEquals(850, (float) $mat->refresh()->stock); // 1000 - 100 - 50
+
+        $this->assertEquals(10000, (float) Production::where('product_id', $p1->id)->first()->hpp_per_unit); // 100*10000/100
+        $this->assertEquals(20000, (float) Production::where('product_id', $p2->id)->first()->hpp_per_unit); // 50*20000/50
     }
 
     public function test_admin_can_post_production_over_http(): void
@@ -171,14 +195,18 @@ class ProductionTest extends TestCase
         $mat = $this->material('Sabun', 500, 12000);
 
         $this->actingAs($admin)->post('/productions', [
-            'product_id' => $product->id,
             'produced_at' => '2026-06-13',
-            'output_qty' => 100,
-            'materials' => [
-                ['material_id' => $mat->id, 'quantity' => 100],
-                ['material_id' => '', 'quantity' => ''], // blank ignored
+            'blocks' => [
+                [
+                    'product_id' => $product->id,
+                    'output_qty' => 100,
+                    'materials' => [
+                        ['material_id' => $mat->id, 'quantity' => 100],
+                        ['material_id' => '', 'quantity' => ''], // blank ignored
+                    ],
+                    'costs' => [['label' => 'Ongkir', 'amount' => 200000]],
+                ],
             ],
-            'costs' => [['label' => 'Ongkir', 'amount' => 200000]],
         ])->assertRedirect();
 
         $prod = Production::first();
