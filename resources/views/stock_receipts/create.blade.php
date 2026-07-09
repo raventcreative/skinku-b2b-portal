@@ -69,7 +69,7 @@
 
 @push('scripts')
 <script>
-    const PRODUCTS = @json($products->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'stock' => (int) $p->hq_stock, 'cogs' => (float) $p->cogs]));
+    const PRODUCTS = {{ json_encode($products->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'stock' => (int) $p->hq_stock, 'cogs' => (float) $p->cogs])) }};
     let idx = 0;
 
     const rupiah = n => 'Rp ' + (Math.round(n) || 0).toLocaleString('id-ID');

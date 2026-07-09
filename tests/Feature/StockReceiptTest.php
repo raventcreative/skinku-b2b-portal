@@ -114,6 +114,12 @@ class StockReceiptTest extends TestCase
         ])->assertSessionHasErrors('items');
     }
 
+    public function test_create_page_renders(): void
+    {
+        $this->product(stock: 10, cogs: 5000);
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/stock-receipts/create')->assertOk();
+    }
+
     public function test_reseller_cannot_access_stock_receipts(): void
     {
         $this->actingAs($this->user(User::ROLE_RESELLER))->get('/stock-receipts')->assertForbidden();

@@ -168,6 +168,19 @@ class ProductionTest extends TestCase
         $this->assertEquals(400, (float) $mat->refresh()->stock);
     }
 
+    public function test_production_create_page_renders(): void
+    {
+        $this->product();
+        $this->material('Sabun', 100, 10000);
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/productions/create')->assertOk();
+    }
+
+    public function test_materials_index_renders(): void
+    {
+        $this->material('Sabun', 100, 10000);
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/materials')->assertOk();
+    }
+
     public function test_reseller_cannot_access_production_and_materials(): void
     {
         $r = $this->user(User::ROLE_RESELLER);
