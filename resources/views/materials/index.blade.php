@@ -37,7 +37,7 @@
                     <td>@if($m->status==='active')<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">Aktif</span>@else<span class="px-2 py-0.5 rounded-full bg-stone-200 text-stone-600 text-[10px] font-bold">Nonaktif</span>@endif</td>
                     <td class="pr-4 text-right">
                         <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                            onclick='openMaterial({{ json_encode($m->only(["id","name","unit","status","notes"])) }})'>Edit</button>
+                            onclick='openMaterial({{ json_encode($m->only(["id","name","unit","status","notes","stock"])) }})'>Edit</button>
                     </td>
                 </tr>
             @empty
@@ -103,6 +103,17 @@
                 </div>
             </div>
             <div id="hppWrap" class="hidden"><label class="block text-xs font-semibold mb-1">HPP / unit <span class="text-stone-400 font-normal">(isi untuk set manual; kosongkan = tidak diubah)</span></label><input type="number" step="0.01" min="0" name="avg_cost" class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
+            <div id="stockWrap" class="hidden space-y-3 border-t border-stone-100 pt-3">
+                <p class="text-xs text-stone-500">Stok saat ini: <b id="curStock" class="text-stone-800">—</b></p>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Sesuaikan Stok <span class="text-stone-400 font-normal">(isi angka stok yang benar; kosongkan = tidak diubah)</span></label>
+                    <input type="number" step="0.001" name="stock" placeholder="mis. hasil stok opname" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">Alasan Penyesuaian <span class="text-stone-400 font-normal">(wajib jika stok diubah)</span></label>
+                    <input name="adjustment_reason" placeholder="mis. stok opname / koreksi stok awal" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+                </div>
+            </div>
             <div><label class="block text-xs font-semibold mb-1">Catatan</label><input name="notes" class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div class="flex justify-end gap-2 mt-2">
                 <button type="button" onclick="toggleModal('materialModal')" class="px-4 py-2 text-stone-600 rounded-lg">Batal</button>
@@ -166,7 +177,10 @@
         f.reset();
         const statusWrap = document.getElementById('statusWrap');
         const hppWrap = document.getElementById('hppWrap');
+        const stockWrap = document.getElementById('stockWrap');
         f.querySelector('[name=avg_cost]').value = '';
+        f.querySelector('[name=stock]').value = '';
+        f.querySelector('[name=adjustment_reason]').value = '';
         if (m) {
             f.action = '/materials/' + m.id;
             document.getElementById('materialMethod').value = 'PUT';
@@ -175,14 +189,17 @@
             f.querySelector('[name=unit]').value = m.unit ?? '';
             f.querySelector('[name=notes]').value = m.notes ?? '';
             f.querySelector('[name=status]').value = m.status ?? 'active';
+            document.getElementById('curStock').textContent = (m.stock ?? '0') + ' ' + (m.unit ?? '');
             statusWrap.classList.remove('hidden');
             hppWrap.classList.remove('hidden');
+            stockWrap.classList.remove('hidden');
         } else {
             f.action = '{{ route('materials.store') }}';
             document.getElementById('materialMethod').value = 'POST';
             document.getElementById('materialModalTitle').textContent = 'Tambah Bahan Baku';
             statusWrap.classList.add('hidden');
             hppWrap.classList.add('hidden');
+            stockWrap.classList.add('hidden');
         }
         toggleModal('materialModal');
     }

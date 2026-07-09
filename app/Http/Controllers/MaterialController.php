@@ -50,16 +50,43 @@ class MaterialController extends Controller
             'name' => ['required', 'string', 'max:150'],
             'unit' => ['required', 'string', 'max:20'],
             'status' => ['required', 'in:active,inactive'],
-            'avg_cost' => ['nullable', 'numeric', 'min:0'], // manual HPP override
+            'avg_cost' => ['nullable', 'numeric', 'min:0'],           // manual HPP override
+            'stock' => ['nullable', 'numeric'],                        // manual stock adjustment (opname)
+            'adjustment_reason' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        // Only overwrite HPP when a value was actually entered.
-        if ($data['avg_cost'] === null || $data['avg_cost'] === '') {
-            unset($data['avg_cost']);
+        // A stock adjustment must state a reason.
+        $adjustStock = isset($data['stock']) && $data['stock'] !== null && $data['stock'] !== '';
+        $reason = $data['adjustment_reason'] ?? null;
+        if ($adjustStock && empty($reason)) {
+            return back()->withErrors(['adjustment_reason' => 'Isi alasan penyesuaian saat mengubah stok.'])->withInput();
         }
 
+        // Only overwrite HPP when a value was actually entered.
+        if (! array_key_exists('avg_cost', $data) || $data['avg_cost'] === null || $data['avg_cost'] === '') {
+            unset($data['avg_cost']);
+        }
+        $beforeStock = (float) $material->stock;
+        unset($data['stock'], $data['adjustment_reason']);
+
         $material->update($data);
+
+        if ($adjustStock) {
+            $newStock = (float) $request->input('stock');
+            $material->stock = $newStock;
+            $material->save();
+            AuditService::log(
+                action: 'adjust_material_stock',
+                targetType: 'material',
+                targetId: $material->id,
+                before: ['stock' => $beforeStock],
+                after: ['stock' => $newStock, 'reason' => $reason],
+            );
+
+            return back()->with('status', "Stok bahan \"{$material->name}\" disesuaikan: {$beforeStock} → {$newStock}.");
+        }
+
         AuditService::log(action: 'update_material', targetType: 'material', targetId: $material->id, after: ['name' => $material->name]);
 
         return back()->with('status', "Bahan baku \"{$material->name}\" diperbarui.");

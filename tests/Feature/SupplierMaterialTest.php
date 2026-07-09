@@ -86,6 +86,28 @@ class SupplierMaterialTest extends TestCase
         $this->assertEquals(12345, (float) $m->refresh()->avg_cost);
     }
 
+    public function test_admin_can_adjust_material_stock_with_reason(): void
+    {
+        $m = $this->material(100, 10000);
+        $this->actingAs($this->user(User::ROLE_ADMIN))->put('/materials/'.$m->id, [
+            'name' => 'Sabun', 'unit' => 'kg', 'status' => 'active',
+            'stock' => -50, 'adjustment_reason' => 'stok opname',
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertEquals(-50, (float) $m->refresh()->stock);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'adjust_material_stock']);
+    }
+
+    public function test_stock_adjustment_requires_reason(): void
+    {
+        $m = $this->material(100, 10000);
+        $this->actingAs($this->user(User::ROLE_ADMIN))->put('/materials/'.$m->id, [
+            'name' => 'Sabun', 'unit' => 'kg', 'status' => 'active', 'stock' => 0,
+        ])->assertSessionHasErrors('adjustment_reason');
+
+        $this->assertEquals(100, (float) $m->refresh()->stock); // unchanged
+    }
+
     public function test_editing_material_without_hpp_keeps_existing(): void
     {
         $m = $this->material(100, 9999);
