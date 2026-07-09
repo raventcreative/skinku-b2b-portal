@@ -177,9 +177,40 @@ class AccountingController extends Controller
         ]);
     }
 
+    /** Sidik jari baris mutasi — stabil lintas impor (pakai saldo bila ada agar dupe asli tetap unik). */
+    private function importHash(int $bankId, string $date, float $amount, string $direction, ?string $saldo, ?string $description): string
+    {
+        $tail = ($saldo !== null && $saldo !== '') ? preg_replace('/\s+/', '', $saldo) : trim((string) $description);
+
+        return sha1($bankId.'|'.$date.'|'.number_format($amount, 2, '.', '').'|'.$direction.'|'.$tail);
+    }
+
+    /** Cek baris mana yang SUDAH pernah diimpor (untuk ditandai di pratinjau). */
+    public function importCheck(Request $request)
+    {
+        $data = $request->validate([
+            'bank_account_id' => ['required', 'integer', 'exists:acc_accounts,id'],
+            'rows' => ['required', 'array'],
+        ]);
+        $bank = (int) $data['bank_account_id'];
+
+        $hashes = collect($data['rows'])->map(fn ($r) => $this->importHash(
+            $bank, $r['date'] ?? '', (float) ($r['amount'] ?? 0), $r['direction'] ?? '', $r['saldo'] ?? null, $r['description'] ?? null
+        ));
+
+        $existing = array_flip(
+            AccJournal::whereIn('import_hash', $hashes->all())
+                ->where('status', '!=', AccJournal::STATUS_VOID)
+                ->pluck('import_hash')->all()
+        );
+
+        return response()->json($hashes->map(fn ($h) => isset($existing[$h]))->all());
+    }
+
     /**
      * Terima baris mutasi yang sudah dipetakan + di-assign COA di browser, lalu
-     * buat 1 jurnal per baris terhadap akun bank yang dipilih.
+     * buat 1 jurnal per baris terhadap akun bank yang dipilih. Baris yang sudah
+     * pernah diimpor (sidik jari sama) DILEWATI — jadi impor ulang tidak dobel.
      *   - uang keluar (bank berkurang) → D akun-lawan / K bank
      *   - uang masuk  (bank bertambah) → D bank / K akun-lawan
      */
@@ -193,6 +224,7 @@ class AccountingController extends Controller
             'rows.*.description' => ['nullable', 'string', 'max:255'],
             'rows.*.amount' => ['nullable', 'numeric', 'min:0'],
             'rows.*.direction' => ['nullable', 'in:masuk,keluar'],
+            'rows.*.saldo' => ['nullable', 'string', 'max:50'],
             'rows.*.account_id' => ['nullable', 'integer', 'exists:acc_accounts,id'],
             'rows.*.ignore' => ['nullable'],
         ]);
@@ -201,6 +233,7 @@ class AccountingController extends Controller
 
         $result = DB::transaction(function () use ($data, $bank) {
             $imported = 0;
+            $duplicate = 0;
             $skipped = 0;
 
             foreach ($data['rows'] as $r) {
@@ -211,12 +244,19 @@ class AccountingController extends Controller
                     continue;
                 }
 
+                $hash = $this->importHash($bank, $r['date'], $amount, $r['direction'], $r['saldo'] ?? null, $r['description'] ?? null);
+                if (AccJournal::where('import_hash', $hash)->where('status', '!=', AccJournal::STATUS_VOID)->exists()) {
+                    $duplicate++;
+
+                    continue; // sudah pernah diimpor — jangan dobel
+                }
+
                 $acc = (int) $r['account_id'];
                 $lines = $r['direction'] === 'keluar'
                     ? [['account_id' => $acc, 'debit' => $amount], ['account_id' => $bank, 'credit' => $amount]]
                     : [['account_id' => $bank, 'debit' => $amount], ['account_id' => $acc, 'credit' => $amount]];
 
-                $this->accounting->record([
+                $journal = $this->accounting->record([
                     'branch_id' => $data['branch_id'],
                     'date' => $r['date'],
                     'reference' => mb_substr(trim($r['description'] ?? 'Mutasi bank'), 0, 150),
@@ -224,15 +264,24 @@ class AccountingController extends Controller
                     'type' => $r['direction'] === 'keluar' ? 'cash_out' : 'cash_in',
                     'source_type' => 'bank_import',
                 ], $lines);
+                $journal->import_hash = $hash;
+                $journal->save();
                 $imported++;
             }
 
-            return compact('imported', 'skipped');
+            return compact('imported', 'duplicate', 'skipped');
         });
 
         AuditService::log(action: 'import_bank_mutation', targetType: 'acc_journal', after: $result);
 
-        return redirect()->route('accounting.journals')
-            ->with('status', "{$result['imported']} transaksi diimpor dari mutasi bank.".($result['skipped'] ? " ({$result['skipped']} baris dilewati)" : ''));
+        $msg = "{$result['imported']} transaksi diimpor.";
+        if ($result['duplicate']) {
+            $msg .= " {$result['duplicate']} sudah pernah diimpor (dilewati, tidak dobel).";
+        }
+        if ($result['skipped']) {
+            $msg .= " {$result['skipped']} tanpa COA/diabaikan.";
+        }
+
+        return redirect()->route('accounting.journals')->with('status', $msg);
     }
 }

@@ -47,6 +47,7 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
         <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Tanggal *</label><select id="mapDate" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
         <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Keterangan</label><select id="mapDesc" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
+        <div><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Saldo <span class="text-stone-300 normal-case">(opsional, u/ anti-dobel)</span></label><select id="mapSaldo" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
 
         {{-- mode split --}}
         <div class="mode-split"><label class="block text-[10px] font-semibold uppercase text-stone-400 mb-1">Uang Keluar (debit)</label><select id="mapOut" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"></select></div>
@@ -68,7 +69,7 @@
 
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
         <div class="px-5 py-3 border-b border-stone-100 flex items-center justify-between gap-3 flex-wrap">
-            <h3 class="font-bold text-stone-800 text-sm">Pratinjau — <span id="rowCount">0</span> baris</h3>
+            <h3 class="font-bold text-stone-800 text-sm">Pratinjau — <span id="rowCount">0</span> baris <span id="dupNote" class="text-[11px] font-normal text-stone-500"></span></h3>
             <div class="flex items-end gap-2 flex-wrap">
                 <div>
                     <label class="block text-[10px] font-semibold uppercase text-stone-400">Assign massal (baris kosong)</label>
@@ -203,6 +204,7 @@
         document.getElementById('mapIn').innerHTML = colOptions(names, /kredit|credit|masuk\b/i);
         document.getElementById('mapJumlah').innerHTML = colOptions(names, /jumlah|amount|nominal|mutasi/i);
         document.getElementById('mapTipe').innerHTML = colOptions(names, /tipe|d\/?k|db.?cr/i);
+        document.getElementById('mapSaldo').innerHTML = colOptions(names, /saldo|balance/i);
     }
 
     function onAmtMode() {
@@ -252,8 +254,10 @@
         if (single && (cJum === '' || cTipe === '')) { alert('Mode single: petakan kolom Jumlah + kolom Tipe.'); return; }
         if (!single && cOut === '' && cIn === '') { alert('Petakan minimal salah satu kolom nominal (keluar/masuk).'); return; }
 
+        const cSaldo = document.getElementById('mapSaldo').value;
         const tbody = document.getElementById('importRows');
         tbody.innerHTML = ''; ri = 0;
+        document.getElementById('dupNote').textContent = '';
         let count = 0;
         for (let r = dataStart(); r < RAW.length; r++) {
             const row = RAW[r];
@@ -269,17 +273,18 @@
                 const inn = cIn !== '' ? parseAmt(cell(row, cIn), sep) : 0;
                 if (out > 0) { amount = out; dir = 'keluar'; } else if (inn > 0) { amount = inn; dir = 'masuk'; } else continue;
             }
-            addPreviewRow(date, cDesc !== '' ? cell(row, cDesc) : '', dir, amount);
+            addPreviewRow(date, cDesc !== '' ? cell(row, cDesc) : '', dir, amount, cSaldo !== '' ? cell(row, cSaldo) : '');
             count++;
         }
         document.getElementById('rowCount').textContent = count;
         document.getElementById('bulkCoa').innerHTML = accOptions('');
         document.getElementById('bankAccountHidden').value = document.getElementById('bankAccount').value;
         document.getElementById('importForm').classList.remove('hidden');
-        if (!count) alert('Tidak ada baris valid terbaca. Cek baris header, pemetaan kolom, & format tanggal.');
+        if (!count) { alert('Tidak ada baris valid terbaca. Cek baris header, pemetaan kolom, & format tanggal.'); return; }
+        checkExisting();
     }
 
-    function addPreviewRow(date, desc, dir, amount) {
+    function addPreviewRow(date, desc, dir, amount, saldo) {
         const i = ri++;
         const tr = document.createElement('tr');
         tr.className = 'border-t border-stone-100';
@@ -289,10 +294,44 @@
             <td class="px-4 py-2 text-stone-600">${date}<input type="hidden" name="rows[${i}][date]" value="${date}"></td>
             <td class="text-stone-600 max-w-xs truncate" title="${dEsc}">${desc}<input type="hidden" name="rows[${i}][description]" value="${dEsc}"></td>
             <td>${dirBadge}<input type="hidden" name="rows[${i}][direction]" value="${dir}"></td>
-            <td class="text-right font-semibold text-stone-800">${'Rp ' + amount.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<input type="hidden" name="rows[${i}][amount]" value="${amount}"></td>
+            <td class="text-right font-semibold text-stone-800">${'Rp ' + amount.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<input type="hidden" name="rows[${i}][amount]" value="${amount}"><input type="hidden" name="rows[${i}][saldo]" value="${(saldo || '').replace(/"/g,'&quot;')}"></td>
             <td><select name="rows[${i}][account_id]" class="coa-sel w-52 px-2 py-1.5 border border-stone-300 rounded-lg">${accOptions('')}</select></td>
             <td class="text-center pr-4"><input type="checkbox" name="rows[${i}][ignore]" value="1" class="accent-rose-600"></td>`;
         document.getElementById('importRows').appendChild(tr);
+    }
+
+    // Tandai baris yang SUDAH pernah diimpor (cek ke server) → auto-centang Abaikan.
+    async function checkExisting() {
+        const rows = [...document.querySelectorAll('#importRows tr')];
+        const payload = {
+            bank_account_id: document.getElementById('bankAccount').value,
+            rows: rows.map(tr => ({
+                date: tr.querySelector('[name$="[date]"]').value,
+                amount: tr.querySelector('[name$="[amount]"]').value,
+                direction: tr.querySelector('[name$="[direction]"]').value,
+                saldo: (tr.querySelector('[name$="[saldo]"]') || {}).value || '',
+                description: tr.querySelector('[name$="[description]"]').value,
+            })),
+        };
+        try {
+            const res = await fetch('{{ route('accounting.import.check') }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.CSRF, 'Accept': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const exists = await res.json();
+            let dup = 0;
+            rows.forEach((tr, i) => {
+                if (exists[i]) {
+                    dup++;
+                    tr.querySelector('[type=checkbox]').checked = true;
+                    tr.querySelector('.coa-sel').disabled = true;
+                    tr.classList.add('opacity-50', 'bg-stone-50');
+                    tr.children[2].insertAdjacentHTML('beforeend', ' <span class="px-1.5 py-0.5 rounded bg-stone-200 text-stone-600 text-[9px] font-bold">sudah diimpor</span>');
+                }
+            });
+            document.getElementById('dupNote').textContent = dup ? `· ${dup} baris sudah pernah diimpor (dicentang Abaikan otomatis)` : '';
+        } catch (e) { /* kalau gagal, dedup tetap jalan saat Simpan */ }
     }
 
     function bulkAssign() {

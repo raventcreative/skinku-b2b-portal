@@ -84,6 +84,37 @@ class AccountingImportTest extends TestCase
         $this->assertDatabaseCount('acc_journals', 1); // hanya baris pertama
     }
 
+    public function test_reimport_same_rows_does_not_duplicate(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $rows = [
+            ['date' => '2026-06-15', 'description' => 'Bayar Iklan', 'amount' => 20000, 'direction' => 'keluar', 'account_id' => $this->iklan->id, 'saldo' => '1000000.00'],
+        ];
+        $payload = ['branch_id' => $this->branch->id, 'bank_account_id' => $this->bank->id, 'rows' => $rows];
+
+        $this->actingAs($admin)->post('/accounting/impor', $payload)->assertRedirect();
+        $this->actingAs($admin)->post('/accounting/impor', $payload)->assertRedirect(); // impor ulang
+
+        $this->assertDatabaseCount('acc_journals', 1); // tidak dobel
+    }
+
+    public function test_import_check_flags_already_imported_rows(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->actingAs($admin)->post('/accounting/impor', [
+            'branch_id' => $this->branch->id, 'bank_account_id' => $this->bank->id,
+            'rows' => [['date' => '2026-06-15', 'description' => 'Bayar Iklan', 'amount' => 20000, 'direction' => 'keluar', 'account_id' => $this->iklan->id, 'saldo' => '1000000.00']],
+        ]);
+
+        $this->actingAs($admin)->postJson('/accounting/impor/cek', [
+            'bank_account_id' => $this->bank->id,
+            'rows' => [
+                ['date' => '2026-06-15', 'amount' => 20000, 'direction' => 'keluar', 'saldo' => '1000000.00', 'description' => 'Bayar Iklan'],
+                ['date' => '2026-06-16', 'amount' => 30000, 'direction' => 'masuk', 'saldo' => '2000000.00', 'description' => 'lain'],
+            ],
+        ])->assertOk()->assertExactJson([true, false]);
+    }
+
     public function test_reseller_cannot_import(): void
     {
         $this->actingAs($this->user(User::ROLE_RESELLER))->get('/accounting/impor')->assertForbidden();

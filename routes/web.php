@@ -143,6 +143,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         // Impor Mutasi Bank
         Route::get('/accounting/impor', [AccountingController::class, 'importForm'])->name('accounting.import');
         Route::post('/accounting/impor', [AccountingController::class, 'importStore'])->name('accounting.import.store');
+        Route::post('/accounting/impor/cek', [AccountingController::class, 'importCheck'])->name('accounting.import.check');
 
         // Master COA (Data COA)
         Route::get('/accounting/coa', [AccAccountController::class, 'index'])->name('accounting.accounts');
