@@ -172,7 +172,10 @@ class ProductionTest extends TestCase
     {
         $this->product();
         $this->material('Sabun', 100, 10000);
-        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/productions/create')->assertOk();
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/productions/create')
+            ->assertOk()
+            ->assertSee('JSON.parse(', false)   // JS data rendered raw, not HTML-escaped
+            ->assertDontSee('&quot;id&quot;', false);
     }
 
     public function test_materials_index_renders(): void

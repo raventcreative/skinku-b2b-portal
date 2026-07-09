@@ -96,7 +96,7 @@
 
 @push('scripts')
 <script>
-    const MATERIALS = {{ json_encode($materials->map(fn ($m) => ['id' => $m->id, 'name' => $m->name, 'unit' => $m->unit, 'stock' => (float) $m->stock, 'cost' => (float) $m->avg_cost])) }};
+    const MATERIALS = {{ \Illuminate\Support\Js::from($materials->map(fn ($m) => ['id' => $m->id, 'name' => $m->name, 'unit' => $m->unit, 'stock' => (float) $m->stock, 'cost' => (float) $m->avg_cost])) }};
     let mi = 0, ci = 0;
 
     const rupiah = n => 'Rp ' + (Math.round(n) || 0).toLocaleString('id-ID');

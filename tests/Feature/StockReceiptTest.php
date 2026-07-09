@@ -117,7 +117,10 @@ class StockReceiptTest extends TestCase
     public function test_create_page_renders(): void
     {
         $this->product(stock: 10, cogs: 5000);
-        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/stock-receipts/create')->assertOk();
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/stock-receipts/create')
+            ->assertOk()
+            ->assertSee('JSON.parse(', false)
+            ->assertDontSee('&quot;id&quot;', false);
     }
 
     public function test_reseller_cannot_access_stock_receipts(): void
