@@ -46,6 +46,6 @@ class AccJournal extends Model
 
     public function isBalanced(): bool
     {
-        return round($this->totalDebit(), 2) === round($this->totalCredit(), 2);
+        return abs($this->totalDebit() - $this->totalCredit()) < 0.005;
     }
 }
