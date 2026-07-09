@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccAccountController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AccTemplateController;
 use App\Http\Controllers\AuditLogController;
@@ -138,6 +139,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/accounting/jurnal/baru', [AccountingController::class, 'journalCreate'])->name('accounting.journals.create');
         Route::post('/accounting/jurnal', [AccountingController::class, 'journalStore'])->name('accounting.journals.store');
         Route::post('/accounting/jurnal/{journal}/void', [AccountingController::class, 'journalVoid'])->name('accounting.journals.void');
+
+        // Master COA (Data COA)
+        Route::get('/accounting/coa', [AccAccountController::class, 'index'])->name('accounting.accounts');
+        Route::post('/accounting/coa', [AccAccountController::class, 'store'])->name('accounting.accounts.store');
+        Route::put('/accounting/coa/{account}', [AccAccountController::class, 'update'])->name('accounting.accounts.update');
+        Route::delete('/accounting/coa/{account}', [AccAccountController::class, 'destroy'])->name('accounting.accounts.destroy');
 
         // Template Transaksi (preset jurnal)
         Route::get('/accounting/template', [AccTemplateController::class, 'index'])->name('accounting.templates');
