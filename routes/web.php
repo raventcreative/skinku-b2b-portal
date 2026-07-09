@@ -131,6 +131,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/accounting/laba-rugi', [AccountingController::class, 'incomeStatement'])->name('accounting.income-statement');
         Route::get('/accounting/neraca', [AccountingController::class, 'balanceSheet'])->name('accounting.balance-sheet');
         Route::get('/accounting/neraca-saldo', [AccountingController::class, 'trialBalance'])->name('accounting.trial-balance');
+
+        // Jurnal Umum (input manual)
+        Route::get('/accounting/jurnal', [AccountingController::class, 'journals'])->name('accounting.journals');
+        Route::get('/accounting/jurnal/baru', [AccountingController::class, 'journalCreate'])->name('accounting.journals.create');
+        Route::post('/accounting/jurnal', [AccountingController::class, 'journalStore'])->name('accounting.journals.store');
+        Route::post('/accounting/jurnal/{journal}/void', [AccountingController::class, 'journalVoid'])->name('accounting.journals.void');
     });
 
     /* ---------------- Product management ---------------- */

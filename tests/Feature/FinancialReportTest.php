@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AccAccount;
 use App\Models\AccBranch;
+use App\Models\AccJournal;
 use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\FinancialReportService;
@@ -130,6 +131,46 @@ class FinancialReportTest extends TestCase
     public function test_reseller_cannot_access_accounting(): void
     {
         $this->actingAs($this->user(User::ROLE_RESELLER))->get('/accounting/laba-rugi')->assertForbidden();
+        $this->actingAs($this->user(User::ROLE_RESELLER))->get('/accounting/jurnal')->assertForbidden();
+    }
+
+    public function test_admin_can_post_journal_via_form(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->actingAs($admin)->get('/accounting/jurnal')->assertOk();
+        $this->actingAs($admin)->get('/accounting/jurnal/baru')->assertOk();
+
+        $this->actingAs($admin)->post('/accounting/jurnal', [
+            'branch_id' => $this->branch->id, 'date' => '2026-06-20', 'reference' => 'TEST', 'type' => 'general',
+            'lines' => [
+                ['account_id' => $this->acc['1002']->id, 'debit' => 500000, 'credit' => 0],
+                ['account_id' => $this->acc['4001']->id, 'debit' => 0, 'credit' => 500000],
+            ],
+        ])->assertSessionHasNoErrors()->assertRedirect(route('accounting.journals'));
+
+        $this->assertDatabaseHas('acc_journals', ['reference' => 'TEST', 'status' => 'posted']);
+    }
+
+    public function test_unbalanced_journal_via_form_rejected(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->actingAs($admin)->post('/accounting/jurnal', [
+            'branch_id' => $this->branch->id, 'date' => '2026-06-20',
+            'lines' => [
+                ['account_id' => $this->acc['1002']->id, 'debit' => 500000],
+                ['account_id' => $this->acc['4001']->id, 'credit' => 400000],
+            ],
+        ])->assertSessionHasErrors('lines');
+
+        $this->assertDatabaseCount('acc_journals', 0);
+    }
+
+    public function test_admin_can_void_journal_via_form(): void
+    {
+        $this->seedJune();
+        $j = AccJournal::first();
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post('/accounting/jurnal/'.$j->id.'/void')->assertRedirect();
+        $this->assertEquals('void', $j->fresh()->status);
     }
 
     public function test_pnl_is_period_scoped_not_cumulative(): void

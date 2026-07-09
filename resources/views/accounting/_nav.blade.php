@@ -10,6 +10,7 @@
         'income-statement' => ['Laba Rugi', route('accounting.income-statement')],
         'balance-sheet' => ['Neraca', route('accounting.balance-sheet')],
         'trial-balance' => ['Neraca Saldo', route('accounting.trial-balance')],
+        'journals' => ['Jurnal Umum', route('accounting.journals')],
     ];
 @endphp
 <div class="flex flex-wrap items-center justify-between gap-3 mb-5">

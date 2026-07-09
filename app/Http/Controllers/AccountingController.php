@@ -2,9 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AccountingException;
+use App\Models\AccAccount;
+use App\Models\AccBranch;
 use App\Models\AccJournal;
+use App\Services\AccountingService;
+use App\Services\AuditService;
 use App\Services\FinancialReportService;
 use App\Services\LedgerService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class AccountingController extends Controller
@@ -12,6 +18,7 @@ class AccountingController extends Controller
     public function __construct(
         private FinancialReportService $reports,
         private LedgerService $ledger,
+        private AccountingService $accounting,
     ) {}
 
     /** Distinct periods that have posted journals, newest first (for the dropdown). */
@@ -70,5 +77,82 @@ class AccountingController extends Controller
             'periods' => $this->periods(),
             'tab' => 'trial-balance',
         ]);
+    }
+
+    /* ---------------- Jurnal Umum (input manual) ---------------- */
+
+    public function journals(Request $request)
+    {
+        $period = $request->query('period');
+        $journals = AccJournal::query()
+            ->with('branch')
+            ->withSum('lines as total', 'debit')
+            ->when($period, fn ($q) => $q->where('period', $period))
+            ->orderByDesc('date')->orderByDesc('id')
+            ->paginate(25)->withQueryString();
+
+        return view('accounting.journals', [
+            'journals' => $journals,
+            'period' => $period ?: ($this->periods()[0]),
+            'periods' => $this->periods(),
+            'tab' => 'journals',
+        ]);
+    }
+
+    public function journalCreate()
+    {
+        return view('accounting.journal_form', [
+            'accounts' => AccAccount::active()->orderBy('code')->get(['id', 'code', 'name', 'normal_balance']),
+            'branch' => AccBranch::active()->orderBy('id')->first(),
+        ]);
+    }
+
+    public function journalStore(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'branch_id' => ['required', 'integer', 'exists:acc_branches,id'],
+            'date' => ['required', 'date'],
+            'reference' => ['nullable', 'string', 'max:150'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'type' => ['nullable', 'in:general,sales,purchase,cash_in,cash_out,inventory,adjustment'],
+            'lines' => ['required', 'array', 'min:2'],
+            'lines.*.account_id' => ['nullable', 'integer', 'exists:acc_accounts,id'],
+            'lines.*.debit' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.credit' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.memo' => ['nullable', 'string', 'max:150'],
+        ]);
+
+        $lines = collect($data['lines'])
+            ->filter(fn ($l) => ! empty($l['account_id']) && ((float) ($l['debit'] ?? 0) > 0 || (float) ($l['credit'] ?? 0) > 0))
+            ->map(fn ($l) => [
+                'account_id' => (int) $l['account_id'],
+                'debit' => (float) ($l['debit'] ?? 0),
+                'credit' => (float) ($l['credit'] ?? 0),
+                'memo' => $l['memo'] ?? null,
+            ])->values()->all();
+
+        try {
+            $journal = $this->accounting->record([
+                'branch_id' => $data['branch_id'],
+                'date' => $data['date'],
+                'reference' => $data['reference'] ?? null,
+                'description' => $data['description'] ?? null,
+                'type' => $data['type'] ?? 'general',
+            ], $lines);
+        } catch (AccountingException $e) {
+            return back()->withErrors(['lines' => $e->getMessage()])->withInput();
+        }
+
+        AuditService::log(action: 'create_journal', targetType: 'acc_journal', targetId: $journal->id, after: ['reference' => $journal->reference, 'period' => $journal->period]);
+
+        return redirect()->route('accounting.journals')->with('status', 'Jurnal tercatat & balance.');
+    }
+
+    public function journalVoid(AccJournal $journal): RedirectResponse
+    {
+        $this->accounting->void($journal);
+        AuditService::log(action: 'void_journal', targetType: 'acc_journal', targetId: $journal->id, after: ['reference' => $journal->reference]);
+
+        return back()->with('status', 'Jurnal di-void (tidak lagi dihitung ke saldo).');
     }
 }
