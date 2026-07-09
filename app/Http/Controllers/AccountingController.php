@@ -13,6 +13,7 @@ use App\Services\FinancialReportService;
 use App\Services\LedgerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AccountingController extends Controller
 {
@@ -163,5 +164,75 @@ class AccountingController extends Controller
         AuditService::log(action: 'void_journal', targetType: 'acc_journal', targetId: $journal->id, after: ['reference' => $journal->reference]);
 
         return back()->with('status', 'Jurnal di-void (tidak lagi dihitung ke saldo).');
+    }
+
+    /* ---------------- Impor Mutasi Bank ---------------- */
+
+    public function importForm()
+    {
+        return view('accounting.import', [
+            'bankAccounts' => AccAccount::active()->cashLike()->orderBy('code')->get(['id', 'code', 'name']),
+            'accounts' => AccAccount::active()->orderBy('code')->get(['id', 'code', 'name']),
+            'branch' => AccBranch::active()->orderBy('id')->first(),
+        ]);
+    }
+
+    /**
+     * Terima baris mutasi yang sudah dipetakan + di-assign COA di browser, lalu
+     * buat 1 jurnal per baris terhadap akun bank yang dipilih.
+     *   - uang keluar (bank berkurang) → D akun-lawan / K bank
+     *   - uang masuk  (bank bertambah) → D bank / K akun-lawan
+     */
+    public function importStore(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'branch_id' => ['required', 'integer', 'exists:acc_branches,id'],
+            'bank_account_id' => ['required', 'integer', 'exists:acc_accounts,id'],
+            'rows' => ['required', 'array', 'min:1'],
+            'rows.*.date' => ['nullable', 'date'],
+            'rows.*.description' => ['nullable', 'string', 'max:255'],
+            'rows.*.amount' => ['nullable', 'numeric', 'min:0'],
+            'rows.*.direction' => ['nullable', 'in:masuk,keluar'],
+            'rows.*.account_id' => ['nullable', 'integer', 'exists:acc_accounts,id'],
+            'rows.*.ignore' => ['nullable'],
+        ]);
+
+        $bank = (int) $data['bank_account_id'];
+
+        $result = DB::transaction(function () use ($data, $bank) {
+            $imported = 0;
+            $skipped = 0;
+
+            foreach ($data['rows'] as $r) {
+                $amount = (float) ($r['amount'] ?? 0);
+                if (! empty($r['ignore']) || empty($r['account_id']) || empty($r['date']) || empty($r['direction']) || $amount <= 0) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $acc = (int) $r['account_id'];
+                $lines = $r['direction'] === 'keluar'
+                    ? [['account_id' => $acc, 'debit' => $amount], ['account_id' => $bank, 'credit' => $amount]]
+                    : [['account_id' => $bank, 'debit' => $amount], ['account_id' => $acc, 'credit' => $amount]];
+
+                $this->accounting->record([
+                    'branch_id' => $data['branch_id'],
+                    'date' => $r['date'],
+                    'reference' => mb_substr(trim($r['description'] ?? 'Mutasi bank'), 0, 150),
+                    'description' => $r['description'] ?? null,
+                    'type' => $r['direction'] === 'keluar' ? 'cash_out' : 'cash_in',
+                    'source_type' => 'bank_import',
+                ], $lines);
+                $imported++;
+            }
+
+            return compact('imported', 'skipped');
+        });
+
+        AuditService::log(action: 'import_bank_mutation', targetType: 'acc_journal', after: $result);
+
+        return redirect()->route('accounting.journals')
+            ->with('status', "{$result['imported']} transaksi diimpor dari mutasi bank.".($result['skipped'] ? " ({$result['skipped']} baris dilewati)" : ''));
     }
 }

@@ -10,6 +10,7 @@
 <div class="flex justify-end gap-2 mb-4 flex-wrap">
     <a href="{{ route('accounting.accounts') }}" class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">⚙ Master COA</a>
     <a href="{{ route('accounting.templates') }}" class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">⚙ Template Transaksi</a>
+    <a href="{{ route('accounting.import') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬆ Impor Mutasi Bank</a>
     <a href="{{ route('accounting.journals.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Input Jurnal</a>
 </div>
 

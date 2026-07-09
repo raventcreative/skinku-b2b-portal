@@ -140,6 +140,10 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/accounting/jurnal', [AccountingController::class, 'journalStore'])->name('accounting.journals.store');
         Route::post('/accounting/jurnal/{journal}/void', [AccountingController::class, 'journalVoid'])->name('accounting.journals.void');
 
+        // Impor Mutasi Bank
+        Route::get('/accounting/impor', [AccountingController::class, 'importForm'])->name('accounting.import');
+        Route::post('/accounting/impor', [AccountingController::class, 'importStore'])->name('accounting.import.store');
+
         // Master COA (Data COA)
         Route::get('/accounting/coa', [AccAccountController::class, 'index'])->name('accounting.accounts');
         Route::post('/accounting/coa', [AccAccountController::class, 'store'])->name('accounting.accounts.store');
