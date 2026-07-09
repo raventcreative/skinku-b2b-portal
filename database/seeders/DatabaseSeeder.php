@@ -14,5 +14,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(SuperAdminSeeder::class);
+        // Chart of Account is master/reference data (not demo) — safe & idempotent.
+        $this->call(ChartOfAccountSeeder::class);
     }
 }
