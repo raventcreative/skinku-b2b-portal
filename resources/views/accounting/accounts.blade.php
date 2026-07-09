@@ -23,6 +23,7 @@
             <tr>
                 <th class="text-left px-4 py-3">Kode</th>
                 <th class="text-left">Nama Akun</th>
+                <th class="text-left">Tipe</th>
                 <th class="text-left">Subtipe</th>
                 <th class="text-left">Saldo Normal</th>
                 <th class="text-left">Status</th>
@@ -32,11 +33,12 @@
         <tbody>
             @foreach($typeLabels as $type => $label)
                 @if(($grouped[$type] ?? collect())->isNotEmpty())
-                    <tr class="bg-stone-100/70"><td colspan="6" class="px-4 py-1.5 text-[10px] font-bold text-stone-500 uppercase tracking-wide">{{ $label }}</td></tr>
+                    <tr class="bg-stone-100/70"><td colspan="7" class="px-4 py-1.5 text-[10px] font-bold text-stone-500 uppercase tracking-wide">{{ $label }}</td></tr>
                     @foreach($grouped[$type] as $a)
                         <tr class="border-t border-stone-100 hover:bg-stone-50 {{ $a->is_active ? '' : 'opacity-50' }}">
                             <td class="px-4 py-2 text-stone-500">{{ $a->code }}</td>
                             <td class="font-semibold text-stone-800">{{ $a->name }}</td>
+                            <td><span class="px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[10px] font-semibold">{{ ucfirst(strtolower($label)) }}</span></td>
                             <td class="text-stone-500">{{ $a->subtype ?: '—' }}</td>
                             <td class="text-stone-500">{{ $a->normal_balance === 'debit' ? 'Debit' : 'Kredit' }}</td>
                             <td>@if($a->is_active)<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">Aktif</span>@else<span class="px-2 py-0.5 rounded-full bg-stone-200 text-stone-600 text-[10px] font-bold">Nonaktif</span>@endif</td>
