@@ -99,6 +99,10 @@
                 {!! navItem('reports.index', $u->isPartner() ? 'Laporan Pembelian' : 'Laporan Penjualan', 'reports.index') !!}
             @endif
 
+            @if($u->canDo('view_accounting'))
+                {!! navItem('accounting.index', 'Akuntansi', 'accounting.*') !!}
+            @endif
+
             @if($u->canDo('view_learning'))
                 {!! navItem('learning.index', 'Pembelajaran', 'learning.*') !!}
             @endif

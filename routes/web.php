@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -122,6 +123,14 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::middleware('permission:view_reports')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/chart-data', [ReportController::class, 'chartData'])->name('reports.chart-data');
+    });
+
+    /* ---------------- Accounting (laporan keuangan) ---------------- */
+    Route::middleware('permission:view_accounting')->group(function () {
+        Route::get('/accounting', fn () => redirect()->route('accounting.income-statement'))->name('accounting.index');
+        Route::get('/accounting/laba-rugi', [AccountingController::class, 'incomeStatement'])->name('accounting.income-statement');
+        Route::get('/accounting/neraca', [AccountingController::class, 'balanceSheet'])->name('accounting.balance-sheet');
+        Route::get('/accounting/neraca-saldo', [AccountingController::class, 'trialBalance'])->name('accounting.trial-balance');
     });
 
     /* ---------------- Product management ---------------- */
