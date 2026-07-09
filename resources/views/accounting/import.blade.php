@@ -289,7 +289,7 @@
             <td class="px-4 py-2 text-stone-600">${date}<input type="hidden" name="rows[${i}][date]" value="${date}"></td>
             <td class="text-stone-600 max-w-xs truncate" title="${dEsc}">${desc}<input type="hidden" name="rows[${i}][description]" value="${dEsc}"></td>
             <td>${dirBadge}<input type="hidden" name="rows[${i}][direction]" value="${dir}"></td>
-            <td class="text-right font-semibold text-stone-800">${'Rp ' + Math.round(amount).toLocaleString('id-ID')}<input type="hidden" name="rows[${i}][amount]" value="${amount}"></td>
+            <td class="text-right font-semibold text-stone-800">${'Rp ' + amount.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<input type="hidden" name="rows[${i}][amount]" value="${amount}"></td>
             <td><select name="rows[${i}][account_id]" class="coa-sel w-52 px-2 py-1.5 border border-stone-300 rounded-lg">${accOptions('')}</select></td>
             <td class="text-center pr-4"><input type="checkbox" name="rows[${i}][ignore]" value="1" class="accent-rose-600"></td>`;
         document.getElementById('importRows').appendChild(tr);
