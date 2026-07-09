@@ -9,11 +9,13 @@ use App\Models\StockMovement;
 use App\Support\Costing;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 /**
- * Production (manufacturing) posting. For one batch:
- *   1. consume each raw material (reduce materials.stock; cost = qty * avg_cost),
+ * Production / repacking posting. For one batch:
+ *   1. consume each material (reduce materials.stock — allowed to go negative;
+ *      stock is only for valuation, it does not block a repack). The per-unit
+ *      cost is the price typed on the line, or the material's average cost when
+ *      left blank,
  *   2. add any non-material costs (ongkir, tenaga kerja, ...),
  *   3. hpp_per_unit = (material_cost + other_cost) / output_qty,
  *   4. raise the finished product's hq_stock (+output_qty, IN movement) and
@@ -25,10 +27,8 @@ class ProductionService
 
     /**
      * @param  array{product_id:int, output_qty:int, produced_at:string, notes?:?string}  $header
-     * @param  array<int, array{material_id:int, quantity:float}>  $materialLines
+     * @param  array<int, array{material_id:int, quantity:float, unit_cost?:float|null}>  $materialLines
      * @param  array<int, array{label:string, amount:float}>  $otherCosts
-     *
-     * @throws RuntimeException when a material has insufficient stock.
      */
     public function produce(array $header, array $materialLines, array $otherCosts): Production
     {
@@ -47,17 +47,16 @@ class ProductionService
             ]);
             $production->production_number = 'PRD-'.str_pad((string) $production->id, 5, '0', STR_PAD_LEFT);
 
-            // 1. Consume materials.
+            // 1. Consume materials (repacking: stock may go negative, never blocks).
             $materialCost = 0.0;
             foreach ($materialLines as $line) {
                 $material = Material::lockForUpdate()->findOrFail($line['material_id']);
                 $qty = (float) $line['quantity'];
 
-                if ((float) $material->stock < $qty) {
-                    throw new RuntimeException("Stok bahan \"{$material->name}\" tidak mencukupi (tersedia {$material->stock} {$material->unit}, dibutuhkan {$qty}).");
-                }
-
-                $unitCost = (float) $material->avg_cost;
+                // Typed per-unit price for this batch, or fall back to the average cost.
+                $unitCost = isset($line['unit_cost']) && $line['unit_cost'] !== null && $line['unit_cost'] !== ''
+                    ? round((float) $line['unit_cost'], 2)
+                    : (float) $material->avg_cost;
                 $subtotal = round($qty * $unitCost, 2);
 
                 $material->stock = (float) $material->stock - $qty;

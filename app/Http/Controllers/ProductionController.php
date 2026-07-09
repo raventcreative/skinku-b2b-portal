@@ -47,6 +47,7 @@ class ProductionController extends Controller
             'materials' => ['required', 'array', 'min:1'],
             'materials.*.material_id' => ['nullable', 'integer', 'exists:materials,id'],
             'materials.*.quantity' => ['nullable', 'numeric', 'min:0.001'],
+            'materials.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
             'costs' => ['nullable', 'array'],
             'costs.*.label' => ['nullable', 'string', 'max:100'],
             'costs.*.amount' => ['nullable', 'numeric', 'min:0'],
@@ -54,7 +55,11 @@ class ProductionController extends Controller
 
         $materialLines = collect($data['materials'])
             ->filter(fn ($r) => ! empty($r['material_id']) && ! empty($r['quantity']))
-            ->map(fn ($r) => ['material_id' => (int) $r['material_id'], 'quantity' => (float) $r['quantity']])
+            ->map(fn ($r) => [
+                'material_id' => (int) $r['material_id'],
+                'quantity' => (float) $r['quantity'],
+                'unit_cost' => (isset($r['unit_cost']) && $r['unit_cost'] !== '') ? (float) $r['unit_cost'] : null,
+            ])
             ->values()->all();
 
         if (empty($materialLines)) {

@@ -46,7 +46,7 @@
                 <tr>
                     <th class="text-left px-4 py-3">Bahan</th>
                     <th class="text-right">Stok</th>
-                    <th class="text-right">HPP / unit</th>
+                    <th class="text-right">Harga / unit</th>
                     <th class="text-right">Qty Pakai</th>
                     <th class="text-right">Subtotal</th>
                     <th class="pr-4"></th>
@@ -116,7 +116,7 @@
         tr.innerHTML = `
             <td class="px-4 py-2"><select name="materials[${i}][material_id]" onchange="onMat(${i})" class="w-52 px-2 py-1.5 border border-stone-300 rounded-lg">${matOptions()}</select></td>
             <td class="text-right text-stone-500" data-stock>—</td>
-            <td class="text-right text-stone-500" data-cost>—</td>
+            <td class="text-right"><input type="number" step="0.01" min="0" name="materials[${i}][unit_cost]" oninput="recalc()" placeholder="0" class="w-28 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="text-right"><input type="number" step="0.001" min="0" name="materials[${i}][quantity]" oninput="recalc()" class="w-24 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="text-right font-semibold text-stone-700" data-sub>Rp 0</td>
             <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
@@ -130,7 +130,9 @@
     function onMat(i) {
         const tr = document.querySelector(`tr[data-mat="${i}"]`), m = material(i);
         tr.querySelector('[data-stock]').textContent = m ? fmt(m.stock) + ' ' + m.unit : '—';
-        tr.querySelector('[data-cost]').textContent = m ? rupiah(m.cost) : '—';
+        // Default the HPP/unit to the material's saved cost (still editable per batch).
+        const costInput = tr.querySelector('[name$="[unit_cost]"]');
+        if (m) costInput.value = m.cost;
         recalc();
     }
 
@@ -148,9 +150,9 @@
     function recalc() {
         let mat = 0;
         document.querySelectorAll('#matRows tr').forEach(tr => {
-            const i = tr.dataset.mat, m = material(i);
             const qty = parseFloat(tr.querySelector('[name$="[quantity]"]').value) || 0;
-            const sub = m ? qty * m.cost : 0;
+            const cost = parseFloat(tr.querySelector('[name$="[unit_cost]"]').value) || 0;
+            const sub = qty * cost;
             tr.querySelector('[data-sub]').textContent = rupiah(sub);
             mat += sub;
         });

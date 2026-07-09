@@ -125,8 +125,9 @@ class ProductionTest extends TestCase
         $this->assertEquals(30000, (float) $product->cogs);
     }
 
-    public function test_insufficient_material_blocks_production_over_http(): void
+    public function test_production_allowed_even_if_material_stock_insufficient(): void
     {
+        // Repacking: stock does not block; it may go negative.
         $admin = $this->user(User::ROLE_ADMIN);
         $product = $this->product();
         $mat = $this->material('Langka', 10, 5000);
@@ -136,11 +137,31 @@ class ProductionTest extends TestCase
             'produced_at' => '2026-06-12',
             'output_qty' => 50,
             'materials' => [['material_id' => $mat->id, 'quantity' => 100]],
-        ])->assertSessionHasErrors('materials');
+        ])->assertSessionHasNoErrors()->assertRedirect();
 
-        $this->assertEquals(0, Production::count());
-        $this->assertEquals(10, (float) $mat->refresh()->stock); // unchanged
-        $this->assertEquals(0, $product->refresh()->hq_stock);
+        $this->assertEquals(1, Production::count());
+        $this->assertEquals(-90, (float) $mat->refresh()->stock); // 10 - 100
+        $this->assertEquals(50, $product->refresh()->hq_stock);
+        $this->assertEquals(10000, (float) Production::first()->hpp_per_unit); // 100*5000/50
+    }
+
+    public function test_production_uses_typed_unit_cost_over_average(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $product = $this->product();
+        $mat = $this->material('Sabun', 500, 10000);
+
+        $this->actingAs($admin)->post('/productions', [
+            'product_id' => $product->id,
+            'produced_at' => '2026-06-14',
+            'output_qty' => 100,
+            'materials' => [['material_id' => $mat->id, 'quantity' => 100, 'unit_cost' => 15000]],
+        ])->assertRedirect();
+
+        $prod = Production::first();
+        // typed 15000 used, not avg 10000: 100*15000 = 1.500.000 ; /100 = 15.000
+        $this->assertEquals(1500000, (float) $prod->material_cost);
+        $this->assertEquals(15000, (float) $prod->hpp_per_unit);
     }
 
     public function test_admin_can_post_production_over_http(): void
