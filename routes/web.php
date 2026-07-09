@@ -98,6 +98,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/materials', [MaterialController::class, 'index'])->name('materials.index');
         Route::post('/materials', [MaterialController::class, 'store'])->name('materials.store');
         Route::put('/materials/{material}', [MaterialController::class, 'update'])->name('materials.update');
+        Route::delete('/materials/{material}', [MaterialController::class, 'destroy'])->name('materials.destroy');
         Route::post('/materials/purchase', [MaterialController::class, 'purchase'])->name('materials.purchase');
 
         // Supplier master

@@ -35,9 +35,13 @@
                     <td class="text-right text-stone-700">Rp {{ number_format($m->avg_cost, 0, ',', '.') }}</td>
                     <td class="text-right text-stone-500">Rp {{ number_format($m->stock * $m->avg_cost, 0, ',', '.') }}</td>
                     <td>@if($m->status==='active')<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">Aktif</span>@else<span class="px-2 py-0.5 rounded-full bg-stone-200 text-stone-600 text-[10px] font-bold">Nonaktif</span>@endif</td>
-                    <td class="pr-4 text-right">
+                    <td class="pr-4 text-right whitespace-nowrap">
                         <button class="text-stone-500 hover:text-stone-900 font-semibold"
                             onclick='openMaterial({{ json_encode($m->only(["id","name","unit","status","notes","stock"])) }})'>Edit</button>
+                        <form method="POST" action="{{ route('materials.destroy', $m) }}" class="inline ml-2" onsubmit="return confirm('Hapus bahan baku ini? Riwayat produksi/pembelian yang sudah pakai bahan ini tetap aman.')">
+                            @csrf @method('DELETE')
+                            <button class="text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                        </form>
                     </td>
                 </tr>
             @empty

@@ -92,6 +92,16 @@ class MaterialController extends Controller
         return back()->with('status', "Bahan baku \"{$material->name}\" diperbarui.");
     }
 
+    /** Soft-delete a raw material (history that used it stays intact via snapshots). */
+    public function destroy(Material $material): RedirectResponse
+    {
+        $name = $material->name;
+        $material->delete(); // soft delete
+        AuditService::log(action: 'delete_material', targetType: 'material', targetId: $material->id, after: ['name' => $name]);
+
+        return back()->with('status', "Bahan baku \"{$name}\" dihapus.");
+    }
+
     /** Record a raw-material stock-in (purchase) — updates stock + average cost. */
     public function purchase(Request $request): RedirectResponse
     {

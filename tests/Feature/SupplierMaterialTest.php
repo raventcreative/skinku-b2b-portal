@@ -108,6 +108,20 @@ class SupplierMaterialTest extends TestCase
         $this->assertEquals(100, (float) $m->refresh()->stock); // unchanged
     }
 
+    public function test_admin_can_delete_material(): void
+    {
+        $m = $this->material(100, 10000);
+        $this->actingAs($this->user(User::ROLE_ADMIN))->delete('/materials/'.$m->id)->assertRedirect();
+        $this->assertSoftDeleted('materials', ['id' => $m->id]);
+    }
+
+    public function test_reseller_cannot_delete_material(): void
+    {
+        $m = $this->material(100, 10000);
+        $this->actingAs($this->user(User::ROLE_RESELLER))->delete('/materials/'.$m->id)->assertForbidden();
+        $this->assertDatabaseHas('materials', ['id' => $m->id, 'deleted_at' => null]);
+    }
+
     public function test_editing_material_without_hpp_keeps_existing(): void
     {
         $m = $this->material(100, 9999);
