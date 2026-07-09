@@ -173,6 +173,23 @@ class FinancialReportTest extends TestCase
         $this->assertEquals('void', $j->fresh()->status);
     }
 
+    public function test_admin_can_hard_delete_journal(): void
+    {
+        $this->seedJune();
+        $j = AccJournal::first();
+        $this->actingAs($this->user(User::ROLE_ADMIN))->delete('/accounting/jurnal/'.$j->id)->assertRedirect();
+        $this->assertDatabaseMissing('acc_journals', ['id' => $j->id]);
+        $this->assertDatabaseMissing('acc_journal_lines', ['journal_id' => $j->id]); // baris ikut terhapus
+    }
+
+    public function test_reseller_cannot_delete_journal(): void
+    {
+        $this->seedJune();
+        $j = AccJournal::first();
+        $this->actingAs($this->user(User::ROLE_RESELLER))->delete('/accounting/jurnal/'.$j->id)->assertForbidden();
+        $this->assertDatabaseHas('acc_journals', ['id' => $j->id]);
+    }
+
     public function test_pnl_is_period_scoped_not_cumulative(): void
     {
         $this->seedJune();

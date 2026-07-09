@@ -139,6 +139,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/accounting/jurnal/baru', [AccountingController::class, 'journalCreate'])->name('accounting.journals.create');
         Route::post('/accounting/jurnal', [AccountingController::class, 'journalStore'])->name('accounting.journals.store');
         Route::post('/accounting/jurnal/{journal}/void', [AccountingController::class, 'journalVoid'])->name('accounting.journals.void');
+        Route::delete('/accounting/jurnal/{journal}', [AccountingController::class, 'journalDestroy'])->name('accounting.journals.destroy');
 
         // Impor Mutasi Bank
         Route::get('/accounting/impor', [AccountingController::class, 'importForm'])->name('accounting.import');

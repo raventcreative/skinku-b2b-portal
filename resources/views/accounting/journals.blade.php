@@ -5,7 +5,7 @@
 @section('content')
 @include('accounting._nav')
 
-@php $rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.'); @endphp
+@php $rp = fn ($n) => 'Rp '.number_format($n, 2, ',', '.'); @endphp
 
 <div class="flex justify-end gap-2 mb-4 flex-wrap">
     <a href="{{ route('accounting.accounts') }}" class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">⚙ Master COA</a>
@@ -40,13 +40,17 @@
                         @php $c = ['posted'=>'bg-emerald-100 text-emerald-700','draft'=>'bg-amber-100 text-amber-700','void'=>'bg-stone-200 text-stone-500'][$j->status] ?? 'bg-stone-100'; @endphp
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $c }}">{{ $j->status }}</span>
                     </td>
-                    <td class="text-right pr-4">
+                    <td class="text-right pr-4 whitespace-nowrap">
                         @if($j->status !== 'void')
-                            <form method="POST" action="{{ route('accounting.journals.void', $j) }}" onsubmit="return confirm('Void jurnal ini? Tidak lagi dihitung ke saldo.')">
+                            <form method="POST" action="{{ route('accounting.journals.void', $j) }}" class="inline" onsubmit="return confirm('Void jurnal ini? Tidak lagi dihitung ke saldo.')">
                                 @csrf
-                                <button class="text-rose-600 hover:text-rose-800 font-semibold">Void</button>
+                                <button class="text-amber-600 hover:text-amber-800 font-semibold">Void</button>
                             </form>
-                        @else <span class="text-stone-400">—</span> @endif
+                        @endif
+                        <form method="POST" action="{{ route('accounting.journals.destroy', $j) }}" class="inline ml-2" onsubmit="return confirm('Hapus PERMANEN jurnal ini? Tidak bisa dikembalikan.')">
+                            @csrf @method('DELETE')
+                            <button class="text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                        </form>
                     </td>
                 </tr>
             @empty

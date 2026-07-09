@@ -5,7 +5,7 @@
 @section('content')
 @include('accounting._nav')
 
-@php $rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.'); @endphp
+@php $rp = fn ($n) => 'Rp '.number_format($n, 2, ',', '.'); @endphp
 
 <div class="bg-white rounded-2xl border border-stone-200 max-w-3xl mx-auto overflow-hidden">
     <div class="px-6 py-4 border-b border-stone-100 text-center">

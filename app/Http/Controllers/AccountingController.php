@@ -166,6 +166,16 @@ class AccountingController extends Controller
         return back()->with('status', 'Jurnal di-void (tidak lagi dihitung ke saldo).');
     }
 
+    /** Hapus permanen jurnal + barisnya (untuk bersihkan data test). Irreversible. */
+    public function journalDestroy(AccJournal $journal): RedirectResponse
+    {
+        $ref = $journal->reference;
+        $journal->delete(); // baris ikut terhapus (FK cascadeOnDelete)
+        AuditService::log(action: 'delete_journal', targetType: 'acc_journal', targetId: $journal->id, after: ['reference' => $ref]);
+
+        return back()->with('status', "Jurnal \"{$ref}\" dihapus permanen.");
+    }
+
     /* ---------------- Impor Mutasi Bank ---------------- */
 
     public function importForm()

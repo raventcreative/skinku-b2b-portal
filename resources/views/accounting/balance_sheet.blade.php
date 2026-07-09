@@ -5,7 +5,7 @@
 @section('content')
 @include('accounting._nav')
 
-@php $rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.'); @endphp
+@php $rp = fn ($n) => 'Rp '.number_format($n, 2, ',', '.'); @endphp
 
 <div class="max-w-3xl mx-auto">
     <div class="text-center mb-4">
