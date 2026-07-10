@@ -7,8 +7,7 @@
         }
     }
     $tabs = [
-        'income-statement' => ['Laba Rugi', route('accounting.income-statement')],
-        'balance-sheet' => ['Neraca', route('accounting.balance-sheet')],
+        'report' => ['Laba Rugi & Neraca', route('accounting.report')],
         'trial-balance' => ['Neraca Saldo', route('accounting.trial-balance')],
         'journals' => ['Jurnal Umum', route('accounting.journals')],
     ];

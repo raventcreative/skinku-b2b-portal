@@ -122,7 +122,7 @@ class FinancialReportTest extends TestCase
         $this->seedJune();
         $admin = $this->user(User::ROLE_ADMIN);
 
-        foreach (['/accounting/laba-rugi', '/accounting/neraca', '/accounting/neraca-saldo'] as $url) {
+        foreach (['/accounting/laporan', '/accounting/laba-rugi', '/accounting/neraca', '/accounting/neraca-saldo'] as $url) {
             $this->actingAs($admin)->get($url.'?period=2026-06')->assertOk();
         }
         $this->actingAs($admin)->get('/accounting')->assertRedirect();

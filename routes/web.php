@@ -129,7 +129,8 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     /* ---------------- Accounting (laporan keuangan) ---------------- */
     Route::middleware('permission:view_accounting')->group(function () {
-        Route::get('/accounting', fn () => redirect()->route('accounting.income-statement'))->name('accounting.index');
+        Route::get('/accounting', fn () => redirect()->route('accounting.report'))->name('accounting.index');
+        Route::get('/accounting/laporan', [AccountingController::class, 'report'])->name('accounting.report');
         Route::get('/accounting/laba-rugi', [AccountingController::class, 'incomeStatement'])->name('accounting.income-statement');
         Route::get('/accounting/neraca', [AccountingController::class, 'balanceSheet'])->name('accounting.balance-sheet');
         Route::get('/accounting/neraca-saldo', [AccountingController::class, 'trialBalance'])->name('accounting.trial-balance');

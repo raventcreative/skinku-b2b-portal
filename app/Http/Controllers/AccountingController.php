@@ -47,6 +47,20 @@ class AccountingController extends Controller
         return in_array($period, $periods, true) ? $period : $periods[0];
     }
 
+    /** Laba Rugi + Neraca dalam satu halaman (mode preview). */
+    public function report(Request $request)
+    {
+        $period = $this->resolvePeriod($request);
+
+        return view('accounting.report', [
+            'is' => $this->reports->incomeStatement($period),
+            'bs' => $this->reports->balanceSheet($period),
+            'period' => $period,
+            'periods' => $this->periods(),
+            'tab' => 'report',
+        ]);
+    }
+
     public function incomeStatement(Request $request)
     {
         $period = $this->resolvePeriod($request);
