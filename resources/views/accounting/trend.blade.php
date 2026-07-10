@@ -9,10 +9,12 @@
     $val = fn ($n) => $n < 0 ? '('.number_format(abs($n), 0, ',', '.').')' : number_format($n, 0, ',', '.');
     $cls = fn ($n) => $n < 0 ? 'text-rose-600' : 'text-stone-700';
     $short = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'];
-    // index bulan terakhir yang ada datanya (utk kolom Total baris saldo/neraca)
+    // index bulan terakhir yg ADA TRANSAKSI — deteksi dari ARUS/flow (bukan saldo neraca,
+    // karena neraca carry-forward jadi selalu keisi walau bulan kosong).
     $lastIdx = 0;
     foreach ($rows as $i => $r) {
-        if (abs($r['total_aktiva']) > 0.5 || abs($r['penjualan_bersih']) > 0.5) {
+        if (abs($r['penjualan_bersih']) > 0.5 || abs($r['beban_operasional']) > 0.5
+            || abs($r['net_income']) > 0.5 || abs($r['arus_kas_bersih']) > 0.5) {
             $lastIdx = $i;
         }
     }
