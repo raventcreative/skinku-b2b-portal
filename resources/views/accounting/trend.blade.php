@@ -71,8 +71,19 @@
                         <tr class="border-t border-stone-100 {{ $bold ? 'font-bold' : '' }}">
                             <td class="text-left px-4 py-2 sticky left-0 bg-white {{ $bold ? 'text-stone-900' : 'text-stone-700' }}">{{ $label }}</td>
                             @foreach($rows as $i => $r)
-                                {{-- bulan setelah bulan terakhir berdata = kosong ("·"), termasuk baris saldo/neraca --}}
-                                <td class="text-right px-2 {{ $cls($r[$key]) }}">{{ $i > $lastIdx || abs($r[$key]) < 0.5 ? '·' : $val($r[$key]) }}</td>
+                                @php
+                                    // bulan setelah bulan terakhir berdata = kosong ("·")
+                                    $blank = $i > $lastIdx || abs($r[$key]) < 0.5;
+                                    $prev = $i > 0 ? $rows[$i - 1][$key] : null;
+                                    // % MoM vs bulan sebelumnya (kalau dua-duanya ada isi)
+                                    $mom = (! $blank && $prev !== null && abs($prev) > 0.5) ? (($r[$key] - $prev) / abs($prev)) * 100 : null;
+                                @endphp
+                                <td class="text-right px-2 align-top">
+                                    <div class="{{ $cls($r[$key]) }}">{{ $blank ? '·' : $val($r[$key]) }}</div>
+                                    @if($mom !== null)
+                                        <div class="text-[9px] leading-tight {{ $mom >= 0 ? 'text-emerald-600' : 'text-rose-500' }}">{{ sprintf('%+.0f%%', $mom) }}</div>
+                                    @endif
+                                </td>
                             @endforeach
                             <td class="text-right px-4 bg-stone-50 {{ $cls($total) }}">{{ $val($total) }}</td>
                         </tr>
@@ -82,5 +93,5 @@
         </table>
     </div>
 </div>
-<p class="text-[11px] text-stone-400 mt-3">Angka dibulatkan ke rupiah. Bulan tanpa data ditandai "·". Geser tabel ke kanan untuk semua bulan + Total. <b>Kolom Total</b>: baris Laba Rugi & Arus Kas = jumlah setahun; baris <b>Neraca &amp; Kas Akhir = saldo akhir tahun</b> (kumulatif, bukan dijumlah).</p>
+<p class="text-[11px] text-stone-400 mt-3">Angka dibulatkan ke rupiah. <b>% kecil di bawah angka = perubahan vs bulan sebelumnya</b> (hijau naik / merah turun). Bulan tanpa data ditandai "·". Geser tabel ke kanan untuk semua bulan + Total. <b>Kolom Total</b>: baris Laba Rugi & Arus Kas = jumlah setahun; baris <b>Neraca &amp; Kas Akhir = saldo akhir tahun</b> (kumulatif, bukan dijumlah).</p>
 @endsection
