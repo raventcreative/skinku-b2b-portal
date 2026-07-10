@@ -61,6 +61,11 @@
         </div>
         <div class="flex items-end"><button type="button" onclick="parseSheet()" class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">Proses Sheet →</button></div>
     </div>
+    <div class="mt-4 pt-4 border-t border-stone-100 flex items-center gap-3 flex-wrap">
+        <button type="button" onclick="parseAllSheets()" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">⚡ Proses semua sheet jurnal sekaligus →</button>
+        <span class="text-[11px] text-stone-500">Baca 4 sheet jurnal (Penerimaan, Pengeluaran, Persediaan&gt;HPP, Umum) langsung. <b>Saldo Awal tidak ikut</b> (impor sekali terpisah).</span>
+    </div>
+    <p id="batchInfo" class="mt-2 text-[11px] text-stone-500"></p>
 </div>
 
 {{-- STEP 3: mapping akun --}}
@@ -158,15 +163,19 @@
         };
         rd.readAsArrayBuffer(f);
     }
+    // Tebak tipe dari nama sheet. Return null kalau sheet bukan jurnal yg didukung.
+    function guessType(name) {
+        const n = String(name).toLowerCase();
+        if (/pengeluaran/.test(n)) return 'pengeluaran';
+        if (/penerimaan/.test(n)) return 'penerimaan';
+        if (/persediaan|hpp/.test(n)) return 'persediaan';
+        if (/kode akun/.test(n)) return 'saldoawal';
+        if (/umum|penyesuaian/.test(n)) return 'umum';
+        return null;
+    }
+    const PARSERS = { umum: pUmum, persediaan: pPersediaan, pengeluaran: pPengeluaran, penerimaan: pPenerimaan, saldoawal: pSaldoAwal };
     function onSheetChange() {
-        const name = document.getElementById('sheetSel').value.toLowerCase();
-        let t = 'umum';
-        if (/pengeluaran/.test(name)) t = 'pengeluaran';
-        else if (/penerimaan/.test(name)) t = 'penerimaan';
-        else if (/persediaan|hpp/.test(name)) t = 'persediaan';
-        else if (/kode akun/.test(name)) t = 'saldoawal';
-        else if (/umum|penyesuaian/.test(name)) t = 'umum';
-        document.getElementById('typeSel').value = t;
+        document.getElementById('typeSel').value = guessType(document.getElementById('sheetSel').value) || 'umum';
     }
 
     function sheetToRows(name) {
@@ -186,19 +195,36 @@
     }
 
     // ---- parsers: hasilkan JOURNALS [{date,desc,type,lines:[{key,side,amount}]}] ----
-    function parseSheet() {
-        const name = document.getElementById('sheetSel').value;
-        const type = document.getElementById('typeSel').value;
-        SHEETROWS = sheetToRows(name);
-        const h = findHeader(SHEETROWS);
-        JOURNALS = ({ umum: pUmum, persediaan: pPersediaan, pengeluaran: pPengeluaran, penerimaan: pPenerimaan, saldoawal: pSaldoAwal })[type](SHEETROWS, h, type);
-        // kumpulkan kunci unik
+    function finishParse() { // dari JOURNALS → mapping UI
         const set = new Set();
         JOURNALS.forEach(j => j.lines.forEach(l => set.add(l.key)));
         KEYS = [...set];
         renderMapping();
         document.getElementById('mapCard').classList.remove('hidden');
         document.getElementById('previewCard').classList.add('hidden');
+    }
+    function parseSheet() {
+        const name = document.getElementById('sheetSel').value;
+        const type = document.getElementById('typeSel').value;
+        const rows = sheetToRows(name);
+        JOURNALS = PARSERS[type](rows, findHeader(rows), type);
+        document.getElementById('batchInfo').textContent = `Sheet "${name}" → ${JOURNALS.length} jurnal.`;
+        finishParse();
+    }
+    // Baca SEMUA sheet jurnal (bukan Saldo Awal) sekaligus.
+    function parseAllSheets() {
+        JOURNALS = []; const included = [], skipped = [];
+        WB.SheetNames.forEach(name => {
+            const t = guessType(name);
+            if (!t || t === 'saldoawal') { skipped.push(name); return; }
+            const rows = sheetToRows(name);
+            const js = PARSERS[t](rows, findHeader(rows), t);
+            JOURNALS.push(...js);
+            included.push(`${name} (${js.length})`);
+        });
+        if (! JOURNALS.length) { alert('Tidak ada sheet jurnal yg terbaca. Pastikan nama sheet mengandung Penerimaan/Pengeluaran/Persediaan/Umum.'); return; }
+        document.getElementById('batchInfo').innerHTML = `✅ Diproses: <b>${included.join(', ')}</b>` + (skipped.length ? `<br>Dilewati (bukan jurnal / Saldo Awal terpisah): ${skipped.join(', ')}` : '');
+        finishParse();
     }
 
     function pUmum(rows, h, type) {
