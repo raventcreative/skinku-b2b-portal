@@ -7,6 +7,7 @@ use App\Models\AccBranch;
 use App\Models\AccJournal;
 use App\Models\User;
 use App\Services\AccountingService;
+use App\Services\CashFlowService;
 use App\Services\FinancialReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -122,7 +123,7 @@ class FinancialReportTest extends TestCase
         $this->seedJune();
         $admin = $this->user(User::ROLE_ADMIN);
 
-        foreach (['/accounting/laporan', '/accounting/laba-rugi', '/accounting/neraca', '/accounting/neraca-saldo'] as $url) {
+        foreach (['/accounting/laporan', '/accounting/laba-rugi', '/accounting/neraca', '/accounting/arus-kas', '/accounting/neraca-saldo'] as $url) {
             $this->actingAs($admin)->get($url.'?period=2026-06')->assertOk();
         }
         $this->actingAs($admin)->get('/accounting')->assertRedirect();
@@ -324,6 +325,34 @@ class FinancialReportTest extends TestCase
         // impor ulang saldo awal periode sama → ganti, bukan dobel
         $this->actingAs($admin)->postJson('/accounting/impor-excel', $opening(120_000))->assertOk();
         $this->assertEquals(1, AccJournal::where('source_type', 'opening_balance')->count());
+    }
+
+    public function test_cash_flow_direct_classifies_and_reconciles(): void
+    {
+        $a = fn ($code) => $this->acc[$code]->id;
+        $svc = app(AccountingService::class);
+        // Saldo awal: kas 100jt (opening_balance → jadi kas awal, bukan arus)
+        $svc->record(['branch_id' => $this->branch->id, 'date' => '2026-06-01', 'source_type' => 'opening_balance'], [
+            ['account_id' => $a('1002'), 'debit' => 100_000_000],
+            ['account_id' => $a('3001'), 'credit' => 100_000_000],
+        ]);
+        $this->je('2026-06-10', $a('1002'), $a('4001'), 50_000_000); // jual tunai → operasi +50
+        $this->je('2026-06-15', $a('6001'), $a('1002'), 20_000_000); // bayar iklan → operasi -20
+        $this->je('2026-06-20', $a('1002'), $a('2101'), 30_000_000); // terima pinjaman → pendanaan +30
+
+        $cf = app(CashFlowService::class)->directCashFlow('2026-06');
+
+        $this->assertEqualsWithDelta(30_000_000, $cf['totals']['operating'], 0.01);
+        $this->assertEqualsWithDelta(30_000_000, $cf['totals']['financing'], 0.01);
+        $this->assertEqualsWithDelta(0, $cf['totals']['investing'], 0.01);
+        $this->assertEqualsWithDelta(60_000_000, $cf['net'], 0.01);
+        $this->assertEqualsWithDelta(100_000_000, $cf['kas_awal'], 0.01); // dari saldo awal
+        $this->assertEqualsWithDelta(160_000_000, $cf['kas_akhir'], 0.01);
+        $this->assertTrue($cf['reconciled']);
+        // Modal (saldo awal) TIDAK muncul sebagai arus pendanaan
+        $codes = array_column($cf['sections']['financing'], 'code');
+        $this->assertNotContains('3001', $codes);
+        $this->assertContains('2101', $codes); // Hutang Bank = pendanaan
     }
 
     public function test_pnl_is_period_scoped_not_cumulative(): void

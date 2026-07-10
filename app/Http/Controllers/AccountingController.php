@@ -10,6 +10,7 @@ use App\Models\AccJournalLine;
 use App\Models\AccTemplate;
 use App\Services\AccountingService;
 use App\Services\AuditService;
+use App\Services\CashFlowService;
 use App\Services\FinancialReportService;
 use App\Services\LedgerService;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +24,7 @@ class AccountingController extends Controller
         private FinancialReportService $reports,
         private LedgerService $ledger,
         private AccountingService $accounting,
+        private CashFlowService $cashFlow,
     ) {}
 
     /** Distinct periods that have posted journals, newest first (for the dropdown). */
@@ -82,6 +84,18 @@ class AccountingController extends Controller
             'period' => $period,
             'periods' => $this->periods(),
             'tab' => 'balance-sheet',
+        ]);
+    }
+
+    public function cashFlow(Request $request)
+    {
+        $period = $this->resolvePeriod($request);
+
+        return view('accounting.cash_flow', [
+            'report' => $this->cashFlow->directCashFlow($period),
+            'period' => $period,
+            'periods' => $this->periods(),
+            'tab' => 'cash-flow',
         ]);
     }
 
