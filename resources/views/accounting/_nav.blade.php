@@ -7,8 +7,7 @@
         }
     }
     $tabs = [
-        'report' => ['Laba Rugi & Neraca', route('accounting.report')],
-        'cash-flow' => ['Arus Kas', route('accounting.cash-flow')],
+        'report' => ['Laporan Keuangan', route('accounting.report')],
         'trial-balance' => ['Neraca Saldo', route('accounting.trial-balance')],
         'journals' => ['Jurnal Umum', route('accounting.journals')],
     ];

@@ -57,6 +57,7 @@ class AccountingController extends Controller
         return view('accounting.report', [
             'is' => $this->reports->incomeStatement($period),
             'bs' => $this->reports->balanceSheet($period),
+            'cf' => $this->cashFlow->directCashFlow($period),
             'period' => $period,
             'periods' => $this->periods(),
             'tab' => 'report',
