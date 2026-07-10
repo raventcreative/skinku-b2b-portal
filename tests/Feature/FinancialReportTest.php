@@ -190,6 +190,50 @@ class FinancialReportTest extends TestCase
         $this->assertDatabaseHas('acc_journals', ['id' => $j->id]);
     }
 
+    public function test_excel_import_creates_journals_and_dedups(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->actingAs($admin)->get('/accounting/impor-excel')->assertOk();
+
+        $payload = [
+            'branch_id' => $this->branch->id,
+            'source_label' => 'Jurnal Penerimaan',
+            'journals' => [
+                [
+                    'date' => '2026-06-05', 'reference' => 'Setoran tunai', 'type' => 'cash_in',
+                    'lines' => [
+                        ['account_id' => $this->acc['1002']->id, 'debit' => 5_000_000, 'credit' => 0],
+                        ['account_id' => $this->acc['4001']->id, 'debit' => 0, 'credit' => 5_000_000],
+                    ],
+                ],
+                [ // tidak balance → dilewati
+                    'date' => '2026-06-06', 'reference' => 'Rusak', 'type' => 'general',
+                    'lines' => [
+                        ['account_id' => $this->acc['1002']->id, 'debit' => 1_000_000, 'credit' => 0],
+                        ['account_id' => $this->acc['4001']->id, 'debit' => 0, 'credit' => 900_000],
+                    ],
+                ],
+            ],
+        ];
+
+        $res = $this->actingAs($admin)->postJson('/accounting/impor-excel', $payload);
+        $res->assertOk()->assertJson(['ok' => true, 'imported' => 1, 'duplicate' => 0, 'error' => 1]);
+        $this->assertDatabaseHas('acc_journals', ['reference' => 'Setoran tunai', 'source_type' => 'excel_import']);
+        $this->assertDatabaseCount('acc_journals', 1);
+
+        // impor ulang payload yang sama → jurnal balance jadi duplikat (idempoten)
+        $res2 = $this->actingAs($admin)->postJson('/accounting/impor-excel', $payload);
+        $res2->assertOk()->assertJson(['imported' => 0, 'duplicate' => 1, 'error' => 1]);
+        $this->assertDatabaseCount('acc_journals', 1);
+    }
+
+    public function test_reseller_cannot_import_excel(): void
+    {
+        $this->actingAs($this->user(User::ROLE_RESELLER))
+            ->postJson('/accounting/impor-excel', ['branch_id' => $this->branch->id, 'journals' => []])
+            ->assertForbidden();
+    }
+
     public function test_pnl_is_period_scoped_not_cumulative(): void
     {
         $this->seedJune();

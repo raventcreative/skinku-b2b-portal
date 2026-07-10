@@ -146,6 +146,10 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/accounting/impor', [AccountingController::class, 'importStore'])->name('accounting.import.store');
         Route::post('/accounting/impor/cek', [AccountingController::class, 'importCheck'])->name('accounting.import.check');
 
+        // Impor Jurnal dari Excel (.xlsx)
+        Route::get('/accounting/impor-excel', [AccountingController::class, 'excelImportForm'])->name('accounting.excel-import');
+        Route::post('/accounting/impor-excel', [AccountingController::class, 'excelImportStore'])->name('accounting.excel-import.store');
+
         // Master COA (Data COA)
         Route::get('/accounting/coa', [AccAccountController::class, 'index'])->name('accounting.accounts');
         Route::post('/accounting/coa', [AccAccountController::class, 'store'])->name('accounting.accounts.store');

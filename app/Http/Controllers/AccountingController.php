@@ -11,6 +11,7 @@ use App\Services\AccountingService;
 use App\Services\AuditService;
 use App\Services\FinancialReportService;
 use App\Services\LedgerService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -164,6 +165,106 @@ class AccountingController extends Controller
         AuditService::log(action: 'void_journal', targetType: 'acc_journal', targetId: $journal->id, after: ['reference' => $journal->reference]);
 
         return back()->with('status', 'Jurnal di-void (tidak lagi dihitung ke saldo).');
+    }
+
+    /* ---------------- Impor Jurnal dari Excel ---------------- */
+
+    public function excelImportForm()
+    {
+        return view('accounting.excel_import', [
+            'accounts' => AccAccount::active()->orderBy('code')->get(['id', 'code', 'name', 'legacy_code', 'type', 'subtype']),
+            'branch' => AccBranch::active()->orderBy('id')->first(),
+        ]);
+    }
+
+    /** Sidik jari jurnal (dari tanggal + baris) untuk cegah impor dobel. */
+    private function journalHash(int $branchId, string $date, string $reference, array $lines): string
+    {
+        $sig = collect($lines)
+            ->map(fn ($l) => (int) $l['account_id'].':'.number_format((float) ($l['debit'] ?? 0), 2, '.', '').':'.number_format((float) ($l['credit'] ?? 0), 2, '.', ''))
+            ->sort()->implode('|');
+
+        return sha1($branchId.'|'.$date.'|'.trim($reference).'|'.$sig);
+    }
+
+    /**
+     * Terima array JURNAL hasil parsing sheet Excel di browser (tiap jurnal sudah
+     * balance debit=kredit dengan account_id app). Buat jurnal + dedup + tandai
+     * source 'excel_import'.
+     */
+    public function excelImportStore(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'branch_id' => ['required', 'integer', 'exists:acc_branches,id'],
+            'source_label' => ['nullable', 'string', 'max:100'],
+            'journals' => ['required', 'array', 'min:1'],
+            'journals.*.date' => ['required', 'date'],
+            'journals.*.reference' => ['nullable', 'string', 'max:150'],
+            'journals.*.description' => ['nullable', 'string', 'max:255'],
+            'journals.*.type' => ['nullable', 'in:general,sales,purchase,cash_in,cash_out,inventory,adjustment'],
+            'journals.*.lines' => ['required', 'array', 'min:2'],
+            'journals.*.lines.*.account_id' => ['required', 'integer', 'exists:acc_accounts,id'],
+            'journals.*.lines.*.debit' => ['nullable', 'numeric', 'min:0'],
+            'journals.*.lines.*.credit' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $branch = (int) $data['branch_id'];
+        $imported = 0;
+        $duplicate = 0;
+        $error = 0;
+
+        foreach ($data['journals'] as $j) {
+            $date = $j['date'];
+            $reference = mb_substr(trim($j['reference'] ?? ($data['source_label'] ?? 'Impor Excel')), 0, 150);
+            $lines = array_map(fn ($l) => [
+                'account_id' => (int) $l['account_id'],
+                'debit' => (float) ($l['debit'] ?? 0),
+                'credit' => (float) ($l['credit'] ?? 0),
+            ], $j['lines']);
+
+            $hash = $this->journalHash($branch, $date, $reference, $lines);
+            if (AccJournal::where('import_hash', $hash)->where('status', '!=', AccJournal::STATUS_VOID)->exists()) {
+                $duplicate++;
+
+                continue;
+            }
+
+            try {
+                $journal = $this->accounting->record([
+                    'branch_id' => $branch,
+                    'date' => $date,
+                    'reference' => $reference,
+                    'description' => $j['description'] ?? null,
+                    'type' => $j['type'] ?? 'general',
+                    'source_type' => 'excel_import',
+                ], $lines);
+                $journal->import_hash = $hash;
+                $journal->save();
+                $imported++;
+            } catch (AccountingException) {
+                $error++; // jurnal tidak balance → dilewati
+            }
+        }
+
+        AuditService::log(action: 'import_excel_journal', targetType: 'acc_journal', after: compact('imported', 'duplicate', 'error'));
+
+        $msg = "{$imported} jurnal diimpor dari Excel.";
+        if ($duplicate) {
+            $msg .= " {$duplicate} sudah pernah diimpor (dilewati).";
+        }
+        if ($error) {
+            $msg .= " {$error} tidak balance (dilewati).";
+        }
+
+        session()->flash('status', $msg);
+
+        return response()->json([
+            'ok' => true,
+            'imported' => $imported,
+            'duplicate' => $duplicate,
+            'error' => $error,
+            'redirect' => route('accounting.journals'),
+        ]);
     }
 
     /** Hapus permanen jurnal + barisnya (untuk bersihkan data test). Irreversible. */
