@@ -134,6 +134,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/accounting/laba-rugi', [AccountingController::class, 'incomeStatement'])->name('accounting.income-statement');
         Route::get('/accounting/neraca', [AccountingController::class, 'balanceSheet'])->name('accounting.balance-sheet');
         Route::get('/accounting/arus-kas', [AccountingController::class, 'cashFlow'])->name('accounting.cash-flow');
+        Route::get('/accounting/banding', [AccountingController::class, 'comparison'])->name('accounting.comparison');
+        Route::get('/accounting/tren', [AccountingController::class, 'trend'])->name('accounting.trend');
         Route::get('/accounting/neraca-saldo', [AccountingController::class, 'trialBalance'])->name('accounting.trial-balance');
 
         // Jurnal Umum (input manual)

@@ -11,6 +11,7 @@ use App\Models\AccTemplate;
 use App\Services\AccountingService;
 use App\Services\AuditService;
 use App\Services\CashFlowService;
+use App\Services\ComparativeReportService;
 use App\Services\FinancialReportService;
 use App\Services\LedgerService;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +26,49 @@ class AccountingController extends Controller
         private LedgerService $ledger,
         private AccountingService $accounting,
         private CashFlowService $cashFlow,
+        private ComparativeReportService $comparative,
     ) {}
+
+    /** Daftar tahun yang punya jurnal (dari periods bulanan). */
+    private function years(): array
+    {
+        return array_values(array_unique(array_map(fn ($p) => substr($p, 0, 4), $this->periods())));
+    }
+
+    /** Perbandingan 2 periode (bulan/tahun) berdampingan + selisih%. */
+    public function comparison(Request $request)
+    {
+        $periods = $this->periods();
+        $default = $periods[0] ?? now()->format('Y-m');
+        $a = $request->query('a') ?: $default;
+        $b = $request->query('b') ?: ($periods[1] ?? $default);
+
+        return view('accounting.comparison', [
+            'A' => $this->comparative->summary($a),
+            'B' => $this->comparative->summary($b),
+            'specA' => $a, 'specB' => $b,
+            'months' => $periods, 'years' => $this->years(),
+            'period' => $default, 'periods' => $periods,
+            'tab' => 'comparison',
+        ]);
+    }
+
+    /** Tren Laba Rugi per bulan dalam satu tahun. */
+    public function trend(Request $request)
+    {
+        $years = $this->years();
+        $year = $request->query('year');
+        if (! in_array($year, $years, true)) {
+            $year = $years[0] ?? now()->format('Y');
+        }
+
+        return view('accounting.trend', [
+            'rows' => $this->comparative->monthlyIncome($year),
+            'year' => $year, 'years' => $years,
+            'period' => $this->periods()[0] ?? now()->format('Y-m'), 'periods' => $this->periods(),
+            'tab' => 'trend',
+        ]);
+    }
 
     /** Distinct periods that have posted journals, newest first (for the dropdown). */
     private function periods(): array

@@ -8,6 +8,7 @@ use App\Models\AccJournal;
 use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\CashFlowService;
+use App\Services\ComparativeReportService;
 use App\Services\FinancialReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -126,6 +127,8 @@ class FinancialReportTest extends TestCase
         foreach (['/accounting/laporan', '/accounting/laba-rugi', '/accounting/neraca', '/accounting/arus-kas', '/accounting/neraca-saldo'] as $url) {
             $this->actingAs($admin)->get($url.'?period=2026-06')->assertOk();
         }
+        $this->actingAs($admin)->get('/accounting/banding?a=2026-06&b=2026-05')->assertOk();
+        $this->actingAs($admin)->get('/accounting/tren?year=2026')->assertOk();
         $this->actingAs($admin)->get('/accounting')->assertRedirect();
     }
 
@@ -353,6 +356,28 @@ class FinancialReportTest extends TestCase
         $codes = array_column($cf['sections']['financing'], 'code');
         $this->assertNotContains('3001', $codes);
         $this->assertContains('2101', $codes); // Hutang Bank = pendanaan
+    }
+
+    public function test_comparative_summary_aggregates_year_and_month(): void
+    {
+        $a = fn ($code) => $this->acc[$code]->id;
+        // dua bulan berbeda di 2026
+        $this->je('2026-06-10', $a('1002'), $a('4001'), 100_000_000);
+        $this->je('2026-07-10', $a('1002'), $a('4001'), 40_000_000);
+
+        $svc = app(ComparativeReportService::class);
+        // setahun 2026 = jumlah semua bulan
+        $year = $svc->summary('2026');
+        $this->assertEqualsWithDelta(140_000_000, $year['is']['penjualan_bersih'], 0.01);
+        // satu bulan
+        $jun = $svc->summary('2026-06');
+        $this->assertEqualsWithDelta(100_000_000, $jun['is']['penjualan_bersih'], 0.01);
+
+        // tren: 12 baris, Juni & Juli terisi
+        $rows = $svc->monthlyIncome('2026');
+        $this->assertCount(12, $rows);
+        $this->assertEqualsWithDelta(100_000_000, $rows[5]['penjualan_bersih'], 0.01); // Juni (index 5)
+        $this->assertEqualsWithDelta(40_000_000, $rows[6]['penjualan_bersih'], 0.01);  // Juli
     }
 
     public function test_pnl_is_period_scoped_not_cumulative(): void
