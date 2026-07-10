@@ -212,6 +212,7 @@ class AccountingController extends Controller
         $data = $request->validate([
             'branch_id' => ['required', 'integer', 'exists:acc_branches,id'],
             'source_label' => ['nullable', 'string', 'max:100'],
+            'is_opening' => ['nullable', 'boolean'],
             'journals' => ['required', 'array', 'min:1'],
             'journals.*.date' => ['required', 'date'],
             'journals.*.reference' => ['nullable', 'string', 'max:150'],
@@ -224,6 +225,18 @@ class AccountingController extends Controller
         ]);
 
         $branch = (int) $data['branch_id'];
+        // Saldo Awal ditandai source berbeda supaya TIDAK ikut terhapus saat "Hapus
+        // impor Excel" (yang hanya menyasar 'excel_import'). Impor ulang saldo awal
+        // periode yg sama = ganti (bukan dobel).
+        $isOpening = (bool) ($data['is_opening'] ?? false);
+        $sourceType = $isOpening ? 'opening_balance' : 'excel_import';
+        if ($isOpening) {
+            $periods = collect($data['journals'])->pluck('date')->map(fn ($d) => substr((string) $d, 0, 7))->unique();
+            $oldIds = AccJournal::where('source_type', 'opening_balance')->whereIn('period', $periods)->pluck('id');
+            AccJournalLine::whereIn('journal_id', $oldIds)->delete();
+            AccJournal::whereIn('id', $oldIds)->delete();
+        }
+
         $imported = 0;
         $duplicate = 0;
         $error = 0;
@@ -258,7 +271,7 @@ class AccountingController extends Controller
                     'reference' => $reference,
                     'description' => $j['description'] ?? null,
                     'type' => $j['type'] ?? 'general',
-                    'source_type' => 'excel_import',
+                    'source_type' => $sourceType,
                 ], $lines);
                 $journal->import_hash = $hash;
                 $journal->save();

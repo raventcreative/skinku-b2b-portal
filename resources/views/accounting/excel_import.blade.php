@@ -359,6 +359,7 @@
         const tb = document.getElementById('prevRows');
         let ok = 0, unmapped = 0, unbal = 0;
         window.FINAL = [];
+        window.IS_OPENING = JOURNALS.some(j => j.saldoAwal); // saldo awal disimpan terpisah
         const rowsHtml = [];
         JOURNALS.forEach(j => {
             let lines;
@@ -411,7 +412,7 @@
             const res = await fetch('{{ route('accounting.excel-import.store') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.CSRF, 'Accept': 'application/json' },
-                body: JSON.stringify({ branch_id: BRANCH_ID, source_label: document.getElementById('sheetSel').value, journals: window.FINAL }),
+                body: JSON.stringify({ branch_id: BRANCH_ID, source_label: document.getElementById('sheetSel').value, is_opening: !!window.IS_OPENING, journals: window.FINAL }),
             });
             if (res.ok) { const d = await res.json(); window.location = d.redirect; }
             else { const e = await res.json().catch(() => ({})); alert('Gagal: ' + (e.message || res.status)); btn.disabled = false; btn.textContent = 'Simpan ke Jurnal'; }

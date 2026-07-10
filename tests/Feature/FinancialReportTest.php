@@ -286,6 +286,46 @@ class FinancialReportTest extends TestCase
             ->post('/accounting/impor-excel/hapus', ['period' => '2026-06'])->assertForbidden();
     }
 
+    public function test_opening_balance_survives_purge_and_replaces_on_reimport(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $opening = fn (float $modal) => [
+            'branch_id' => $this->branch->id,
+            'is_opening' => true,
+            'journals' => [[
+                'date' => '2026-06-01', 'reference' => 'Saldo Awal', 'type' => 'general',
+                'lines' => [
+                    ['account_id' => $this->acc['1002']->id, 'debit' => $modal, 'credit' => 0],
+                    ['account_id' => $this->acc['3001']->id, 'debit' => 0, 'credit' => $modal],
+                ],
+            ]],
+        ];
+        // impor saldo awal → source_type opening_balance
+        $this->actingAs($admin)->postJson('/accounting/impor-excel', $opening(100_000))->assertOk();
+        $this->assertDatabaseHas('acc_journals', ['source_type' => 'opening_balance']);
+
+        // impor jurnal biasa
+        $this->actingAs($admin)->postJson('/accounting/impor-excel', [
+            'branch_id' => $this->branch->id,
+            'journals' => [[
+                'date' => '2026-06-10', 'reference' => 'Jual', 'type' => 'cash_in',
+                'lines' => [
+                    ['account_id' => $this->acc['1002']->id, 'debit' => 5000, 'credit' => 0],
+                    ['account_id' => $this->acc['4001']->id, 'debit' => 0, 'credit' => 5000],
+                ],
+            ]],
+        ])->assertOk();
+
+        // Hapus impor Excel → saldo awal HARUS tetap ada
+        $this->actingAs($admin)->post('/accounting/impor-excel/hapus', ['period' => '2026-06'])->assertRedirect();
+        $this->assertDatabaseMissing('acc_journals', ['source_type' => 'excel_import']);
+        $this->assertDatabaseHas('acc_journals', ['source_type' => 'opening_balance']);
+
+        // impor ulang saldo awal periode sama → ganti, bukan dobel
+        $this->actingAs($admin)->postJson('/accounting/impor-excel', $opening(120_000))->assertOk();
+        $this->assertEquals(1, AccJournal::where('source_type', 'opening_balance')->count());
+    }
+
     public function test_pnl_is_period_scoped_not_cumulative(): void
     {
         $this->seedJune();
