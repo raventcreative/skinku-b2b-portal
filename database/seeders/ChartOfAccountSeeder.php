@@ -14,11 +14,6 @@ class ChartOfAccountSeeder extends Seeder
 {
     public function run(): void
     {
-        // Idempotent — jangan dobel kalau di-seed ulang.
-        if (DB::table('acc_accounts')->exists()) {
-            return;
-        }
-
         // Cabang — semua operasional masih 1 lokasi (cabang di Excel cuma sisa template).
         // Cabang tetap disimpan sebagai DIMENSI; tambah baris kalau nanti buka cabang baru.
         if (! DB::table('acc_branches')->exists()) {
@@ -61,7 +56,7 @@ class ChartOfAccountSeeder extends Seeder
 
             // EKUITAS
             ['3001', 'Modal Usaha',                    'equity', null,           'credit', '3001'],
-            ['3002', 'Prive',                          'equity', 'contra_equity','debit',  '4004'],
+            ['3002', 'Prive',                          'equity', 'contra_equity', 'debit',  '4004'],
             ['3003', 'Ikhtisar Laba/Rugi',             'equity', 'closing',      'credit', '6015'],
 
             // PENDAPATAN
@@ -69,8 +64,8 @@ class ChartOfAccountSeeder extends Seeder
             ['4002', 'Pendapatan Lain-lain',           'revenue', 'other',         'credit', '4010/5001'],
             ['4003', 'Pendapatan Bunga',               'revenue', 'other',         'credit', '5007'],
             ['4004', 'Pendapatan Ongkir',              'revenue', 'shipping',      'credit', null],
-            ['4101', 'Retur Penjualan',                'revenue', 'contra_revenue','debit',  '5003/5004'],
-            ['4102', 'Potongan Penjualan',             'revenue', 'contra_revenue','debit',  '5002'],
+            ['4101', 'Retur Penjualan',                'revenue', 'contra_revenue', 'debit',  '5003/5004'],
+            ['4102', 'Potongan Penjualan',             'revenue', 'contra_revenue', 'debit',  '5002'],
 
             // HPP / COGS
             ['5001', 'Pembelian',                      'expense', 'cogs',          'debit',  '5005'],
@@ -94,16 +89,23 @@ class ChartOfAccountSeeder extends Seeder
             ['6013', 'Beban Lain-lain',                'expense', 'operating',     'debit',  '6011'],
 
             // NON-OPERASIONAL
-            ['7001', 'Beban Bunga',                    'expense', 'non_operating', 'debit',  '6010'],
+            ['7001', 'Beban Bunga',                    'expense', 'non_operating', 'debit',  '6010/6012'], // 6012=Beban Hutang Bank (bunga pinjaman, dipakai sejak Apr)
             ['7002', 'Beban Pajak',                    'expense', 'tax',           'debit',  '6016'],
         ];
 
-        $rows = array_map(fn ($a) => [
-            'code' => $a[0], 'name' => $a[1], 'type' => $a[2],
-            'subtype' => $a[3], 'normal_balance' => $a[4], 'legacy_code' => $a[5],
-            'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
-        ], $accounts);
-
-        DB::table('acc_accounts')->insert($rows);
+        // Idempotent SYNC: perbarui akun yang sudah ada (by code) tanpa menyentuh
+        // is_active (hormati akun yg dinonaktifkan user), sisipkan yg belum ada.
+        // Ini yg membuat penyempurnaan COA (mis. legacy_code baru) bisa ter-deploy.
+        foreach ($accounts as $a) {
+            $attrs = [
+                'name' => $a[1], 'type' => $a[2], 'subtype' => $a[3],
+                'normal_balance' => $a[4], 'legacy_code' => $a[5], 'updated_at' => now(),
+            ];
+            if (DB::table('acc_accounts')->where('code', $a[0])->exists()) {
+                DB::table('acc_accounts')->where('code', $a[0])->update($attrs);
+            } else {
+                DB::table('acc_accounts')->insert($attrs + ['code' => $a[0], 'is_active' => true, 'created_at' => now()]);
+            }
+        }
     }
 }

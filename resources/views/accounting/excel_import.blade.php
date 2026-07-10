@@ -80,6 +80,7 @@
 
 {{-- STEP 4: preview + simpan --}}
 <div id="previewCard" class="hidden mt-4">
+    <div id="unmappedWarn" class="hidden mb-3 px-4 py-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs"></div>
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
         <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">Pratinjau Jurnal — <span id="jCount">0</span> jurnal <span id="jNote" class="font-normal text-[11px] text-stone-500"></span></div>
         <div class="overflow-x-auto max-h-96 overflow-y-auto">
@@ -359,6 +360,7 @@
         const tb = document.getElementById('prevRows');
         let ok = 0, unmapped = 0, unbal = 0;
         window.FINAL = [];
+        window._UNMAPPED = {};
         window.IS_OPENING = JOURNALS.some(j => j.saldoAwal); // saldo awal disimpan terpisah
         const rowsHtml = [];
         JOURNALS.forEach(j => {
@@ -386,6 +388,7 @@
                 lines = j.lines.map(l => ({ account_id: m[l.key], side: l.side, amount: l.amount, key: l.key }));
             }
             const hasUnmapped = lines.some(l => !l.account_id);
+            lines.forEach(l => { if (!l.account_id) window._UNMAPPED[l.key] = (window._UNMAPPED[l.key] || 0) + l.amount; });
             const d = lines.filter(l => l.side === 'debit').reduce((s, l) => s + l.amount, 0);
             const c = lines.filter(l => l.side === 'credit').reduce((s, l) => s + l.amount, 0);
             const balanced = Math.abs(d - c) < 0.005;
@@ -401,6 +404,14 @@
         tb.innerHTML = rowsHtml.join('');
         document.getElementById('jCount').textContent = ok;
         document.getElementById('jNote').textContent = `· siap: ${ok}${unmapped ? ', blm dipetakan: ' + unmapped : ''}${unbal ? ', tak balance: ' + unbal : ''}`;
+        // Peringatan menonjol kalau ada jurnal yg AKAN DILEWATI karena akun belum dipetakan
+        const warn = document.getElementById('unmappedWarn');
+        const uk = Object.entries(window._UNMAPPED).sort((a, b) => b[1] - a[1]);
+        if (uk.length) {
+            warn.innerHTML = `⚠️ <b>${unmapped} jurnal akan DILEWATI</b> karena kunci ini belum dipetakan ke akun (naik ke "Petakan Akun", pilih akunnya, lalu Terapkan lagi):<br>` +
+                uk.map(([k, v]) => `<span class="inline-block mt-1 mr-2 px-2 py-0.5 rounded bg-rose-100 font-mono">${k} → ${Math.round(v).toLocaleString('id-ID')}</span>`).join('');
+            warn.classList.remove('hidden');
+        } else { warn.classList.add('hidden'); }
         document.getElementById('previewCard').classList.remove('hidden');
         document.getElementById('saveBtn').disabled = ok === 0;
     }
