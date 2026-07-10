@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Tren Tahunan')
-@section('heading', 'Tren Laba Rugi per Bulan')
+@section('heading', 'Tren Keuangan per Bulan')
 
 @section('content')
 @include('accounting._nav')
@@ -68,8 +68,9 @@
                         @php $total = $type === 'flow' ? collect($rows)->sum($key) : $rows[$lastIdx][$key]; @endphp
                         <tr class="border-t border-stone-100 {{ $bold ? 'font-bold' : '' }}">
                             <td class="text-left px-4 py-2 sticky left-0 bg-white {{ $bold ? 'text-stone-900' : 'text-stone-700' }}">{{ $label }}</td>
-                            @foreach($rows as $r)
-                                <td class="text-right px-2 {{ $cls($r[$key]) }}">{{ abs($r[$key]) < 0.5 ? '·' : $val($r[$key]) }}</td>
+                            @foreach($rows as $i => $r)
+                                {{-- bulan setelah bulan terakhir berdata = kosong ("·"), termasuk baris saldo/neraca --}}
+                                <td class="text-right px-2 {{ $cls($r[$key]) }}">{{ $i > $lastIdx || abs($r[$key]) < 0.5 ? '·' : $val($r[$key]) }}</td>
                             @endforeach
                             <td class="text-right px-4 bg-stone-50 {{ $cls($total) }}">{{ $val($total) }}</td>
                         </tr>
