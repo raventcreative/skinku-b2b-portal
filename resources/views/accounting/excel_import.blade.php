@@ -56,6 +56,7 @@
                 <option value="persediaan">Persediaan &gt; HPP</option>
                 <option value="pengeluaran">Pengeluaran Kas</option>
                 <option value="penerimaan">Penerimaan Kas</option>
+                <option value="saldoawal">Saldo Awal (sheet Kode Akun)</option>
             </select>
         </div>
         <div class="flex items-end"><button type="button" onclick="parseSheet()" class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">Proses Sheet →</button></div>
@@ -114,6 +115,9 @@
     // auto-suggest app account for a key
     function suggest(key) {
         const k = String(key).trim();
+        // Excel pakai SATU akun "Persediaan" (1003); app punya 1201/1202. Petakan semua
+        // ke Barang Jadi biar konsisten (opening+beli+HPP di 1 bucket, tidak jadi minus).
+        if (k === '1003') { const a = ACCOUNTS.find(x => /persediaan barang jadi/i.test(x.name)); if (a) return a.id; }
         if (/^\d+$/.test(k)) { // kode → cocokkan legacy_code
             const a = ACCOUNTS.find(x => (x.legacy_code || '').split('/').map(s => s.trim()).includes(k));
             if (a) return a.id;
@@ -160,6 +164,7 @@
         if (/pengeluaran/.test(name)) t = 'pengeluaran';
         else if (/penerimaan/.test(name)) t = 'penerimaan';
         else if (/persediaan|hpp/.test(name)) t = 'persediaan';
+        else if (/kode akun/.test(name)) t = 'saldoawal';
         else if (/umum|penyesuaian/.test(name)) t = 'umum';
         document.getElementById('typeSel').value = t;
     }
@@ -186,7 +191,7 @@
         const type = document.getElementById('typeSel').value;
         SHEETROWS = sheetToRows(name);
         const h = findHeader(SHEETROWS);
-        JOURNALS = ({ umum: pUmum, persediaan: pPersediaan, pengeluaran: pPengeluaran, penerimaan: pPenerimaan })[type](SHEETROWS, h, type);
+        JOURNALS = ({ umum: pUmum, persediaan: pPersediaan, pengeluaran: pPengeluaran, penerimaan: pPenerimaan, saldoawal: pSaldoAwal })[type](SHEETROWS, h, type);
         // kumpulkan kunci unik
         const set = new Set();
         JOURNALS.forEach(j => j.lines.forEach(l => set.add(l.key)));
@@ -284,6 +289,23 @@
         }
         return out;
     }
+    // Saldo Awal dari sheet "Kode Akun": kolom B=kode akun, D=S.Awal per Awal Bulan.
+    // Satu jurnal pembuka; sisi (debit/kredit) ditentukan dari normal_balance akun saat
+    // preview. Cukup diinput SEKALI — saldo bulan berikutnya jalan otomatis (double-entry).
+    function pSaldoAwal(rows) {
+        let hh = 1;
+        for (let i = 0; i < 10; i++) { if ((rows[i] || []).some(c => /s\.?awal|saldo awal/i.test(String(c || '')))) { hh = i; break; } }
+        const period = document.getElementById('period').value;
+        const lines = [];
+        for (let r = hh + 1; r < rows.length; r++) {
+            const row = rows[r] || [];
+            const code = txt(row[1]).replace(/\.0$/, '');   // B = kode akun
+            const saldo = num(row[3]);                       // D = saldo awal
+            if (!/^\d+$/.test(code) || saldo === 0) continue;
+            lines.push({ key: code, raw: saldo });           // sisi ditentukan saat build
+        }
+        return lines.length ? [{ date: `${period}-01`, desc: `Saldo Awal ${period}`, type: 'general', saldoAwal: true, lines }] : [];
+    }
 
     function renderMapping() {
         const tb = document.getElementById('mapRows');
@@ -305,7 +327,29 @@
         window.FINAL = [];
         const rowsHtml = [];
         JOURNALS.forEach(j => {
-            const lines = j.lines.map(l => ({ account_id: m[l.key], side: l.side, amount: l.amount, key: l.key }));
+            let lines;
+            if (j.saldoAwal) {
+                // sisi tiap akun = normal_balance-nya; nilai negatif → sisi lawan
+                lines = j.lines.map(l => {
+                    const a = ACCOUNTS.find(x => x.id == m[l.key]);
+                    let side = a && a.normal_balance === 'credit' ? 'credit' : 'debit';
+                    let amt = l.raw;
+                    if (amt < 0) { side = side === 'debit' ? 'credit' : 'debit'; amt = -amt; }
+                    return { account_id: m[l.key], side, amount: amt, key: l.key };
+                });
+                // plug pembulatan kecil (< Rp1.000) ke akun ekuitas termapping (mis. Modal)
+                if (! lines.some(l => !l.account_id)) {
+                    const dd = lines.filter(l => l.side === 'debit').reduce((s, l) => s + l.amount, 0);
+                    const cc = lines.filter(l => l.side === 'credit').reduce((s, l) => s + l.amount, 0);
+                    const diff = dd - cc;
+                    if (Math.abs(diff) >= 0.005 && Math.abs(diff) < 1000) {
+                        const eq = lines.map(l => ACCOUNTS.find(x => x.id == l.account_id)).find(a => a && a.type === 'equity');
+                        lines.push({ account_id: eq ? eq.id : lines[0].account_id, side: diff > 0 ? 'credit' : 'debit', amount: Math.abs(diff), key: 'Pembulatan' });
+                    }
+                }
+            } else {
+                lines = j.lines.map(l => ({ account_id: m[l.key], side: l.side, amount: l.amount, key: l.key }));
+            }
             const hasUnmapped = lines.some(l => !l.account_id);
             const d = lines.filter(l => l.side === 'debit').reduce((s, l) => s + l.amount, 0);
             const c = lines.filter(l => l.side === 'credit').reduce((s, l) => s + l.amount, 0);

@@ -187,7 +187,7 @@ class AccountingController extends Controller
     public function excelImportForm()
     {
         return view('accounting.excel_import', [
-            'accounts' => AccAccount::active()->orderBy('code')->get(['id', 'code', 'name', 'legacy_code', 'type', 'subtype']),
+            'accounts' => AccAccount::active()->orderBy('code')->get(['id', 'code', 'name', 'legacy_code', 'type', 'subtype', 'normal_balance']),
             'branch' => AccBranch::active()->orderBy('id')->first(),
         ]);
     }
