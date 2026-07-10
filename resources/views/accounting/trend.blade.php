@@ -9,14 +9,35 @@
     $val = fn ($n) => $n < 0 ? '('.number_format(abs($n), 0, ',', '.').')' : number_format($n, 0, ',', '.');
     $cls = fn ($n) => $n < 0 ? 'text-rose-600' : 'text-stone-700';
     $short = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'];
-    $metrics = [
-        ['penjualan_bersih', 'Penjualan Bersih', false],
-        ['hpp', 'HPP', false],
-        ['laba_kotor', 'Laba Kotor', false],
-        ['beban_operasional', 'Beban Operasional', false],
-        ['operating_income', 'Laba Operasional', false],
-        ['net_income', 'Laba Bersih', true],
-        ['arus_kas_bersih', 'Arus Kas Bersih', false],
+    // index bulan terakhir yang ada datanya (utk kolom Total baris saldo/neraca)
+    $lastIdx = 0;
+    foreach ($rows as $i => $r) {
+        if (abs($r['total_aktiva']) > 0.5 || abs($r['penjualan_bersih']) > 0.5) {
+            $lastIdx = $i;
+        }
+    }
+    // [key, label, type(flow=dijumlah / balance=saldo akhir), bold]
+    $sections = [
+        'LABA RUGI' => [
+            ['penjualan_bersih', 'Penjualan Bersih', 'flow', false],
+            ['hpp', 'HPP', 'flow', false],
+            ['laba_kotor', 'Laba Kotor', 'flow', false],
+            ['beban_operasional', 'Beban Operasional', 'flow', false],
+            ['operating_income', 'Laba Operasional', 'flow', false],
+            ['net_income', 'Laba Bersih', 'flow', true],
+        ],
+        'NERACA (saldo akhir bulan)' => [
+            ['total_aktiva', 'Total Aktiva', 'balance', true],
+            ['total_liabilitas', 'Total Liabilitas', 'balance', false],
+            ['total_ekuitas', 'Total Ekuitas', 'balance', false],
+        ],
+        'ARUS KAS' => [
+            ['arus_operasi', 'Arus Operasi', 'flow', false],
+            ['arus_investasi', 'Arus Investasi', 'flow', false],
+            ['arus_pendanaan', 'Arus Pendanaan', 'flow', false],
+            ['arus_kas_bersih', 'Kenaikan (Penurunan) Kas', 'flow', false],
+            ['kas_akhir', 'Kas Akhir', 'balance', true],
+        ],
     ];
 @endphp
 
@@ -41,19 +62,22 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($metrics as [$key, $label, $bold])
-                    @php $total = collect($rows)->sum($key); @endphp
-                    <tr class="border-t border-stone-100 {{ $bold ? 'font-bold' : '' }}">
-                        <td class="text-left px-4 py-2 sticky left-0 bg-white {{ $bold ? 'text-stone-900' : 'text-stone-700' }}">{{ $label }}</td>
-                        @foreach($rows as $r)
-                            <td class="text-right px-2 {{ $cls($r[$key]) }}">{{ $r[$key] == 0 ? '·' : $val($r[$key]) }}</td>
-                        @endforeach
-                        <td class="text-right px-4 bg-stone-50 {{ $cls($total) }}">{{ $val($total) }}</td>
-                    </tr>
+                @foreach($sections as $sectionTitle => $metrics)
+                    <tr class="bg-stone-100/70"><td colspan="14" class="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-500 sticky left-0 bg-stone-100">{{ $sectionTitle }}</td></tr>
+                    @foreach($metrics as [$key, $label, $type, $bold])
+                        @php $total = $type === 'flow' ? collect($rows)->sum($key) : $rows[$lastIdx][$key]; @endphp
+                        <tr class="border-t border-stone-100 {{ $bold ? 'font-bold' : '' }}">
+                            <td class="text-left px-4 py-2 sticky left-0 bg-white {{ $bold ? 'text-stone-900' : 'text-stone-700' }}">{{ $label }}</td>
+                            @foreach($rows as $r)
+                                <td class="text-right px-2 {{ $cls($r[$key]) }}">{{ abs($r[$key]) < 0.5 ? '·' : $val($r[$key]) }}</td>
+                            @endforeach
+                            <td class="text-right px-4 bg-stone-50 {{ $cls($total) }}">{{ $val($total) }}</td>
+                        </tr>
+                    @endforeach
                 @endforeach
             </tbody>
         </table>
     </div>
 </div>
-<p class="text-[11px] text-stone-400 mt-3">Angka dibulatkan ke rupiah. Bulan tanpa data ditandai "·". Geser tabel ke kanan untuk lihat semua bulan + Total.</p>
+<p class="text-[11px] text-stone-400 mt-3">Angka dibulatkan ke rupiah. Bulan tanpa data ditandai "·". Geser tabel ke kanan untuk semua bulan + Total. <b>Kolom Total</b>: baris Laba Rugi & Arus Kas = jumlah setahun; baris <b>Neraca &amp; Kas Akhir = saldo akhir tahun</b> (kumulatif, bukan dijumlah).</p>
 @endsection

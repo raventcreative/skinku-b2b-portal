@@ -373,11 +373,13 @@ class FinancialReportTest extends TestCase
         $jun = $svc->summary('2026-06');
         $this->assertEqualsWithDelta(100_000_000, $jun['is']['penjualan_bersih'], 0.01);
 
-        // tren: 12 baris, Juni & Juli terisi
-        $rows = $svc->monthlyIncome('2026');
+        // tren: 12 baris, Juni & Juli terisi, ada data Neraca + Arus Kas
+        $rows = $svc->monthlyReport('2026');
         $this->assertCount(12, $rows);
         $this->assertEqualsWithDelta(100_000_000, $rows[5]['penjualan_bersih'], 0.01); // Juni (index 5)
         $this->assertEqualsWithDelta(40_000_000, $rows[6]['penjualan_bersih'], 0.01);  // Juli
+        $this->assertArrayHasKey('total_aktiva', $rows[5]);
+        $this->assertArrayHasKey('arus_operasi', $rows[5]);
     }
 
     public function test_pnl_is_period_scoped_not_cumulative(): void

@@ -63,7 +63,7 @@ class AccountingController extends Controller
         }
 
         return view('accounting.trend', [
-            'rows' => $this->comparative->monthlyIncome($year),
+            'rows' => $this->comparative->monthlyReport($year),
             'year' => $year, 'years' => $years,
             'period' => $this->periods()[0] ?? now()->format('Y-m'), 'periods' => $this->periods(),
             'tab' => 'trend',

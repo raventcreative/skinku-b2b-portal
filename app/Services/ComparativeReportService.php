@@ -61,17 +61,23 @@ class ComparativeReportService
         return ['spec' => $spec, 'is' => $is, 'bs' => $bs, 'cf' => $cf];
     }
 
-    /** Laba Rugi per bulan untuk satu tahun (untuk tabel tren). */
-    public function monthlyIncome(string $year): array
+    /** Laba Rugi + Neraca + Arus Kas per bulan untuk satu tahun (tabel tren). */
+    public function monthlyReport(string $year): array
     {
         $out = [];
         foreach (range(1, 12) as $m) {
             $period = sprintf('%s-%02d', $year, $m);
             $r = $this->reports->incomeStatement($period);
-            $net = $this->cash->directCashFlow($period)['net'];
-            $out[] = ['month' => $m, 'period' => $period]
-                + array_intersect_key($r, array_flip(self::IS_KEYS))
-                + ['arus_kas_bersih' => $net];
+            $c = $this->cash->directCashFlow($period);
+            $b = $this->reports->balanceSheet($period);
+            $out[] = [
+                'month' => $m, 'period' => $period,
+                'penjualan_bersih' => $r['penjualan_bersih'], 'hpp' => $r['hpp'], 'laba_kotor' => $r['laba_kotor'],
+                'beban_operasional' => $r['beban_operasional'], 'operating_income' => $r['operating_income'], 'net_income' => $r['net_income'],
+                'arus_operasi' => $c['totals']['operating'], 'arus_investasi' => $c['totals']['investing'],
+                'arus_pendanaan' => $c['totals']['financing'], 'arus_kas_bersih' => $c['net'], 'kas_akhir' => $c['kas_akhir'],
+                'total_aktiva' => $b['total_aktiva'], 'total_liabilitas' => $b['total_liabilitas'], 'total_ekuitas' => $b['total_ekuitas'],
+            ];
         }
 
         return $out;
