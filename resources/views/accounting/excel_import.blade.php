@@ -241,15 +241,23 @@
         if (cur) out.push(cur);
         return out.filter(j => j.lines.length >= 2);
     }
+    // Persediaan>HPP juga KOLUMNAR: Persediaan (kredit, L) = Beban HPP (debit, F) +
+    // Serba-serbi (debit, akun kode I / jumlah J, mis. "Beban Sample"). Baris di mana F=0
+    // tapi J terisi (sample/give-away) dulu terlewat → HPP jadi kurang.
     function pPersediaan(rows, h) {
         const out = []; let day = null;
         for (let r = h + 1; r < rows.length; r++) {
             const row = rows[r] || [];
             if (txt(row[0]).toLowerCase() === 'total') break;
             if (num(row[1]) > 0) day = row[1];
-            const amt = num(row[5]); // F = Beban HPP
-            if (amt <= 0) continue;
-            out.push({ date: dateOf(day || 1), desc: txt(row[3]), type: 'inventory', lines: [{ key: 'Beban HPP', side: 'debit', amount: amt }, { key: 'Persediaan', side: 'credit', amount: amt }] });
+            const ref = txt(row[8]).replace(/\.0$/, '');           // I = kode akun serba-serbi
+            const serbaKey = (ref && /^\d+$/.test(ref)) ? ref : (txt(row[7]) || 'Serba-serbi'); // fallback nama H
+            const j = colJournal(day, txt(row[3]), 'inventory', [
+                { key: 'Beban HPP', v: row[5], side: 'debit' },    // F
+                { key: serbaKey, v: row[9], side: 'debit' },       // J (akun = kode kolom I)
+                { key: 'Persediaan', v: row[11], side: 'credit' }, // L = F + J
+            ]);
+            if (j) out.push(j);
         }
         return out;
     }
