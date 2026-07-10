@@ -234,6 +234,58 @@ class FinancialReportTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_excel_import_keeps_genuinely_identical_journals(): void
+    {
+        // Dua transaksi identik (tgl+akun+nominal sama) dalam satu batch = dua kejadian sah.
+        $one = [
+            'date' => '2026-06-05', 'reference' => 'Erin ongkir', 'type' => 'cash_in',
+            'lines' => [
+                ['account_id' => $this->acc['1002']->id, 'debit' => 30000, 'credit' => 0],
+                ['account_id' => $this->acc['4001']->id, 'debit' => 0, 'credit' => 30000],
+            ],
+        ];
+        $payload = ['branch_id' => $this->branch->id, 'journals' => [$one, $one]]; // dua kali persis
+
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->actingAs($admin)->postJson('/accounting/impor-excel', $payload)
+            ->assertOk()->assertJson(['imported' => 2, 'duplicate' => 0]);
+        $this->assertDatabaseCount('acc_journals', 2);
+
+        // re-impor batch yang sama → keduanya terdeteksi duplikat (idempoten)
+        $this->actingAs($admin)->postJson('/accounting/impor-excel', $payload)
+            ->assertOk()->assertJson(['imported' => 0, 'duplicate' => 2]);
+        $this->assertDatabaseCount('acc_journals', 2);
+    }
+
+    public function test_excel_import_purge_removes_only_excel_journals(): void
+    {
+        $this->seedJune(); // jurnal manual (source_type null)
+        $admin = $this->user(User::ROLE_ADMIN);
+        $manualCount = AccJournal::count();
+
+        $this->actingAs($admin)->postJson('/accounting/impor-excel', [
+            'branch_id' => $this->branch->id,
+            'journals' => [[
+                'date' => '2026-06-07', 'reference' => 'X', 'type' => 'cash_in',
+                'lines' => [
+                    ['account_id' => $this->acc['1002']->id, 'debit' => 1000, 'credit' => 0],
+                    ['account_id' => $this->acc['4001']->id, 'debit' => 0, 'credit' => 1000],
+                ],
+            ]],
+        ])->assertOk();
+        $this->assertDatabaseHas('acc_journals', ['source_type' => 'excel_import']);
+
+        $this->actingAs($admin)->post('/accounting/impor-excel/hapus', ['period' => '2026-06'])->assertRedirect();
+        $this->assertDatabaseMissing('acc_journals', ['source_type' => 'excel_import']);
+        $this->assertEquals($manualCount, AccJournal::count()); // jurnal manual utuh
+    }
+
+    public function test_reseller_cannot_purge_excel_import(): void
+    {
+        $this->actingAs($this->user(User::ROLE_RESELLER))
+            ->post('/accounting/impor-excel/hapus', ['period' => '2026-06'])->assertForbidden();
+    }
+
     public function test_pnl_is_period_scoped_not_cumulative(): void
     {
         $this->seedJune();

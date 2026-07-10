@@ -16,6 +16,16 @@
     ⚠️ Karena kamu pilih Excel sbg sumber, <b>jangan pakai "Impor Mutasi Bank" untuk periode yang sama</b> — bisa dobel. Impor ulang file sama otomatis dilewati (anti-dobel).
 </div>
 
+{{-- Bersihkan hasil impor Excel (buat impor ulang kalau ada yang salah) --}}
+<form method="POST" action="{{ route('accounting.excel-import.purge') }}" class="mt-2 flex items-center gap-2 flex-wrap"
+      onsubmit="return confirm('Hapus PERMANEN semua jurnal hasil impor Excel' + (document.getElementById('purgePeriod').value ? ' periode ' + document.getElementById('purgePeriod').value : '') + '? Jurnal manual & impor bank tidak tersentuh.')">
+    @csrf
+    <span class="text-[11px] text-stone-500">Mau impor ulang? Bersihkan dulu hasil impor Excel:</span>
+    <input type="month" id="purgePeriod" name="period" value="2026-06" class="px-2 py-1 border border-stone-300 rounded text-xs">
+    <button class="px-3 py-1.5 text-xs bg-rose-600 text-white rounded-lg hover:bg-rose-700">🗑 Hapus impor Excel (periode ini)</button>
+    <span class="text-[10px] text-stone-400">kosongkan bulan = hapus semua periode</span>
+</form>
+
 {{-- STEP 1 --}}
 <div class="bg-white rounded-2xl border border-stone-200 p-5 mt-3 space-y-4 text-sm">
     <div class="grid sm:grid-cols-3 gap-4">
@@ -214,13 +224,18 @@
     }
     // Jurnal kolumnar: TIAP kolom nominal = 1 akun tetap. Satu baris Excel = satu jurnal
     // (jumlah kolom debit = jumlah kolom kredit per baris). Emit 1 baris jurnal per kolom terisi.
-    // side: 'debit' | 'credit' | 'signed' (kolom Serba: nilai + = debit, − = kredit)
+    // side: 'debit' | 'credit' | 'signed' (kolom Serba: nilai + = debit, − = kredit).
+    // Nilai NEGATIF di kolom debit/kredit = pembalikan (refund/retur) → dibukukan di sisi
+    // lawan, persis seperti Excel me-net-kan-nya. (mis. Penjualan −115rb = debit Penjualan).
+    const flip = s => (s === 'debit' ? 'credit' : 'debit');
     function colJournal(day, ket, type, cols) {
         const lines = [];
         cols.forEach(c => {
             const a = num(c.v);
-            if (c.side === 'signed') { if (Math.abs(a) > 0) lines.push({ key: c.key, side: a > 0 ? 'debit' : 'credit', amount: Math.abs(a) }); }
+            if (a === 0) return;
+            if (c.side === 'signed') lines.push({ key: c.key, side: a > 0 ? 'debit' : 'credit', amount: Math.abs(a) });
             else if (a > 0) lines.push({ key: c.key, side: c.side, amount: a });
+            else lines.push({ key: c.key, side: flip(c.side), amount: Math.abs(a) }); // negatif = pembalikan
         });
         if (lines.length < 2) return null;
         return { date: dateOf(day || 1), desc: ket, type, lines };

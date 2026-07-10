@@ -10,8 +10,8 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingController;
@@ -149,6 +149,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         // Impor Jurnal dari Excel (.xlsx)
         Route::get('/accounting/impor-excel', [AccountingController::class, 'excelImportForm'])->name('accounting.excel-import');
         Route::post('/accounting/impor-excel', [AccountingController::class, 'excelImportStore'])->name('accounting.excel-import.store');
+        Route::post('/accounting/impor-excel/hapus', [AccountingController::class, 'excelImportPurge'])->name('accounting.excel-import.purge');
 
         // Master COA (Data COA)
         Route::get('/accounting/coa', [AccAccountController::class, 'index'])->name('accounting.accounts');

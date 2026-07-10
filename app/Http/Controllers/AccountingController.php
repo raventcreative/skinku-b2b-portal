@@ -6,6 +6,7 @@ use App\Exceptions\AccountingException;
 use App\Models\AccAccount;
 use App\Models\AccBranch;
 use App\Models\AccJournal;
+use App\Models\AccJournalLine;
 use App\Models\AccTemplate;
 use App\Services\AccountingService;
 use App\Services\AuditService;
@@ -212,6 +213,7 @@ class AccountingController extends Controller
         $imported = 0;
         $duplicate = 0;
         $error = 0;
+        $seen = []; // hitung kemunculan sidik jari yang identik DALAM 1 batch impor
 
         foreach ($data['journals'] as $j) {
             $date = $j['date'];
@@ -222,7 +224,13 @@ class AccountingController extends Controller
                 'credit' => (float) ($l['credit'] ?? 0),
             ], $j['lines']);
 
-            $hash = $this->journalHash($branch, $date, $reference, $lines);
+            // Dua transaksi yang BENAR-BENAR identik (tgl+ket+baris sama, mis. 2 penjualan
+            // sama di hari sama) itu sah — jangan dianggap dobel. Tambahkan nomor urut
+            // kemunculan ke sidik jari; impor file yang sama menghasilkan urutan sama →
+            // tetap idempoten, tapi baris kembar asli tidak saling menimpa.
+            $base = $this->journalHash($branch, $date, $reference, $lines);
+            $occurrence = $seen[$base] = ($seen[$base] ?? 0) + 1;
+            $hash = sha1($base.'#'.$occurrence);
             if (AccJournal::where('import_hash', $hash)->where('status', '!=', AccJournal::STATUS_VOID)->exists()) {
                 $duplicate++;
 
@@ -265,6 +273,32 @@ class AccountingController extends Controller
             'error' => $error,
             'redirect' => route('accounting.journals'),
         ]);
+    }
+
+    /**
+     * Hapus permanen SEMUA jurnal hasil impor Excel (opsional per-periode). Untuk
+     * membersihkan hasil impor yang salah lalu impor ulang. Hanya menyentuh
+     * source_type='excel_import' — jurnal manual & impor bank aman.
+     */
+    public function excelImportPurge(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'period' => ['nullable', 'regex:/^\d{4}-\d{2}$/'],
+        ]);
+
+        $query = AccJournal::where('source_type', 'excel_import');
+        if (! empty($data['period'])) {
+            $query->where('period', $data['period']);
+        }
+        $ids = $query->pluck('id');
+        AccJournalLine::whereIn('journal_id', $ids)->delete();
+        $count = AccJournal::whereIn('id', $ids)->delete();
+
+        AuditService::log(action: 'purge_excel_import', targetType: 'acc_journal', after: ['deleted' => $count, 'period' => $data['period'] ?? 'all']);
+
+        $scope = ! empty($data['period']) ? " periode {$data['period']}" : '';
+
+        return redirect()->route('accounting.journals')->with('status', "{$count} jurnal hasil impor Excel{$scope} dihapus. Silakan impor ulang.");
     }
 
     /** Hapus permanen jurnal + barisnya (untuk bersihkan data test). Irreversible. */
