@@ -7,6 +7,7 @@ use App\Models\MaterialPurchase;
 use App\Models\Supplier;
 use App\Services\AuditService;
 use App\Services\MaterialService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -42,6 +43,38 @@ class MaterialController extends Controller
         AuditService::log(action: 'create_material', targetType: 'material', targetId: $material->id, after: ['name' => $material->name]);
 
         return back()->with('status', "Bahan baku \"{$material->name}\" ditambahkan.");
+    }
+
+    /**
+     * Buat bahan baku cepat (nama + satuan) dari form Produksi → langsung masuk master.
+     * Dedup by nama (case-insensitive) supaya tidak dobel. Stok & HPP mulai dari 0
+     * (harga terisi dari "Harga/unit" yg diketik di baris produksi).
+     */
+    public function quickStore(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'unit' => ['required', 'string', 'max:20'],
+        ]);
+
+        $material = Material::whereRaw('LOWER(name) = ?', [mb_strtolower(trim($data['name']))])->first();
+        $created = false;
+        if (! $material) {
+            $material = Material::create([
+                'name' => trim($data['name']),
+                'unit' => $data['unit'],
+                'created_by' => $request->user()->id,
+            ]);
+            $created = true;
+            AuditService::log(action: 'create_material', targetType: 'material', targetId: $material->id, after: ['name' => $material->name, 'via' => 'produksi-inline']);
+        }
+
+        return response()->json([
+            'id' => $material->id,
+            'name' => $material->name,
+            'unit' => $material->unit,
+            'created' => $created,
+        ]);
     }
 
     public function update(Request $request, Material $material): RedirectResponse

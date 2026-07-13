@@ -122,6 +122,27 @@ class SupplierMaterialTest extends TestCase
         $this->assertDatabaseHas('materials', ['id' => $m->id, 'deleted_at' => null]);
     }
 
+    public function test_quick_store_creates_material_and_dedups(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        // buat baru → id + created true, stok & HPP 0
+        $r = $this->actingAs($admin)->postJson('/materials/quick', ['name' => 'Tutup Botol', 'unit' => 'pcs']);
+        $r->assertOk()->assertJson(['created' => true, 'name' => 'Tutup Botol', 'unit' => 'pcs']);
+        $id = $r->json('id');
+        $this->assertDatabaseHas('materials', ['id' => $id, 'name' => 'Tutup Botol', 'stock' => 0, 'avg_cost' => 0]);
+
+        // nama sama (beda huruf besar/kecil) → pakai yg ada, tidak dobel
+        $r2 = $this->actingAs($admin)->postJson('/materials/quick', ['name' => 'tutup botol', 'unit' => 'pcs']);
+        $r2->assertOk()->assertJson(['created' => false, 'id' => $id]);
+        $this->assertEquals(1, Material::where('name', 'Tutup Botol')->count());
+    }
+
+    public function test_reseller_cannot_quick_store_material(): void
+    {
+        $this->actingAs($this->user(User::ROLE_RESELLER))
+            ->postJson('/materials/quick', ['name' => 'X', 'unit' => 'pcs'])->assertForbidden();
+    }
+
     public function test_editing_material_without_hpp_keeps_existing(): void
     {
         $m = $this->material(100, 9999);

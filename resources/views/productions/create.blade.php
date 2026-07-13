@@ -48,6 +48,7 @@
     function matOptions() {
         let h = '<option value="">— pilih bahan —</option>';
         MATERIALS.forEach(m => h += `<option value="${m.id}">${m.name} (${m.unit})</option>`);
+        h += '<option value="__new__">➕ Tambah bahan baru…</option>';
         return h;
     }
     function productOptions() {
@@ -127,13 +128,39 @@
         blk.querySelector('[data-mat-rows]').appendChild(tr);
     }
 
-    function onMat(sel) {
+    async function onMat(sel) {
+        if (sel.value === '__new__') { await addNewMaterial(sel); }
         const m = MATERIALS.find(x => x.id == sel.value);
         const tr = sel.closest('tr');
         tr.querySelector('[data-stock]').textContent = m ? fmt(m.stock) + ' ' + m.unit : '—';
         const costInput = tr.querySelector('[name$="[unit_cost]"]');
         if (m) costInput.value = m.cost; // default to saved HPP, still editable
         recalc();
+    }
+
+    // Tambah bahan baru langsung dari form → tersimpan ke Master Bahan Baku (dedup by nama).
+    async function addNewMaterial(sel) {
+        const name = (prompt('Nama bahan baru:') || '').trim();
+        if (!name) { sel.value = ''; return; }
+        const unit = (prompt('Satuan (mis. pcs, kg, ml):', 'pcs') || 'pcs').trim() || 'pcs';
+        try {
+            const res = await fetch('{{ route('materials.quick') }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.CSRF, 'Accept': 'application/json' },
+                body: JSON.stringify({ name, unit }),
+            });
+            const d = await res.json();
+            if (!res.ok) { alert(d.message || 'Gagal menambah bahan.'); sel.value = ''; return; }
+            if (!MATERIALS.find(x => x.id == d.id)) MATERIALS.push({ id: d.id, name: d.name, unit: d.unit, stock: 0, cost: 0 });
+            // sisipkan option ke SEMUA dropdown bahan (sebelum opsi "➕ Tambah…")
+            document.querySelectorAll('select[name$="[material_id]"]').forEach(s => {
+                if (![...s.options].some(o => o.value == d.id)) {
+                    s.add(new Option(`${d.name} (${d.unit})`, d.id), s.options[s.options.length - 1]);
+                }
+            });
+            sel.value = d.id;
+            if (!d.created) alert(`Bahan "${d.name}" sudah ada di master — dipakai yang itu.`);
+        } catch (e) { alert('Error: ' + e.message); sel.value = ''; }
     }
 
     function addCost(b, label) {
