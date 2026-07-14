@@ -97,7 +97,13 @@ class TikTokController extends Controller
             $count = $this->orders->store($all);
             $conn->update(['last_synced_at' => now()]);
 
-            return redirect()->route('tiktok.orders')->with('status', "Berhasil tarik & simpan {$count} order terbaru dari TikTok.");
+            $msg = "Berhasil tarik & simpan {$count} order terbaru dari TikTok.";
+            if ($conn->auto_deduct) {
+                $r = $this->orders->deductAllReady($request->user()->id);
+                $msg .= " Auto-potong: {$r['done']} order dipotong".($r['failed'] ? ", {$r['failed']} gagal (stok kurang?)" : '').'.';
+            }
+
+            return redirect()->route('tiktok.orders')->with('status', $msg);
         } catch (\Throwable $e) {
             return redirect()->route('tiktok.index')->with('error', 'Gagal tarik order: '.$e->getMessage());
         }
@@ -112,6 +118,7 @@ class TikTokController extends Controller
         return view('tiktok.orders', [
             'orders' => $orders,
             'previews' => $previews,
+            'connection' => TiktokConnection::latest('id')->first(),
             'skusNeedingMap' => $this->orders->skusNeedingMap(),
             'products' => Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']),
         ]);
@@ -153,6 +160,29 @@ class TikTokController extends Controller
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal potong stok: '.$e->getMessage());
         }
+    }
+
+    /** Potong stok SEMUA order yang siap sekaligus. */
+    public function deductAll(Request $request): RedirectResponse
+    {
+        $r = $this->orders->deductAllReady($request->user()->id);
+        AuditService::log(action: 'tiktok_deduct_all', targetType: 'tiktok_order', after: $r);
+
+        return back()->with('status', "{$r['done']} order dipotong stoknya".
+            ($r['failed'] ? ", {$r['failed']} gagal (stok kurang?)" : '').
+            ($r['skipped'] ? ", {$r['skipped']} dilewati (SKU belum lengkap)" : '').'.');
+    }
+
+    /** Nyalakan/matikan auto-potong saat sync. */
+    public function toggleAuto(Request $request): RedirectResponse
+    {
+        $conn = TiktokConnection::latest('id')->first();
+        abort_unless($conn, 400, 'Belum terhubung.');
+        $conn->update(['auto_deduct' => $request->boolean('auto_deduct')]);
+
+        return back()->with('status', $conn->auto_deduct
+            ? 'Auto-potong stok DINYALAKAN — tiap tarik order, yang siap langsung dipotong.'
+            : 'Auto-potong stok dimatikan — potong manual.');
     }
 
     /** Batalkan pemotongan stok (kembalikan). */

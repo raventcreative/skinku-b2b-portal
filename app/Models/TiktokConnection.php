@@ -9,13 +9,14 @@ class TiktokConnection extends Model
     protected $fillable = [
         'shop_id', 'shop_cipher', 'shop_name', 'region', 'seller_name',
         'access_token', 'refresh_token', 'access_expires_at', 'refresh_expires_at',
-        'connected_by', 'last_synced_at',
+        'connected_by', 'last_synced_at', 'auto_deduct',
     ];
 
     protected $casts = [
         'access_expires_at' => 'datetime',
         'refresh_expires_at' => 'datetime',
         'last_synced_at' => 'datetime',
+        'auto_deduct' => 'boolean',
     ];
 
     protected $hidden = ['access_token', 'refresh_token'];

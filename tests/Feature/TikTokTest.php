@@ -205,6 +205,36 @@ class TikTokTest extends TestCase
         $this->assertEquals(TiktokOrder::STATUS_PENDING, $order->fresh()->stock_status);
     }
 
+    public function test_deduct_all_only_processes_shipped_and_matched(): void
+    {
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);
+        // siap (dikirim + cocok)
+        $s1 = TiktokOrder::create(['tiktok_order_id' => 'S1', 'status' => 'COMPLETED', 'stock_status' => TiktokOrder::STATUS_PENDING, 'line_items' => [['sku' => 'SKU-A', 'name' => 'x', 'qty' => 2]]]);
+        // dikirim tapi SKU tak dikenal
+        $s2 = TiktokOrder::create(['tiktok_order_id' => 'S2', 'status' => 'IN_TRANSIT', 'stock_status' => TiktokOrder::STATUS_PENDING, 'line_items' => [['sku' => 'NOPE', 'name' => 'x', 'qty' => 1]]]);
+        // belum dikirim
+        $s3 = TiktokOrder::create(['tiktok_order_id' => 'S3', 'status' => 'AWAITING_SHIPMENT', 'stock_status' => TiktokOrder::STATUS_PENDING, 'line_items' => [['sku' => 'SKU-A', 'name' => 'x', 'qty' => 5]]]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post(route('tiktok.deduct-all'))->assertRedirect();
+
+        $this->assertEquals(98, $p->fresh()->hq_stock); // hanya S1 (−2)
+        $this->assertEquals(TiktokOrder::STATUS_DEDUCTED, $s1->fresh()->stock_status);
+        $this->assertEquals(TiktokOrder::STATUS_PENDING, $s2->fresh()->stock_status);
+        $this->assertEquals(TiktokOrder::STATUS_PENDING, $s3->fresh()->stock_status);
+    }
+
+    public function test_toggle_auto_deduct(): void
+    {
+        $conn = TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r', 'access_expires_at' => now()->addDay()]);
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->assertFalse($conn->fresh()->auto_deduct); // default MATI
+
+        $this->actingAs($admin)->post(route('tiktok.toggle-auto'), ['auto_deduct' => '1'])->assertRedirect();
+        $this->assertTrue($conn->fresh()->auto_deduct);
+        $this->actingAs($admin)->post(route('tiktok.toggle-auto'), ['auto_deduct' => '0'])->assertRedirect();
+        $this->assertFalse($conn->fresh()->auto_deduct);
+    }
+
     public function test_cannot_deduct_when_not_shipped_or_unmapped(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);

@@ -163,6 +163,36 @@ class TikTokOrderService
         });
     }
 
+    /**
+     * Potong stok untuk SEMUA order yang siap (dikirim + semua SKU cocok + belum
+     * dipotong). Per order try/catch supaya 1 gagal (mis. stok kurang) tak menghentikan
+     * yang lain. @return array{done:int, failed:int, skipped:int}
+     */
+    public function deductAllReady(int $userId): array
+    {
+        $done = 0;
+        $failed = 0;
+        $skipped = 0;
+        $orders = TiktokOrder::where('stock_status', TiktokOrder::STATUS_PENDING)
+            ->whereIn('status', TiktokOrder::SHIPPED_STATUSES)->get();
+
+        foreach ($orders as $o) {
+            if (! $this->preview($o)['all_matched']) {
+                $skipped++;
+
+                continue; // SKU belum lengkap dipetakan
+            }
+            try {
+                $this->deduct($o, $userId);
+                $done++;
+            } catch (\Throwable $e) {
+                $failed++;
+            }
+        }
+
+        return compact('done', 'failed', 'skipped');
+    }
+
     /** Batalkan pemotongan (kembalikan stok). */
     public function reverse(TiktokOrder $order): void
     {
