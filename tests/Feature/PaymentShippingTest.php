@@ -132,4 +132,23 @@ class PaymentShippingTest extends TestCase
         $this->assertNotNull($po->paymentProofUrl());
         Storage::disk('public')->assertExists($proof->path);
     }
+
+    public function test_buyer_can_pay_before_ongkir_set_with_note(): void
+    {
+        Storage::fake('public');
+        $buyer = $this->partner();
+        $po = $this->makePo($buyer, $this->product());
+        $this->assertEquals(0, (float) $po->shipping_cost); // ongkir belum diisi
+
+        // Halaman PO menampilkan catatan "belum termasuk ongkir"
+        $this->actingAs($buyer)->get(route('purchase-orders.show', $po))
+            ->assertOk()->assertSee('belum termasuk ongkir', false);
+
+        // Buyer tetap bisa unggah bukti walau ongkir belum ditetapkan
+        $this->actingAs($buyer)->post(route('purchase-orders.payment-proof', $po), [
+            'proof' => UploadedFile::fake()->image('bukti.jpg'),
+        ])->assertRedirect();
+
+        $this->assertEquals(PurchaseOrder::PAYMENT_AWAITING, $po->refresh()->payment_status);
+    }
 }

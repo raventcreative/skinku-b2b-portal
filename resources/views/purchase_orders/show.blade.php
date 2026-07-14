@@ -69,7 +69,7 @@
                     @endif
                     <tr>
                         <td colspan="4" class="px-4 py-1.5 text-right text-stone-500">Ongkir
-                            @if($purchaseOrder->shipping_cost == 0)<span class="text-[10px] text-amber-600">(menunggu admin)</span>@endif
+                            @if($purchaseOrder->shipping_cost == 0)<span class="text-[10px] text-amber-600">(ditagih terpisah via WA)</span>@endif
                         </td>
                         <td class="px-4 py-1.5 text-right text-stone-700">Rp {{ number_format($purchaseOrder->shipping_cost, 0, ',', '.') }}</td>
                     </tr>
@@ -125,19 +125,21 @@
                 <p class="text-[11px] text-stone-500 mb-3">Catatan: {{ $po->payment_note }}</p>
             @endif
 
-            {{-- Buyer (or admin on behalf) uploads proof when ongkir set & not yet paid --}}
+            {{-- Buyer (atau admin) unggah bukti. Ongkir ditagih terpisah via WA, jadi TIDAK
+                 perlu menunggu admin menetapkan ongkir — buyer bisa langsung bayar produk. --}}
             @if($canUploadProof && in_array($po->payment_status, ['unpaid','rejected']))
                 @if($po->shipping_cost == 0)
-                    <p class="text-[11px] text-amber-600">Menunggu admin menetapkan ongkir. Setelah total final muncul, Anda bisa transfer & unggah bukti.</p>
-                @else
-                    <form method="POST" action="{{ route('purchase-orders.payment-proof', $po) }}" enctype="multipart/form-data" class="space-y-2">
-                        @csrf
-                        <p class="text-[11px] text-stone-600">Total yang harus dibayar: <strong class="text-emerald-700">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</strong></p>
-                        <input type="file" name="proof" accept="image/*" required class="w-full text-xs">
-                        <input type="text" name="note" placeholder="Catatan (opsional)" class="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg">
-                        <button class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Unggah Bukti Transfer</button>
-                    </form>
+                    <div class="mb-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
+                        ⚠️ Pembayaran ini <b>belum termasuk ongkir</b>. Ongkir akan ditagih terpisah via WhatsApp.
+                    </div>
                 @endif
+                <form method="POST" action="{{ route('purchase-orders.payment-proof', $po) }}" enctype="multipart/form-data" class="space-y-2">
+                    @csrf
+                    <p class="text-[11px] text-stone-600">Total yang harus dibayar{{ $po->shipping_cost == 0 ? ' (produk saja)' : '' }}: <strong class="text-emerald-700">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</strong></p>
+                    <input type="file" name="proof" accept="image/*" required class="w-full text-xs">
+                    <input type="text" name="note" placeholder="Catatan (opsional)" class="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                    <button class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Unggah Bukti Transfer</button>
+                </form>
             @endif
 
             {{-- Admin verifies proof --}}
