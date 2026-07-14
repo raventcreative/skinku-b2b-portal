@@ -3,15 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\TiktokConnection;
+use App\Models\TiktokOrder;
 use App\Services\AuditService;
 use App\Services\TikTokClient;
+use App\Services\TikTokOrderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class TikTokController extends Controller
 {
-    public function __construct(private TikTokClient $tiktok) {}
+    public function __construct(
+        private TikTokClient $tiktok,
+        private TikTokOrderService $orders,
+    ) {}
 
     public function index()
     {
@@ -67,7 +72,7 @@ class TikTokController extends Controller
         }
     }
 
-    /** Uji koneksi M1: tarik daftar order terbaru. */
+    /** Tarik order terbaru dari TikTok → simpan ke DB (untuk pratinjau potong stok). */
     public function syncOrders(Request $request): RedirectResponse
     {
         $conn = TiktokConnection::latest('id')->first();
@@ -75,16 +80,23 @@ class TikTokController extends Controller
 
         try {
             $access = $this->freshToken($conn);
-            $data = $this->tiktok->searchOrders($access, $conn->shop_cipher, 20);
+            $data = $this->tiktok->searchOrders($access, $conn->shop_cipher, 50);
+            $count = $this->orders->store($data['orders'] ?? []);
             $conn->update(['last_synced_at' => now()]);
 
-            return redirect()->route('tiktok.index')->with([
-                'status' => 'Berhasil tarik order dari TikTok.',
-                'tiktok_orders' => $data['orders'] ?? [],
-            ]);
+            return redirect()->route('tiktok.orders')->with('status', "Berhasil tarik & simpan {$count} order dari TikTok.");
         } catch (\Throwable $e) {
             return redirect()->route('tiktok.index')->with('error', 'Gagal tarik order: '.$e->getMessage());
         }
+    }
+
+    /** Daftar order TikTok + pratinjau dampak stok (read-only, belum memotong). */
+    public function orderList()
+    {
+        $orders = TiktokOrder::latest('order_created_at')->latest('id')->paginate(25);
+        $previews = $orders->mapWithKeys(fn ($o) => [$o->id => $this->orders->preview($o)]);
+
+        return view('tiktok.orders', compact('orders', 'previews'));
     }
 
     public function disconnect(): RedirectResponse

@@ -31,10 +31,11 @@ TIKTOK_SERVICE_ID=7659787806251779858</pre>
                 <div class="flex gap-2"><dt class="w-28">Token berlaku s/d</dt><dd>{{ $connection->access_expires_at?->format('d M Y H:i') ?? '—' }}</dd></div>
                 <div class="flex gap-2"><dt class="w-28">Sinkron terakhir</dt><dd>{{ $connection->last_synced_at?->diffForHumans() ?? 'belum pernah' }}</dd></div>
             </dl>
-            <div class="flex gap-2 mt-4">
+            <div class="flex gap-2 mt-4 items-center">
                 <form method="POST" action="{{ route('tiktok.sync-orders') }}">@csrf
-                    <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">↻ Tarik Order (uji koneksi)</button>
+                    <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">↻ Tarik &amp; Simpan Order</button>
                 </form>
+                <a href="{{ route('tiktok.orders') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">📦 Pesanan TikTok →</a>
                 <form method="POST" action="{{ route('tiktok.disconnect') }}" onsubmit="return confirm('Putuskan koneksi TikTok?')">@csrf @method('DELETE')
                     <button class="px-4 py-2 text-sm text-rose-600 hover:text-rose-800">Putuskan</button>
                 </form>

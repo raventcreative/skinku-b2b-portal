@@ -176,6 +176,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/tiktok/connect', [TikTokController::class, 'connect'])->name('tiktok.connect');
         Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('tiktok.callback');
         Route::post('/tiktok/sync-orders', [TikTokController::class, 'syncOrders'])->name('tiktok.sync-orders');
+        Route::get('/tiktok/orders', [TikTokController::class, 'orderList'])->name('tiktok.orders');
         Route::delete('/tiktok/disconnect', [TikTokController::class, 'disconnect'])->name('tiktok.disconnect');
     });
 

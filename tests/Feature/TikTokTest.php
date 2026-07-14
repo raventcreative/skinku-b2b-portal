@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Product;
 use App\Models\TiktokConnection;
+use App\Models\TiktokOrder;
 use App\Models\User;
 use App\Services\TikTokClient;
+use App\Services\TikTokOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -108,5 +111,46 @@ class TikTokTest extends TestCase
     {
         $this->actingAs($this->user(User::ROLE_ADMIN))->get('/tiktok')->assertOk();
         $this->actingAs($this->user(User::ROLE_RESELLER))->get('/tiktok')->assertForbidden();
+    }
+
+    public function test_sync_stores_orders_and_matches_sku_to_product(): void
+    {
+        $this->configureTikTok();
+        $product = Product::create([
+            'name' => 'Sabun Batang', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active',
+            'price_distributor' => 10000, 'price_reseller' => 12000,
+        ]);
+        Http::fake(['*/order/202309/orders/search*' => Http::response(['code' => 0, 'data' => ['orders' => [
+            ['id' => 'TT1', 'status' => 'COMPLETED', 'create_time' => 1750000000,
+                'payment' => ['total_amount' => '50000', 'currency' => 'IDR'],
+                'line_items' => [['seller_sku' => 'SKU-A', 'product_name' => 'Sabun', 'quantity' => 2]]],
+            ['id' => 'TT2', 'status' => 'AWAITING_SHIPMENT', 'create_time' => 1750000100,
+                'payment' => ['total_amount' => '9000'],
+                'line_items' => [['seller_sku' => 'SKU-UNKNOWN', 'product_name' => 'X', 'quantity' => 1]]],
+        ]]])]);
+        TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'acc', 'refresh_token' => 'ref',
+            'access_expires_at' => now()->addDay(),
+        ]);
+
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->actingAs($admin)->post('/tiktok/sync-orders')->assertRedirect(route('tiktok.orders'));
+
+        $this->assertDatabaseHas('tiktok_orders', ['tiktok_order_id' => 'TT1', 'status' => 'COMPLETED', 'total_amount' => 50000]);
+
+        $svc = app(TikTokOrderService::class);
+        $tt1 = TiktokOrder::where('tiktok_order_id', 'TT1')->first();
+        $pv1 = $svc->preview($tt1);
+        $this->assertTrue($tt1->isShipped());
+        $this->assertTrue($pv1['all_matched']);
+        $this->assertSame($product->id, $pv1['lines'][0]['product']->id);
+        $this->assertSame(2, $pv1['lines'][0]['qty']);
+
+        // TT2: SKU tak dikenal → tidak cocok, dan belum dikirim
+        $tt2 = TiktokOrder::where('tiktok_order_id', 'TT2')->first();
+        $this->assertFalse($tt2->isShipped());
+        $this->assertFalse($svc->preview($tt2)['all_matched']);
+
+        $this->actingAs($admin)->get('/tiktok/orders')->assertOk()->assertSee('SKU-A');
     }
 }
