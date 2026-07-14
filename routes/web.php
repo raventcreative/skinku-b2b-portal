@@ -18,6 +18,7 @@ use App\Http\Controllers\SettingController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockReceiptController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TikTokController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -167,6 +168,15 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/accounting/template', [AccTemplateController::class, 'store'])->name('accounting.templates.store');
         Route::put('/accounting/template/{template}', [AccTemplateController::class, 'update'])->name('accounting.templates.update');
         Route::delete('/accounting/template/{template}', [AccTemplateController::class, 'destroy'])->name('accounting.templates.destroy');
+    });
+
+    /* ---------------- Integrasi TikTok Shop ---------------- */
+    Route::middleware('permission:manage_tiktok')->group(function () {
+        Route::get('/tiktok', [TikTokController::class, 'index'])->name('tiktok.index');
+        Route::get('/tiktok/connect', [TikTokController::class, 'connect'])->name('tiktok.connect');
+        Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('tiktok.callback');
+        Route::post('/tiktok/sync-orders', [TikTokController::class, 'syncOrders'])->name('tiktok.sync-orders');
+        Route::delete('/tiktok/disconnect', [TikTokController::class, 'disconnect'])->name('tiktok.disconnect');
     });
 
     /* ---------------- Product management ---------------- */

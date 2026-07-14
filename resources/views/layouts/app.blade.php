@@ -119,6 +119,10 @@
                 {!! navItem('accounting.index', 'Akuntansi', 'accounting.*') !!}
             @endif
 
+            @if($u->canDo('manage_tiktok'))
+                {!! navItem('tiktok.index', 'Integrasi TikTok', 'tiktok.*') !!}
+            @endif
+
             @if($u->canDo('view_learning'))
                 {!! navItem('learning.index', 'Pembelajaran', 'learning.*') !!}
             @endif
@@ -168,6 +172,9 @@
         <main class="p-4 sm:p-8 flex-1">
             @if(session('status'))
                 <div class="mb-5 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{{ session('status') }}</div>
+            @endif
+            @if(session('error'))
+                <div class="mb-5 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">{{ session('error') }}</div>
             @endif
             @if($errors->any())
                 <div class="mb-5 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">

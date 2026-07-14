@@ -36,6 +36,7 @@ class Permissions
         'manage_permissions' => 'Manajemen Hak Akses',
         'view_learning' => 'Akses Pembelajaran',
         'manage_learning' => 'Kelola Materi Pembelajaran',
+        'manage_tiktok' => 'Integrasi TikTok Shop',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -56,6 +57,7 @@ class Permissions
         'manage_permissions' => [],
         'view_learning' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER],
         'manage_learning' => [User::ROLE_ADMIN],
+        'manage_tiktok' => [User::ROLE_ADMIN],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */

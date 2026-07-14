@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    // TikTok Shop Open API (Custom app). App secret WAJIB diisi di .env server —
+    // jangan commit. service_id ada di Partner Center URL.
+    'tiktok' => [
+        'app_key' => env('TIKTOK_APP_KEY'),
+        'app_secret' => env('TIKTOK_APP_SECRET'),
+        'service_id' => env('TIKTOK_SERVICE_ID'),
+        'auth_base' => env('TIKTOK_AUTH_BASE', 'https://auth.tiktok-shops.com'),
+        'api_base' => env('TIKTOK_API_BASE', 'https://open-api.tiktokglobalshop.com'),
+        'authorize_base' => env('TIKTOK_AUTHORIZE_BASE', 'https://services.tiktokshop.com'),
+    ],
+
 ];
