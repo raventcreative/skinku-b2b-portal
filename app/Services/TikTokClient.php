@@ -97,18 +97,17 @@ class TikTokClient
             'timestamp' => (string) time(),
         ], $shopCipher ? ['shop_cipher' => $shopCipher] : [], $extraQuery);
 
-        $bodyString = $body === null ? '' : json_encode($body);
+        // Body harus JSON object ({}), bukan array ([]). Body yg ditandatangani WAJIB
+        // sama persis dgn yg dikirim, jadi hitung sekali di sini.
+        $bodyString = $body === null ? '' : json_encode((object) $body);
         $query['sign'] = $this->sign($path, $query, $bodyString);
 
         $url = rtrim(config('services.tiktok.api_base'), '/').$path;
-        $req = Http::withHeaders([
-            'x-tts-access-token' => $accessToken,
-            'content-type' => 'application/json',
-        ])->acceptJson();
+        $http = Http::withHeaders(['x-tts-access-token' => $accessToken])->acceptJson();
 
         $res = $method === 'GET'
-            ? $req->get($url, $query)
-            : $req->withBody($bodyString ?: '{}', 'application/json')->post($url.'?'.http_build_query($query));
+            ? $http->get($url, $query)
+            : $http->withBody($bodyString, 'application/json')->send('POST', $url.'?'.http_build_query($query));
 
         $json = $res->json() ?? [];
         if (($json['code'] ?? -1) !== 0) {

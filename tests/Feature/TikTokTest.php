@@ -86,6 +86,24 @@ class TikTokTest extends TestCase
         $this->assertDatabaseCount('tiktok_connections', 0);
     }
 
+    public function test_search_orders_sends_json_object_body(): void
+    {
+        $this->configureTikTok();
+        Http::fake(['*/order/202309/orders/search*' => Http::response(['code' => 0, 'data' => ['orders' => []]])]);
+        TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'acc', 'refresh_token' => 'ref',
+            'access_expires_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post('/tiktok/sync-orders')->assertRedirect();
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/order/202309/orders/search')
+                && $request->body() === '{}'                 // object {}, BUKAN array []
+                && $request->hasHeader('x-tts-access-token');
+        });
+    }
+
     public function test_index_renders_and_reseller_forbidden(): void
     {
         $this->actingAs($this->user(User::ROLE_ADMIN))->get('/tiktok')->assertOk();
