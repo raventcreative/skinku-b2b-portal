@@ -108,6 +108,27 @@ class TikTokTest extends TestCase
         });
     }
 
+    public function test_sync_paginates_and_sorts_newest_first(): void
+    {
+        $this->configureTikTok();
+        Http::fake(['*/order/202309/orders/search*' => Http::sequence()
+            ->push(['code' => 0, 'data' => ['orders' => [['id' => 'P1A'], ['id' => 'P1B']], 'next_page_token' => 'TOK2']])
+            ->push(['code' => 0, 'data' => ['orders' => [['id' => 'P2A']], 'next_page_token' => '']]),
+        ]);
+        TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'acc', 'refresh_token' => 'ref',
+            'access_expires_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post('/tiktok/sync-orders')->assertRedirect();
+
+        // dua halaman ke-gabung
+        $this->assertDatabaseHas('tiktok_orders', ['tiktok_order_id' => 'P1A']);
+        $this->assertDatabaseHas('tiktok_orders', ['tiktok_order_id' => 'P2A']);
+        // urut terbaru dulu
+        Http::assertSent(fn ($r) => str_contains($r->url(), 'sort_order=DESC') && str_contains($r->url(), 'sort_field=create_time'));
+    }
+
     public function test_index_renders_and_reseller_forbidden(): void
     {
         $this->actingAs($this->user(User::ROLE_ADMIN))->get('/tiktok')->assertOk();

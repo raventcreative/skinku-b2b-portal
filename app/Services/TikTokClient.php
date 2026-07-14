@@ -69,11 +69,15 @@ class TikTokClient
         return $this->request('GET', '/authorization/202309/shops', $accessToken)['shops'] ?? [];
     }
 
-    /** Cari order (dipakai bukti koneksi M1). */
-    public function searchOrders(string $accessToken, string $shopCipher, int $pageSize = 20): array
+    /** Cari order — TERBARU dulu (sort create_time DESC). Satu halaman. */
+    public function searchOrders(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
     {
-        return $this->request('POST', '/order/202309/orders/search', $accessToken, $shopCipher,
-            ['page_size' => $pageSize], []);
+        $query = ['page_size' => $pageSize, 'sort_field' => 'create_time', 'sort_order' => 'DESC'];
+        if ($pageToken !== '') {
+            $query['page_token'] = $pageToken;
+        }
+
+        return $this->request('POST', '/order/202309/orders/search', $accessToken, $shopCipher, $query, []);
     }
 
     // ---- internal ----

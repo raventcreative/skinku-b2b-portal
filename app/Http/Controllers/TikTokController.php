@@ -82,11 +82,22 @@ class TikTokController extends Controller
 
         try {
             $access = $this->freshToken($conn);
-            $data = $this->tiktok->searchOrders($access, $conn->shop_cipher, 50);
-            $count = $this->orders->store($data['orders'] ?? []);
+            // Terbaru dulu; ambil beberapa halaman (maks ~500 order) supaya order bulan
+            // berjalan ikut ketarik, bukan cuma yang paling lama.
+            $all = [];
+            $token = '';
+            $pages = 0;
+            do {
+                $data = $this->tiktok->searchOrders($access, $conn->shop_cipher, 50, $token);
+                $all = array_merge($all, $data['orders'] ?? []);
+                $token = $data['next_page_token'] ?? '';
+                $pages++;
+            } while ($token && $pages < 10);
+
+            $count = $this->orders->store($all);
             $conn->update(['last_synced_at' => now()]);
 
-            return redirect()->route('tiktok.orders')->with('status', "Berhasil tarik & simpan {$count} order dari TikTok.");
+            return redirect()->route('tiktok.orders')->with('status', "Berhasil tarik & simpan {$count} order terbaru dari TikTok.");
         } catch (\Throwable $e) {
             return redirect()->route('tiktok.index')->with('error', 'Gagal tarik order: '.$e->getMessage());
         }
