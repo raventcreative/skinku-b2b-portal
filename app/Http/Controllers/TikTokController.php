@@ -101,21 +101,34 @@ class TikTokController extends Controller
         return view('tiktok.orders', [
             'orders' => $orders,
             'previews' => $previews,
-            'unmatchedSkus' => $this->orders->unmatchedSkus(),
+            'skusNeedingMap' => $this->orders->skusNeedingMap(),
             'products' => Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']),
         ]);
     }
 
-    /** Petakan SKU TikTok → produk SKINKU (diingat untuk semua order). */
+    /** Tambah komponen resep: 1 SKU TikTok → produk SKINKU × qty (boleh banyak). */
     public function saveSkuMap(Request $request): RedirectResponse
     {
         $data = $request->validate([
             'tiktok_sku' => ['required', 'string', 'max:190'],
             'product_id' => ['required', 'integer', 'exists:products,id'],
+            'qty' => ['required', 'integer', 'min:1', 'max:999'],
         ]);
-        TiktokSkuMap::updateOrCreate(['tiktok_sku' => $data['tiktok_sku']], ['product_id' => $data['product_id']]);
+        TiktokSkuMap::updateOrCreate(
+            ['tiktok_sku' => $data['tiktok_sku'], 'product_id' => $data['product_id']],
+            ['qty' => $data['qty']],
+        );
 
-        return back()->with('status', "SKU \"{$data['tiktok_sku']}\" dipetakan.");
+        return back()->with('status', "Komponen ditambahkan ke SKU \"{$data['tiktok_sku']}\".");
+    }
+
+    /** Hapus 1 komponen resep. */
+    public function removeSkuMap(TiktokSkuMap $map): RedirectResponse
+    {
+        $sku = $map->tiktok_sku;
+        $map->delete();
+
+        return back()->with('status', "Komponen dihapus dari SKU \"{$sku}\".");
     }
 
     /** Potong stok internal untuk order (preview-approve). */

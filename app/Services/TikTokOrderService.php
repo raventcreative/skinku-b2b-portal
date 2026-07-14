@@ -59,47 +59,74 @@ class TikTokOrderService
         return array_values($agg);
     }
 
-    /** Cari produk SKINKU untuk sebuah SKU TikTok: cocokkan SKU, lalu peta manual. */
-    public function resolveProduct(?string $sku): ?Product
+    /**
+     * "Resep" 1 SKU TikTok → komponen produk SKINKU [{product, qty}] (qty per 1 unit SKU).
+     * Prioritas: peta manual (bisa banyak komponen), lalu cocok SKU langsung (×1).
+     *
+     * @return array<int, array{product: Product, qty: int}>
+     */
+    public function resolve(?string $sku): array
     {
         if (! $sku) {
-            return null;
+            return [];
+        }
+        $maps = TiktokSkuMap::with('product')->where('tiktok_sku', $sku)->get();
+        if ($maps->isNotEmpty()) {
+            return $maps->filter(fn ($m) => $m->product)
+                ->map(fn ($m) => ['product' => $m->product, 'qty' => max(1, (int) $m->qty)])->values()->all();
         }
         $p = Product::where('sku', $sku)->first();
-        if ($p) {
-            return $p;
-        }
-        $map = TiktokSkuMap::where('tiktok_sku', $sku)->first();
 
-        return $map?->product;
+        return $p ? [['product' => $p, 'qty' => 1]] : [];
     }
 
-    /** Pratinjau dampak stok: tiap item + produk tercocok + apakah semua ke-map. */
+    public function isAutoMatched(string $sku): bool
+    {
+        return Product::where('sku', $sku)->exists();
+    }
+
+    /** Pratinjau dampak stok: tiap item → komponen produk & qty total (×qty order). */
     public function preview(TiktokOrder $order): array
     {
         $lines = [];
         $allMatched = true;
         foreach ($order->line_items ?? [] as $item) {
-            $product = $this->resolveProduct($item['sku'] ?? null);
-            if (! $product) {
+            $orderQty = (int) ($item['qty'] ?? 0);
+            $comps = $this->resolve($item['sku'] ?? null);
+            if (! $comps) {
                 $allMatched = false;
             }
-            $lines[] = ['sku' => $item['sku'] ?? '—', 'name' => $item['name'] ?? '', 'qty' => $item['qty'] ?? 0, 'product' => $product];
+            $lines[] = [
+                'sku' => $item['sku'] ?? '—',
+                'name' => $item['name'] ?? '',
+                'qty' => $orderQty,
+                // total potong = qty resep × qty order
+                'components' => array_map(fn ($c) => ['product' => $c['product'], 'deduct' => $c['qty'] * $orderQty], $comps),
+            ];
         }
 
         return ['lines' => $lines, 'all_matched' => $allMatched && count($lines) > 0];
     }
 
-    /** SKU TikTok yang belum ke-map (unik, di semua order). [sku => contoh nama]. */
-    public function unmatchedSkus(): array
+    /**
+     * SKU TikTok yang perlu dipetakan manual (tidak auto-cocok by Product.sku).
+     * Termasuk yg sudah punya resep — supaya bisa diedit/ditambah komponennya.
+     *
+     * @return array<string, array{name: string, components: array}>
+     */
+    public function skusNeedingMap(): array
     {
         $out = [];
         foreach (TiktokOrder::pluck('line_items') as $items) {
             foreach ((array) $items as $it) {
                 $sku = $it['sku'] ?? null;
-                if ($sku && $sku !== '—' && ! isset($out[$sku]) && ! $this->resolveProduct($sku)) {
-                    $out[$sku] = $it['name'] ?? '';
+                if (! $sku || $sku === '—' || isset($out[$sku]) || $this->isAutoMatched($sku)) {
+                    continue;
                 }
+                $out[$sku] = [
+                    'name' => $it['name'] ?? '',
+                    'components' => TiktokSkuMap::with('product')->where('tiktok_sku', $sku)->get(),
+                ];
             }
         }
 
@@ -122,10 +149,12 @@ class TikTokOrderService
 
         DB::transaction(function () use ($order, $pv, $userId) {
             foreach ($pv['lines'] as $l) {
-                $this->inventory->adjustHqStock(
-                    $l['product'], -1 * (int) $l['qty'], StockMovement::TYPE_OUT,
-                    "Penjualan TikTok {$order->tiktok_order_id}", 'tiktok_order', $order->id,
-                );
+                foreach ($l['components'] as $c) {
+                    $this->inventory->adjustHqStock(
+                        $c['product'], -1 * (int) $c['deduct'], StockMovement::TYPE_OUT,
+                        "Penjualan TikTok {$order->tiktok_order_id}", 'tiktok_order', $order->id,
+                    );
+                }
             }
             $order->update([
                 'stock_status' => TiktokOrder::STATUS_DEDUCTED,
@@ -144,9 +173,9 @@ class TikTokOrderService
 
         DB::transaction(function () use ($order, $pv) {
             foreach ($pv['lines'] as $l) {
-                if ($l['product']) {
+                foreach ($l['components'] as $c) {
                     $this->inventory->adjustHqStock(
-                        $l['product'], (int) $l['qty'], StockMovement::TYPE_IN,
+                        $c['product'], (int) $c['deduct'], StockMovement::TYPE_IN,
                         "Batal penjualan TikTok {$order->tiktok_order_id}", 'tiktok_order', $order->id,
                     );
                 }

@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TiktokSkuMap extends Model
 {
-    protected $fillable = ['tiktok_sku', 'product_id'];
+    protected $fillable = ['tiktok_sku', 'product_id', 'qty'];
+
+    protected $casts = ['qty' => 'integer'];
 
     public function product(): BelongsTo
     {

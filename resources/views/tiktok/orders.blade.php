@@ -11,23 +11,41 @@
     ℹ️ Stok <b>tidak dipotong otomatis</b>. Kamu klik <b>"Potong Stok"</b> sendiri per order (mode preview-approve). Hanya order yang <b>sudah dikirim</b> &amp; semua SKU-nya <b>sudah cocok</b> yang bisa dipotong. Bisa dibatalkan (stok balik).
 </div>
 
-@if(count($unmatchedSkus))
+@if(count($skusNeedingMap))
     <div class="mt-4 bg-white rounded-2xl border border-rose-200 p-5">
-        <h3 class="text-sm font-bold text-stone-800 mb-1">Petakan SKU yang belum cocok ({{ count($unmatchedSkus) }})</h3>
-        <p class="text-[11px] text-stone-500 mb-3">SKU TikTok ini beda dari SKU produk SKINKU. Pilih produknya sekali — diingat untuk semua order.</p>
-        <div class="space-y-2">
-            @foreach($unmatchedSkus as $sku => $name)
-                <form method="POST" action="{{ route('tiktok.sku-map') }}" class="flex flex-wrap items-center gap-2 text-xs">@csrf
-                    <input type="hidden" name="tiktok_sku" value="{{ $sku }}">
-                    <span class="font-mono text-stone-700 w-36">{{ $sku }}</span>
-                    <span class="text-stone-400 truncate max-w-[180px]">{{ $name }}</span>
-                    <span class="text-stone-300">→</span>
-                    <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded w-60">
-                        <option value="">— pilih produk SKINKU —</option>
-                        @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} ({{ $p->sku }})</option>@endforeach
-                    </select>
-                    <button class="px-3 py-1 bg-stone-800 text-white rounded hover:bg-stone-900">Simpan</button>
-                </form>
+        <h3 class="text-sm font-bold text-stone-800 mb-1">Resep SKU ({{ count($skusNeedingMap) }})</h3>
+        <p class="text-[11px] text-stone-500 mb-3">1 SKU TikTok bisa = beberapa produk SKINKU × qty. Contoh: <b>Soap-3</b> → Body Soap ×3; <b>bundle</b> → Sabun ×1 + Lotion ×1 + Scrub ×1. Diingat untuk semua order.</p>
+        <div class="space-y-4">
+            @foreach($skusNeedingMap as $sku => $info)
+                <div class="border border-stone-100 rounded-xl p-3">
+                    <div class="flex items-baseline gap-2 mb-1.5">
+                        <span class="font-mono text-stone-800 text-sm">{{ $sku }}</span>
+                        <span class="text-[11px] text-stone-400 truncate">{{ $info['name'] }}</span>
+                        @if($info['components']->isEmpty())<span class="text-[10px] text-rose-500">belum ada resep</span>@endif
+                    </div>
+                    {{-- komponen yang sudah ada --}}
+                    @foreach($info['components'] as $c)
+                        <div class="flex items-center gap-2 text-xs pl-2 py-0.5">
+                            <span class="text-emerald-700">{{ $c->product?->name ?? '(produk terhapus)' }}</span>
+                            <span class="text-stone-400">× {{ $c->qty }}</span>
+                            <form method="POST" action="{{ route('tiktok.sku-map.remove', $c) }}" class="inline">@csrf @method('DELETE')
+                                <button class="text-[10px] text-rose-500 hover:text-rose-700 underline">hapus</button>
+                            </form>
+                        </div>
+                    @endforeach
+                    {{-- tambah komponen --}}
+                    <form method="POST" action="{{ route('tiktok.sku-map') }}" class="flex flex-wrap items-center gap-2 text-xs mt-1.5 pl-2">@csrf
+                        <input type="hidden" name="tiktok_sku" value="{{ $sku }}">
+                        <span class="text-stone-400">+ tambah:</span>
+                        <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded w-56">
+                            <option value="">— produk SKINKU —</option>
+                            @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} ({{ $p->sku }})</option>@endforeach
+                        </select>
+                        <span class="text-stone-400">×</span>
+                        <input type="number" name="qty" value="1" min="1" max="999" class="w-16 px-2 py-1 border border-stone-300 rounded text-right">
+                        <button class="px-3 py-1 bg-stone-800 text-white rounded hover:bg-stone-900">Tambah</button>
+                    </form>
+                </div>
             @endforeach
         </div>
     </div>
@@ -63,15 +81,16 @@
                     </td>
                     <td class="py-3">
                         @forelse($pv['lines'] as $l)
-                            <div class="flex items-center gap-1.5 py-0.5">
+                            <div class="py-0.5">
                                 <span class="font-mono text-stone-500">{{ $l['sku'] }}</span>
                                 <span class="text-stone-400">× {{ $l['qty'] }}</span>
                                 <span class="text-stone-300">→</span>
-                                @if($l['product'])
-                                    <span class="text-emerald-700">{{ $l['product']->name }}</span>
-                                    <span class="text-[10px] text-stone-400">(stok: {{ (int) $l['product']->hq_stock }})</span>
+                                @if(count($l['components']))
+                                    @foreach($l['components'] as $c)
+                                        <span class="text-emerald-700">{{ $c['product']->name }}</span><span class="text-stone-500 font-semibold"> −{{ $c['deduct'] }}</span><span class="text-[10px] text-stone-400"> (stok {{ (int) $c['product']->hq_stock }})</span>@if(!$loop->last)<span class="text-stone-300"> + </span>@endif
+                                    @endforeach
                                 @else
-                                    <span class="text-rose-600 font-semibold">❌ SKU belum cocok</span>
+                                    <span class="text-rose-600 font-semibold">❌ SKU belum ada resep</span>
                                 @endif
                             </div>
                         @empty

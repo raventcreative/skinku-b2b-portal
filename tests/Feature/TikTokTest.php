@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Product;
 use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
+use App\Models\TiktokSkuMap;
 use App\Models\User;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
@@ -143,8 +144,8 @@ class TikTokTest extends TestCase
         $pv1 = $svc->preview($tt1);
         $this->assertTrue($tt1->isShipped());
         $this->assertTrue($pv1['all_matched']);
-        $this->assertSame($product->id, $pv1['lines'][0]['product']->id);
-        $this->assertSame(2, $pv1['lines'][0]['qty']);
+        $this->assertSame($product->id, $pv1['lines'][0]['components'][0]['product']->id);
+        $this->assertSame(2, $pv1['lines'][0]['components'][0]['deduct']); // resep ×1 × order 2
 
         // TT2: SKU tak dikenal → tidak cocok, dan belum dikirim
         $tt2 = TiktokOrder::where('tiktok_order_id', 'TT2')->first();
@@ -211,10 +212,34 @@ class TikTokTest extends TestCase
         $this->assertFalse($svc->preview($order)['all_matched']);
 
         $this->actingAs($this->user(User::ROLE_ADMIN))->post(route('tiktok.sku-map'), [
-            'tiktok_sku' => 'Scrub-1', 'product_id' => $product->id,
+            'tiktok_sku' => 'Scrub-1', 'product_id' => $product->id, 'qty' => 1,
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('tiktok_sku_maps', ['tiktok_sku' => 'Scrub-1', 'product_id' => $product->id]);
+        $this->assertDatabaseHas('tiktok_sku_maps', ['tiktok_sku' => 'Scrub-1', 'product_id' => $product->id, 'qty' => 1]);
         $this->assertTrue($svc->preview($order->fresh())['all_matched']);
+    }
+
+    public function test_recipe_multiplies_qty_and_handles_bundle(): void
+    {
+        $soap = Product::create(['name' => 'Body Soap', 'sku' => 'BODYSOAP', 'hq_stock' => 100, 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);
+        $lotion = Product::create(['name' => 'Body Lotion', 'sku' => 'BODYLOTION', 'hq_stock' => 50, 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);
+        // Soap-3 = Body Soap ×3 (multiplier); BUND = soap ×1 + lotion ×1 (bundle)
+        TiktokSkuMap::create(['tiktok_sku' => 'Soap-3', 'product_id' => $soap->id, 'qty' => 3]);
+        TiktokSkuMap::create(['tiktok_sku' => 'BUND', 'product_id' => $soap->id, 'qty' => 1]);
+        TiktokSkuMap::create(['tiktok_sku' => 'BUND', 'product_id' => $lotion->id, 'qty' => 1]);
+
+        // order: Soap-3 ×2 (→ soap 3×2=6) + BUND ×1 (→ soap 1, lotion 1)
+        $order = TiktokOrder::create(['tiktok_order_id' => 'R', 'status' => 'COMPLETED', 'stock_status' => TiktokOrder::STATUS_PENDING,
+            'line_items' => [['sku' => 'Soap-3', 'name' => '', 'qty' => 2], ['sku' => 'BUND', 'name' => '', 'qty' => 1]]]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post(route('tiktok.deduct', $order))->assertRedirect();
+
+        $this->assertEquals(100 - (6 + 1), $soap->fresh()->hq_stock);  // 93
+        $this->assertEquals(50 - 1, $lotion->fresh()->hq_stock);       // 49
+
+        // batalkan → balik
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post(route('tiktok.reverse', $order))->assertRedirect();
+        $this->assertEquals(100, $soap->fresh()->hq_stock);
+        $this->assertEquals(50, $lotion->fresh()->hq_stock);
     }
 }
