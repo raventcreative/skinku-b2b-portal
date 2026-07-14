@@ -15,35 +15,34 @@
     <div class="mt-4 bg-white rounded-2xl border border-rose-200 p-5">
         <h3 class="text-sm font-bold text-stone-800 mb-1">Resep SKU ({{ count($skusNeedingMap) }})</h3>
         <p class="text-[11px] text-stone-500 mb-3">1 SKU TikTok bisa = beberapa produk SKINKU × qty. Contoh: <b>Soap-3</b> → Body Soap ×3; <b>bundle</b> → Sabun ×1 + Lotion ×1 + Scrub ×1. Diingat untuk semua order.</p>
-        <div class="space-y-4">
+        <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             @foreach($skusNeedingMap as $sku => $info)
-                <div class="border border-stone-100 rounded-xl p-3">
-                    <div class="flex items-baseline gap-2 mb-1.5">
+                <div class="border border-stone-200 rounded-xl p-3 flex flex-col">
+                    <div class="mb-1.5">
                         <span class="font-mono text-stone-800 text-sm">{{ $sku }}</span>
-                        <span class="text-[11px] text-stone-400 truncate">{{ $info['name'] }}</span>
-                        @if($info['components']->isEmpty())<span class="text-[10px] text-rose-500">belum ada resep</span>@endif
+                        @if($info['components']->isEmpty())<span class="ml-1 text-[10px] text-rose-500">belum ada resep</span>@endif
+                        <div class="text-[10px] text-stone-400 truncate">{{ $info['name'] }}</div>
                     </div>
                     {{-- komponen yang sudah ada --}}
                     @foreach($info['components'] as $c)
-                        <div class="flex items-center gap-2 text-xs pl-2 py-0.5">
-                            <span class="text-emerald-700">{{ $c->product?->name ?? '(produk terhapus)' }}</span>
-                            <span class="text-stone-400">× {{ $c->qty }}</span>
-                            <form method="POST" action="{{ route('tiktok.sku-map.remove', $c) }}" class="inline">@csrf @method('DELETE')
+                        <div class="flex items-center gap-1.5 text-xs py-0.5">
+                            <span class="text-emerald-700 truncate">{{ $c->product?->name ?? '(produk terhapus)' }}</span>
+                            <span class="text-stone-400 shrink-0">× {{ $c->qty }}</span>
+                            <form method="POST" action="{{ route('tiktok.sku-map.remove', $c) }}" class="inline shrink-0">@csrf @method('DELETE')
                                 <button class="text-[10px] text-rose-500 hover:text-rose-700 underline">hapus</button>
                             </form>
                         </div>
                     @endforeach
                     {{-- tambah komponen --}}
-                    <form method="POST" action="{{ route('tiktok.sku-map') }}" class="flex flex-wrap items-center gap-2 text-xs mt-1.5 pl-2">@csrf
+                    <form method="POST" action="{{ route('tiktok.sku-map') }}" class="flex items-center gap-1.5 text-xs mt-auto pt-2">@csrf
                         <input type="hidden" name="tiktok_sku" value="{{ $sku }}">
-                        <span class="text-stone-400">+ tambah:</span>
-                        <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded w-56">
-                            <option value="">— produk SKINKU —</option>
+                        <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded flex-1 min-w-0">
+                            <option value="">— produk —</option>
                             @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} ({{ $p->sku }})</option>@endforeach
                         </select>
-                        <span class="text-stone-400">×</span>
-                        <input type="number" name="qty" value="1" min="1" max="999" class="w-16 px-2 py-1 border border-stone-300 rounded text-right">
-                        <button class="px-3 py-1 bg-stone-800 text-white rounded hover:bg-stone-900">Tambah</button>
+                        <span class="text-stone-400 shrink-0">×</span>
+                        <input type="number" name="qty" value="1" min="1" max="999" class="w-12 px-1.5 py-1 border border-stone-300 rounded text-right shrink-0">
+                        <button class="px-2.5 py-1 bg-stone-800 text-white rounded hover:bg-stone-900 shrink-0">+</button>
                     </form>
                 </div>
             @endforeach
