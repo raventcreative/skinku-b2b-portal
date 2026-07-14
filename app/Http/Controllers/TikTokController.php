@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
+use App\Models\TiktokSkuMap;
 use App\Services\AuditService;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
@@ -90,13 +92,56 @@ class TikTokController extends Controller
         }
     }
 
-    /** Daftar order TikTok + pratinjau dampak stok (read-only, belum memotong). */
+    /** Daftar order TikTok + pratinjau dampak stok + aksi potong stok. */
     public function orderList()
     {
         $orders = TiktokOrder::latest('order_created_at')->latest('id')->paginate(25);
         $previews = $orders->mapWithKeys(fn ($o) => [$o->id => $this->orders->preview($o)]);
 
-        return view('tiktok.orders', compact('orders', 'previews'));
+        return view('tiktok.orders', [
+            'orders' => $orders,
+            'previews' => $previews,
+            'unmatchedSkus' => $this->orders->unmatchedSkus(),
+            'products' => Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']),
+        ]);
+    }
+
+    /** Petakan SKU TikTok → produk SKINKU (diingat untuk semua order). */
+    public function saveSkuMap(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'tiktok_sku' => ['required', 'string', 'max:190'],
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+        ]);
+        TiktokSkuMap::updateOrCreate(['tiktok_sku' => $data['tiktok_sku']], ['product_id' => $data['product_id']]);
+
+        return back()->with('status', "SKU \"{$data['tiktok_sku']}\" dipetakan.");
+    }
+
+    /** Potong stok internal untuk order (preview-approve). */
+    public function deductStock(Request $request, TiktokOrder $order): RedirectResponse
+    {
+        try {
+            $this->orders->deduct($order, $request->user()->id);
+            AuditService::log(action: 'tiktok_deduct_stock', targetType: 'tiktok_order', targetId: $order->id);
+
+            return back()->with('status', "Stok dipotong untuk order {$order->tiktok_order_id}.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal potong stok: '.$e->getMessage());
+        }
+    }
+
+    /** Batalkan pemotongan stok (kembalikan). */
+    public function reverseStock(TiktokOrder $order): RedirectResponse
+    {
+        try {
+            $this->orders->reverse($order);
+            AuditService::log(action: 'tiktok_reverse_stock', targetType: 'tiktok_order', targetId: $order->id);
+
+            return back()->with('status', "Pemotongan stok dibatalkan untuk order {$order->tiktok_order_id}.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal batalkan: '.$e->getMessage());
+        }
     }
 
     public function disconnect(): RedirectResponse

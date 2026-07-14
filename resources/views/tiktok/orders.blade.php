@@ -8,8 +8,30 @@
 <a href="{{ route('tiktok.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Integrasi</a>
 
 <div class="mt-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
-    ℹ️ <b>Pratinjau (read-only)</b> — ini cuma menampilkan order + produk SKINKU yang cocok per item. <b>Belum memotong stok apa pun.</b> Tombol "Potong Stok" dibangun di langkah berikut setelah kamu konfirmasi pencocokan SKU-nya sudah benar.
+    ℹ️ Stok <b>tidak dipotong otomatis</b>. Kamu klik <b>"Potong Stok"</b> sendiri per order (mode preview-approve). Hanya order yang <b>sudah dikirim</b> &amp; semua SKU-nya <b>sudah cocok</b> yang bisa dipotong. Bisa dibatalkan (stok balik).
 </div>
+
+@if(count($unmatchedSkus))
+    <div class="mt-4 bg-white rounded-2xl border border-rose-200 p-5">
+        <h3 class="text-sm font-bold text-stone-800 mb-1">Petakan SKU yang belum cocok ({{ count($unmatchedSkus) }})</h3>
+        <p class="text-[11px] text-stone-500 mb-3">SKU TikTok ini beda dari SKU produk SKINKU. Pilih produknya sekali — diingat untuk semua order.</p>
+        <div class="space-y-2">
+            @foreach($unmatchedSkus as $sku => $name)
+                <form method="POST" action="{{ route('tiktok.sku-map') }}" class="flex flex-wrap items-center gap-2 text-xs">@csrf
+                    <input type="hidden" name="tiktok_sku" value="{{ $sku }}">
+                    <span class="font-mono text-stone-700 w-36">{{ $sku }}</span>
+                    <span class="text-stone-400 truncate max-w-[180px]">{{ $name }}</span>
+                    <span class="text-stone-300">→</span>
+                    <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded w-60">
+                        <option value="">— pilih produk SKINKU —</option>
+                        @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} ({{ $p->sku }})</option>@endforeach
+                    </select>
+                    <button class="px-3 py-1 bg-stone-800 text-white rounded hover:bg-stone-900">Simpan</button>
+                </form>
+            @endforeach
+        </div>
+    </div>
+@endif
 
 <div class="mt-4 bg-white rounded-2xl border border-stone-200 overflow-hidden">
     <div class="overflow-x-auto">
@@ -56,15 +78,20 @@
                             <span class="text-stone-400">— tidak ada item —</span>
                         @endforelse
                     </td>
-                    <td class="py-3">
+                    <td class="py-3 pr-4">
                         @if($o->stock_status === \App\Models\TiktokOrder::STATUS_DEDUCTED)
-                            <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">sudah dipotong</span>
+                            <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">✓ sudah dipotong</span>
+                            <form method="POST" action="{{ route('tiktok.reverse', $o) }}" class="inline" onsubmit="return confirm('Batalkan pemotongan stok? Stok akan dikembalikan.')">@csrf
+                                <button class="ml-1 text-[10px] text-stone-500 hover:text-rose-600 underline">batalkan</button>
+                            </form>
                         @elseif(! $o->isShipped())
                             <span class="text-[10px] text-stone-400">tunggu dikirim</span>
                         @elseif(! $pv['all_matched'])
-                            <span class="text-[10px] text-rose-500">ada SKU belum cocok</span>
+                            <span class="text-[10px] text-rose-500">petakan SKU dulu ↑</span>
                         @else
-                            <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">siap dipotong</span>
+                            <form method="POST" action="{{ route('tiktok.deduct', $o) }}" onsubmit="return confirm('Potong stok internal SKINKU untuk order ini?')">@csrf
+                                <button class="px-3 py-1 text-[11px] bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">✂ Potong Stok</button>
+                            </form>
                         @endif
                     </td>
                 </tr>

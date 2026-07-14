@@ -153,4 +153,68 @@ class TikTokTest extends TestCase
 
         $this->actingAs($admin)->get('/tiktok/orders')->assertOk()->assertSee('SKU-A');
     }
+
+    public function test_deduct_reduces_stock_idempotently_and_reverses(): void
+    {
+        $product = Product::create([
+            'name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active',
+            'price_distributor' => 10000, 'price_reseller' => 12000,
+        ]);
+        $order = TiktokOrder::create([
+            'tiktok_order_id' => 'TT1', 'status' => 'COMPLETED', 'total_amount' => 50000,
+            'line_items' => [['sku' => 'SKU-A', 'name' => 'Sabun', 'qty' => 3]],
+            'stock_status' => TiktokOrder::STATUS_PENDING,
+        ]);
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        // potong → stok 100 - 3 = 97, order jadi 'deducted'
+        $this->actingAs($admin)->post(route('tiktok.deduct', $order))->assertRedirect();
+        $this->assertEquals(97, $product->fresh()->hq_stock);
+        $this->assertEquals(TiktokOrder::STATUS_DEDUCTED, $order->fresh()->stock_status);
+        $this->assertDatabaseHas('stock_movements', ['product_id' => $product->id, 'movement_type' => 'OUT', 'quantity' => 3, 'reference_type' => 'tiktok_order']);
+
+        // klik lagi → idempoten, stok tetap 97 (tidak dobel)
+        $this->actingAs($admin)->post(route('tiktok.deduct', $order))->assertRedirect();
+        $this->assertEquals(97, $product->fresh()->hq_stock);
+
+        // batalkan → stok balik 100
+        $this->actingAs($admin)->post(route('tiktok.reverse', $order))->assertRedirect();
+        $this->assertEquals(100, $product->fresh()->hq_stock);
+        $this->assertEquals(TiktokOrder::STATUS_PENDING, $order->fresh()->stock_status);
+    }
+
+    public function test_cannot_deduct_when_not_shipped_or_unmapped(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        // belum dikirim
+        $unshipped = TiktokOrder::create(['tiktok_order_id' => 'A', 'status' => 'AWAITING_SHIPMENT',
+            'line_items' => [['sku' => 'SKU-A', 'name' => 'x', 'qty' => 1]], 'stock_status' => TiktokOrder::STATUS_PENDING]);
+        $this->actingAs($admin)->post(route('tiktok.deduct', $unshipped))->assertRedirect()->assertSessionHas('error');
+        $this->assertEquals(TiktokOrder::STATUS_PENDING, $unshipped->fresh()->stock_status);
+
+        // dikirim tapi SKU tak ada produknya
+        $unmapped = TiktokOrder::create(['tiktok_order_id' => 'B', 'status' => 'COMPLETED',
+            'line_items' => [['sku' => 'NOPE', 'name' => 'x', 'qty' => 1]], 'stock_status' => TiktokOrder::STATUS_PENDING]);
+        $this->actingAs($admin)->post(route('tiktok.deduct', $unmapped))->assertSessionHas('error');
+        $this->assertEquals(TiktokOrder::STATUS_PENDING, $unmapped->fresh()->stock_status);
+    }
+
+    public function test_sku_map_makes_order_matchable(): void
+    {
+        $product = Product::create([
+            'name' => 'Scrub', 'sku' => 'INTERNAL-SCRUB', 'hq_stock' => 50, 'status' => 'active',
+            'price_distributor' => 10000, 'price_reseller' => 12000,
+        ]);
+        $order = TiktokOrder::create(['tiktok_order_id' => 'TTX', 'status' => 'COMPLETED',
+            'line_items' => [['sku' => 'Scrub-1', 'name' => 'Scrub', 'qty' => 2]], 'stock_status' => TiktokOrder::STATUS_PENDING]);
+        $svc = app(TikTokOrderService::class);
+        $this->assertFalse($svc->preview($order)['all_matched']);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post(route('tiktok.sku-map'), [
+            'tiktok_sku' => 'Scrub-1', 'product_id' => $product->id,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('tiktok_sku_maps', ['tiktok_sku' => 'Scrub-1', 'product_id' => $product->id]);
+        $this->assertTrue($svc->preview($order->fresh())['all_matched']);
+    }
 }
