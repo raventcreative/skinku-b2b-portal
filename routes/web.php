@@ -177,6 +177,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('tiktok.callback');
         Route::post('/tiktok/sync-orders', [TikTokController::class, 'syncOrders'])->name('tiktok.sync-orders');
         Route::get('/tiktok/orders', [TikTokController::class, 'orderList'])->name('tiktok.orders');
+        Route::get('/tiktok/stok', [TikTokController::class, 'stockFunnel'])->name('tiktok.stock');
         Route::post('/tiktok/sku-map', [TikTokController::class, 'saveSkuMap'])->name('tiktok.sku-map');
         Route::delete('/tiktok/sku-map/{map}', [TikTokController::class, 'removeSkuMap'])->name('tiktok.sku-map.remove');
         Route::post('/tiktok/orders/{order}/deduct', [TikTokController::class, 'deductStock'])->name('tiktok.deduct');

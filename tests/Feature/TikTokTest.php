@@ -136,6 +136,27 @@ class TikTokTest extends TestCase
         $this->actingAs($this->user(User::ROLE_RESELLER))->get('/tiktok')->assertForbidden();
     }
 
+    public function test_stock_funnel_buckets_by_status(): void
+    {
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 300, 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);
+        // deducted + IN_TRANSIT (×2) → dalam perjalanan
+        TiktokOrder::create(['tiktok_order_id' => 'T1', 'status' => 'IN_TRANSIT', 'stock_status' => TiktokOrder::STATUS_DEDUCTED, 'line_items' => [['sku' => 'SKU-A', 'name' => 'x', 'qty' => 2]]]);
+        // deducted + COMPLETED (×5) → terkirim
+        TiktokOrder::create(['tiktok_order_id' => 'T2', 'status' => 'COMPLETED', 'stock_status' => TiktokOrder::STATUS_DEDUCTED, 'line_items' => [['sku' => 'SKU-A', 'name' => 'x', 'qty' => 5]]]);
+        // belum dipotong → tidak dihitung
+        TiktokOrder::create(['tiktok_order_id' => 'T3', 'status' => 'COMPLETED', 'stock_status' => TiktokOrder::STATUS_PENDING, 'line_items' => [['sku' => 'SKU-A', 'name' => 'x', 'qty' => 99]]]);
+
+        $rows = app(TikTokOrderService::class)->stockFunnel();
+        $this->assertCount(1, $rows);
+        $row = $rows[0];
+        $this->assertEquals(2, $row['transit']);
+        $this->assertEquals(5, $row['delivered']);
+        $this->assertEquals(300, $row['sisa']);
+        $this->assertEquals(307, $row['total']); // 300 + 2 + 5
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/tiktok/stok')->assertOk()->assertSee('Sabun');
+    }
+
     public function test_return_restock_adds_stock_reject_does_not_reverse_pulls_back(): void
     {
         $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);

@@ -176,6 +176,12 @@ class TikTokController extends Controller
             ($r['skipped'] ? ", {$r['skipped']} dilewati (SKU belum lengkap)" : '').'.');
     }
 
+    /** Laporan konversi stok per item: Total / Terkirim / Dalam Perjalanan / Sisa. */
+    public function stockFunnel()
+    {
+        return view('tiktok.stock', ['rows' => $this->orders->stockFunnel()]);
+    }
+
     /* ---------------- Retur TikTok ---------------- */
 
     /** Tarik retur/refund terbaru dari TikTok → simpan (otomatis). */
