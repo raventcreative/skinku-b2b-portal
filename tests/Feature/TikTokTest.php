@@ -58,7 +58,8 @@ class TikTokTest extends TestCase
         Http::fake([
             '*/api/v2/token/get*' => Http::response(['code' => 0, 'message' => 'success', 'data' => [
                 'access_token' => 'acc-123', 'refresh_token' => 'ref-123',
-                'access_token_expire_in' => time() + 86400, 'refresh_token_expire_in' => time() + 8640000,
+                // refresh bisa jauh ke depan (mis. epoch th 2125) — harus muat di kolom datetime
+                'access_token_expire_in' => time() + 604800, 'refresh_token_expire_in' => 4_900_000_000,
                 'seller_name' => 'SKINKU',
             ]]),
             '*/authorization/202309/shops*' => Http::response(['code' => 0, 'data' => [
