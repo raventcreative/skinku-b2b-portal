@@ -182,6 +182,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/tiktok/orders/{order}/deduct', [TikTokController::class, 'deductStock'])->name('tiktok.deduct');
         Route::post('/tiktok/deduct-all', [TikTokController::class, 'deductAll'])->name('tiktok.deduct-all');
         Route::post('/tiktok/toggle-auto', [TikTokController::class, 'toggleAuto'])->name('tiktok.toggle-auto');
+        // Retur
+        Route::get('/tiktok/returns', [TikTokController::class, 'returnList'])->name('tiktok.returns');
+        Route::post('/tiktok/returns/sync', [TikTokController::class, 'syncReturns'])->name('tiktok.returns.sync');
+        Route::post('/tiktok/returns/{ret}/restock', [TikTokController::class, 'restockReturn'])->name('tiktok.returns.restock');
+        Route::post('/tiktok/returns/{ret}/reject', [TikTokController::class, 'rejectReturn'])->name('tiktok.returns.reject');
+        Route::post('/tiktok/returns/{ret}/reset', [TikTokController::class, 'resetReturn'])->name('tiktok.returns.reset');
         Route::post('/tiktok/orders/{order}/reverse', [TikTokController::class, 'reverseStock'])->name('tiktok.reverse');
         Route::delete('/tiktok/disconnect', [TikTokController::class, 'disconnect'])->name('tiktok.disconnect');
     });

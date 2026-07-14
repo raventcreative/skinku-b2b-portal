@@ -80,6 +80,17 @@ class TikTokClient
         return $this->request('POST', '/order/202309/orders/search', $accessToken, $shopCipher, $query, []);
     }
 
+    /** Cari retur/refund — TERBARU dulu. Satu halaman. */
+    public function searchReturns(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
+    {
+        $query = ['page_size' => $pageSize, 'sort_field' => 'create_time', 'sort_order' => 'DESC'];
+        if ($pageToken !== '') {
+            $query['page_token'] = $pageToken;
+        }
+
+        return $this->request('POST', '/return_refund/202309/returns/search', $accessToken, $shopCipher, $query, []);
+    }
+
     // ---- internal ----
 
     private function authCall(string $path, array $query): array

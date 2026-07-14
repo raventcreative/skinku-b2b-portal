@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Product;
 use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
+use App\Models\TiktokReturn;
 use App\Models\TiktokSkuMap;
 use App\Models\User;
 use App\Services\TikTokClient;
@@ -133,6 +134,50 @@ class TikTokTest extends TestCase
     {
         $this->actingAs($this->user(User::ROLE_ADMIN))->get('/tiktok')->assertOk();
         $this->actingAs($this->user(User::ROLE_RESELLER))->get('/tiktok')->assertForbidden();
+    }
+
+    public function test_return_restock_adds_stock_reject_does_not_reverse_pulls_back(): void
+    {
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);
+        $mk = fn ($id) => TiktokReturn::create([
+            'tiktok_return_id' => $id, 'tiktok_order_id' => 'O'.$id, 'status' => 'RETURN',
+            'line_items' => [['sku' => 'SKU-A', 'name' => 'x', 'qty' => 2]],
+            'review_status' => TiktokReturn::REVIEW_PENDING,
+        ]);
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        // TERIMA (layak jual) → stok +2 = 102
+        $r1 = $mk('R1');
+        $this->actingAs($admin)->post(route('tiktok.returns.restock', $r1))->assertRedirect();
+        $this->assertEquals(102, $p->fresh()->hq_stock);
+        $this->assertEquals(TiktokReturn::REVIEW_RESTOCKED, $r1->fresh()->review_status);
+        $this->assertDatabaseHas('stock_movements', ['product_id' => $p->id, 'movement_type' => 'IN', 'quantity' => 2, 'reference_type' => 'tiktok_return']);
+
+        // TOLAK (cacat) → stok tetap
+        $r2 = $mk('R2');
+        $this->actingAs($admin)->post(route('tiktok.returns.reject', $r2))->assertRedirect();
+        $this->assertEquals(102, $p->fresh()->hq_stock);
+        $this->assertEquals(TiktokReturn::REVIEW_REJECTED, $r2->fresh()->review_status);
+
+        // BATALKAN yang tadi diterima → stok balik 100
+        $this->actingAs($admin)->post(route('tiktok.returns.reset', $r1))->assertRedirect();
+        $this->assertEquals(100, $p->fresh()->hq_stock);
+        $this->assertEquals(TiktokReturn::REVIEW_PENDING, $r1->fresh()->review_status);
+    }
+
+    public function test_return_sync_stores_and_reseller_forbidden(): void
+    {
+        $this->configureTikTok();
+        Http::fake(['*/return_refund/202309/returns/search*' => Http::response(['code' => 0, 'data' => ['return_orders' => [
+            ['return_id' => 'RET1', 'order_id' => 'ORD1', 'return_status' => 'RETURN', 'create_time' => 1750000000,
+                'return_line_items' => [['seller_sku' => 'SKU-A', 'quantity' => 1]]],
+        ]]])]);
+        TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r', 'access_expires_at' => now()->addDay()]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post('/tiktok/returns/sync')->assertRedirect(route('tiktok.returns'));
+        $this->assertDatabaseHas('tiktok_returns', ['tiktok_return_id' => 'RET1', 'tiktok_order_id' => 'ORD1']);
+
+        $this->actingAs($this->user(User::ROLE_RESELLER))->get('/tiktok/returns')->assertForbidden();
     }
 
     public function test_sync_stores_orders_and_matches_sku_to_product(): void

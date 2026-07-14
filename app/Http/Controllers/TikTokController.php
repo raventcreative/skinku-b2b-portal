@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
+use App\Models\TiktokReturn;
 use App\Models\TiktokSkuMap;
 use App\Services\AuditService;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
+use App\Services\TikTokReturnService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -18,6 +20,7 @@ class TikTokController extends Controller
     public function __construct(
         private TikTokClient $tiktok,
         private TikTokOrderService $orders,
+        private TikTokReturnService $returns,
     ) {}
 
     public function index()
@@ -171,6 +174,73 @@ class TikTokController extends Controller
         return back()->with('status', "{$r['done']} order dipotong stoknya".
             ($r['failed'] ? ", {$r['failed']} gagal (stok kurang?)" : '').
             ($r['skipped'] ? ", {$r['skipped']} dilewati (SKU belum lengkap)" : '').'.');
+    }
+
+    /* ---------------- Retur TikTok ---------------- */
+
+    /** Tarik retur/refund terbaru dari TikTok → simpan (otomatis). */
+    public function syncReturns(Request $request): RedirectResponse
+    {
+        $conn = TiktokConnection::latest('id')->first();
+        abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
+
+        try {
+            $access = $this->freshToken($conn);
+            $all = [];
+            $token = '';
+            $pages = 0;
+            do {
+                $data = $this->tiktok->searchReturns($access, $conn->shop_cipher, 50, $token);
+                $all = array_merge($all, $data['return_orders'] ?? ($data['returns'] ?? []));
+                $token = $data['next_page_token'] ?? '';
+                $pages++;
+            } while ($token && $pages < 10);
+
+            $count = $this->returns->store($all);
+
+            return redirect()->route('tiktok.returns')->with('status', "Berhasil tarik {$count} retur dari TikTok.");
+        } catch (\Throwable $e) {
+            return redirect()->route('tiktok.returns')->with('error', 'Gagal tarik retur: '.$e->getMessage().' (mungkin scope "Return" belum aktif di Partner Center)');
+        }
+    }
+
+    /** Daftar retur + pratinjau + aksi review (approve/tolak). */
+    public function returnList()
+    {
+        $returns = TiktokReturn::latest('return_created_at')->latest('id')->paginate(25);
+        $previews = $returns->mapWithKeys(fn ($r) => [$r->id => $this->returns->preview($r)]);
+
+        return view('tiktok.returns', compact('returns', 'previews'));
+    }
+
+    /** Approve: barang layak jual → tambah stok. */
+    public function restockReturn(Request $request, TiktokReturn $ret): RedirectResponse
+    {
+        try {
+            $this->returns->restock($ret, $request->user()->id, $request->input('note'));
+            AuditService::log(action: 'tiktok_return_restock', targetType: 'tiktok_return', targetId: $ret->id);
+
+            return back()->with('status', "Retur {$ret->tiktok_return_id}: stok ditambahkan (layak jual).");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal: '.$e->getMessage());
+        }
+    }
+
+    /** Tolak: barang cacat → tidak masuk stok. */
+    public function rejectReturn(Request $request, TiktokReturn $ret): RedirectResponse
+    {
+        $this->returns->reject($ret, $request->user()->id, $request->input('note'));
+        AuditService::log(action: 'tiktok_return_reject', targetType: 'tiktok_return', targetId: $ret->id);
+
+        return back()->with('status', "Retur {$ret->tiktok_return_id}: ditolak (cacat), stok tidak ditambah.");
+    }
+
+    /** Batalkan keputusan review (balik ke pending; tarik stok lagi jika perlu). */
+    public function resetReturn(TiktokReturn $ret): RedirectResponse
+    {
+        $this->returns->resetReview($ret);
+
+        return back()->with('status', "Retur {$ret->tiktok_return_id} dikembalikan ke status review.");
     }
 
     /** Nyalakan/matikan auto-potong saat sync. */
