@@ -83,7 +83,8 @@
             @forelse($rows as $r)
                 <tr class="border-t border-stone-100 hover:bg-stone-50/50">
                     <td class="px-3 py-2 sticky left-0 bg-white z-10">
-                        <div class="font-semibold text-stone-800">{{ $r['product']->name }}</div>
+                        <a href="{{ route('stock-movements.index', ['product_id' => $r['product']->id, 'from' => $start->format('Y-m-d'), 'to' => $end->format('Y-m-d')]) }}"
+                            class="font-semibold text-indigo-700 hover:text-indigo-900 hover:underline" title="Lihat rincian pergerakan produk ini pada periode ini">{{ $r['product']->name }}</a>
                         <div class="text-[10px] text-stone-400 font-mono">{{ $r['product']->sku ?: '—' }}</div>
                     </td>
                     <td class="text-right px-3 py-2 font-mono text-stone-600">{{ $n($r['awal']) }}</td>
@@ -122,5 +123,6 @@
 <p class="mt-3 text-[11px] text-stone-400">
     Rumus: <b>Stok Akhir = Stok Awal + Produksi + Penyesuaian − (TikTok + Shopee + Reseller)</b>.
     Kolom TikTok terisi dari order yang sudah kamu <b>Potong Stok</b>. Shopee 0 (belum integrasi). Titik <b>·</b> = nol.
+    <br>💡 Klik <b>nama produk</b> untuk lihat rincian tiap pergerakannya (buku besar) pada periode ini.
 </p>
 @endsection

@@ -118,6 +118,31 @@ class HqStockReportTest extends TestCase
         $this->actingAs($admin)->get(route('hq-stock.report', ['mode' => 'bulanan', 'date' => '2026-07']))->assertOk();
     }
 
+    public function test_movement_drilldown_filters_by_product_and_period(): void
+    {
+        $inv = app(InventoryService::class);
+        $a = $this->product(0);
+        $b = $this->product(0);
+
+        $inv->adjustHqStock($a, 100, StockMovement::TYPE_IN, null, 'production', occurredAt: Carbon::parse('2026-07-14 09:00'));
+        $inv->adjustHqStock($a, -30, StockMovement::TYPE_OUT, null, 'tiktok_order', occurredAt: Carbon::parse('2026-07-14 10:00'));
+        $inv->adjustHqStock($a, -10, StockMovement::TYPE_OUT, null, 'tiktok_order', occurredAt: Carbon::parse('2026-07-20 10:00')); // luar periode
+        $inv->adjustHqStock($b, 50, StockMovement::TYPE_IN, null, 'production', occurredAt: Carbon::parse('2026-07-14 09:00')); // produk lain
+
+        $this->actingAs($this->admin())
+            ->get(route('stock-movements.index', ['product_id' => $a->id, 'from' => '2026-07-14', 'to' => '2026-07-14']))
+            ->assertOk()
+            ->assertSee('Detail dari')
+            ->assertSee($a->name);
+
+        // hanya 2 gerakan produk A dalam tanggal 14 yang lolos filter
+        $count = StockMovement::query()
+            ->where('product_id', $a->id)->whereNull('user_id')
+            ->whereBetween('created_at', ['2026-07-14 00:00:00', '2026-07-14 23:59:59'])
+            ->count();
+        $this->assertSame(2, $count);
+    }
+
     public function test_opname_endpoint_writes_adjustment_and_syncs_stock(): void
     {
         $p = $this->product(120);

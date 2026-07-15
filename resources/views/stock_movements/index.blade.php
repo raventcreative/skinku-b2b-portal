@@ -3,7 +3,19 @@
 @section('heading', 'Riwayat Pergerakan Stok')
 
 @section('content')
+@if(($focusProduct ?? null) || ($filters['from'] ?? null))
+    <div class="mb-4 flex flex-wrap items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-[12px]">
+        <span>🔎 Detail dari <b>Laporan Stok HQ</b>:</span>
+        @if($focusProduct ?? null)<span class="font-semibold">{{ $focusProduct->name }}</span>@endif
+        @if($filters['from'] ?? null)<span>· periode <b>{{ \Illuminate\Support\Carbon::parse($filters['from'])->format('d M Y') }}</b>@if(($filters['to'] ?? null) && $filters['to'] !== $filters['from']) – <b>{{ \Illuminate\Support\Carbon::parse($filters['to'])->format('d M Y') }}</b>@endif</span>@endif
+        <a href="{{ route('stock-movements.index') }}" class="ml-auto underline hover:text-indigo-900">✕ Lihat semua</a>
+    </div>
+@endif
+
 <form method="GET" class="flex flex-wrap gap-2 mb-4">
+    @foreach(['product_id', 'from', 'to'] as $keep)
+        @if($filters[$keep] ?? null)<input type="hidden" name="{{ $keep }}" value="{{ $filters[$keep] }}">@endif
+    @endforeach
     <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari produk/SKU…" class="px-3 py-2 text-sm border border-stone-300 rounded-lg w-56">
     <select name="type" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
         <option value="">Semua Tipe</option>

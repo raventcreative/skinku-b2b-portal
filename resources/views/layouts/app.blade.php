@@ -97,7 +97,8 @@
                         {!! navItem('productions.index', 'Produksi (HPP)', 'productions.*') !!}
                     @endif
                     @if($u->canDo('manage_hq_stock'))
-                        {!! navItem('stock-movements.index', 'Stock Movement', 'stock-movements.index') !!}
+                        {{-- "Stock Movement" sengaja tidak di sidebar (No.3): diakses via drill-down
+                             dari Laporan Stok HQ. Route tetap aktif (stock-movements.index). --}}
                         {!! navItem('stok-opname.index', 'Stok Opname', 'stok-opname.index') !!}
                         {!! navItem('hq-stock.report', 'Laporan Stok HQ', 'hq-stock.report') !!}
                     @endif
