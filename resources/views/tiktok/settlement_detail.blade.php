@@ -26,7 +26,17 @@
     <div class="mt-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
         Gagal menarik rincian: {{ $error }}
     </div>
-@elseif(is_array($transactions) && count($transactions))
+@endif
+
+@if(is_array($transactions))
+    {{-- Dump mentah semua transaksi — buat identifikasi nama field asli TikTok (screenshot ini). --}}
+    <details class="mt-4" open>
+        <summary class="cursor-pointer text-xs font-semibold text-indigo-700">🔍 Data mentah semua transaksi (JSON) — {{ count($transactions) }} item · key respons: [{{ implode(', ', $rawKeys) }}]</summary>
+        <pre class="mt-2 text-[10px] bg-stone-900 text-stone-100 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap max-h-96">{{ json_encode($transactions, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+    </details>
+@endif
+
+@if(is_array($transactions) && count($transactions))
     <div class="mt-4 bg-white rounded-2xl border border-stone-200 overflow-x-auto">
         <div class="px-4 py-2.5 text-[11px] text-stone-500 border-b border-stone-100">
             {{ count($transactions) }} transaksi dalam pencairan ini.
