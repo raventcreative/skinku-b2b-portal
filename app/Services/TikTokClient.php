@@ -105,7 +105,8 @@ class TikTokClient
     /** Rincian transaksi dalam 1 pencairan (buat tahu jenis tiap potongan). Satu halaman. */
     public function getStatementTransactions(string $accessToken, string $shopCipher, string $statementId, int $pageSize = 50, string $pageToken = ''): array
     {
-        $query = ['page_size' => $pageSize];
+        // sort_field WAJIB utk endpoint ini (error 36009004 kalau tak ada).
+        $query = ['page_size' => $pageSize, 'sort_field' => 'order_create_time', 'sort_order' => 'DESC'];
         if ($pageToken !== '') {
             $query['page_token'] = $pageToken;
         }
