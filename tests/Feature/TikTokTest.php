@@ -281,6 +281,51 @@ class TikTokTest extends TestCase
         $this->assertSame('Penjualan', TiktokSettlement::where('tiktok_statement_id', 'SLS1')->first()->kind);
     }
 
+    public function test_cutoff_blocks_pre_opname_orders_from_deduction(): void
+    {
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);
+        TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(), 'deduct_from' => '2026-07-15',
+        ]);
+
+        $mk = fn ($id, $date) => TiktokOrder::create([
+            'tiktok_order_id' => $id, 'status' => 'COMPLETED', 'stock_status' => TiktokOrder::STATUS_PENDING,
+            'order_created_at' => $date, 'line_items' => [['sku' => 'SKU-A', 'name' => 'x', 'qty' => 3]],
+        ]);
+        $old = $mk('OLD', '2026-07-14 09:00');   // pra-opname → jangan dipotong
+        $new = $mk('NEW', '2026-07-15 09:00');   // sesudah → boleh
+
+        $svc = app(TikTokOrderService::class);
+        $this->assertTrue($svc->isBeforeCutoff($old));
+        $this->assertFalse($svc->isBeforeCutoff($new));
+
+        // potong manual order lama → ditolak
+        $this->expectException(\RuntimeException::class);
+        $svc->deduct($old, 1);
+    }
+
+    public function test_deduct_all_only_takes_orders_from_cutoff(): void
+    {
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);
+        TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(), 'deduct_from' => '2026-07-15',
+        ]);
+        $mk = fn ($id, $date) => TiktokOrder::create([
+            'tiktok_order_id' => $id, 'status' => 'COMPLETED', 'stock_status' => TiktokOrder::STATUS_PENDING,
+            'order_created_at' => $date, 'line_items' => [['sku' => 'SKU-A', 'name' => 'x', 'qty' => 3]],
+        ]);
+        $mk('OLD', '2026-07-14 09:00');
+        $mk('NEW', '2026-07-15 09:00');
+
+        $r = app(TikTokOrderService::class)->deductAllReady($this->user(User::ROLE_ADMIN)->id);
+
+        $this->assertSame(1, $r['done']);                       // cuma yang 15 Jul
+        $this->assertEquals(97, $p->fresh()->hq_stock);         // 100 − 3 (bukan −6)
+        $this->assertSame(TiktokOrder::STATUS_PENDING, TiktokOrder::where('tiktok_order_id', 'OLD')->first()->stock_status);
+    }
+
     public function test_journal_preview_balances_for_sales_and_ads(): void
     {
         $svc = app(SettlementJournalService::class);

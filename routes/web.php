@@ -190,6 +190,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/tiktok/orders/{order}/deduct', [TikTokController::class, 'deductStock'])->name('tiktok.deduct');
         Route::post('/tiktok/deduct-all', [TikTokController::class, 'deductAll'])->name('tiktok.deduct-all');
         Route::post('/tiktok/toggle-auto', [TikTokController::class, 'toggleAuto'])->name('tiktok.toggle-auto');
+        Route::post('/tiktok/deduct-from', [TikTokController::class, 'setDeductFrom'])->name('tiktok.deduct-from');
         // Retur
         Route::get('/tiktok/returns', [TikTokController::class, 'returnList'])->name('tiktok.returns');
         Route::post('/tiktok/returns/sync', [TikTokController::class, 'syncReturns'])->name('tiktok.returns.sync');

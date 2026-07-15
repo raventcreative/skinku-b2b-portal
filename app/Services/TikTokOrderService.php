@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
 use App\Models\TiktokReturn;
 use App\Models\TiktokSkuMap;
@@ -84,6 +85,22 @@ class TikTokOrderService
     public function isAutoMatched(string $sku): bool
     {
         return Product::where('sku', $sku)->exists();
+    }
+
+    /** Tanggal mulai potong stok (order sebelumnya sudah tercakup stok opname). */
+    public function cutoff(): ?Carbon
+    {
+        $c = TiktokConnection::latest('id')->first();
+
+        return $c?->deduct_from ? Carbon::parse($c->deduct_from)->startOfDay() : null;
+    }
+
+    /** Order dibuat sebelum batas mulai potong → jangan dipotong (dobel dgn opname). */
+    public function isBeforeCutoff(TiktokOrder $order): bool
+    {
+        $cut = $this->cutoff();
+
+        return $cut && $order->order_created_at && $order->order_created_at->lt($cut);
     }
 
     /** Pratinjau dampak stok: tiap item → komponen produk & qty total (×qty order). */
@@ -192,6 +209,10 @@ class TikTokOrderService
         if (! $order->isShipped()) {
             throw new RuntimeException('Order belum dikirim — belum boleh potong stok.');
         }
+        if ($this->isBeforeCutoff($order)) {
+            throw new RuntimeException('Order dibuat sebelum '.$this->cutoff()->format('d M Y')
+                .' — barangnya sudah tercakup stok opname, tidak dipotong lagi.');
+        }
         $pv = $this->preview($order);
         if (! $pv['all_matched']) {
             throw new RuntimeException('Masih ada SKU yang belum dipetakan ke produk.');
@@ -223,8 +244,12 @@ class TikTokOrderService
         $done = 0;
         $failed = 0;
         $skipped = 0;
+        $cut = $this->cutoff();
         $orders = TiktokOrder::where('stock_status', TiktokOrder::STATUS_PENDING)
-            ->whereIn('status', TiktokOrder::SHIPPED_STATUSES)->get();
+            ->whereIn('status', TiktokOrder::SHIPPED_STATUSES)
+            // Order sebelum batas: sudah tercakup stok opname → jangan dipotong.
+            ->when($cut, fn ($q) => $q->where('order_created_at', '>=', $cut))
+            ->get();
 
         foreach ($orders as $o) {
             if (! $this->preview($o)['all_matched']) {

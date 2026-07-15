@@ -129,6 +129,8 @@ class TikTokController extends Controller
             'connection' => TiktokConnection::latest('id')->first(),
             'skusNeedingMap' => $this->orders->skusNeedingMap(),
             'products' => Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']),
+            'cutoff' => $this->orders->cutoff(),
+            'beforeCutoff' => $orders->mapWithKeys(fn ($o) => [$o->id => $this->orders->isBeforeCutoff($o)]),
         ]);
     }
 
@@ -367,6 +369,21 @@ class TikTokController extends Controller
         return back()->with('status', "Keterangan diisi: {$done}"
             .($failed ? ", {$failed} gagal" : '')
             .($remaining ? ". Masih {$remaining} belum berketerangan — klik lagi untuk lanjut." : '. Semua sudah berketerangan.'));
+    }
+
+    /** Set batas tanggal mulai potong stok (order sebelumnya = sudah tercakup opname). */
+    public function setDeductFrom(Request $request): RedirectResponse
+    {
+        $conn = TiktokConnection::latest('id')->first();
+        abort_unless($conn, 400, 'Belum terhubung.');
+
+        $data = $request->validate(['deduct_from' => ['nullable', 'date']]);
+        $conn->update(['deduct_from' => $data['deduct_from'] ?? null]);
+        AuditService::log(action: 'tiktok_set_deduct_from', targetType: 'tiktok', after: $data);
+
+        return back()->with('status', $conn->deduct_from
+            ? 'Mulai potong stok dari '.$conn->deduct_from->format('d M Y').'. Order sebelum tanggal itu tidak akan dipotong (sudah tercakup stok opname).'
+            : 'Batas tanggal potong dihapus — SEMUA order yang siap bisa dipotong (hati-hati dobel dengan opname).');
     }
 
     /** Nyalakan/matikan auto-potong saat sync. */

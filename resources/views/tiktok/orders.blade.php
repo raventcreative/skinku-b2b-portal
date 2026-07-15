@@ -25,8 +25,25 @@
                 @if($connection->auto_deduct)<span class="text-emerald-600 font-semibold">AKTIF</span>@endif
             </label>
         </form>
+
+        {{-- Batas mulai potong: pengaman supaya order pra-opname tidak kepotong dobel --}}
+        <form method="POST" action="{{ route('tiktok.deduct-from') }}" class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-stone-200">@csrf
+            <label class="text-xs text-stone-600">Mulai potong dari</label>
+            <input type="date" name="deduct_from" value="{{ $connection->deduct_from?->format('Y-m-d') }}"
+                onchange="this.form.submit()" class="px-2 py-1 border border-stone-300 rounded text-xs">
+        </form>
     @endif
 </div>
+
+@if($cutoff)
+    <div class="mt-2 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px]">
+        🛡️ Order <b>sebelum {{ $cutoff->format('d M Y') }}</b> tidak akan dipotong — barangnya sudah tercakup <b>Stok Opname</b>. Aman menyalakan auto-potong.
+    </div>
+@else
+    <div class="mt-2 px-4 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px]">
+        ⚠️ <b>Batas tanggal belum diset.</b> Kalau kamu potong sekarang, order lama (pra-opname) ikut kepotong → stok dobel berkurang. Isi <b>"Mulai potong dari"</b> dulu.
+    </div>
+@endif
 
 @if(count($skusNeedingMap))
     <details class="mt-4 bg-white rounded-2xl border border-rose-200">
@@ -111,6 +128,8 @@
                     <form method="POST" action="{{ route('tiktok.reverse', $o) }}" class="inline" onsubmit="return confirm('Batalkan pemotongan stok? Stok akan dikembalikan.')">@csrf
                         <button class="ml-1 text-[10px] text-stone-500 hover:text-rose-600 underline">batalkan</button>
                     </form>
+                @elseif($beforeCutoff[$o->id] ?? false)
+                    <span class="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-[10px] font-bold" title="Barang sudah keluar sebelum stok opname — tidak dipotong lagi">🛡️ pra-opname</span>
                 @elseif(! $o->isShipped())
                     <span class="text-[10px] text-stone-400">tunggu dikirim</span>
                 @elseif(! $pv['all_matched'])
