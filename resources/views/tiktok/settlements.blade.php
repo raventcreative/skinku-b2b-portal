@@ -23,32 +23,36 @@
             <tr>
                 <th class="text-left px-4 py-2.5">Statement ID</th>
                 <th class="text-left">Tanggal</th>
-                <th class="text-left">Status</th>
+                <th class="text-left">Jenis</th>
                 <th class="text-right">Omzet (Bruto)</th>
                 <th class="text-right">Fee</th>
                 <th class="text-right">Penyesuaian</th>
-                <th class="text-right pr-4">Cair (Net)</th>
-                <th class="text-left px-4">Jurnal</th>
+                <th class="text-right">Cair (Net)</th>
+                <th class="text-left px-4">Rincian</th>
             </tr>
         </thead>
         <tbody>
             @forelse($settlements as $s)
+                @php
+                    $isSale = (float) $s->revenue_amount > 0;
+                    $net = (float) $s->settlement_amount;
+                @endphp
                 <tr class="border-t border-stone-100 hover:bg-stone-50/50">
                     <td class="px-4 py-2 font-mono text-stone-700">{{ $s->tiktok_statement_id }}</td>
                     <td class="text-stone-500">{{ $s->statement_time?->format('d M Y') ?? '—' }}</td>
                     <td>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] {{ $s->payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ $s->payment_status ?? '—' }}</span>
-                    </td>
-                    <td class="text-right font-mono text-stone-700">{{ $rp($s->revenue_amount) }}</td>
-                    <td class="text-right font-mono text-rose-600">−{{ $rp($s->fee_amount) }}</td>
-                    <td class="text-right font-mono text-stone-400">{{ (float) $s->adjustment_amount ? $rp($s->adjustment_amount) : '·' }}</td>
-                    <td class="text-right pr-4 font-mono font-bold text-emerald-700">{{ $rp($s->settlement_amount) }}</td>
-                    <td class="px-4">
-                        @if($s->isPosted())
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓ terjurnal</span>
+                        @if($isSale)
+                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700">Penjualan</span>
                         @else
-                            <span class="text-[10px] text-stone-400">belum (M3b)</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-700">Potongan / non-jualan</span>
                         @endif
+                    </td>
+                    <td class="text-right font-mono text-stone-700">{{ $isSale ? $rp($s->revenue_amount) : '·' }}</td>
+                    <td class="text-right font-mono text-rose-600">{{ (float) $s->fee_amount ? '−'.$rp($s->fee_amount) : '·' }}</td>
+                    <td class="text-right font-mono text-stone-500">{{ (float) $s->adjustment_amount ? $rp($s->adjustment_amount) : '·' }}</td>
+                    <td class="text-right font-mono font-bold {{ $net < 0 ? 'text-rose-600' : 'text-emerald-700' }}">{{ $rp($net) }}</td>
+                    <td class="px-4">
+                        <a href="{{ route('tiktok.settlements.detail', $s) }}" class="text-indigo-700 hover:text-indigo-900 hover:underline text-[11px]">Lihat rincian →</a>
                     </td>
                 </tr>
             @empty

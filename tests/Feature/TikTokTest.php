@@ -236,6 +236,24 @@ class TikTokTest extends TestCase
         $this->assertEquals('pending', TiktokSettlement::first()->posting_status);
     }
 
+    public function test_settlement_detail_pulls_transactions(): void
+    {
+        $this->configureTikTok();
+        Http::fake(['*/statement_transactions*' => Http::response(['code' => 0, 'data' => ['statement_transactions' => [
+            ['type' => 'AFFILIATE_AD', 'order_id' => 'O1', 'settlement_amount' => '-100178'],
+        ]]])]);
+        TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r', 'access_expires_at' => now()->addDay()]);
+        $s = TiktokSettlement::create([
+            'tiktok_statement_id' => 'STM7', 'payment_status' => 'SETTLED', 'currency' => 'IDR',
+            'revenue_amount' => 0, 'fee_amount' => 0, 'adjustment_amount' => -100178, 'settlement_amount' => -100178,
+        ]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))
+            ->get(route('tiktok.settlements.detail', $s))
+            ->assertOk()
+            ->assertSee('Iklan afiliasi');   // keterangan hasil terjemahan AFFILIATE_AD
+    }
+
     public function test_settlement_page_renders_and_reseller_forbidden(): void
     {
         TiktokSettlement::create([

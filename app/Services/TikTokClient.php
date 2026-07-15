@@ -102,6 +102,18 @@ class TikTokClient
         return $this->request('GET', '/finance/202309/statements', $accessToken, $shopCipher, $query);
     }
 
+    /** Rincian transaksi dalam 1 pencairan (buat tahu jenis tiap potongan). Satu halaman. */
+    public function getStatementTransactions(string $accessToken, string $shopCipher, string $statementId, int $pageSize = 50, string $pageToken = ''): array
+    {
+        $query = ['page_size' => $pageSize];
+        if ($pageToken !== '') {
+            $query['page_token'] = $pageToken;
+        }
+        $path = '/finance/202309/statements/'.rawurlencode($statementId).'/statement_transactions';
+
+        return $this->request('GET', $path, $accessToken, $shopCipher, $query);
+    }
+
     // ---- internal ----
 
     private function authCall(string $path, array $query): array

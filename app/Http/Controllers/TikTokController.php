@@ -302,6 +302,27 @@ class TikTokController extends Controller
         return view('tiktok.settlements', compact('settlements'));
     }
 
+    /** Rincian 1 pencairan — tarik transaksi dari TikTok biar jenis potongan kelihatan. */
+    public function settlementDetail(TiktokSettlement $settlement)
+    {
+        $conn = TiktokConnection::latest('id')->first();
+        abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
+
+        $transactions = null;
+        $rawKeys = [];
+        $error = null;
+        try {
+            $access = $this->freshToken($conn);
+            $data = $this->tiktok->getStatementTransactions($access, $conn->shop_cipher, $settlement->tiktok_statement_id, 50);
+            $rawKeys = array_keys($data);
+            $transactions = $data['statement_transactions'] ?? ($data['transactions'] ?? ($data['list'] ?? []));
+        } catch (\Throwable $e) {
+            $error = $e->getMessage();
+        }
+
+        return view('tiktok.settlement_detail', compact('settlement', 'transactions', 'rawKeys', 'error'));
+    }
+
     /** Nyalakan/matikan auto-potong saat sync. */
     public function toggleAuto(Request $request): RedirectResponse
     {
