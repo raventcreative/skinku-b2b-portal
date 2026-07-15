@@ -137,6 +137,8 @@
                     </form>
                 @elseif($beforeCutoff[$o->id] ?? false)
                     <span class="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-[10px] font-bold" title="Barang sudah keluar sebelum stok opname — tidak dipotong lagi">🛡️ pra-opname</span>
+                @elseif(in_array($o->status, ['CANCELLED', 'CANCEL'], true))
+                    <span class="text-[10px] text-stone-400">dibatalkan — tidak dipotong</span>
                 @elseif(! $o->isShipped())
                     <span class="text-[10px] text-stone-400">tunggu dikirim</span>
                 @elseif(! $pv['all_matched'])
