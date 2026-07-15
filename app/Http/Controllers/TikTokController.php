@@ -318,7 +318,7 @@ class TikTokController extends Controller
             $transactions = $data['statement_transactions'] ?? ($data['transactions'] ?? ($data['list'] ?? []));
             // Sekalian isi keterangan (kind) supaya kolom di daftar terisi.
             if (is_array($transactions) && ! $settlement->kind) {
-                $k = $this->settlements->deriveKind($transactions);
+                $k = $this->settlements->deriveKind($transactions, $settlement);
                 $settlement->update(['kind' => $k['label'], 'kind_raw' => $k['raw']]);
             }
         } catch (\Throwable $e) {
@@ -335,7 +335,8 @@ class TikTokController extends Controller
         abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
 
         $batch = 60;
-        $targets = TiktokSettlement::whereNull('kind')->orderByDesc('statement_time')->limit($batch)->get();
+        $targets = TiktokSettlement::where(fn ($q) => $q->whereNull('kind')->orWhere('kind', 'Potongan lain'))
+            ->orderByDesc('statement_time')->limit($batch)->get();
 
         $done = 0;
         $failed = 0;
@@ -345,7 +346,7 @@ class TikTokController extends Controller
                 try {
                     $data = $this->tiktok->getStatementTransactions($access, $conn->shop_cipher, $s->tiktok_statement_id, 50);
                     $txns = $data['statement_transactions'] ?? ($data['transactions'] ?? ($data['list'] ?? []));
-                    $k = $this->settlements->deriveKind(is_array($txns) ? $txns : []);
+                    $k = $this->settlements->deriveKind(is_array($txns) ? $txns : [], $s);
                     $s->update(['kind' => $k['label'], 'kind_raw' => $k['raw']]);
                     $done++;
                 } catch (\Throwable $e) {
@@ -356,7 +357,7 @@ class TikTokController extends Controller
             return back()->with('error', 'Gagal ambil keterangan: '.$e->getMessage());
         }
 
-        $remaining = TiktokSettlement::whereNull('kind')->count();
+        $remaining = TiktokSettlement::where(fn ($q) => $q->whereNull('kind')->orWhere('kind', 'Potongan lain'))->count();
 
         return back()->with('status', "Keterangan diisi: {$done}"
             .($failed ? ", {$failed} gagal" : '')

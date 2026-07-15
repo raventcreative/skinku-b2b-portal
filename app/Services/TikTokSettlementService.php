@@ -50,8 +50,12 @@ class TikTokSettlementService
         return $n;
     }
 
-    /** Jenis dominan dari rincian transaksi → ['raw' => ..., 'label' => ...]. */
-    public function deriveKind(array $transactions): array
+    /**
+     * Jenis dominan dari rincian transaksi → ['raw' => ..., 'label' => ...].
+     * Kalau rincian kosong (TikTok tak memberi breakdown), pakai fallback dari
+     * field statement (mis. ongkir vs penyesuaian umum).
+     */
+    public function deriveKind(array $transactions, ?TiktokSettlement $s = null): array
     {
         $counts = [];
         foreach ($transactions as $t) {
@@ -60,13 +64,20 @@ class TikTokSettlementService
                 $counts[$type] = ($counts[$type] ?? 0) + 1;
             }
         }
-        if (! $counts) {
-            return ['raw' => null, 'label' => 'Potongan lain'];
-        }
-        arsort($counts);
-        $raw = array_key_first($counts);
+        if ($counts) {
+            arsort($counts);
+            $raw = array_key_first($counts);
 
-        return ['raw' => $raw, 'label' => self::translateType($raw)];
+            return ['raw' => $raw, 'label' => self::translateType($raw)];
+        }
+
+        // Tanpa rincian: tebak dari field statement.
+        $raw = $s->raw ?? [];
+        if ((float) ($raw['shipping_cost_amount'] ?? 0) != 0 && (float) ($s->revenue_amount ?? 0) == 0) {
+            return ['raw' => 'SHIPPING', 'label' => 'Ongkir / logistik'];
+        }
+
+        return ['raw' => 'ADJUSTMENT', 'label' => 'Penyesuaian TikTok'];
     }
 
     /** Terjemahkan jenis transaksi TikTok → keterangan Indonesia (best-effort). */
