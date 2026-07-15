@@ -261,8 +261,9 @@ class TikTokController extends Controller
     public function settlementList()
     {
         $settlements = TiktokSettlement::latest('statement_time')->latest('id')->paginate(25);
+        $connection = TiktokConnection::latest('id')->first();
 
-        return view('tiktok.settlements', compact('settlements'));
+        return view('tiktok.settlements', compact('settlements', 'connection'));
     }
 
     /** Rincian 1 pencairan — tarik transaksi dari TikTok biar jenis potongan kelihatan. */
@@ -305,6 +306,32 @@ class TikTokController extends Controller
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal posting jurnal: '.$e->getMessage());
         }
+    }
+
+    /** CABUT semua jurnal TikTok — buku kembali seperti sebelum pembukuan dinyalakan. */
+    public function unpostJournals(): RedirectResponse
+    {
+        try {
+            $r = $this->journals->unpostAll();
+            AuditService::log(action: 'tiktok_unpost_journals', targetType: 'tiktok', after: $r);
+
+            return back()->with('status', "Jurnal TikTok dicabut: {$r['journals']} jurnal dihapus, "
+                ."{$r['orders']} order & {$r['settlements']} pencairan direset. Buku kembali seperti semula.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal mencabut jurnal: '.$e->getMessage());
+        }
+    }
+
+    /** Nyalakan/matikan pembukuan TikTok (default MATI). */
+    public function toggleJournal(Request $request): RedirectResponse
+    {
+        $conn = TiktokConnection::latest('id')->first();
+        abort_unless($conn, 400, 'Belum terhubung.');
+        $conn->update(['journal_enabled' => $request->boolean('journal_enabled')]);
+
+        return back()->with('status', $conn->journal_enabled
+            ? 'Pembukuan TikTok DINYALAKAN — tombol Posting Jurnal aktif.'
+            : 'Pembukuan TikTok dimatikan — buku keuangan tidak akan tersentuh.');
     }
 
     /** Isi kolom keterangan untuk pencairan "potongan" yang belum berketerangan (bertahap). */

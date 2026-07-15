@@ -9,6 +9,7 @@ use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
 use App\Models\TiktokSettlement;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
@@ -224,6 +225,9 @@ class TikTokAccountingService
      */
     public function postPending(): array
     {
+        if (! $this->enabled()) {
+            throw new RuntimeException('Pembukuan TikTok masih DIMATIKAN. Nyalakan dulu saklarnya di halaman Dana Cair.');
+        }
         $cut = $this->cutoff();
         $transit = 0;
         $sale = 0;
@@ -275,6 +279,42 @@ class TikTokAccountingService
         }
 
         return compact('transit', 'sale', 'settlement', 'failed');
+    }
+
+    /** Saklar pembukuan TikTok (default MATI — buku produksi tak tersentuh). */
+    public function enabled(): bool
+    {
+        return (bool) TiktokConnection::latest('id')->first()?->journal_enabled;
+    }
+
+    /**
+     * CABUT semua jurnal TikTok — hapus jurnalnya & reset penanda, sehingga buku
+     * kembali seperti sebelum pembukuan TikTok dinyalakan. Aman: hanya menyentuh
+     * jurnal bersumber TikTok (source_type tiktok_*), tidak menyentuh jurnal lain.
+     *
+     * @return array{journals:int, orders:int, settlements:int}
+     */
+    public function unpostAll(): array
+    {
+        $sources = ['tiktok_order_transit', 'tiktok_order_sale', 'tiktok_settlement'];
+
+        return DB::transaction(function () use ($sources) {
+            $journals = AccJournal::whereIn('source_type', $sources)->count();
+            AccJournal::whereIn('source_type', $sources)->delete(); // lines ikut (cascade)
+
+            $orders = TiktokOrder::whereNotNull('transit_journal_id')->orWhereNotNull('sale_journal_id')->count();
+            TiktokOrder::whereNotNull('transit_journal_id')->orWhereNotNull('sale_journal_id')
+                ->update(['transit_journal_id' => null, 'sale_journal_id' => null]);
+
+            $settlements = TiktokSettlement::where('posting_status', TiktokSettlement::POST_POSTED)->count();
+            TiktokSettlement::where('posting_status', TiktokSettlement::POST_POSTED)->update([
+                'posting_status' => TiktokSettlement::POST_PENDING,
+                'journal_id' => null,
+                'posted_at' => null,
+            ]);
+
+            return compact('journals', 'orders', 'settlements');
+        });
     }
 
     /** Batas tanggal pembukuan TikTok = batas mulai potong stok. */

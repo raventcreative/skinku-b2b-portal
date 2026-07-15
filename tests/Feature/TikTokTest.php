@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AccBranch;
+use App\Models\AccJournal;
 use App\Models\Product;
 use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
@@ -35,6 +36,70 @@ class TikTokTest extends TestCase
             'email' => "{$role}{$n}@skinku.test", 'password' => Hash::make('secret123'),
             'role' => $role, 'status' => User::STATUS_ACTIVE,
         ]);
+    }
+
+    /** Nyalakan saklar pembukuan (default MATI). */
+    private function enableJournal(): TiktokConnection
+    {
+        $c = TiktokConnection::latest('id')->first();
+        if ($c) {
+            $c->update(['journal_enabled' => true]);
+
+            return $c;
+        }
+
+        return TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(), 'journal_enabled' => true,
+        ]);
+    }
+
+    public function test_journal_off_by_default_never_touches_the_books(): void
+    {
+        $acc = app(TikTokAccountingService::class);
+        AccBranch::create(['code' => 'HQ', 'name' => 'HQ', 'is_active' => true]);
+        // terhubung, TAPI pembukuan belum dinyalakan
+        TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a',
+            'refresh_token' => 'r', 'access_expires_at' => now()->addDay()]);
+        TiktokSettlement::create([
+            'tiktok_statement_id' => 'OFF1', 'kind' => 'Iklan TikTok', 'currency' => 'IDR',
+            'revenue_amount' => 0, 'fee_amount' => 0, 'adjustment_amount' => -100178,
+            'settlement_amount' => -100178, 'statement_time' => '2026-07-20',
+        ]);
+
+        $this->assertFalse($acc->enabled());
+        $this->expectException(\RuntimeException::class);
+        $acc->postPending();                                   // ditolak
+    }
+
+    public function test_unpost_removes_only_tiktok_journals(): void
+    {
+        $acc = app(TikTokAccountingService::class);
+        $branch = AccBranch::create(['code' => 'HQ', 'name' => 'HQ', 'is_active' => true]);
+        $this->enableJournal();
+        TiktokSettlement::create([
+            'tiktok_statement_id' => 'UP1', 'kind' => 'Iklan TikTok', 'currency' => 'IDR',
+            'revenue_amount' => 0, 'fee_amount' => 0, 'adjustment_amount' => -100178,
+            'settlement_amount' => -100178, 'statement_time' => '2026-07-20',
+        ]);
+
+        // jurnal NON-TikTok (mis. impor Excel) — tidak boleh ikut terhapus
+        $a = $acc->accounts();
+        app(AccountingService::class)->record(
+            ['branch_id' => $branch->id, 'date' => '2026-07-01', 'reference' => 'EXCEL', 'source_type' => 'excel_import'],
+            [['account_id' => $a['kas']->id, 'debit' => 5000], ['account_id' => $a['penjualan']->id, 'credit' => 5000]],
+        );
+
+        $acc->postPending();
+        $this->assertSame(2, AccJournal::count());   // 1 tiktok + 1 excel
+
+        $r = $acc->unpostAll();
+
+        $this->assertSame(1, $r['journals']);
+        $this->assertSame(1, AccJournal::count());   // excel selamat
+        $this->assertSame('excel_import', AccJournal::first()->source_type);
+        $this->assertEquals(0, app(AccountingService::class)->balanceOf($a['iklan']->id)); // buku bersih
+        $this->assertSame('pending', TiktokSettlement::first()->posting_status);
     }
 
     private function configureTikTok(): void
@@ -364,7 +429,7 @@ class TikTokTest extends TestCase
         $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active',
             'cogs' => 50000, 'price_distributor' => 1, 'price_reseller' => 1]);
         TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
-            'access_expires_at' => now()->addDay(), 'deduct_from' => '2026-07-15']);
+            'access_expires_at' => now()->addDay(), 'deduct_from' => '2026-07-15', 'journal_enabled' => true]);
 
         $o = TiktokOrder::create([
             'tiktok_order_id' => 'C1', 'status' => 'IN_TRANSIT', 'stock_status' => TiktokOrder::STATUS_PENDING,
@@ -412,7 +477,7 @@ class TikTokTest extends TestCase
         $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active',
             'cogs' => 50000, 'price_distributor' => 1, 'price_reseller' => 1]);
         TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
-            'access_expires_at' => now()->addDay(), 'deduct_from' => '2026-07-15']);
+            'access_expires_at' => now()->addDay(), 'deduct_from' => '2026-07-15', 'journal_enabled' => true]);
 
         // Order sudah dipotong TAPI hpp_amount 0 (dipotong sebelum kolomnya ada)
         $o = TiktokOrder::create([
@@ -437,6 +502,7 @@ class TikTokTest extends TestCase
     {
         $acc = app(TikTokAccountingService::class);
         AccBranch::create(['code' => 'HQ', 'name' => 'HQ', 'is_active' => true]);
+        $this->enableJournal();
         // produk tanpa HPP (cogs 0) → omzet tetap harus diakui
         Product::create(['name' => 'X', 'sku' => 'SKU-X', 'hq_stock' => 10, 'status' => 'active',
             'cogs' => 0, 'price_distributor' => 1, 'price_reseller' => 1]);
@@ -457,6 +523,7 @@ class TikTokTest extends TestCase
     {
         $acc = app(TikTokAccountingService::class);
         AccBranch::create(['code' => 'HQ', 'name' => 'HQ', 'is_active' => true]);
+        $this->enableJournal();
         TiktokSettlement::create([
             'tiktok_statement_id' => 'IDEM', 'kind' => 'Iklan TikTok', 'currency' => 'IDR',
             'revenue_amount' => 0, 'fee_amount' => 0, 'adjustment_amount' => -100178,

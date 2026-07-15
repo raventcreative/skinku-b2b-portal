@@ -14,10 +14,46 @@
     <form method="POST" action="{{ route('tiktok.settlements.sync') }}">@csrf
         <button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">↻ Tarik Pencairan</button>
     </form>
-    <form method="POST" action="{{ route('tiktok.post-journals') }}"
-        onsubmit="return confirm('Buat jurnal untuk semua yang belum: barang keluar, order sampai (omzet+HPP), dan pencairan?')">@csrf
-        <button class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 font-semibold">📒 Posting Jurnal</button>
-    </form>
+</div>
+
+{{-- Pembukuan: default MATI. Kode siap, tapi buku keuangan tak tersentuh sampai dinyalakan. --}}
+@php $journalOn = (bool) ($connection?->journal_enabled); @endphp
+<div class="mb-4 rounded-xl border {{ $journalOn ? 'border-indigo-200 bg-indigo-50' : 'border-stone-200 bg-stone-50' }} px-4 py-3">
+    <div class="flex flex-wrap items-center gap-3">
+        <span class="text-sm font-bold {{ $journalOn ? 'text-indigo-800' : 'text-stone-700' }}">
+            📒 Pembukuan TikTok — {{ $journalOn ? 'AKTIF' : 'MATI (siap pakai)' }}
+        </span>
+        @if($connection)
+            <form method="POST" action="{{ route('tiktok.toggle-journal') }}" class="ml-auto">@csrf
+                <input type="hidden" name="journal_enabled" value="0">
+                <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="checkbox" name="journal_enabled" value="1" onchange="this.form.submit()" @checked($journalOn)>
+                    Nyalakan pembukuan
+                </label>
+            </form>
+        @endif
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 mt-3">
+        @if($journalOn)
+            <form method="POST" action="{{ route('tiktok.post-journals') }}"
+                onsubmit="return confirm('Buat jurnal untuk semua yang belum: barang keluar, order sampai (omzet+HPP), dan pencairan?')">@csrf
+                <button class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 font-semibold">📒 Posting Jurnal</button>
+            </form>
+        @endif
+        {{-- Selalu tersedia: dipakai untuk membersihkan jurnal yang terlanjur diposting. --}}
+        <form method="POST" action="{{ route('tiktok.unpost-journals') }}"
+            onsubmit="return confirm('CABUT semua jurnal TikTok? Jurnal bersumber TikTok akan dihapus dan buku kembali seperti sebelum pembukuan dinyalakan. Jurnal lain (impor Excel, manual, PO) TIDAK tersentuh.')">@csrf
+            <button class="px-3 py-2 text-xs text-rose-600 hover:text-rose-800 underline">↩ Cabut semua jurnal TikTok</button>
+        </form>
+    </div>
+
+    @unless($journalOn)
+        <p class="text-[11px] text-stone-500 mt-2">
+            Buku keuangan <b>tidak tersentuh</b> selama saklar mati. Pantau dulu sisi stok; kalau sudah yakin, nyalakan.
+            PR sebelum dinyalakan: <b>saldo awal Piutang TikTok</b> per 14 Jul, biar tidak minus.
+        </p>
+    @endunless
 </div>
 
 <div class="mb-4 px-4 py-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-[11px] leading-relaxed">
