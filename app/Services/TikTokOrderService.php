@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\TiktokOrder;
+use App\Models\TiktokReturn;
 use App\Models\TiktokSkuMap;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -117,7 +118,9 @@ class TikTokOrderService
     public function skusNeedingMap(): array
     {
         $out = [];
-        foreach (TiktokOrder::pluck('line_items') as $items) {
+        // scan SKU dari ORDER dan RETUR (TikTok kadang pakai kode SKU beda utk produk sama)
+        $lineItemSets = TiktokOrder::pluck('line_items')->concat(TiktokReturn::pluck('line_items'));
+        foreach ($lineItemSets as $items) {
             foreach ((array) $items as $it) {
                 $sku = $it['sku'] ?? null;
                 if (! $sku || $sku === '—' || isset($out[$sku]) || $this->isAutoMatched($sku)) {

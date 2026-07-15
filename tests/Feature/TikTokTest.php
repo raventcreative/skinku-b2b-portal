@@ -186,6 +186,17 @@ class TikTokTest extends TestCase
         $this->assertEquals(TiktokReturn::REVIEW_PENDING, $r1->fresh()->review_status);
     }
 
+    public function test_return_only_sku_appears_in_recipe_panel(): void
+    {
+        // SKU yang cuma muncul di retur (kode beda dari order) harus bisa dipetakan
+        TiktokReturn::create([
+            'tiktok_return_id' => 'RX', 'status' => 'RETURN', 'review_status' => TiktokReturn::REVIEW_PENDING,
+            'line_items' => [['sku' => 'SK-MZ-BW-500ml', 'name' => 'Mizu', 'qty' => 1]],
+        ]);
+        $skus = app(TikTokOrderService::class)->skusNeedingMap();
+        $this->assertArrayHasKey('SK-MZ-BW-500ml', $skus);
+    }
+
     public function test_return_sync_stores_and_reseller_forbidden(): void
     {
         $this->configureTikTok();
