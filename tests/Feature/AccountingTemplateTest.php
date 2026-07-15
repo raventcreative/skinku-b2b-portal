@@ -87,7 +87,7 @@ class AccountingTemplateTest extends TestCase
 
     public function test_admin_can_delete_template(): void
     {
-        $admin = $this->user(User::ROLE_ADMIN);
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
         $a = $this->account('6001', 'Beban Iklan');
         $this->actingAs($admin)->post('/accounting/template', [
             'name' => 'X', 'lines' => [['account_id' => $a->id, 'side' => 'debit'], ['account_id' => null, 'side' => 'credit']],

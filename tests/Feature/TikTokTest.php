@@ -16,6 +16,7 @@ use App\Services\TikTokAccountingService;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
 use App\Services\TikTokSettlementService;
+use App\Services\TikTokSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -392,6 +393,62 @@ class TikTokTest extends TestCase
         $this->assertSame(1, $r['done']);                       // cuma yang 15 Jul
         $this->assertEquals(97, $p->fresh()->hq_stock);         // 100 − 3 (bukan −6)
         $this->assertSame(TiktokOrder::STATUS_PENDING, TiktokOrder::where('tiktok_order_id', 'OLD')->first()->stock_status);
+    }
+
+    public function test_sync_uses_update_time_window_to_catch_status_changes(): void
+    {
+        $this->configureTikTok();
+        Http::fake(['*/order/202309/orders/search*' => Http::response(['code' => 0, 'data' => ['orders' => []]])]);
+        $conn = TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(), 'last_synced_at' => Carbon::parse('2026-07-15 10:00:00'),
+        ]);
+
+        app(TikTokSyncService::class)->syncOrders($conn);
+
+        // body harus memuat update_time_ge = last_synced_at − 2 jam (bantalan)
+        Http::assertSent(function ($r) {
+            $body = json_decode($r->body(), true);
+
+            return isset($body['update_time_ge'])
+                && $body['update_time_ge'] === Carbon::parse('2026-07-15 08:00:00')->timestamp;
+        });
+        // last_synced_at maju setelah sync
+        $this->assertTrue($conn->fresh()->last_synced_at->gt(Carbon::parse('2026-07-15 10:00:00')));
+    }
+
+    public function test_sync_falls_back_to_full_pull_when_filter_rejected(): void
+    {
+        $this->configureTikTok();
+        // panggilan pertama (berfilter) ditolak, panggilan kedua (tanpa filter) sukses
+        Http::fake(['*/order/202309/orders/search*' => Http::sequence()
+            ->push(['code' => 36004001, 'message' => 'invalid param update_time_ge'])
+            ->push(['code' => 0, 'data' => ['orders' => [['id' => 'FB1', 'status' => 'COMPLETED']]]]),
+        ]);
+        $conn = TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(), 'last_synced_at' => now()->subHour(),
+        ]);
+
+        $r = app(TikTokSyncService::class)->syncOrders($conn);
+
+        // sync TIDAK mati — mundur ke tarik penuh
+        $this->assertSame(1, $r['count']);
+        $this->assertDatabaseHas('tiktok_orders', ['tiktok_order_id' => 'FB1']);
+    }
+
+    public function test_first_sync_has_no_window(): void
+    {
+        $this->configureTikTok();
+        Http::fake(['*/order/202309/orders/search*' => Http::response(['code' => 0, 'data' => ['orders' => []]])]);
+        $conn = TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(), // last_synced_at null
+        ]);
+
+        app(TikTokSyncService::class)->syncOrders($conn);
+
+        Http::assertSent(fn ($r) => $r->body() === '{}');   // tanpa filter
     }
 
     public function test_sync_command_pulls_orders_and_auto_deducts(): void

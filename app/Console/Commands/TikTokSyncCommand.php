@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
  */
 class TikTokSyncCommand extends Command
 {
-    protected $signature = 'tiktok:sync {--returns : Sekalian tarik retur} {--settlements : Sekalian tarik pencairan}';
+    protected $signature = 'tiktok:sync {--returns : Sekalian tarik retur} {--settlements : Sekalian tarik pencairan} {--full : Abaikan filter waktu, sapu 500 order terbaru}';
 
     protected $description = 'Tarik order TikTok (+auto-potong stok bila aktif); opsional retur & pencairan';
 
@@ -29,7 +29,7 @@ class TikTokSyncCommand extends Command
         $failed = false;
 
         try {
-            $r = $sync->syncOrders($conn);
+            $r = $sync->syncOrders($conn, null, (bool) $this->option('full'));
             $msg = "Order: {$r['count']} tersimpan.";
             if ($r['deducted']) {
                 $d = $r['deducted'];

@@ -63,7 +63,8 @@ class AccountingAccountTest extends TestCase
 
     public function test_unused_account_can_be_deleted(): void
     {
-        $admin = $this->user(User::ROLE_ADMIN);
+        // hapus data akuntansi = izin delete_accounting → hanya super_admin
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
         $a = AccAccount::create(['code' => '6099', 'name' => 'Sementara', 'type' => 'expense', 'subtype' => 'operating', 'normal_balance' => 'debit']);
 
         $this->actingAs($admin)->delete('/accounting/coa/'.$a->id)->assertRedirect()->assertSessionHasNoErrors();
@@ -72,7 +73,7 @@ class AccountingAccountTest extends TestCase
 
     public function test_used_account_cannot_be_deleted(): void
     {
-        $admin = $this->user(User::ROLE_ADMIN);
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
         $branch = AccBranch::create(['code' => 'SBY-T', 'name' => 'Surabaya Timur', 'is_active' => true]);
         $kas = AccAccount::create(['code' => '1002', 'name' => 'Bank', 'type' => 'asset', 'subtype' => 'cash', 'normal_balance' => 'debit']);
         $rev = AccAccount::create(['code' => '4001', 'name' => 'Penjualan', 'type' => 'revenue', 'subtype' => 'sales', 'normal_balance' => 'credit']);

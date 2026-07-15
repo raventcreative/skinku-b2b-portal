@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\TiktokConnection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Logika tarik data dari TikTok — dipakai bersama oleh Controller (tombol manual)
@@ -28,25 +29,54 @@ class TikTokSyncService
      *
      * @return array{count:int, deducted:?array}
      */
-    public function syncOrders(TiktokConnection $conn, ?int $userId = null): array
+    public function syncOrders(TiktokConnection $conn, ?int $userId = null, bool $full = false): array
     {
         $access = $this->freshToken($conn);
+        $startedAt = now(); // dicatat SEBELUM tarik, supaya perubahan saat proses tak terlewat
+
+        // Tanpa filter waktu, tiap sync cuma melihat "500 order terbaru by create_time".
+        // Order lama yang STATUSNYA berubah (mis. IN_TRANSIT → DELIVERED) tak akan pernah
+        // terlihat lagi begitu tergeser keluar jendela → stok tak pernah terpotong.
+        // Filter update_time menangkap perubahan status, bukan cuma order baru.
+        $filters = [];
+        if (! $full && $conn->last_synced_at) {
+            // Tumpang tindih 2 jam sebagai bantalan (cron telat / jam server geser).
+            $filters['update_time_ge'] = $conn->last_synced_at->copy()->subHours(2)->timestamp;
+        }
+
+        try {
+            $all = $this->pullOrders($access, $conn, $filters);
+        } catch (\Throwable $e) {
+            // Fail-safe: parameter filter ditolak TikTok → jangan sampai sync mati total.
+            if (! $filters) {
+                throw $e;
+            }
+            Log::warning('[tiktok:sync] filter update_time ditolak, mundur ke tarik penuh: '.$e->getMessage());
+            $all = $this->pullOrders($access, $conn, []);
+        }
+
+        $count = $this->orders->store($all);
+        $conn->update(['last_synced_at' => $startedAt]);
+
+        $deducted = $conn->auto_deduct ? $this->orders->deductAllReady($userId) : null;
+
+        return ['count' => $count, 'deducted' => $deducted];
+    }
+
+    /** Tarik order berhalaman (maks ~500 per jendela). */
+    private function pullOrders(string $access, TiktokConnection $conn, array $filters): array
+    {
         $all = [];
         $token = '';
         $pages = 0;
         do {
-            $data = $this->tiktok->searchOrders($access, $conn->shop_cipher, 50, $token);
+            $data = $this->tiktok->searchOrders($access, $conn->shop_cipher, 50, $token, $filters);
             $all = array_merge($all, $data['orders'] ?? []);
             $token = $data['next_page_token'] ?? '';
             $pages++;
         } while ($token && $pages < 10);
 
-        $count = $this->orders->store($all);
-        $conn->update(['last_synced_at' => now()]);
-
-        $deducted = $conn->auto_deduct ? $this->orders->deductAllReady($userId) : null;
-
-        return ['count' => $count, 'deducted' => $deducted];
+        return $all;
     }
 
     /** Tarik retur (perlu scope Return & Refund). */

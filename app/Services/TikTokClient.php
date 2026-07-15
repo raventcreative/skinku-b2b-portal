@@ -69,15 +69,20 @@ class TikTokClient
         return $this->request('GET', '/authorization/202309/shops', $accessToken)['shops'] ?? [];
     }
 
-    /** Cari order — TERBARU dulu (sort create_time DESC). Satu halaman. */
-    public function searchOrders(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
+    /**
+     * Cari order — TERBARU dulu (sort create_time DESC). Satu halaman.
+     *
+     * @param  array  $filters  body filter, mis. ['update_time_ge' => epoch] untuk menangkap
+     *                          perubahan STATUS order lama (bukan cuma order baru).
+     */
+    public function searchOrders(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = '', array $filters = []): array
     {
         $query = ['page_size' => $pageSize, 'sort_field' => 'create_time', 'sort_order' => 'DESC'];
         if ($pageToken !== '') {
             $query['page_token'] = $pageToken;
         }
 
-        return $this->request('POST', '/order/202309/orders/search', $accessToken, $shopCipher, $query, []);
+        return $this->request('POST', '/order/202309/orders/search', $accessToken, $shopCipher, $query, $filters);
     }
 
     /** Cari retur/refund — TERBARU dulu. Satu halaman. */

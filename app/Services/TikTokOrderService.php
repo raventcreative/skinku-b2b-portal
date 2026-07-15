@@ -10,6 +10,7 @@ use App\Models\TiktokReturn;
 use App\Models\TiktokSkuMap;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class TikTokOrderService
@@ -280,6 +281,8 @@ class TikTokOrderService
                 $done++;
             } catch (\Throwable $e) {
                 $failed++;
+                // Jangan telan: tanpa ini operator cuma lihat angka "gagal" tanpa sebab.
+                Log::warning("[tiktok] gagal potong stok order {$o->tiktok_order_id}: ".$e->getMessage());
             }
         }
 

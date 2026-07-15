@@ -181,7 +181,8 @@ class FinancialReportTest extends TestCase
     {
         $this->seedJune();
         $j = AccJournal::first();
-        $this->actingAs($this->user(User::ROLE_ADMIN))->delete('/accounting/jurnal/'.$j->id)->assertRedirect();
+        // hard delete = izin delete_accounting → hanya super_admin
+        $this->actingAs($this->user(User::ROLE_SUPER_ADMIN))->delete('/accounting/jurnal/'.$j->id)->assertRedirect();
         $this->assertDatabaseMissing('acc_journals', ['id' => $j->id]);
         $this->assertDatabaseMissing('acc_journal_lines', ['journal_id' => $j->id]); // baris ikut terhapus
     }
@@ -261,10 +262,26 @@ class FinancialReportTest extends TestCase
         $this->assertDatabaseCount('acc_journals', 2);
     }
 
+    public function test_plain_admin_cannot_destroy_accounting_data(): void
+    {
+        // Admin biasa boleh LIHAT akuntansi, tapi tidak boleh MENGHAPUS pembukuan.
+        $this->seedJune();
+        $admin = $this->user(User::ROLE_ADMIN);
+        $j = AccJournal::first();
+
+        $this->actingAs($admin)->post('/accounting/impor-excel/hapus', ['period' => '2026-06'])->assertForbidden();
+        $this->actingAs($admin)->delete('/accounting/jurnal/'.$j->id)->assertForbidden();
+
+        // ...dan datanya memang masih utuh
+        $this->assertDatabaseHas('acc_journals', ['id' => $j->id]);
+        // tapi tetap bisa membaca laporan
+        $this->actingAs($admin)->get('/accounting/laporan')->assertOk();
+    }
+
     public function test_excel_import_purge_removes_only_excel_journals(): void
     {
         $this->seedJune(); // jurnal manual (source_type null)
-        $admin = $this->user(User::ROLE_ADMIN);
+        $admin = $this->user(User::ROLE_SUPER_ADMIN); // purge = izin delete_accounting
         $manualCount = AccJournal::count();
 
         $this->actingAs($admin)->postJson('/accounting/impor-excel', [
@@ -292,7 +309,7 @@ class FinancialReportTest extends TestCase
 
     public function test_opening_balance_survives_purge_and_replaces_on_reimport(): void
     {
-        $admin = $this->user(User::ROLE_ADMIN);
+        $admin = $this->user(User::ROLE_SUPER_ADMIN); // memakai purge
         $opening = fn (float $modal) => [
             'branch_id' => $this->branch->id,
             'is_opening' => true,

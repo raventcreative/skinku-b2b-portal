@@ -17,6 +17,19 @@ TIKTOK_SERVICE_ID=7659787806251779858</pre>
         </div>
     @endunless
 
+    {{-- Peringatan cron mati: satu-satunya cara user tahu sync berhenti diam-diam --}}
+    @if($connection && $connection->syncStale())
+        <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-sm">
+            🚨 <b>Sinkron otomatis kelihatannya berhenti.</b>
+            Terakhir sinkron: <b>{{ $connection->last_synced_at?->diffForHumans() ?? 'belum pernah' }}</b> —
+            harusnya tiap 30 menit. Order baru tidak masuk & stok tidak terpotong.
+            <div class="mt-1.5 text-[11px] text-rose-700">
+                Kemungkinan: cron mati, atau izin TikTok dicabut/kedaluwarsa (perlu Hubungkan ulang).
+                Coba klik <b>Tarik &amp; Simpan Order</b> — kalau manual berhasil tapi ini tetap merah, berarti cron-nya.
+            </div>
+        </div>
+    @endif
+
     {{-- Status koneksi --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <h3 class="text-sm font-bold text-stone-800 mb-3">Status Koneksi</h3>

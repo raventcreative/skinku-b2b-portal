@@ -152,7 +152,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/accounting/jurnal/baru', [AccountingController::class, 'journalCreate'])->name('accounting.journals.create');
         Route::post('/accounting/jurnal', [AccountingController::class, 'journalStore'])->name('accounting.journals.store');
         Route::post('/accounting/jurnal/{journal}/void', [AccountingController::class, 'journalVoid'])->name('accounting.journals.void');
-        Route::delete('/accounting/jurnal/{journal}', [AccountingController::class, 'journalDestroy'])->name('accounting.journals.destroy');
+        Route::delete('/accounting/jurnal/{journal}', [AccountingController::class, 'journalDestroy'])
+            ->middleware('permission:delete_accounting')->name('accounting.journals.destroy');
 
         // Impor Mutasi Bank
         Route::get('/accounting/impor', [AccountingController::class, 'importForm'])->name('accounting.import');
@@ -162,19 +163,22 @@ Route::middleware(['auth', 'role'])->group(function () {
         // Impor Jurnal dari Excel (.xlsx)
         Route::get('/accounting/impor-excel', [AccountingController::class, 'excelImportForm'])->name('accounting.excel-import');
         Route::post('/accounting/impor-excel', [AccountingController::class, 'excelImportStore'])->name('accounting.excel-import.store');
-        Route::post('/accounting/impor-excel/hapus', [AccountingController::class, 'excelImportPurge'])->name('accounting.excel-import.purge');
+        Route::post('/accounting/impor-excel/hapus', [AccountingController::class, 'excelImportPurge'])
+            ->middleware('permission:delete_accounting')->name('accounting.excel-import.purge');
 
         // Master COA (Data COA)
         Route::get('/accounting/coa', [AccAccountController::class, 'index'])->name('accounting.accounts');
         Route::post('/accounting/coa', [AccAccountController::class, 'store'])->name('accounting.accounts.store');
         Route::put('/accounting/coa/{account}', [AccAccountController::class, 'update'])->name('accounting.accounts.update');
-        Route::delete('/accounting/coa/{account}', [AccAccountController::class, 'destroy'])->name('accounting.accounts.destroy');
+        Route::delete('/accounting/coa/{account}', [AccAccountController::class, 'destroy'])
+            ->middleware('permission:delete_accounting')->name('accounting.accounts.destroy');
 
         // Template Transaksi (preset jurnal)
         Route::get('/accounting/template', [AccTemplateController::class, 'index'])->name('accounting.templates');
         Route::post('/accounting/template', [AccTemplateController::class, 'store'])->name('accounting.templates.store');
         Route::put('/accounting/template/{template}', [AccTemplateController::class, 'update'])->name('accounting.templates.update');
-        Route::delete('/accounting/template/{template}', [AccTemplateController::class, 'destroy'])->name('accounting.templates.destroy');
+        Route::delete('/accounting/template/{template}', [AccTemplateController::class, 'destroy'])
+            ->middleware('permission:delete_accounting')->name('accounting.templates.destroy');
     });
 
     /* ---------------- Integrasi TikTok Shop ---------------- */
@@ -236,6 +240,9 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     Route::middleware('permission:system_settings')->group(function () {
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
+        // Backup DB: jalankan manual + unduh (simpan di LUAR server).
+        Route::post('/settings/backup', [SettingController::class, 'backupNow'])->name('settings.backup');
+        Route::get('/settings/backup/{file}', [SettingController::class, 'backupDownload'])->name('settings.backup.download');
     });
 
     /* ---------------- Learning / LMS ---------------- */

@@ -31,6 +31,7 @@ class Permissions
         'manage_production' => 'Bahan Baku & Produksi (HPP)',
         'view_reports' => 'Lihat Laporan Penjualan',
         'view_accounting' => 'Akuntansi & Laporan Keuangan',
+        'delete_accounting' => 'Hapus Jurnal / Data Akuntansi (BAHAYA)',
         'view_audit_log' => 'Lihat Audit Log',
         'system_settings' => 'Pengaturan Sistem',
         'manage_permissions' => 'Manajemen Hak Akses',
@@ -52,6 +53,9 @@ class Permissions
         'manage_production' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
         'view_reports' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR],
         'view_accounting' => [User::ROLE_ADMIN],
+        // Sengaja kosong: hapus jurnal itu permanen. Hanya super_admin (selalu punya
+        // semua izin) yang bisa — admin biasa tidak boleh menghapus pembukuan.
+        'delete_accounting' => [],
         'view_audit_log' => [],
         'system_settings' => [],
         'manage_permissions' => [],

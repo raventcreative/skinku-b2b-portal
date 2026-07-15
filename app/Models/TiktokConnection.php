@@ -23,6 +23,15 @@ class TiktokConnection extends Model
 
     protected $hidden = ['access_token', 'refresh_token'];
 
+    /**
+     * Sinkron basi = cron kemungkinan mati / token dicabut. Jadwal normal tiap 30
+     * menit, jadi > 2 jam tanpa sinkron sudah patut dicurigai.
+     */
+    public function syncStale(int $hours = 2): bool
+    {
+        return $this->last_synced_at === null || $this->last_synced_at->lt(now()->subHours($hours));
+    }
+
     public function accessExpiringSoon(): bool
     {
         // refresh kalau < 5 menit lagi (atau sudah lewat)
