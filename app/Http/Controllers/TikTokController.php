@@ -335,7 +335,8 @@ class TikTokController extends Controller
         abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
 
         $batch = 60;
-        $targets = TiktokSettlement::where(fn ($q) => $q->whereNull('kind')->orWhere('kind', 'Potongan lain'))
+        $stale = ['Potongan lain', 'Penyesuaian TikTok'];
+        $targets = TiktokSettlement::where(fn ($q) => $q->whereNull('kind')->orWhereIn('kind', $stale))
             ->orderByDesc('statement_time')->limit($batch)->get();
 
         $done = 0;

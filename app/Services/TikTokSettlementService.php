@@ -36,10 +36,10 @@ class TikTokSettlementService
                     'statement_time' => $this->toTime($s['statement_time'] ?? null),
                     'paid_time' => $this->toTime($s['payment_time'] ?? ($s['paid_time'] ?? null)),
                     'raw' => $s,
-                    // Penjualan langsung berketerangan; potongan diisi belakangan via detail.
-                    'kind' => $this->num($s['revenue_amount'] ?? ($s['net_sales_amount'] ?? 0)) > 0
-                        ? 'Penjualan'
-                        : ($existing->kind ?? null),
+                    // Keterangan otomatis dari field statement (tanpa perlu tarik rincian):
+                    // omzet>0 = Penjualan; sisanya potongan tanpa-rincian = Iklan TikTok
+                    // (dikonfirmasi user: potongan harian ~100rb = pembayaran iklan). Ongkir bila ada.
+                    'kind' => $this->kindFromStatement($s),
                     // jangan reset status posting kalau sudah pernah dijurnal
                     'posting_status' => $existing->posting_status ?? TiktokSettlement::POST_PENDING,
                 ],
@@ -48,6 +48,21 @@ class TikTokSettlementService
         }
 
         return $n;
+    }
+
+    /** Keterangan dari field agregat statement (tanpa tarik rincian). */
+    public function kindFromStatement(array $s): string
+    {
+        $revenue = $this->num($s['revenue_amount'] ?? ($s['net_sales_amount'] ?? 0));
+        if ($revenue > 0) {
+            return 'Penjualan';
+        }
+        if ($this->num($s['shipping_cost_amount'] ?? 0) != 0) {
+            return 'Ongkir / logistik';
+        }
+
+        // Potongan tanpa rincian (statement_transactions kosong) = iklan (konfirmasi user).
+        return 'Iklan TikTok';
     }
 
     /**
@@ -71,13 +86,8 @@ class TikTokSettlementService
             return ['raw' => $raw, 'label' => self::translateType($raw)];
         }
 
-        // Tanpa rincian: tebak dari field statement.
-        $raw = $s->raw ?? [];
-        if ((float) ($raw['shipping_cost_amount'] ?? 0) != 0 && (float) ($s->revenue_amount ?? 0) == 0) {
-            return ['raw' => 'SHIPPING', 'label' => 'Ongkir / logistik'];
-        }
-
-        return ['raw' => 'ADJUSTMENT', 'label' => 'Penyesuaian TikTok'];
+        // Tanpa rincian: tebak dari field statement (iklan/ongkir).
+        return ['raw' => 'ADS', 'label' => $s ? $this->kindFromStatement($s->raw ?? []) : 'Iklan TikTok'];
     }
 
     /** Terjemahkan jenis transaksi TikTok → keterangan Indonesia (best-effort). */
