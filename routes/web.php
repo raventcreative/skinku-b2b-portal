@@ -6,6 +6,7 @@ use App\Http\Controllers\AccTemplateController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\StockMovementController;
+use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockReceiptController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TikTokController;
@@ -87,6 +89,11 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::middleware('permission:manage_hq_stock')->group(function () {
         Route::post('/inventory/hq-adjust', [InventoryController::class, 'adjustHq'])->name('inventory.hq-adjust');
         Route::get('/stock-movements', [StockMovementController::class, 'index'])->name('stock-movements.index');
+
+        // Stok Opname (set saldo awal) + Laporan Mutasi Stok HQ
+        Route::get('/stok-opname', [StockOpnameController::class, 'index'])->name('stok-opname.index');
+        Route::post('/stok-opname', [StockOpnameController::class, 'store'])->name('stok-opname.store');
+        Route::get('/laporan-stok-hq', [HqStockReportController::class, 'index'])->name('hq-stock.report');
     });
 
     /* ---------------- Stock receipts (incoming stock + HPP average) ---------------- */

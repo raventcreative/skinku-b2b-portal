@@ -28,8 +28,9 @@ class InventoryService
         ?string $notes = null,
         ?string $referenceType = null,
         ?int $referenceId = null,
+        ?\DateTimeInterface $occurredAt = null,
     ): Product {
-        return DB::transaction(function () use ($product, $delta, $movementType, $notes, $referenceType, $referenceId) {
+        return DB::transaction(function () use ($product, $delta, $movementType, $notes, $referenceType, $referenceId, $occurredAt) {
             $product = Product::lockForUpdate()->findOrFail($product->id);
             $before = (int) $product->hq_stock;
             $after = $before + $delta;
@@ -51,6 +52,7 @@ class InventoryService
                 notes: $notes,
                 referenceType: $referenceType,
                 referenceId: $referenceId,
+                occurredAt: $occurredAt,
             );
 
             return $product;
@@ -128,6 +130,7 @@ class InventoryService
         ?string $notes = null,
         ?string $referenceType = null,
         ?int $referenceId = null,
+        ?\DateTimeInterface $occurredAt = null,
     ): StockMovement {
         return StockMovement::create([
             'product_id' => $productId,
@@ -140,7 +143,7 @@ class InventoryService
             'reference_id' => $referenceId,
             'notes' => $notes,
             'created_by' => Auth::id(),
-            'created_at' => now(),
+            'created_at' => $occurredAt ?? now(),
         ]);
     }
 }

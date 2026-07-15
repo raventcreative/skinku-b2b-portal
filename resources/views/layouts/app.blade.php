@@ -77,7 +77,8 @@
                 // Staff yang mengelola produk/stok/produksi → tampilkan grup accordion "Manajemen Produk".
                 $isProdukManager = $u->canDo('manage_products') || $u->canDo('manage_production') || $u->canDo('manage_hq_stock');
                 $produkGroupOpen = request()->routeIs('products.index') || request()->routeIs('inventory.index')
-                    || request()->routeIs('materials.*') || request()->routeIs('productions.*') || request()->routeIs('stock-movements.index');
+                    || request()->routeIs('materials.*') || request()->routeIs('productions.*') || request()->routeIs('stock-movements.index')
+                    || request()->routeIs('stok-opname.*') || request()->routeIs('hq-stock.*');
             @endphp
 
             @if($isProdukManager)
@@ -97,6 +98,8 @@
                     @endif
                     @if($u->canDo('manage_hq_stock'))
                         {!! navItem('stock-movements.index', 'Stock Movement', 'stock-movements.index') !!}
+                        {!! navItem('stok-opname.index', 'Stok Opname', 'stok-opname.index') !!}
+                        {!! navItem('hq-stock.report', 'Laporan Stok HQ', 'hq-stock.report') !!}
                     @endif
                 </div>
             @else
