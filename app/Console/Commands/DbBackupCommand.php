@@ -37,39 +37,30 @@ class DbBackupCommand extends Command
             return self::FAILURE;
         }
 
-        // Password lewat env var (MYSQL_PWD), bukan argumen CLI — argumen terlihat
-        // di daftar proses pada shared hosting.
-        $cmd = [
-            $dump,
-            '--host='.($db['host'] ?? '127.0.0.1'),
-            '--port='.($db['port'] ?? 3306),
-            '--user='.($db['username'] ?? 'root'),
-            '--single-transaction',
-            '--quick',
-            '--routines',
-            '--no-tablespaces',   // shared hosting jarang punya izin PROCESS
-            $db['database'],
-        ];
-
-        $gzip = new Process(['gzip', '-c']);
-        $proc = new Process($cmd, base_path(), ['MYSQL_PWD' => (string) ($db['password'] ?? '')], null, 600);
-
-        try {
-            $proc->mustRun();
-            $sql = $proc->getOutput();
-            if (trim($sql) === '') {
-                throw new \RuntimeException('mysqldump menghasilkan output kosong');
+        $sql = null;
+        $errors = [];
+        foreach ($this->connectionAttempts($db) as $label => $args) {
+            try {
+                $sql = $this->dump($dump, $db, $args);
+                if ($label !== 'default') {
+                    $this->line("(tersambung via {$label})");
+                }
+                break;
+            } catch (\Throwable $e) {
+                $errors[] = "{$label}: ".trim($e->getMessage());
             }
-            // gzip via PHP supaya tak bergantung biner gzip di server.
-            $gz = gzencode($sql, 6);
-            File::put($file, $gz);
-        } catch (\Throwable $e) {
-            $this->error('Backup gagal: '.$e->getMessage());
-            Log::error('[db:backup] gagal: '.$e->getMessage());
-            @unlink($file);
+        }
+
+        if ($sql === null) {
+            $why = implode(' | ', $errors);
+            $this->error('Backup gagal. '.$why);
+            Log::error('[db:backup] gagal: '.$why);
 
             return self::FAILURE;
         }
+
+        // gzip via PHP supaya tak bergantung biner gzip di server.
+        File::put($file, gzencode($sql, 6));
 
         $size = round(filesize($file) / 1048576, 2);
         $pruned = $this->prune($dir, (int) $this->option('keep'));
@@ -79,6 +70,60 @@ class DbBackupCommand extends Command
         Log::info('[db:backup] '.$msg);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Cara sambung yang dicoba berurutan. 'localhost' bisa lolos ke IPv6 (::1)
+     * sedangkan hak akses user MySQL biasanya cuma untuk localhost/IPv4 →
+     * "Access denied for user ...@'::1'". Maka IPv4 eksplisit dicoba duluan.
+     *
+     * @return array<string, array<int, string>>
+     */
+    private function connectionAttempts(array $db): array
+    {
+        $host = (string) ($db['host'] ?? '127.0.0.1');
+        $port = (string) ($db['port'] ?? 3306);
+        $socket = (string) ($db['unix_socket'] ?? '');
+        $out = [];
+
+        if ($host === 'localhost' || $host === '' || $host === '::1') {
+            $out['IPv4 127.0.0.1'] = ['--protocol=TCP', '--host=127.0.0.1', '--port='.$port];
+            $out['socket lokal'] = ['--protocol=SOCKET'];
+        } else {
+            $out['default'] = ['--host='.$host, '--port='.$port];
+        }
+        if ($socket !== '') {
+            $out['socket '.$socket] = ['--protocol=SOCKET', '--socket='.$socket];
+        }
+        // Terakhir: apa adanya sesuai .env
+        $out['apa adanya'] = ['--host='.($host ?: '127.0.0.1'), '--port='.$port];
+
+        return $out;
+    }
+
+    /** Jalankan mysqldump dengan satu cara sambung; lempar kalau gagal. */
+    private function dump(string $bin, array $db, array $connArgs): string
+    {
+        $cmd = array_merge([$bin], $connArgs, [
+            '--user='.($db['username'] ?? 'root'),
+            '--single-transaction',
+            '--quick',
+            '--routines',
+            '--no-tablespaces',   // shared hosting jarang punya izin PROCESS
+            $db['database'],
+        ]);
+
+        // Password lewat env var (MYSQL_PWD), bukan argumen CLI — argumen terlihat
+        // di daftar proses pada shared hosting.
+        $proc = new Process($cmd, base_path(), ['MYSQL_PWD' => (string) ($db['password'] ?? '')], null, 600);
+        $proc->mustRun();
+
+        $sql = $proc->getOutput();
+        if (! str_contains($sql, 'CREATE TABLE')) {
+            throw new \RuntimeException('output mysqldump tidak berisi tabel');
+        }
+
+        return $sql;
     }
 
     /** Sisakan N backup terbaru. */
