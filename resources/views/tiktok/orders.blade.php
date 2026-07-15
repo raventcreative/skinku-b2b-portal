@@ -7,9 +7,16 @@
 
 <a href="{{ route('tiktok.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Integrasi</a>
 
-<div class="mt-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
-    ℹ️ Stok <b>tidak dipotong otomatis</b> (default). Kamu klik <b>"Potong Stok"</b>/<b>"Potong Semua"</b> sendiri (mode preview-approve). Hanya order <b>sudah dikirim</b> &amp; SKU <b>cocok</b> yang bisa dipotong. Bisa dibatalkan (stok balik).
-</div>
+@if($connection?->auto_deduct)
+    <div class="mt-3 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px]">
+        ⚡ <b>Auto-potong AKTIF</b> — stok dipotong tiap kamu klik <b>"Tarik &amp; Simpan Order"</b> (bukan jalan sendiri di background).
+        Hanya order <b>sudah dikirim</b> &amp; SKU <b>cocok</b> yang dipotong. Selalu bisa dibatalkan (stok balik).
+    </div>
+@else
+    <div class="mt-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
+        ℹ️ Stok <b>tidak dipotong otomatis</b>. Kamu klik <b>"Potong Stok"</b>/<b>"Potong Semua"</b> sendiri (mode preview-approve). Hanya order <b>sudah dikirim</b> &amp; SKU <b>cocok</b> yang bisa dipotong. Bisa dibatalkan (stok balik).
+    </div>
+@endif
 
 {{-- Aksi massal + saklar auto (default MATI) --}}
 <div class="mt-3 flex flex-wrap items-center gap-3">
