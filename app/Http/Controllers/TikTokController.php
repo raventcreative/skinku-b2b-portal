@@ -9,6 +9,7 @@ use App\Models\TiktokReturn;
 use App\Models\TiktokSettlement;
 use App\Models\TiktokSkuMap;
 use App\Services\AuditService;
+use App\Services\SettlementJournalService;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
 use App\Services\TikTokReturnService;
@@ -24,6 +25,7 @@ class TikTokController extends Controller
         private TikTokOrderService $orders,
         private TikTokReturnService $returns,
         private TikTokSettlementService $settlements,
+        private SettlementJournalService $journals,
     ) {}
 
     public function index()
@@ -325,7 +327,9 @@ class TikTokController extends Controller
             $error = $e->getMessage();
         }
 
-        return view('tiktok.settlement_detail', compact('settlement', 'transactions', 'rawKeys', 'error'));
+        $journalPreview = $this->journals->preview($settlement);
+
+        return view('tiktok.settlement_detail', compact('settlement', 'transactions', 'rawKeys', 'error', 'journalPreview'));
     }
 
     /** Isi kolom keterangan untuk pencairan "potongan" yang belum berketerangan (bertahap). */

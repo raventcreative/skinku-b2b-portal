@@ -9,6 +9,7 @@ use App\Models\TiktokReturn;
 use App\Models\TiktokSettlement;
 use App\Models\TiktokSkuMap;
 use App\Models\User;
+use App\Services\SettlementJournalService;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
 use App\Services\TikTokSettlementService;
@@ -278,6 +279,34 @@ class TikTokTest extends TestCase
         ]);
         $this->assertSame(1, $n);
         $this->assertSame('Penjualan', TiktokSettlement::where('tiktok_statement_id', 'SLS1')->first()->kind);
+    }
+
+    public function test_journal_preview_balances_for_sales_and_ads(): void
+    {
+        $svc = app(SettlementJournalService::class);
+
+        // Penjualan: bruto 10jt, fee 800rb, cair 9.2jt
+        $sale = TiktokSettlement::create([
+            'tiktok_statement_id' => 'JS', 'kind' => 'Penjualan', 'currency' => 'IDR',
+            'revenue_amount' => 10000000, 'fee_amount' => 800000, 'adjustment_amount' => 0, 'settlement_amount' => 9200000,
+        ]);
+        $p = $svc->preview($sale);
+        $this->assertTrue($p['balanced']);
+        $this->assertTrue($p['hpp_pending']);
+        $this->assertSame(10000000.0, collect($p['lines'])->firstWhere('account.code', '4001')['credit']);
+        $this->assertSame(9200000.0, collect($p['lines'])->firstWhere('account.code', '1003')['debit']);
+        $this->assertSame(800000.0, collect($p['lines'])->firstWhere('account.code', '6005')['debit']);
+
+        // Iklan: cair −100178
+        $ads = TiktokSettlement::create([
+            'tiktok_statement_id' => 'JA', 'kind' => 'Iklan TikTok', 'currency' => 'IDR',
+            'revenue_amount' => 0, 'fee_amount' => 0, 'adjustment_amount' => -100178, 'settlement_amount' => -100178,
+        ]);
+        $pa = $svc->preview($ads);
+        $this->assertTrue($pa['balanced']);
+        $this->assertFalse($pa['hpp_pending']);
+        $this->assertSame(100178.0, collect($pa['lines'])->firstWhere('account.code', '6001')['debit']); // Beban Iklan
+        $this->assertSame(100178.0, collect($pa['lines'])->firstWhere('account.code', '1003')['credit']); // Kas keluar
     }
 
     public function test_settlement_page_renders_and_reseller_forbidden(): void

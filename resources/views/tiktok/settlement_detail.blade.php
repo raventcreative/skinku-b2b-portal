@@ -22,6 +22,41 @@
     </dl>
 </div>
 
+{{-- Rencana jurnal (M3b preview — belum diposting) --}}
+@if(! empty($journalPreview))
+<div class="mt-4 bg-white rounded-2xl border border-stone-200 overflow-hidden">
+    <div class="px-4 py-2.5 border-b border-stone-100 flex items-center gap-2">
+        <span class="text-sm font-bold text-stone-800">Rencana Jurnal</span>
+        @if($journalPreview['balanced'])
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">balance ✓</span>
+        @else
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">tidak balance ✗</span>
+        @endif
+        <span class="ml-auto text-[10px] text-stone-400">preview — belum diposting</span>
+    </div>
+    <table class="w-full text-xs">
+        <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
+            <tr><th class="text-left px-4 py-2">Akun</th><th class="text-left">Keterangan</th><th class="text-right">Debit</th><th class="text-right pr-4">Kredit</th></tr>
+        </thead>
+        <tbody>
+            @foreach($journalPreview['lines'] as $l)
+                <tr class="border-t border-stone-100">
+                    <td class="px-4 py-2"><span class="font-mono text-stone-400">{{ $l['account']->code }}</span> <span class="text-stone-700">{{ $l['account']->name }}</span></td>
+                    <td class="text-stone-500">{{ $l['memo'] }}</td>
+                    <td class="text-right font-mono {{ $l['debit'] ? 'text-stone-800' : 'text-stone-300' }}">{{ $l['debit'] ? $rp($l['debit']) : '·' }}</td>
+                    <td class="text-right pr-4 font-mono {{ $l['credit'] ? 'text-stone-800' : 'text-stone-300' }}">{{ $l['credit'] ? $rp($l['credit']) : '·' }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @if($journalPreview['hpp_pending'])
+        <div class="px-4 py-2 text-[11px] text-amber-700 bg-amber-50 border-t border-amber-100">
+            ⏳ HPP (Beban HPP / Persediaan) belum termasuk — menyusul di M3c (butuh daftar order per pencairan).
+        </div>
+    @endif
+</div>
+@endif
+
 @if($error)
     <div class="mt-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
         Gagal menarik rincian: {{ $error }}
