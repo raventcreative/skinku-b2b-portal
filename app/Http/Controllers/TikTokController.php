@@ -263,15 +263,30 @@ class TikTokController extends Controller
             $all = [];
             $token = '';
             $pages = 0;
+            $firstKeys = [];
             do {
                 $data = $this->tiktok->getStatements($access, $conn->shop_cipher, 50, $token);
-                $all = array_merge($all, $data['statements'] ?? []);
+                if ($pages === 0) {
+                    $firstKeys = array_keys($data);
+                }
+                // Nama pembungkus bisa beda antar versi API — coba beberapa.
+                $batch = $data['statements'] ?? ($data['statement_list'] ?? ($data['list'] ?? []));
+                $all = array_merge($all, $batch);
                 $token = $data['next_page_token'] ?? '';
                 $pages++;
             } while ($token && $pages < 10);
 
             $count = $this->settlements->store($all);
             $conn->update(['last_synced_at' => now()]);
+
+            if ($count === 0) {
+                // Diagnostik: tampilkan struktur respons supaya nama field asli terlihat.
+                $hint = $firstKeys ? implode(', ', $firstKeys) : 'kosong';
+
+                return redirect()->route('tiktok.settlements')->with('status',
+                    "0 pencairan tersimpan. Struktur respons TikTok: [{$hint}]. "
+                    .'Kalau memang belum ada payout, ini wajar. Kalau ada key aneh, kirim ini ke Claude.');
+            }
 
             return redirect()->route('tiktok.settlements')->with('status', "Berhasil tarik {$count} pencairan dari TikTok.");
         } catch (\Throwable $e) {
