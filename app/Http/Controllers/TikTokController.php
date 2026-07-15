@@ -6,11 +6,13 @@ use App\Models\Product;
 use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
 use App\Models\TiktokReturn;
+use App\Models\TiktokSettlement;
 use App\Models\TiktokSkuMap;
 use App\Services\AuditService;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
 use App\Services\TikTokReturnService;
+use App\Services\TikTokSettlementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -21,6 +23,7 @@ class TikTokController extends Controller
         private TikTokClient $tiktok,
         private TikTokOrderService $orders,
         private TikTokReturnService $returns,
+        private TikTokSettlementService $settlements,
     ) {}
 
     public function index()
@@ -247,6 +250,41 @@ class TikTokController extends Controller
         $this->returns->resetReview($ret);
 
         return back()->with('status', "Retur {$ret->tiktok_return_id} dikembalikan ke status review.");
+    }
+
+    /** M3a — tarik daftar pencairan (settlement) dari Finance API + simpan (read-only). */
+    public function syncSettlements(Request $request): RedirectResponse
+    {
+        $conn = TiktokConnection::latest('id')->first();
+        abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
+
+        try {
+            $access = $this->freshToken($conn);
+            $all = [];
+            $token = '';
+            $pages = 0;
+            do {
+                $data = $this->tiktok->getStatements($access, $conn->shop_cipher, 50, $token);
+                $all = array_merge($all, $data['statements'] ?? []);
+                $token = $data['next_page_token'] ?? '';
+                $pages++;
+            } while ($token && $pages < 10);
+
+            $count = $this->settlements->store($all);
+            $conn->update(['last_synced_at' => now()]);
+
+            return redirect()->route('tiktok.settlements')->with('status', "Berhasil tarik {$count} pencairan dari TikTok.");
+        } catch (\Throwable $e) {
+            return redirect()->route('tiktok.settlements')->with('error', 'Gagal tarik pencairan: '.$e->getMessage().' (pastikan scope "Finance" aktif di Partner Center)');
+        }
+    }
+
+    /** Daftar pencairan (read-only, M3a). Jurnal menyusul di M3b/M3c. */
+    public function settlementList()
+    {
+        $settlements = TiktokSettlement::latest('statement_time')->latest('id')->paginate(25);
+
+        return view('tiktok.settlements', compact('settlements'));
     }
 
     /** Nyalakan/matikan auto-potong saat sync. */

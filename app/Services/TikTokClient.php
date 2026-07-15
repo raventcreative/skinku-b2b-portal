@@ -91,6 +91,17 @@ class TikTokClient
         return $this->request('POST', '/return_refund/202309/returns/search', $accessToken, $shopCipher, $query, []);
     }
 
+    /** Daftar pencairan (settlement statements) — TERBARU dulu. Satu halaman. */
+    public function getStatements(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
+    {
+        $query = ['page_size' => $pageSize, 'sort_field' => 'statement_time', 'sort_order' => 'DESC'];
+        if ($pageToken !== '') {
+            $query['page_token'] = $pageToken;
+        }
+
+        return $this->request('GET', '/finance/202309/statements', $accessToken, $shopCipher, $query);
+    }
+
     // ---- internal ----
 
     private function authCall(string $path, array $query): array

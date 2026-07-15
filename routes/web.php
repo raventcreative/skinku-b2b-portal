@@ -197,6 +197,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/tiktok/returns/{ret}/reject', [TikTokController::class, 'rejectReturn'])->name('tiktok.returns.reject');
         Route::post('/tiktok/returns/{ret}/reset', [TikTokController::class, 'resetReturn'])->name('tiktok.returns.reset');
         Route::post('/tiktok/orders/{order}/reverse', [TikTokController::class, 'reverseStock'])->name('tiktok.reverse');
+        // Dana cair / settlement (M3)
+        Route::get('/tiktok/settlements', [TikTokController::class, 'settlementList'])->name('tiktok.settlements');
+        Route::post('/tiktok/settlements/sync', [TikTokController::class, 'syncSettlements'])->name('tiktok.settlements.sync');
         Route::delete('/tiktok/disconnect', [TikTokController::class, 'disconnect'])->name('tiktok.disconnect');
     });
 

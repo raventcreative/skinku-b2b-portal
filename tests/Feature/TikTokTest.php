@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
 use App\Models\TiktokReturn;
+use App\Models\TiktokSettlement;
 use App\Models\TiktokSkuMap;
 use App\Models\User;
 use App\Services\TikTokClient;
@@ -210,6 +211,39 @@ class TikTokTest extends TestCase
         $this->assertDatabaseHas('tiktok_returns', ['tiktok_return_id' => 'RET1', 'tiktok_order_id' => 'ORD1']);
 
         $this->actingAs($this->user(User::ROLE_RESELLER))->get('/tiktok/returns')->assertForbidden();
+    }
+
+    public function test_settlement_sync_stores_and_maps_amounts(): void
+    {
+        $this->configureTikTok();
+        Http::fake(['*/finance/202309/statements*' => Http::response(['code' => 0, 'data' => ['statements' => [
+            [
+                'id' => 'STM1', 'statement_time' => 1750000000, 'payment_status' => 'PAID', 'currency' => 'IDR',
+                'revenue_amount' => '10000000', 'fee_amount' => '-800000', 'adjustment_amount' => '0',
+                'settlement_amount' => '9200000',
+            ],
+        ]]])]);
+        TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r', 'access_expires_at' => now()->addDay()]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post('/tiktok/settlements/sync')->assertRedirect(route('tiktok.settlements'));
+
+        $this->assertDatabaseHas('tiktok_settlements', [
+            'tiktok_statement_id' => 'STM1', 'payment_status' => 'PAID',
+            'revenue_amount' => '10000000.00', 'settlement_amount' => '9200000.00',
+        ]);
+        // fee disimpan positif (dari -800000)
+        $this->assertEquals(800000.0, (float) TiktokSettlement::first()->fee_amount);
+        $this->assertEquals('pending', TiktokSettlement::first()->posting_status);
+    }
+
+    public function test_settlement_page_renders_and_reseller_forbidden(): void
+    {
+        TiktokSettlement::create([
+            'tiktok_statement_id' => 'STM9', 'payment_status' => 'PAID', 'currency' => 'IDR',
+            'revenue_amount' => 100, 'fee_amount' => 10, 'settlement_amount' => 90,
+        ]);
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/tiktok/settlements')->assertOk()->assertSee('STM9');
+        $this->actingAs($this->user(User::ROLE_RESELLER))->get('/tiktok/settlements')->assertForbidden();
     }
 
     public function test_sync_stores_orders_and_matches_sku_to_product(): void
