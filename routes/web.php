@@ -202,6 +202,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/tiktok/settlements', [TikTokController::class, 'settlementList'])->name('tiktok.settlements');
         Route::post('/tiktok/settlements/sync', [TikTokController::class, 'syncSettlements'])->name('tiktok.settlements.sync');
         Route::post('/tiktok/settlements/describe', [TikTokController::class, 'describeSettlements'])->name('tiktok.settlements.describe');
+        Route::post('/tiktok/post-journals', [TikTokController::class, 'postJournals'])->name('tiktok.post-journals');
         Route::get('/tiktok/settlements/{settlement}/detail', [TikTokController::class, 'settlementDetail'])->name('tiktok.settlements.detail');
         Route::delete('/tiktok/disconnect', [TikTokController::class, 'disconnect'])->name('tiktok.disconnect');
     });

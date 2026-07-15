@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccBranch;
 use App\Models\Product;
 use App\Models\TiktokConnection;
 use App\Models\TiktokOrder;
@@ -9,7 +10,8 @@ use App\Models\TiktokReturn;
 use App\Models\TiktokSettlement;
 use App\Models\TiktokSkuMap;
 use App\Models\User;
-use App\Services\SettlementJournalService;
+use App\Services\AccountingService;
+use App\Services\TikTokAccountingService;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
 use App\Services\TikTokSettlementService;
@@ -352,9 +354,78 @@ class TikTokTest extends TestCase
         $this->artisan('tiktok:sync')->assertExitCode(0);   // tidak error walau belum terhubung
     }
 
+    public function test_option_c_full_cycle_transit_clears_and_piutang_settles(): void
+    {
+        $acc = app(TikTokAccountingService::class);
+        $inv = app(TikTokOrderService::class);
+        AccBranch::create(['code' => 'HQ', 'name' => 'HQ', 'is_active' => true]);
+
+        // produk HPP 50rb/pcs
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active',
+            'cogs' => 50000, 'price_distributor' => 1, 'price_reseller' => 1]);
+        TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(), 'deduct_from' => '2026-07-15']);
+
+        $o = TiktokOrder::create([
+            'tiktok_order_id' => 'C1', 'status' => 'IN_TRANSIT', 'stock_status' => TiktokOrder::STATUS_PENDING,
+            'total_amount' => 100000, 'order_created_at' => '2026-07-15 09:00',
+            'line_items' => [['sku' => 'SKU-A', 'name' => 'Sabun', 'qty' => 1]],
+        ]);
+
+        // 1. Barang keluar → HPP terkunci, transit dijurnal (nol dampak laba)
+        $inv->deduct($o, $this->user(User::ROLE_ADMIN)->id);
+        $this->assertEquals(50000, (float) $o->fresh()->hpp_amount);
+        $acc->postPending();
+        $this->assertNotNull($o->fresh()->transit_journal_id);
+        $this->assertNull($o->fresh()->sale_journal_id);              // belum sampai → belum diakui
+        $a = $acc->accounts();
+        $svc = app(AccountingService::class);
+        $this->assertEquals(50000, $svc->balanceOf($a['transit']->id));   // nangkring di perjalanan
+        $this->assertEquals(0, $svc->balanceOf($a['penjualan']->id));     // BELUM ada omzet
+        $this->assertEquals(0, $svc->balanceOf($a['hpp']->id));           // BELUM ada beban HPP
+
+        // 2. Order sampai → omzet + HPP diakui bareng, transit bersih
+        $o->update(['status' => 'DELIVERED']);
+        $acc->postPending();
+        $this->assertNotNull($o->fresh()->sale_journal_id);
+        $this->assertEquals(0, $svc->balanceOf($a['transit']->id));       // transit kembali nol
+        $this->assertEquals(-100000, $svc->balanceOf($a['penjualan']->id)); // kredit = omzet
+        $this->assertEquals(50000, $svc->balanceOf($a['hpp']->id));       // HPP diakui
+        $this->assertEquals(100000, $svc->balanceOf($a['piutang']->id));  // TikTok ngutang ke kita
+
+        // 3. Dana cair → piutang lunas, kas + fee masuk
+        TiktokSettlement::create([
+            'tiktok_statement_id' => 'STC', 'kind' => 'Penjualan', 'currency' => 'IDR',
+            'revenue_amount' => 100000, 'fee_amount' => 8000, 'adjustment_amount' => 0,
+            'settlement_amount' => 92000, 'statement_time' => '2026-07-20',
+        ]);
+        $acc->postPending();
+        $this->assertEquals(0, $svc->balanceOf($a['piutang']->id));       // piutang LUNAS
+        $this->assertEquals(92000, $svc->balanceOf($a['kas']->id));
+        $this->assertEquals(8000, $svc->balanceOf($a['fee']->id));
+    }
+
+    public function test_posting_is_idempotent(): void
+    {
+        $acc = app(TikTokAccountingService::class);
+        AccBranch::create(['code' => 'HQ', 'name' => 'HQ', 'is_active' => true]);
+        TiktokSettlement::create([
+            'tiktok_statement_id' => 'IDEM', 'kind' => 'Iklan TikTok', 'currency' => 'IDR',
+            'revenue_amount' => 0, 'fee_amount' => 0, 'adjustment_amount' => -100178,
+            'settlement_amount' => -100178, 'statement_time' => '2026-07-20',
+        ]);
+
+        $r1 = $acc->postPending();
+        $r2 = $acc->postPending();   // jalan lagi → tidak boleh dobel
+
+        $this->assertSame(1, $r1['settlement']);
+        $this->assertSame(0, $r2['settlement']);
+        $this->assertEquals(100178, app(AccountingService::class)->balanceOf($acc->accounts()['iklan']->id));
+    }
+
     public function test_journal_preview_balances_for_sales_and_ads(): void
     {
-        $svc = app(SettlementJournalService::class);
+        $svc = app(TikTokAccountingService::class);
 
         // Penjualan: bruto 10jt, fee 800rb, cair 9.2jt
         $sale = TiktokSettlement::create([
@@ -363,8 +434,9 @@ class TikTokTest extends TestCase
         ]);
         $p = $svc->preview($sale);
         $this->assertTrue($p['balanced']);
-        $this->assertTrue($p['hpp_pending']);
-        $this->assertSame(10000000.0, collect($p['lines'])->firstWhere('account.code', '4001')['credit']);
+        // Opsi C: pencairan menutup PIUTANG (bukan mengakui omzet baru)
+        $this->assertSame(10000000.0, collect($p['lines'])->firstWhere('account.code', '1103')['credit']);
+        $this->assertNull(collect($p['lines'])->firstWhere('account.code', '4001'));   // omzet TIDAK di sini
         $this->assertSame(9200000.0, collect($p['lines'])->firstWhere('account.code', '1003')['debit']);
         $this->assertSame(800000.0, collect($p['lines'])->firstWhere('account.code', '6005')['debit']);
 
@@ -375,7 +447,6 @@ class TikTokTest extends TestCase
         ]);
         $pa = $svc->preview($ads);
         $this->assertTrue($pa['balanced']);
-        $this->assertFalse($pa['hpp_pending']);
         $this->assertSame(100178.0, collect($pa['lines'])->firstWhere('account.code', '6001')['debit']); // Beban Iklan
         $this->assertSame(100178.0, collect($pa['lines'])->firstWhere('account.code', '1003')['credit']); // Kas keluar
     }

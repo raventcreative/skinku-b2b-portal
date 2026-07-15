@@ -9,7 +9,7 @@ use App\Models\TiktokReturn;
 use App\Models\TiktokSettlement;
 use App\Models\TiktokSkuMap;
 use App\Services\AuditService;
-use App\Services\SettlementJournalService;
+use App\Services\TikTokAccountingService;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
 use App\Services\TikTokReturnService;
@@ -26,7 +26,7 @@ class TikTokController extends Controller
         private TikTokOrderService $orders,
         private TikTokReturnService $returns,
         private TikTokSettlementService $settlements,
-        private SettlementJournalService $journals,
+        private TikTokAccountingService $journals,
         private TikTokSyncService $sync,
     ) {}
 
@@ -291,6 +291,20 @@ class TikTokController extends Controller
         $journalPreview = $this->journals->preview($settlement);
 
         return view('tiktok.settlement_detail', compact('settlement', 'transactions', 'rawKeys', 'error', 'journalPreview'));
+    }
+
+    /** Jurnalkan semua yang belum: barang keluar → order sampai → dana cair (idempoten). */
+    public function postJournals(): RedirectResponse
+    {
+        try {
+            $r = $this->journals->postPending();
+            AuditService::log(action: 'tiktok_post_journals', targetType: 'tiktok', after: $r);
+
+            return back()->with('status', "Jurnal dibuat — barang keluar: {$r['transit']}, penjualan (order sampai): {$r['sale']}, pencairan: {$r['settlement']}"
+                .($r['failed'] ? ", {$r['failed']} gagal" : '').'.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal posting jurnal: '.$e->getMessage());
+        }
     }
 
     /** Isi kolom keterangan untuk pencairan "potongan" yang belum berketerangan (bertahap). */

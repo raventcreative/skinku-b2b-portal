@@ -49,9 +49,14 @@
             @endforeach
         </tbody>
     </table>
-    @if($journalPreview['hpp_pending'])
-        <div class="px-4 py-2 text-[11px] text-amber-700 bg-amber-50 border-t border-amber-100">
-            ⏳ HPP (Beban HPP / Persediaan) belum termasuk — menyusul di M3c (butuh daftar order per pencairan).
+    @if($settlement->isPosted())
+        <div class="px-4 py-2 text-[11px] text-emerald-700 bg-emerald-50 border-t border-emerald-100">
+            ✓ Sudah diposting ke jurnal (#{{ $settlement->journal_id }}) pada {{ $settlement->posted_at?->format('d M Y H:i') }}.
+        </div>
+    @else
+        <div class="px-4 py-2 text-[11px] text-stone-500 bg-stone-50 border-t border-stone-100">
+            ℹ️ Pencairan <b>bukan omzet baru</b> — cuma penagihan. Omzet & HPP sudah diakui saat order <b>sampai</b>.
+            Piutang dipotong sebesar <b>omzet bruto</b> versi TikTok, jadi tak perlu cocokkan order satu-satu.
         </div>
     @endif
 </div>

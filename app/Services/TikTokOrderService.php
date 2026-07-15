@@ -219,16 +219,22 @@ class TikTokOrderService
         }
 
         DB::transaction(function () use ($order, $pv, $userId) {
+            $hpp = 0.0;
             foreach ($pv['lines'] as $l) {
                 foreach ($l['components'] as $c) {
+                    $qty = (int) $c['deduct'];
+                    // Kunci HPP saat barang keluar — dipakai lagi saat order sampai,
+                    // supaya akun "Persediaan Dalam Perjalanan" bersih (masuk = keluar).
+                    $hpp += (float) $c['product']->cogs * $qty;
                     $this->inventory->adjustHqStock(
-                        $c['product'], -1 * (int) $c['deduct'], StockMovement::TYPE_OUT,
+                        $c['product'], -1 * $qty, StockMovement::TYPE_OUT,
                         "Penjualan TikTok {$order->tiktok_order_id}", 'tiktok_order', $order->id,
                     );
                 }
             }
             $order->update([
                 'stock_status' => TiktokOrder::STATUS_DEDUCTED,
+                'hpp_amount' => round($hpp, 2),
                 'deducted_at' => now(), 'deducted_by' => $userId,
             ]);
         });

@@ -14,6 +14,10 @@
     <form method="POST" action="{{ route('tiktok.settlements.sync') }}">@csrf
         <button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">↻ Tarik Pencairan</button>
     </form>
+    <form method="POST" action="{{ route('tiktok.post-journals') }}"
+        onsubmit="return confirm('Buat jurnal untuk semua yang belum: barang keluar, order sampai (omzet+HPP), dan pencairan?')">@csrf
+        <button class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 font-semibold">📒 Posting Jurnal</button>
+    </form>
 </div>
 
 <div class="mb-4 px-4 py-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-[11px] leading-relaxed">
