@@ -316,11 +316,51 @@ class TikTokController extends Controller
             $data = $this->tiktok->getStatementTransactions($access, $conn->shop_cipher, $settlement->tiktok_statement_id, 50);
             $rawKeys = array_keys($data);
             $transactions = $data['statement_transactions'] ?? ($data['transactions'] ?? ($data['list'] ?? []));
+            // Sekalian isi keterangan (kind) supaya kolom di daftar terisi.
+            if (is_array($transactions) && ! $settlement->kind) {
+                $k = $this->settlements->deriveKind($transactions);
+                $settlement->update(['kind' => $k['label'], 'kind_raw' => $k['raw']]);
+            }
         } catch (\Throwable $e) {
             $error = $e->getMessage();
         }
 
         return view('tiktok.settlement_detail', compact('settlement', 'transactions', 'rawKeys', 'error'));
+    }
+
+    /** Isi kolom keterangan untuk pencairan "potongan" yang belum berketerangan (bertahap). */
+    public function describeSettlements(Request $request): RedirectResponse
+    {
+        $conn = TiktokConnection::latest('id')->first();
+        abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
+
+        $batch = 60;
+        $targets = TiktokSettlement::whereNull('kind')->orderByDesc('statement_time')->limit($batch)->get();
+
+        $done = 0;
+        $failed = 0;
+        try {
+            $access = $this->freshToken($conn);
+            foreach ($targets as $s) {
+                try {
+                    $data = $this->tiktok->getStatementTransactions($access, $conn->shop_cipher, $s->tiktok_statement_id, 50);
+                    $txns = $data['statement_transactions'] ?? ($data['transactions'] ?? ($data['list'] ?? []));
+                    $k = $this->settlements->deriveKind(is_array($txns) ? $txns : []);
+                    $s->update(['kind' => $k['label'], 'kind_raw' => $k['raw']]);
+                    $done++;
+                } catch (\Throwable $e) {
+                    $failed++;
+                }
+            }
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal ambil keterangan: '.$e->getMessage());
+        }
+
+        $remaining = TiktokSettlement::whereNull('kind')->count();
+
+        return back()->with('status', "Keterangan diisi: {$done}"
+            .($failed ? ", {$failed} gagal" : '')
+            .($remaining ? ". Masih {$remaining} belum berketerangan — klik lagi untuk lanjut." : '. Semua sudah berketerangan.'));
     }
 
     /** Nyalakan/matikan auto-potong saat sync. */

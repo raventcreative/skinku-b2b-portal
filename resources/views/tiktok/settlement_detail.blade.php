@@ -5,24 +5,7 @@
 @section('content')
 @php
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
-    // Terjemahkan jenis transaksi TikTok → keterangan Indonesia (best-effort).
-    $ket = function ($type) {
-        $t = strtoupper((string) $type);
-        return match (true) {
-            str_contains($t, 'AFFILIATE') && str_contains($t, 'AD') => 'Iklan afiliasi (affiliate ads)',
-            str_contains($t, 'AFFILIATE') || str_contains($t, 'COMMISSION') => 'Komisi afiliasi/platform',
-            str_contains($t, 'AD') || str_contains($t, 'ADS') || str_contains($t, 'GMV') => 'Biaya iklan',
-            str_contains($t, 'REFUND') || str_contains($t, 'RETURN') => 'Refund / retur',
-            str_contains($t, 'SHIP') || str_contains($t, 'LOGISTIC') => 'Ongkir / logistik',
-            str_contains($t, 'PENALTY') || str_contains($t, 'FINE') => 'Denda / penalti',
-            str_contains($t, 'SUBSID') => 'Subsidi',
-            str_contains($t, 'LOAN') || str_contains($t, 'INSTALLMENT') => 'Cicilan / pinjaman',
-            str_contains($t, 'ORDER') || str_contains($t, 'SETTLE') => 'Penjualan order',
-            str_contains($t, 'ADJUST') => 'Penyesuaian',
-            $t === '' => '—',
-            default => $type,
-        };
-    };
+    $ket = fn ($type) => \App\Services\TikTokSettlementService::translateType($type);
     $pick = fn ($a, $keys) => collect($keys)->map(fn ($k) => $a[$k] ?? null)->first(fn ($v) => $v !== null && $v !== '');
 @endphp
 

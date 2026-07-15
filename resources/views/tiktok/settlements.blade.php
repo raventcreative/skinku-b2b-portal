@@ -7,7 +7,11 @@
 
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <a href="{{ route('tiktok.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Integrasi</a>
-    <form method="POST" action="{{ route('tiktok.settlements.sync') }}" class="ml-auto">@csrf
+    @php $needKind = $settlements->getCollection()->whereNull('kind')->count(); @endphp
+    <form method="POST" action="{{ route('tiktok.settlements.describe') }}" class="ml-auto">@csrf
+        <button class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">🏷️ Ambil Keterangan (60/klik)</button>
+    </form>
+    <form method="POST" action="{{ route('tiktok.settlements.sync') }}">@csrf
         <button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">↻ Tarik Pencairan</button>
     </form>
 </div>
@@ -41,10 +45,12 @@
                     <td class="px-4 py-2 font-mono text-stone-700">{{ $s->tiktok_statement_id }}</td>
                     <td class="text-stone-500">{{ $s->statement_time?->format('d M Y') ?? '—' }}</td>
                     <td>
-                        @if($isSale)
+                        @if($s->kind)
+                            <span class="px-2 py-0.5 rounded-full text-[10px] {{ $isSale ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800' }}">{{ $s->kind }}</span>
+                        @elseif($isSale)
                             <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700">Penjualan</span>
                         @else
-                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-700">Potongan / non-jualan</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-stone-100 text-stone-500" title="Klik Ambil Keterangan untuk isi">Potongan (?)</span>
                         @endif
                     </td>
                     <td class="text-right font-mono text-stone-700">{{ $isSale ? $rp($s->revenue_amount) : '·' }}</td>

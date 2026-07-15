@@ -11,6 +11,7 @@ use App\Models\TiktokSkuMap;
 use App\Models\User;
 use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
+use App\Services\TikTokSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -252,6 +253,31 @@ class TikTokTest extends TestCase
             ->get(route('tiktok.settlements.detail', $s))
             ->assertOk()
             ->assertSee('Iklan afiliasi');   // keterangan hasil terjemahan AFFILIATE_AD
+    }
+
+    public function test_describe_settlements_fills_kind_from_transactions(): void
+    {
+        $this->configureTikTok();
+        Http::fake(['*/statement_transactions*' => Http::response(['code' => 0, 'data' => ['statement_transactions' => [
+            ['type' => 'AFFILIATE_AD', 'settlement_amount' => '-100178'],
+        ]]])]);
+        TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r', 'access_expires_at' => now()->addDay()]);
+        $s = TiktokSettlement::create([
+            'tiktok_statement_id' => 'STM-POT', 'payment_status' => 'SETTLED', 'currency' => 'IDR',
+            'revenue_amount' => 0, 'fee_amount' => 0, 'adjustment_amount' => -100178, 'settlement_amount' => -100178,
+        ]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->post('/tiktok/settlements/describe')->assertRedirect();
+        $this->assertSame('Iklan afiliasi', $s->fresh()->kind);
+    }
+
+    public function test_sales_settlement_labeled_penjualan_on_sync(): void
+    {
+        $n = app(TikTokSettlementService::class)->store([
+            ['id' => 'SLS1', 'revenue_amount' => '5000', 'fee_amount' => '-500', 'settlement_amount' => '4500', 'payment_status' => 'SETTLED'],
+        ]);
+        $this->assertSame(1, $n);
+        $this->assertSame('Penjualan', TiktokSettlement::where('tiktok_statement_id', 'SLS1')->first()->kind);
     }
 
     public function test_settlement_page_renders_and_reseller_forbidden(): void

@@ -15,6 +15,7 @@ class TiktokSettlement extends Model
         'revenue_amount', 'fee_amount', 'adjustment_amount', 'settlement_amount',
         'order_ids', 'raw', 'statement_time', 'paid_time',
         'posting_status', 'journal_id', 'posted_at', 'posted_by',
+        'kind', 'kind_raw',
     ];
 
     protected $casts = [
