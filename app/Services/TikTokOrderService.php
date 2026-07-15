@@ -200,8 +200,8 @@ class TikTokOrderService
         return $rows;
     }
 
-    /** POTONG stok internal untuk 1 order (idempoten, guard status & mapping). */
-    public function deduct(TiktokOrder $order, int $userId): void
+    /** POTONG stok internal untuk 1 order (idempoten, guard status & mapping). $userId null = dijalankan cron. */
+    public function deduct(TiktokOrder $order, ?int $userId = null): void
     {
         if ($order->stock_status === TiktokOrder::STATUS_DEDUCTED) {
             return; // sudah pernah — jangan dobel
@@ -239,7 +239,7 @@ class TikTokOrderService
      * dipotong). Per order try/catch supaya 1 gagal (mis. stok kurang) tak menghentikan
      * yang lain. @return array{done:int, failed:int, skipped:int}
      */
-    public function deductAllReady(int $userId): array
+    public function deductAllReady(?int $userId = null): array
     {
         $done = 0;
         $failed = 0;

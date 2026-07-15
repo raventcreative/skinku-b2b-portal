@@ -14,6 +14,7 @@ use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
 use App\Services\TikTokReturnService;
 use App\Services\TikTokSettlementService;
+use App\Services\TikTokSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -26,6 +27,7 @@ class TikTokController extends Controller
         private TikTokReturnService $returns,
         private TikTokSettlementService $settlements,
         private SettlementJournalService $journals,
+        private TikTokSyncService $sync,
     ) {}
 
     public function index()
@@ -89,26 +91,12 @@ class TikTokController extends Controller
         abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
 
         try {
-            $access = $this->freshToken($conn);
-            // Terbaru dulu; ambil beberapa halaman (maks ~500 order) supaya order bulan
-            // berjalan ikut ketarik, bukan cuma yang paling lama.
-            $all = [];
-            $token = '';
-            $pages = 0;
-            do {
-                $data = $this->tiktok->searchOrders($access, $conn->shop_cipher, 50, $token);
-                $all = array_merge($all, $data['orders'] ?? []);
-                $token = $data['next_page_token'] ?? '';
-                $pages++;
-            } while ($token && $pages < 10);
+            $r = $this->sync->syncOrders($conn, $request->user()->id);
 
-            $count = $this->orders->store($all);
-            $conn->update(['last_synced_at' => now()]);
-
-            $msg = "Berhasil tarik & simpan {$count} order terbaru dari TikTok.";
-            if ($conn->auto_deduct) {
-                $r = $this->orders->deductAllReady($request->user()->id);
-                $msg .= " Auto-potong: {$r['done']} order dipotong".($r['failed'] ? ", {$r['failed']} gagal (stok kurang?)" : '').'.';
+            $msg = "Berhasil tarik & simpan {$r['count']} order terbaru dari TikTok.";
+            if ($r['deducted']) {
+                $d = $r['deducted'];
+                $msg .= " Auto-potong: {$d['done']} order dipotong".($d['failed'] ? ", {$d['failed']} gagal (stok kurang?)" : '').'.';
             }
 
             return redirect()->route('tiktok.orders')->with('status', $msg);
@@ -198,18 +186,7 @@ class TikTokController extends Controller
         abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
 
         try {
-            $access = $this->freshToken($conn);
-            $all = [];
-            $token = '';
-            $pages = 0;
-            do {
-                $data = $this->tiktok->searchReturns($access, $conn->shop_cipher, 50, $token);
-                $all = array_merge($all, $data['return_orders'] ?? ($data['returns'] ?? []));
-                $token = $data['next_page_token'] ?? '';
-                $pages++;
-            } while ($token && $pages < 10);
-
-            $count = $this->returns->store($all);
+            $count = $this->sync->syncReturns($conn);
 
             return redirect()->route('tiktok.returns')->with('status', "Berhasil tarik {$count} retur dari TikTok.");
         } catch (\Throwable $e) {
@@ -263,36 +240,18 @@ class TikTokController extends Controller
         abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
 
         try {
-            $access = $this->freshToken($conn);
-            $all = [];
-            $token = '';
-            $pages = 0;
-            $firstKeys = [];
-            do {
-                $data = $this->tiktok->getStatements($access, $conn->shop_cipher, 50, $token);
-                if ($pages === 0) {
-                    $firstKeys = array_keys($data);
-                }
-                // Nama pembungkus bisa beda antar versi API — coba beberapa.
-                $batch = $data['statements'] ?? ($data['statement_list'] ?? ($data['list'] ?? []));
-                $all = array_merge($all, $batch);
-                $token = $data['next_page_token'] ?? '';
-                $pages++;
-            } while ($token && $pages < 10);
+            $r = $this->sync->syncSettlements($conn);
 
-            $count = $this->settlements->store($all);
-            $conn->update(['last_synced_at' => now()]);
-
-            if ($count === 0) {
+            if ($r['count'] === 0) {
                 // Diagnostik: tampilkan struktur respons supaya nama field asli terlihat.
-                $hint = $firstKeys ? implode(', ', $firstKeys) : 'kosong';
+                $hint = $r['keys'] ? implode(', ', $r['keys']) : 'kosong';
 
                 return redirect()->route('tiktok.settlements')->with('status',
                     "0 pencairan tersimpan. Struktur respons TikTok: [{$hint}]. "
                     .'Kalau memang belum ada payout, ini wajar. Kalau ada key aneh, kirim ini ke Claude.');
             }
 
-            return redirect()->route('tiktok.settlements')->with('status', "Berhasil tarik {$count} pencairan dari TikTok.");
+            return redirect()->route('tiktok.settlements')->with('status', "Berhasil tarik {$r['count']} pencairan dari TikTok.");
         } catch (\Throwable $e) {
             return redirect()->route('tiktok.settlements')->with('error', 'Gagal tarik pencairan: '.$e->getMessage().' (pastikan scope "Finance" aktif di Partner Center)');
         }
@@ -419,31 +378,15 @@ class TikTokController extends Controller
         return redirect()->route('tiktok.index')->with('status', 'Koneksi TikTok diputus.');
     }
 
-    /** Access token yang masih valid (refresh otomatis kalau mau expire). */
+    /** Access token yang masih valid — didelegasikan ke TikTokSyncService. */
     private function freshToken(TiktokConnection $conn): string
     {
-        if (! $conn->accessExpiringSoon()) {
-            return $conn->access_token;
-        }
-        $token = $this->tiktok->refreshToken($conn->refresh_token);
-        $conn->update([
-            'access_token' => $token['access_token'],
-            'refresh_token' => $token['refresh_token'] ?? $conn->refresh_token,
-            'access_expires_at' => $this->toTime($token['access_token_expire_in'] ?? null),
-            'refresh_expires_at' => $this->toTime($token['refresh_token_expire_in'] ?? null),
-        ]);
-
-        return $token['access_token'];
+        return $this->sync->freshToken($conn);
     }
 
     /** TikTok kirim expiry sbg epoch detik (atau kadang detik-dari-sekarang). */
     private function toTime(mixed $v): ?Carbon
     {
-        if (! $v) {
-            return null;
-        }
-        $v = (int) $v;
-
-        return $v > 1_000_000_000 ? Carbon::createFromTimestamp($v) : now()->addSeconds($v);
+        return $this->sync->toTime($v);
     }
 }

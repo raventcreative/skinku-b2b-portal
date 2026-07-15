@@ -14,6 +14,7 @@ use App\Services\TikTokClient;
 use App\Services\TikTokOrderService;
 use App\Services\TikTokSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -324,6 +325,31 @@ class TikTokTest extends TestCase
         $this->assertSame(1, $r['done']);                       // cuma yang 15 Jul
         $this->assertEquals(97, $p->fresh()->hq_stock);         // 100 − 3 (bukan −6)
         $this->assertSame(TiktokOrder::STATUS_PENDING, TiktokOrder::where('tiktok_order_id', 'OLD')->first()->stock_status);
+    }
+
+    public function test_sync_command_pulls_orders_and_auto_deducts(): void
+    {
+        $this->configureTikTok();
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);
+        Http::fake(['*/order/202309/orders/search*' => Http::response(['code' => 0, 'data' => ['orders' => [
+            ['id' => 'CRON1', 'status' => 'COMPLETED', 'create_time' => Carbon::parse('2026-07-16')->timestamp,
+                'payment' => ['total_amount' => '1000'],
+                'line_items' => [['seller_sku' => 'SKU-A', 'product_name' => 'Sabun', 'quantity' => 4]]],
+        ]]])]);
+        TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(), 'auto_deduct' => true, 'deduct_from' => '2026-07-15',
+        ]);
+
+        $this->artisan('tiktok:sync')->assertExitCode(0);
+
+        $this->assertDatabaseHas('tiktok_orders', ['tiktok_order_id' => 'CRON1', 'stock_status' => TiktokOrder::STATUS_DEDUCTED]);
+        $this->assertEquals(96, $p->fresh()->hq_stock);   // 100 − 4, tanpa user login
+    }
+
+    public function test_sync_command_is_quiet_when_not_connected(): void
+    {
+        $this->artisan('tiktok:sync')->assertExitCode(0);   // tidak error walau belum terhubung
     }
 
     public function test_journal_preview_balances_for_sales_and_ads(): void
