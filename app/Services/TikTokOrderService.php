@@ -87,6 +87,19 @@ class TikTokOrderService
         return Product::where('sku', $sku)->exists();
     }
 
+    /** Nilai HPP order = Σ (HPP produk × qty komponen). Dipakai saat potong & backfill. */
+    public function computeHpp(TiktokOrder $order): float
+    {
+        $hpp = 0.0;
+        foreach ($this->preview($order)['lines'] as $l) {
+            foreach ($l['components'] as $c) {
+                $hpp += (float) $c['product']->cogs * (int) $c['deduct'];
+            }
+        }
+
+        return round($hpp, 2);
+    }
+
     /** Tanggal mulai potong stok (order sebelumnya sudah tercakup stok opname). */
     public function cutoff(): ?Carbon
     {
@@ -218,23 +231,22 @@ class TikTokOrderService
             throw new RuntimeException('Masih ada SKU yang belum dipetakan ke produk.');
         }
 
-        DB::transaction(function () use ($order, $pv, $userId) {
-            $hpp = 0.0;
+        // Kunci HPP saat barang keluar — dipakai lagi saat order sampai, supaya
+        // akun "Persediaan Dalam Perjalanan" bersih (nilai masuk = nilai keluar).
+        $hpp = $this->computeHpp($order);
+
+        DB::transaction(function () use ($order, $pv, $userId, $hpp) {
             foreach ($pv['lines'] as $l) {
                 foreach ($l['components'] as $c) {
-                    $qty = (int) $c['deduct'];
-                    // Kunci HPP saat barang keluar — dipakai lagi saat order sampai,
-                    // supaya akun "Persediaan Dalam Perjalanan" bersih (masuk = keluar).
-                    $hpp += (float) $c['product']->cogs * $qty;
                     $this->inventory->adjustHqStock(
-                        $c['product'], -1 * $qty, StockMovement::TYPE_OUT,
+                        $c['product'], -1 * (int) $c['deduct'], StockMovement::TYPE_OUT,
                         "Penjualan TikTok {$order->tiktok_order_id}", 'tiktok_order', $order->id,
                     );
                 }
             }
             $order->update([
                 'stock_status' => TiktokOrder::STATUS_DEDUCTED,
-                'hpp_amount' => round($hpp, 2),
+                'hpp_amount' => $hpp,
                 'deducted_at' => now(), 'deducted_by' => $userId,
             ]);
         });

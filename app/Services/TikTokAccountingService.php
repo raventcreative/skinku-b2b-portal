@@ -32,7 +32,10 @@ use RuntimeException;
  */
 class TikTokAccountingService
 {
-    public function __construct(private AccountingService $accounting) {}
+    public function __construct(
+        private AccountingService $accounting,
+        private TikTokOrderService $orders,
+    ) {}
 
     /** @return array<string, AccAccount> */
     public function accounts(): array
@@ -98,7 +101,9 @@ class TikTokAccountingService
             $lines[] = ['account' => $a['piutang'], 'debit' => $bruto, 'credit' => 0.0, 'memo' => "Order sampai {$order->tiktok_order_id}"];
             $lines[] = ['account' => $a['penjualan'], 'debit' => 0.0, 'credit' => $bruto, 'memo' => 'Penjualan TikTok (bruto)'];
         }
-        if ($hpp > 0) {
+        // HPP hanya dilepas kalau memang pernah masuk ke akun transit — kalau tidak,
+        // akun transit malah jadi negatif. Omzet tetap diakui tanpa menunggu HPP.
+        if ($hpp > 0 && $order->transit_journal_id) {
             $lines[] = ['account' => $a['hpp'], 'debit' => $hpp, 'credit' => 0.0, 'memo' => 'HPP terjual'];
             $lines[] = ['account' => $a['transit'], 'debit' => 0.0, 'credit' => $hpp, 'memo' => 'Lepas dari perjalanan'];
         }
@@ -225,6 +230,15 @@ class TikTokAccountingService
         $settlement = 0;
         $failed = 0;
 
+        // 0. Backfill HPP untuk order yang terlanjur dipotong sebelum kolom hpp_amount ada.
+        $q = TiktokOrder::where('stock_status', TiktokOrder::STATUS_DEDUCTED)->where('hpp_amount', 0);
+        foreach ($this->withCutoff($q, $cut, 'order_created_at')->get() as $o) {
+            $hpp = $this->orders->computeHpp($o);
+            if ($hpp > 0) {
+                $o->update(['hpp_amount' => $hpp]);
+            }
+        }
+
         // 1. Barang keluar yang belum dijurnal
         $q = TiktokOrder::where('stock_status', TiktokOrder::STATUS_DEDUCTED)->whereNull('transit_journal_id');
         foreach ($this->withCutoff($q, $cut, 'order_created_at')->get() as $o) {
@@ -236,9 +250,10 @@ class TikTokAccountingService
             }
         }
 
-        // 2. Order sampai yang belum diakui penjualannya (transit harus sudah dijurnal)
+        // 2. Order sampai yang belum diakui penjualannya. Sengaja TIDAK mensyaratkan
+        //    transit sudah dijurnal — omzet jangan tersandera HPP yang tak diketahui.
         $q = TiktokOrder::whereIn('status', TiktokOrder::DELIVERED_STATUSES)
-            ->whereNotNull('transit_journal_id')->whereNull('sale_journal_id');
+            ->whereNull('sale_journal_id');
         foreach ($this->withCutoff($q, $cut, 'order_created_at')->get() as $o) {
             try {
                 $this->postSale($o) && $sale++;

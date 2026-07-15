@@ -405,6 +405,54 @@ class TikTokTest extends TestCase
         $this->assertEquals(8000, $svc->balanceOf($a['fee']->id));
     }
 
+    public function test_backfills_hpp_for_orders_deducted_before_column_existed(): void
+    {
+        $acc = app(TikTokAccountingService::class);
+        AccBranch::create(['code' => 'HQ', 'name' => 'HQ', 'is_active' => true]);
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SKU-A', 'hq_stock' => 100, 'status' => 'active',
+            'cogs' => 50000, 'price_distributor' => 1, 'price_reseller' => 1]);
+        TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(), 'deduct_from' => '2026-07-15']);
+
+        // Order sudah dipotong TAPI hpp_amount 0 (dipotong sebelum kolomnya ada)
+        $o = TiktokOrder::create([
+            'tiktok_order_id' => 'OLDDEDUCT', 'status' => 'DELIVERED', 'stock_status' => TiktokOrder::STATUS_DEDUCTED,
+            'total_amount' => 100000, 'hpp_amount' => 0, 'order_created_at' => '2026-07-15 09:00',
+            'line_items' => [['sku' => 'SKU-A', 'name' => 'Sabun', 'qty' => 1]],
+        ]);
+
+        $acc->postPending();
+
+        $this->assertEquals(50000, (float) $o->fresh()->hpp_amount);   // HPP dihitung ulang
+        $this->assertNotNull($o->fresh()->transit_journal_id);
+        $this->assertNotNull($o->fresh()->sale_journal_id);
+        $svc = app(AccountingService::class);
+        $a = $acc->accounts();
+        $this->assertEquals(-100000, $svc->balanceOf($a['penjualan']->id));  // omzet muncul
+        $this->assertEquals(50000, $svc->balanceOf($a['hpp']->id));
+        $this->assertEquals(0, $svc->balanceOf($a['transit']->id));          // transit tetap bersih
+    }
+
+    public function test_sale_posts_even_when_hpp_unknown(): void
+    {
+        $acc = app(TikTokAccountingService::class);
+        AccBranch::create(['code' => 'HQ', 'name' => 'HQ', 'is_active' => true]);
+        // produk tanpa HPP (cogs 0) → omzet tetap harus diakui
+        Product::create(['name' => 'X', 'sku' => 'SKU-X', 'hq_stock' => 10, 'status' => 'active',
+            'cogs' => 0, 'price_distributor' => 1, 'price_reseller' => 1]);
+        TiktokOrder::create([
+            'tiktok_order_id' => 'NOHPP', 'status' => 'DELIVERED', 'stock_status' => TiktokOrder::STATUS_DEDUCTED,
+            'total_amount' => 75000, 'hpp_amount' => 0, 'order_created_at' => '2026-07-16 09:00',
+            'line_items' => [['sku' => 'SKU-X', 'name' => 'X', 'qty' => 1]],
+        ]);
+
+        $acc->postPending();
+
+        $svc = app(AccountingService::class);
+        $this->assertEquals(-75000, $svc->balanceOf($acc->accounts()['penjualan']->id)); // omzet tidak tersandera
+        $this->assertEquals(0, $svc->balanceOf($acc->accounts()['transit']->id));        // transit tidak minus
+    }
+
     public function test_posting_is_idempotent(): void
     {
         $acc = app(TikTokAccountingService::class);
