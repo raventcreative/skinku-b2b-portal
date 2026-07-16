@@ -845,4 +845,27 @@ class TikTokTest extends TestCase
         $this->assertEquals(100, $soap->fresh()->hq_stock);
         $this->assertEquals(50, $lotion->fresh()->hq_stock);
     }
+
+    public function test_audit_explains_gap_by_listing_excluded_orders(): void
+    {
+        $mk = fn ($id, $status, $amt) => TiktokOrder::create([
+            'tiktok_order_id' => $id, 'status' => $status, 'total_amount' => $amt,
+            'order_created_at' => '2026-07-10', 'line_items' => [],
+        ]);
+        $mk('A-1', 'COMPLETED', 100_000);      // terealisasi
+        $mk('A-2', 'IN_TRANSIT', 50_000);      // berjalan
+        $mk('A-3', 'UNPAID', 30_000);          // TIDAK dihitung → inilah sumber selisih
+        $mk('A-4', 'CANCELLED', 20_000);       // TIDAK dihitung
+
+        $this->artisan('tiktok:audit --month=2026-07')
+            ->expectsOutputToContain('Estimasi dashboard: Rp 150.000')
+            ->expectsOutputToContain('TIDAK dihitung   : Rp 50.000')
+            ->expectsOutputToContain('Total semua order: Rp 200.000')
+            ->assertExitCode(0);
+    }
+
+    public function test_audit_handles_empty_month(): void
+    {
+        $this->artisan('tiktok:audit --month=2020-01')->assertExitCode(0);
+    }
 }
