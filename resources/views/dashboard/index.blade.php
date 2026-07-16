@@ -61,32 +61,59 @@
 @if(($channelSales ?? null))
     @php
         $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
-        $sumConfirmed = collect($channelSales)->sum('confirmed');
-        $sumPipeline = collect($channelSales)->sum('pipeline');
+        $cs = collect($channelSales);
+        $sumConfirmed = $cs->sum('confirmed');
+        $sumConfirmedN = $cs->sum('confirmed_n');
+        $sumPipeline = $cs->sum('pipeline');
+        $sumPipelineN = $cs->sum('pipeline_n');
+        $sumCancelled = $cs->sum('cancelled');
+        $sumCancelledN = $cs->sum('cancelled_n');
+        $sumUnpaid = $cs->sum('unpaid');
+        $sumUnpaidN = $cs->sum('unpaid_n');
         $estimasi = $sumConfirmed + $sumPipeline;
+        $allOrders = $cs->sum('orders_n');
+        $cancelRate = $allOrders > 0 ? round($sumCancelledN / $allOrders * 100, 1) : 0;
     @endphp
     <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-6">
-        <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
-            <h3 class="text-sm font-bold text-stone-800">Penjualan per Channel — {{ now()->translatedFormat('F Y') }}</h3>
-            <span class="text-[11px] text-stone-400">berdasarkan tanggal order masuk</span>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h3 class="text-sm font-bold text-stone-800">Penjualan per Channel</h3>
+            <div class="flex items-center gap-2 ml-auto">
+                <span class="text-[11px] text-stone-400 hidden sm:inline">berdasarkan tanggal order masuk</span>
+                {{-- Pemilih bulan: bisa menengok bulan lalu, bukan paten bulan ini --}}
+                <form method="GET" class="flex items-center gap-1">
+                    <input type="month" name="bulan" value="{{ $bulan->format('Y-m') }}"
+                        onchange="this.form.submit()"
+                        class="px-2 py-1 border border-stone-300 rounded-lg text-xs">
+                </form>
+                @if(! $bulan->isSameMonth(now()))
+                    <a href="{{ route('dashboard') }}" class="text-[11px] text-indigo-600 hover:underline">bulan ini</a>
+                @endif
+            </div>
         </div>
 
-        {{-- Ringkasan: sudah jadi + masih jalan = estimasi bulan ini --}}
-        <div class="grid grid-cols-3 gap-3 mb-5">
+        {{-- Ringkasan: sudah jadi + masih jalan = estimasi; batal/belum-bayar dipisah --}}
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
             <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
                 <p class="text-[10px] uppercase tracking-wide text-emerald-700 font-semibold">Terealisasi</p>
                 <p class="text-lg font-bold text-emerald-800 mt-1">{{ $rp($sumConfirmed) }}</p>
-                <p class="text-[10px] text-emerald-600">order selesai</p>
+                <p class="text-[10px] text-emerald-600">{{ $sumConfirmedN }} order selesai</p>
             </div>
             <div class="rounded-xl bg-amber-50 border border-amber-200 p-3">
                 <p class="text-[10px] uppercase tracking-wide text-amber-700 font-semibold">Masih Berjalan</p>
                 <p class="text-lg font-bold text-amber-800 mt-1">{{ $rp($sumPipeline) }}</p>
-                <p class="text-[10px] text-amber-600">sudah bayar, belum selesai</p>
+                <p class="text-[10px] text-amber-600">{{ $sumPipelineN }} order jalan</p>
             </div>
             <div class="rounded-xl bg-stone-800 p-3">
-                <p class="text-[10px] uppercase tracking-wide text-stone-300 font-semibold">Estimasi Bulan Ini</p>
+                <p class="text-[10px] uppercase tracking-wide text-stone-300 font-semibold">Estimasi {{ $bulan->translatedFormat('M Y') }}</p>
                 <p class="text-lg font-bold text-white mt-1">{{ $rp($estimasi) }}</p>
                 <p class="text-[10px] text-stone-400">terealisasi + berjalan</p>
+            </div>
+            <div class="rounded-xl bg-rose-50 border border-rose-200 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-rose-700 font-semibold">Batal &amp; Belum Bayar</p>
+                <p class="text-lg font-bold text-rose-800 mt-1">{{ $rp($sumCancelled + $sumUnpaid) }}</p>
+                <p class="text-[10px] text-rose-600">
+                    cancel rate <b>{{ $cancelRate }}%</b> · {{ $sumCancelledN }} batal, {{ $sumUnpaidN }} blm bayar
+                </p>
             </div>
         </div>
 
@@ -113,6 +140,8 @@
                         <th class="text-right">Terealisasi</th>
                         <th class="text-right">Masih Berjalan</th>
                         <th class="text-right">Estimasi</th>
+                        <th class="text-right">Batal</th>
+                        <th class="text-right">Blm Bayar</th>
                         <th class="text-right w-24">Porsi</th>
                     </tr>
                 </thead>
@@ -132,6 +161,22 @@
                             <td class="text-right text-emerald-700">{{ $ch['confirmed'] ? $rp($ch['confirmed']) : '·' }}</td>
                             <td class="text-right text-amber-700">{{ $ch['pipeline'] ? $rp($ch['pipeline']) : '·' }}</td>
                             <td class="text-right font-bold text-stone-800">{{ $est ? $rp($est) : '·' }}</td>
+                            <td class="text-right text-rose-600">
+                                @if($ch['cancelled_n'])
+                                    {{ $rp($ch['cancelled']) }}
+                                    <span class="block text-[10px] text-rose-400">{{ $ch['cancelled_n'] }} order · {{ $ch['cancel_rate'] }}%</span>
+                                @else
+                                    <span class="text-stone-300">·</span>
+                                @endif
+                            </td>
+                            <td class="text-right text-stone-500">
+                                @if($ch['unpaid_n'])
+                                    {{ $rp($ch['unpaid']) }}
+                                    <span class="block text-[10px] text-stone-400">{{ $ch['unpaid_n'] }} order</span>
+                                @else
+                                    <span class="text-stone-300">·</span>
+                                @endif
+                            </td>
                             <td class="text-right">
                                 <span class="text-stone-500">{{ $pct }}%</span>
                                 <div class="h-1 rounded-full bg-stone-100 overflow-hidden mt-1">

@@ -77,33 +77,65 @@ class ReportService
         $start = $month->copy()->startOfMonth();
         $end = $month->copy()->endOfMonth();
 
-        $po = fn (array $statuses) => (float) PurchaseOrder::query()
+        // PO: tanggal order = created_at. Marketplace: order_created_at.
+        $po = fn (array $statuses) => PurchaseOrder::query()
             ->whereIn('status', $statuses)
-            ->whereBetween('created_at', [$start, $end])
-            ->sum('total_amount');
+            ->whereBetween('created_at', [$start, $end]);
 
-        $sum = fn (string $table, string $model, array $statuses) => Schema::hasTable($table)
-            ? (float) $model::whereIn('status', $statuses)
-                ->whereBetween('order_created_at', [$start, $end])
-                ->sum('total_amount')
-            : 0.0;
+        $mp = fn (string $table, string $model, array $statuses) => Schema::hasTable($table)
+            ? $model::whereIn('status', $statuses)->whereBetween('order_created_at', [$start, $end])
+            : null;
+
+        // Tiap bucket dilaporkan nilai DAN jumlah order — jumlah order dipakai
+        // menghitung cancel rate, yang tak bisa disimpulkan dari nilai saja.
+        $agg = function (?object $q): array {
+            if (! $q) {
+                return ['v' => 0.0, 'n' => 0];
+            }
+            $r = (clone $q)->selectRaw('COALESCE(SUM(total_amount),0) as v, COUNT(*) as n')->first();
+
+            return ['v' => round((float) $r->v, 2), 'n' => (int) $r->n];
+        };
+
+        $build = function (string $key, string $label, string $color, callable $q) use ($agg) {
+            $c = $agg($q('confirmed'));
+            $p = $agg($q('pipeline'));
+            $x = $agg($q('cancelled'));
+            $u = $agg($q('unconfirmed'));
+            $allN = $c['n'] + $p['n'] + $x['n'] + $u['n'];
+
+            return [
+                'key' => $key, 'label' => $label, 'color' => $color,
+                'confirmed' => $c['v'], 'confirmed_n' => $c['n'],
+                'pipeline' => $p['v'], 'pipeline_n' => $p['n'],
+                'cancelled' => $x['v'], 'cancelled_n' => $x['n'],
+                'unpaid' => $u['v'], 'unpaid_n' => $u['n'],
+                'orders_n' => $allN,
+                // Cancel rate = order batal ÷ SEMUA order bulan itu (termasuk yang
+                // belum bayar) — itulah proporsi yang benar-benar batal.
+                'cancel_rate' => $allN > 0 ? round($x['n'] / $allN * 100, 1) : 0.0,
+            ];
+        };
 
         return [
-            [
-                'key' => 'reseller', 'label' => 'Reseller / PO', 'color' => '#0f4c3a',
-                'confirmed' => round($po([self::REVENUE_STATUS]), 2),
-                'pipeline' => round($po(PurchaseOrder::PIPELINE_STATUSES), 2),
-            ],
-            [
-                'key' => 'tiktok', 'label' => 'TikTok', 'color' => '#ef4444',
-                'confirmed' => round($sum('tiktok_orders', TiktokOrder::class, TiktokOrder::DELIVERED_STATUSES), 2),
-                'pipeline' => round($sum('tiktok_orders', TiktokOrder::class, TiktokOrder::PIPELINE_STATUSES), 2),
-            ],
-            [
-                'key' => 'shopee', 'label' => 'Shopee', 'color' => '#f97316',
-                'confirmed' => round($sum('shopee_orders', ShopeeOrder::class, ShopeeOrder::DELIVERED_STATUSES), 2),
-                'pipeline' => round($sum('shopee_orders', ShopeeOrder::class, ShopeeOrder::PIPELINE_STATUSES), 2),
-            ],
+            $build('reseller', 'Reseller / PO', '#0f4c3a', fn ($b) => $po(match ($b) {
+                'confirmed' => [self::REVENUE_STATUS],
+                'pipeline' => PurchaseOrder::PIPELINE_STATUSES,
+                'cancelled' => PurchaseOrder::CANCELLED_STATUSES,
+                'unconfirmed' => PurchaseOrder::UNCONFIRMED_STATUSES,
+            })),
+            $build('tiktok', 'TikTok', '#ef4444', fn ($b) => $mp('tiktok_orders', TiktokOrder::class, match ($b) {
+                'confirmed' => TiktokOrder::DELIVERED_STATUSES,
+                'pipeline' => TiktokOrder::PIPELINE_STATUSES,
+                'cancelled' => TiktokOrder::CANCELLED_STATUSES,
+                'unconfirmed' => TiktokOrder::UNCONFIRMED_STATUSES,
+            })),
+            $build('shopee', 'Shopee', '#f97316', fn ($b) => $mp('shopee_orders', ShopeeOrder::class, match ($b) {
+                'confirmed' => ShopeeOrder::DELIVERED_STATUSES,
+                'pipeline' => ShopeeOrder::PIPELINE_STATUSES,
+                'cancelled' => ShopeeOrder::CANCELLED_STATUSES,
+                'unconfirmed' => ShopeeOrder::UNCONFIRMED_STATUSES,
+            })),
         ];
     }
 

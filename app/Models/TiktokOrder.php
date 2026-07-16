@@ -25,6 +25,12 @@ class TiktokOrder extends Model
      */
     public const PIPELINE_STATUSES = ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION', 'IN_TRANSIT'];
 
+    /** Batal — dipakai menghitung cancel rate. */
+    public const CANCELLED_STATUSES = ['CANCELLED'];
+
+    /** Sudah dibuat tapi belum dibayar — belum tentu jadi uang. */
+    public const UNCONFIRMED_STATUSES = ['UNPAID'];
+
     protected $fillable = [
         'tiktok_order_id', 'status', 'total_amount', 'hpp_amount', 'currency', 'line_items',
         'stock_status', 'order_created_at', 'deducted_at', 'deducted_by',

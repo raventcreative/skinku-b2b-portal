@@ -6,6 +6,7 @@ use App\Models\Inventory;
 use App\Models\PurchaseOrder;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
@@ -26,7 +27,9 @@ class DashboardController extends Controller
         $salesTrend = $this->reports->salesTrend('day', 14, $user);
 
         // Penjualan per channel — data HQ, hanya untuk staff (mitra lihat PO sendiri).
-        $channelSales = $user->isStaff() ? $this->reports->channelSales() : null;
+        // ?bulan=YYYY-MM untuk menengok bulan lain; default bulan berjalan.
+        $bulan = $this->parseMonth($request->query('bulan'));
+        $channelSales = $user->isStaff() ? $this->reports->channelSales($bulan) : null;
 
         // Recent POs visible to this user.
         $recentPo = PurchaseOrder::query()
@@ -43,6 +46,20 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'recentPo', 'lowStock') + ['limited' => false]);
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'bulan', 'recentPo', 'lowStock') + ['limited' => false]);
+    }
+
+    /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */
+    private function parseMonth(?string $v): Carbon
+    {
+        if (! $v || ! preg_match('/^\d{4}-\d{2}$/', $v)) {
+            return Carbon::now();
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $v.'-01')->startOfMonth();
+        } catch (\Throwable $e) {
+            return Carbon::now();
+        }
     }
 }

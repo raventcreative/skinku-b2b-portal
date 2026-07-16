@@ -61,6 +61,28 @@ class ChannelSalesTest extends TestCase
         $this->assertSame(2_000_000.0, $ch->sum('confirmed'));
         $this->assertSame(1_000_000.0, $ch->sum('pipeline'));
 
+        // ...tapi tetap DILAPORKAN terpisah supaya cancel rate kelihatan
+        $this->assertEqualsWithDelta(8_000_000, $ch['tiktok']['cancelled'], 0.01);
+        $this->assertEqualsWithDelta(8_000_000, $ch['tiktok']['unpaid'], 0.01);
+        $this->assertSame(4, $ch['tiktok']['orders_n']);
+        $this->assertSame(25.0, $ch['tiktok']['cancel_rate']);   // 1 batal dari 4 order
+
+        Carbon::setTestNow();
+    }
+
+    public function test_cancel_rate_counts_orders_not_rupiah(): void
+    {
+        Carbon::setTestNow('2026-07-16 12:00:00');
+        // 1 order batal bernilai besar + 3 order selesai bernilai kecil.
+        // Cancel rate harus 25% (1 dari 4), BUKAN porsi rupiahnya (yg akan ~97%).
+        TiktokOrder::create(['tiktok_order_id' => 'C-BIG', 'status' => 'CANCELLED', 'total_amount' => 100_000_000, 'order_created_at' => '2026-07-10', 'line_items' => []]);
+        foreach (range(1, 3) as $i) {
+            TiktokOrder::create(['tiktok_order_id' => "C-{$i}", 'status' => 'COMPLETED', 'total_amount' => 1_000_000, 'order_created_at' => '2026-07-10', 'line_items' => []]);
+        }
+
+        $tt = collect(app(ReportService::class)->channelSales())->keyBy('key')['tiktok'];
+
+        $this->assertSame(25.0, $tt['cancel_rate']);
         Carbon::setTestNow();
     }
 
@@ -87,6 +109,23 @@ class ChannelSalesTest extends TestCase
 
         $this->actingAs($admin)->get('/dashboard')->assertOk()
             ->assertSee('Penjualan per Channel')
-            ->assertSee('Estimasi Bulan Ini');
+            ->assertSee('Batal &amp; Belum Bayar', false);
+    }
+
+    public function test_dashboard_can_look_at_a_past_month(): void
+    {
+        $admin = User::create([
+            'name' => 'B', 'fullname' => 'B', 'username' => 'chadm2', 'email' => 'ch2@skinku.test',
+            'password' => Hash::make('secret123'),
+            'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+        $this->po('PO-JUN', 'completed', 3_000_000, '2026-06-10');
+
+        // bukan paten bulan berjalan — bisa menengok bulan lalu
+        $this->actingAs($admin)->get('/dashboard?bulan=2026-06')->assertOk()->assertSee('3.000.000');
+
+        // input ngawur → jatuh ke bulan berjalan, bukan error
+        $this->actingAs($admin)->get('/dashboard?bulan=ngawur')->assertOk();
+        $this->actingAs($admin)->get('/dashboard?bulan=2026-13')->assertOk();
     }
 }

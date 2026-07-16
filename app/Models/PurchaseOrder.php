@@ -51,6 +51,12 @@ class PurchaseOrder extends Model
         self::STATUS_SHIPPED,
     ];
 
+    /** Batal — tak akan jadi uang. */
+    public const CANCELLED_STATUSES = [self::STATUS_CANCELLED];
+
+    /** Belum jadi order sungguhan (masih draf). */
+    public const UNCONFIRMED_STATUSES = [self::STATUS_DRAFT];
+
     /** Allowed forward transitions for HQ staff. */
     public const TRANSITIONS = [
         self::STATUS_DRAFT => [self::STATUS_PENDING, self::STATUS_CANCELLED],

@@ -22,6 +22,9 @@ class ShopeeOrder extends Model
      */
     public const PIPELINE_STATUSES = ['READY_TO_SHIP', 'PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'RETRY_SHIP'];
 
+    /** Sudah dibuat tapi belum dibayar — belum tentu jadi uang. */
+    public const UNCONFIRMED_STATUSES = ['UNPAID', 'INVOICE_PENDING'];
+
     /** Status batal — tidak akan pernah dikirim. */
     public const CANCELLED_STATUSES = ['CANCELLED', 'IN_CANCEL'];
 
