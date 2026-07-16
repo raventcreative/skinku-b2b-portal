@@ -46,4 +46,15 @@ return [
         'authorize_base' => env('TIKTOK_AUTHORIZE_BASE', 'https://services.tiktokshop.com'),
     ],
 
+    // Shopee Open Platform (akun "Shopee Seller" — app untuk toko sendiri).
+    // partner_key WAJIB diisi di .env server — jangan pernah commit.
+    // Catatan: access_token Shopee hanya berlaku ~4 JAM (TikTok 7 hari), jadi
+    // refresh harus dicek di setiap panggilan.
+    'shopee' => [
+        'partner_id' => env('SHOPEE_PARTNER_ID'),
+        'partner_key' => env('SHOPEE_PARTNER_KEY'),
+        // Sandbox: https://partner.test-stable.shopeemobile.com
+        'api_base' => env('SHOPEE_API_BASE', 'https://partner.shopeemobile.com'),
+    ],
+
 ];
