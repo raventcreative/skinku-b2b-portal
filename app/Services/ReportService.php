@@ -8,6 +8,7 @@ use App\Models\PurchaseOrder;
 use App\Models\ShopeeOrder;
 use App\Models\TiktokOrder;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -55,29 +56,54 @@ class ReportService
     }
 
     /**
-     * Penjualan TEREALISASI per channel (untuk perbandingan & pie chart).
-     * Basisnya sama seperti KPI "Total Penjualan": hanya yang sudah selesai —
-     * PO completed, TikTok/Shopee delivered/completed — supaya apple-to-apple.
+     * Penjualan per channel untuk SATU BULAN, dipecah dua:
+     *   - confirmed : order sudah selesai (PO completed, TikTok/Shopee delivered)
+     *   - pipeline  : order berbayar yang masih berjalan (belum selesai)
+     * Estimasi bulan itu = confirmed + pipeline.
+     *
+     * Basis waktu = TANGGAL ORDER MASUK (bukan tanggal selesai). Ini satu-satunya
+     * basis yang masuk akal untuk estimasi: order yang masih berjalan belum punya
+     * tanggal selesai. Beda dari KPI "Total Penjualan"/tren yang memakai
+     * completed_at — makanya panel ini diberi label periodenya sendiri.
+     *
+     * UNPAID/draft/cancelled tidak dihitung di mana pun — belum tentu jadi uang.
      * Shopee 0 sampai integrasinya jalan (tabel mungkin belum ada di produksi).
      *
-     * @return array<int, array{key:string, label:string, total:float, color:string}>
+     * @return array<int, array{key:string, label:string, color:string, confirmed:float, pipeline:float}>
      */
-    public function channelSales(): array
+    public function channelSales(?Carbon $month = null): array
     {
-        $po = (float) PurchaseOrder::query()->where('status', self::REVENUE_STATUS)->sum('total_amount');
+        $month ??= Carbon::now();
+        $start = $month->copy()->startOfMonth();
+        $end = $month->copy()->endOfMonth();
 
-        $tiktok = Schema::hasTable('tiktok_orders')
-            ? (float) TiktokOrder::whereIn('status', TiktokOrder::DELIVERED_STATUSES)->sum('total_amount')
-            : 0.0;
+        $po = fn (array $statuses) => (float) PurchaseOrder::query()
+            ->whereIn('status', $statuses)
+            ->whereBetween('created_at', [$start, $end])
+            ->sum('total_amount');
 
-        $shopee = Schema::hasTable('shopee_orders')
-            ? (float) ShopeeOrder::whereIn('status', ShopeeOrder::DELIVERED_STATUSES)->sum('total_amount')
+        $sum = fn (string $table, string $model, array $statuses) => Schema::hasTable($table)
+            ? (float) $model::whereIn('status', $statuses)
+                ->whereBetween('order_created_at', [$start, $end])
+                ->sum('total_amount')
             : 0.0;
 
         return [
-            ['key' => 'reseller', 'label' => 'Reseller / PO', 'total' => round($po, 2), 'color' => '#0f4c3a'],
-            ['key' => 'tiktok', 'label' => 'TikTok', 'total' => round($tiktok, 2), 'color' => '#ef4444'],
-            ['key' => 'shopee', 'label' => 'Shopee', 'total' => round($shopee, 2), 'color' => '#f97316'],
+            [
+                'key' => 'reseller', 'label' => 'Reseller / PO', 'color' => '#0f4c3a',
+                'confirmed' => round($po([self::REVENUE_STATUS]), 2),
+                'pipeline' => round($po(PurchaseOrder::PIPELINE_STATUSES), 2),
+            ],
+            [
+                'key' => 'tiktok', 'label' => 'TikTok', 'color' => '#ef4444',
+                'confirmed' => round($sum('tiktok_orders', TiktokOrder::class, TiktokOrder::DELIVERED_STATUSES), 2),
+                'pipeline' => round($sum('tiktok_orders', TiktokOrder::class, TiktokOrder::PIPELINE_STATUSES), 2),
+            ],
+            [
+                'key' => 'shopee', 'label' => 'Shopee', 'color' => '#f97316',
+                'confirmed' => round($sum('shopee_orders', ShopeeOrder::class, ShopeeOrder::DELIVERED_STATUSES), 2),
+                'pipeline' => round($sum('shopee_orders', ShopeeOrder::class, ShopeeOrder::PIPELINE_STATUSES), 2),
+            ],
         ];
     }
 

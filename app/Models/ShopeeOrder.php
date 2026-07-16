@@ -16,6 +16,12 @@ class ShopeeOrder extends Model
     /** Status yang berarti "sudah sampai pembeli" (dipakai saat pengakuan penjualan). */
     public const DELIVERED_STATUSES = ['COMPLETED'];
 
+    /**
+     * Order berbayar yang masih berjalan (belum selesai) — untuk estimasi bulanan.
+     * UNPAID/INVOICE_PENDING sengaja TIDAK dihitung (belum tentu jadi).
+     */
+    public const PIPELINE_STATUSES = ['READY_TO_SHIP', 'PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'RETRY_SHIP'];
+
     /** Status batal — tidak akan pernah dikirim. */
     public const CANCELLED_STATUSES = ['CANCELLED', 'IN_CANCEL'];
 

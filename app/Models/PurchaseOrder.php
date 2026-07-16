@@ -40,6 +40,17 @@ class PurchaseOrder extends Model
         self::STATUS_CANCELLED,
     ];
 
+    /**
+     * Order yang sudah jadi komitmen tapi BELUM selesai — dipakai untuk estimasi
+     * penjualan bulan berjalan. Draft belum jadi order; cancelled tidak akan jadi.
+     */
+    public const PIPELINE_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_APPROVED,
+        self::STATUS_PROCESSING,
+        self::STATUS_SHIPPED,
+    ];
+
     /** Allowed forward transitions for HQ staff. */
     public const TRANSITIONS = [
         self::STATUS_DRAFT => [self::STATUS_PENDING, self::STATUS_CANCELLED],

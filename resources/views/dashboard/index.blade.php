@@ -59,37 +59,98 @@
 </div>
 
 @if(($channelSales ?? null))
-    @php $channelTotal = collect($channelSales)->sum('total'); @endphp
+    @php
+        $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
+        $sumConfirmed = collect($channelSales)->sum('confirmed');
+        $sumPipeline = collect($channelSales)->sum('pipeline');
+        $estimasi = $sumConfirmed + $sumPipeline;
+    @endphp
     <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-6">
-        <div class="flex items-baseline justify-between mb-3">
-            <h3 class="text-sm font-bold text-stone-800">Penjualan per Channel</h3>
-            <span class="text-[11px] text-stone-400">terealisasi (selesai) · total Rp {{ number_format($channelTotal, 0, ',', '.') }}</span>
+        <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+            <h3 class="text-sm font-bold text-stone-800">Penjualan per Channel — {{ now()->translatedFormat('F Y') }}</h3>
+            <span class="text-[11px] text-stone-400">berdasarkan tanggal order masuk</span>
         </div>
-        <div class="grid md:grid-cols-3 gap-6 items-center">
-            <div class="md:col-span-1 flex justify-center">
-                <div style="max-width:200px; width:100%"><canvas id="channelChart" height="200"></canvas></div>
+
+        {{-- Ringkasan: sudah jadi + masih jalan = estimasi bulan ini --}}
+        <div class="grid grid-cols-3 gap-3 mb-5">
+            <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-emerald-700 font-semibold">Terealisasi</p>
+                <p class="text-lg font-bold text-emerald-800 mt-1">{{ $rp($sumConfirmed) }}</p>
+                <p class="text-[10px] text-emerald-600">order selesai</p>
             </div>
-            <div class="md:col-span-2 space-y-2">
-                @foreach($channelSales as $ch)
-                    @php $pct = $channelTotal > 0 ? round($ch['total'] / $channelTotal * 100, 1) : 0; @endphp
-                    <div>
-                        <div class="flex items-center justify-between text-xs mb-1">
-                            <span class="flex items-center gap-2 font-semibold text-stone-700">
-                                <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:{{ $ch['color'] }}"></span>
-                                {{ $ch['label'] }}
-                            </span>
-                            <span class="text-stone-600">Rp {{ number_format($ch['total'], 0, ',', '.') }} <span class="text-stone-400">· {{ $pct }}%</span></span>
-                        </div>
-                        <div class="h-1.5 rounded-full bg-stone-100 overflow-hidden">
-                            <div class="h-full rounded-full" style="width:{{ $pct }}%; background:{{ $ch['color'] }}"></div>
-                        </div>
-                    </div>
-                @endforeach
-                @if($channelTotal == 0)
-                    <p class="text-[11px] text-stone-400 pt-1">Belum ada penjualan terealisasi. Angka muncul saat order TikTok <b>selesai/terkirim</b> atau PO <b>completed</b>.</p>
-                @endif
+            <div class="rounded-xl bg-amber-50 border border-amber-200 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-amber-700 font-semibold">Masih Berjalan</p>
+                <p class="text-lg font-bold text-amber-800 mt-1">{{ $rp($sumPipeline) }}</p>
+                <p class="text-[10px] text-amber-600">sudah bayar, belum selesai</p>
+            </div>
+            <div class="rounded-xl bg-stone-800 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-stone-300 font-semibold">Estimasi Bulan Ini</p>
+                <p class="text-lg font-bold text-white mt-1">{{ $rp($estimasi) }}</p>
+                <p class="text-[10px] text-stone-400">terealisasi + berjalan</p>
             </div>
         </div>
+
+        {{-- Dua pie: proporsi channel pada tiap tahap --}}
+        <div class="grid sm:grid-cols-2 gap-4 mb-4">
+            @foreach([['confirmed', 'Terealisasi', $sumConfirmed], ['pipeline', 'Masih Berjalan', $sumPipeline]] as [$bucket, $judul, $totalBucket])
+                <div class="rounded-xl border border-stone-100 p-3">
+                    <p class="text-[11px] font-semibold text-stone-600 text-center mb-2">{{ $judul }} · {{ $rp($totalBucket) }}</p>
+                    @if($totalBucket > 0)
+                        <div style="max-width:170px; margin:0 auto"><canvas id="channelChart-{{ $bucket }}" height="170"></canvas></div>
+                    @else
+                        <p class="text-[11px] text-stone-300 text-center py-10">belum ada</p>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+
+        {{-- Rincian per channel --}}
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead class="text-stone-400 uppercase text-[10px]">
+                    <tr class="border-b border-stone-100">
+                        <th class="text-left py-2">Channel</th>
+                        <th class="text-right">Terealisasi</th>
+                        <th class="text-right">Masih Berjalan</th>
+                        <th class="text-right">Estimasi</th>
+                        <th class="text-right w-24">Porsi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($channelSales as $ch)
+                        @php
+                            $est = $ch['confirmed'] + $ch['pipeline'];
+                            $pct = $estimasi > 0 ? round($est / $estimasi * 100, 1) : 0;
+                        @endphp
+                        <tr class="border-b border-stone-50">
+                            <td class="py-2">
+                                <span class="flex items-center gap-2 font-semibold text-stone-700">
+                                    <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:{{ $ch['color'] }}"></span>
+                                    {{ $ch['label'] }}
+                                </span>
+                            </td>
+                            <td class="text-right text-emerald-700">{{ $ch['confirmed'] ? $rp($ch['confirmed']) : '·' }}</td>
+                            <td class="text-right text-amber-700">{{ $ch['pipeline'] ? $rp($ch['pipeline']) : '·' }}</td>
+                            <td class="text-right font-bold text-stone-800">{{ $est ? $rp($est) : '·' }}</td>
+                            <td class="text-right">
+                                <span class="text-stone-500">{{ $pct }}%</span>
+                                <div class="h-1 rounded-full bg-stone-100 overflow-hidden mt-1">
+                                    <div class="h-full rounded-full" style="width:{{ $pct }}%; background:{{ $ch['color'] }}"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        @if($estimasi == 0)
+            <p class="text-[11px] text-stone-400 pt-3">Belum ada order bulan ini.</p>
+        @else
+            <p class="text-[11px] text-stone-400 pt-3">
+                ℹ️ Order <b>belum dibayar</b> &amp; <b>batal</b> tidak dihitung — belum tentu jadi uang, biar estimasi tidak menggelembung.
+            </p>
+        @endif
     </div>
 @endif
 
@@ -166,23 +227,25 @@
 
     @if(($channelSales ?? null))
     const channel = @json($channelSales);
-    const channelEl = document.getElementById('channelChart');
-    if (channelEl && channel.some(c => c.total > 0)) {
-        new Chart(channelEl, {
+    // Satu doughnut per tahap: terealisasi vs masih berjalan.
+    ['confirmed', 'pipeline'].forEach(bucket => {
+        const el = document.getElementById('channelChart-' + bucket);
+        if (!el) return;   // tahap kosong → kanvasnya memang tak dirender
+        new Chart(el, {
             type: 'doughnut',
             data: {
                 labels: channel.map(c => c.label),
-                datasets: [{ data: channel.map(c => c.total), backgroundColor: channel.map(c => c.color) }]
+                datasets: [{ data: channel.map(c => c[bucket]), backgroundColor: channel.map(c => c.color) }]
             },
             options: {
-                cutout: '60%',
+                cutout: '58%',
                 plugins: {
                     legend: { display: false },
                     tooltip: { callbacks: { label: c => c.label + ': Rp ' + c.raw.toLocaleString('id-ID') } }
                 }
             }
         });
-    }
+    });
     @endif
 </script>
 @endunless

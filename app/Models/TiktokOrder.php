@@ -18,6 +18,13 @@ class TiktokOrder extends Model
     /** Status TikTok yang berarti "sudah sampai" — saat penjualan & HPP diakui. */
     public const DELIVERED_STATUSES = ['DELIVERED', 'COMPLETED'];
 
+    /**
+     * Order berbayar yang masih berjalan (belum sampai) — untuk estimasi bulanan.
+     * UNPAID sengaja TIDAK dihitung: belum tentu jadi, memasukkannya menggelembungkan
+     * estimasi. CANCELLED jelas tidak.
+     */
+    public const PIPELINE_STATUSES = ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION', 'IN_TRANSIT'];
+
     protected $fillable = [
         'tiktok_order_id', 'status', 'total_amount', 'hpp_amount', 'currency', 'line_items',
         'stock_status', 'order_created_at', 'deducted_at', 'deducted_by',
