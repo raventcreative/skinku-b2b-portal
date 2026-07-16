@@ -19,13 +19,31 @@ TIKTOK_SERVICE_ID=7659787806251779858</pre>
 
     {{-- Peringatan cron mati: satu-satunya cara user tahu sync berhenti diam-diam --}}
     @if($connection && $connection->syncStale())
+        @php
+            $hb = cache('scheduler_heartbeat');
+            $hbAt = $hb ? \Illuminate\Support\Carbon::parse($hb) : null;
+            $cronAlive = $hbAt && $hbAt->gt(now()->subMinutes(15));
+        @endphp
         <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-sm">
             🚨 <b>Sinkron otomatis kelihatannya berhenti.</b>
             Terakhir sinkron: <b>{{ $connection->last_synced_at?->diffForHumans() ?? 'belum pernah' }}</b> —
-            harusnya tiap 30 menit. Order baru tidak masuk & stok tidak terpotong.
+            harusnya tiap 30 menit. Order baru tidak masuk &amp; stok tidak terpotong.
+
+            {{-- Pisahkan dua kemungkinan: cron mati vs tugasnya yang gagal --}}
+            <div class="mt-2 pt-2 border-t border-rose-200 text-[11px]">
+                Penjadwal (cron) terakhir berdetak:
+                <b>{{ $hbAt ? $hbAt->diffForHumans() : 'belum pernah' }}</b>
+                @if($cronAlive)
+                    <span class="text-rose-900">→ <b>cron HIDUP</b>, berarti tugas sinkronnya yang gagal. Cek
+                    <code>storage/logs/laravel-*.log</code> untuk baris <code>[tiktok:sync]</code>.</span>
+                @else
+                    <span class="text-rose-900">→ <b>cron kemungkinan MATI</b> (atau belum terpasang). Cek Cron Job di hPanel.</span>
+                @endif
+            </div>
+
             <div class="mt-1.5 text-[11px] text-rose-700">
-                Kemungkinan: cron mati, atau izin TikTok dicabut/kedaluwarsa (perlu Hubungkan ulang).
-                Coba klik <b>Tarik &amp; Simpan Order</b> — kalau manual berhasil tapi ini tetap merah, berarti cron-nya.
+                Bisa juga izin TikTok dicabut/kedaluwarsa (perlu Hubungkan ulang).
+                Coba <b>Tarik &amp; Simpan Order</b> — kalau manual berhasil tapi ini tetap merah, berarti bukan izinnya.
             </div>
         </div>
     @endif
