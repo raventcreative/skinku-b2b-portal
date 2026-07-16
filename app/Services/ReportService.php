@@ -5,8 +5,11 @@ namespace App\Services;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
+use App\Models\ShopeeOrder;
+use App\Models\TiktokOrder;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * All reporting is SQL-aggregate based — never mock data. "Sales" counts
@@ -48,6 +51,33 @@ class ReportService
             'partner_stock_units' => $viewer && $viewer->isPartner()
                 ? (int) Inventory::where('user_id', $viewer->id)->sum('quantity')
                 : (int) Inventory::sum('quantity'),
+        ];
+    }
+
+    /**
+     * Penjualan TEREALISASI per channel (untuk perbandingan & pie chart).
+     * Basisnya sama seperti KPI "Total Penjualan": hanya yang sudah selesai —
+     * PO completed, TikTok/Shopee delivered/completed — supaya apple-to-apple.
+     * Shopee 0 sampai integrasinya jalan (tabel mungkin belum ada di produksi).
+     *
+     * @return array<int, array{key:string, label:string, total:float, color:string}>
+     */
+    public function channelSales(): array
+    {
+        $po = (float) PurchaseOrder::query()->where('status', self::REVENUE_STATUS)->sum('total_amount');
+
+        $tiktok = Schema::hasTable('tiktok_orders')
+            ? (float) TiktokOrder::whereIn('status', TiktokOrder::DELIVERED_STATUSES)->sum('total_amount')
+            : 0.0;
+
+        $shopee = Schema::hasTable('shopee_orders')
+            ? (float) ShopeeOrder::whereIn('status', ShopeeOrder::DELIVERED_STATUSES)->sum('total_amount')
+            : 0.0;
+
+        return [
+            ['key' => 'reseller', 'label' => 'Reseller / PO', 'total' => round($po, 2), 'color' => '#0f4c3a'],
+            ['key' => 'tiktok', 'label' => 'TikTok', 'total' => round($tiktok, 2), 'color' => '#ef4444'],
+            ['key' => 'shopee', 'label' => 'Shopee', 'total' => round($shopee, 2), 'color' => '#f97316'],
         ];
     }
 

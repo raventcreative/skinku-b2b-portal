@@ -25,6 +25,9 @@ class DashboardController extends Controller
         $poStatus = $this->reports->poStatusDistribution($user);
         $salesTrend = $this->reports->salesTrend('day', 14, $user);
 
+        // Penjualan per channel — data HQ, hanya untuk staff (mitra lihat PO sendiri).
+        $channelSales = $user->isStaff() ? $this->reports->channelSales() : null;
+
         // Recent POs visible to this user.
         $recentPo = PurchaseOrder::query()
             ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
@@ -40,6 +43,6 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'recentPo', 'lowStock') + ['limited' => false]);
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'recentPo', 'lowStock') + ['limited' => false]);
     }
 }

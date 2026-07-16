@@ -58,6 +58,41 @@
     </div>
 </div>
 
+@if(($channelSales ?? null))
+    @php $channelTotal = collect($channelSales)->sum('total'); @endphp
+    <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-6">
+        <div class="flex items-baseline justify-between mb-3">
+            <h3 class="text-sm font-bold text-stone-800">Penjualan per Channel</h3>
+            <span class="text-[11px] text-stone-400">terealisasi (selesai) · total Rp {{ number_format($channelTotal, 0, ',', '.') }}</span>
+        </div>
+        <div class="grid md:grid-cols-3 gap-6 items-center">
+            <div class="md:col-span-1 flex justify-center">
+                <div style="max-width:200px; width:100%"><canvas id="channelChart" height="200"></canvas></div>
+            </div>
+            <div class="md:col-span-2 space-y-2">
+                @foreach($channelSales as $ch)
+                    @php $pct = $channelTotal > 0 ? round($ch['total'] / $channelTotal * 100, 1) : 0; @endphp
+                    <div>
+                        <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="flex items-center gap-2 font-semibold text-stone-700">
+                                <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:{{ $ch['color'] }}"></span>
+                                {{ $ch['label'] }}
+                            </span>
+                            <span class="text-stone-600">Rp {{ number_format($ch['total'], 0, ',', '.') }} <span class="text-stone-400">· {{ $pct }}%</span></span>
+                        </div>
+                        <div class="h-1.5 rounded-full bg-stone-100 overflow-hidden">
+                            <div class="h-full rounded-full" style="width:{{ $pct }}%; background:{{ $ch['color'] }}"></div>
+                        </div>
+                    </div>
+                @endforeach
+                @if($channelTotal == 0)
+                    <p class="text-[11px] text-stone-400 pt-1">Belum ada penjualan terealisasi. Angka muncul saat order TikTok <b>selesai/terkirim</b> atau PO <b>completed</b>.</p>
+                @endif
+            </div>
+        </div>
+    </div>
+@endif
+
 <div class="grid lg:grid-cols-2 gap-6">
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <h3 class="text-sm font-bold text-stone-800 mb-3">PO Terbaru</h3>
@@ -128,6 +163,27 @@
         },
         options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
     });
+
+    @if(($channelSales ?? null))
+    const channel = @json($channelSales);
+    const channelEl = document.getElementById('channelChart');
+    if (channelEl && channel.some(c => c.total > 0)) {
+        new Chart(channelEl, {
+            type: 'doughnut',
+            data: {
+                labels: channel.map(c => c.label),
+                datasets: [{ data: channel.map(c => c.total), backgroundColor: channel.map(c => c.color) }]
+            },
+            options: {
+                cutout: '60%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: c => c.label + ': Rp ' + c.raw.toLocaleString('id-ID') } }
+                }
+            }
+        });
+    }
+    @endif
 </script>
 @endunless
 @endpush
