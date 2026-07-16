@@ -451,6 +451,60 @@ class TikTokTest extends TestCase
         Http::assertSent(fn ($r) => $r->body() === '{}');   // tanpa filter
     }
 
+    public function test_backfill_pulls_past_the_old_500_order_cap(): void
+    {
+        $this->configureTikTok();
+        // 7 halaman × 100 = 700 order — dulu mentok di 500 (10 hal × 50) & diam saja.
+        $seq = Http::sequence();
+        for ($p = 0; $p < 7; $p++) {
+            $orders = [];
+            for ($i = 0; $i < 100; $i++) {
+                $orders[] = ['id' => "B{$p}-{$i}", 'status' => 'COMPLETED', 'create_time' => Carbon::parse('2026-07-10')->timestamp];
+            }
+            $seq->push(['code' => 0, 'data' => ['orders' => $orders, 'next_page_token' => $p < 6 ? "TOK{$p}" : '']]);
+        }
+        Http::fake(['*/order/202309/orders/search*' => $seq]);
+        $conn = TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a',
+            'refresh_token' => 'r', 'access_expires_at' => now()->addDay()]);
+
+        $r = app(TikTokSyncService::class)->backfillOrders($conn, Carbon::parse('2026-07-01'), Carbon::parse('2026-07-31'));
+
+        $this->assertSame(700, $r['pulled']);                        // lewat batas lama
+        $this->assertSame(700, TiktokOrder::count());
+
+        // rentang tanggal ikut terkirim, dan page_size dinaikkan ke maks TikTok
+        Http::assertSent(function ($req) {
+            $b = json_decode($req->body(), true);
+
+            return isset($b['create_time_ge'], $b['create_time_lt'])
+                && $b['create_time_ge'] === Carbon::parse('2026-07-01')->timestamp
+                && str_contains($req->url(), 'page_size=100');
+        });
+    }
+
+    public function test_backfill_command_reports_growth(): void
+    {
+        $this->configureTikTok();
+        Http::fake(['*/order/202309/orders/search*' => Http::response(['code' => 0, 'data' => ['orders' => [
+            ['id' => 'BF1', 'status' => 'COMPLETED', 'create_time' => Carbon::parse('2026-07-10')->timestamp,
+                'payment' => ['total_amount' => '50000'], 'line_items' => []],
+        ]]])]);
+        TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a',
+            'refresh_token' => 'r', 'access_expires_at' => now()->addDay()]);
+
+        $this->artisan('tiktok:backfill --from=2026-07-01 --to=2026-07-31')->assertExitCode(0);
+
+        $this->assertDatabaseHas('tiktok_orders', ['tiktok_order_id' => 'BF1']);
+    }
+
+    public function test_backfill_rejects_bad_range(): void
+    {
+        TiktokConnection::create(['shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a',
+            'refresh_token' => 'r', 'access_expires_at' => now()->addDay()]);
+
+        $this->artisan('tiktok:backfill --from=2026-07-31 --to=2026-07-01')->assertExitCode(1);
+    }
+
     public function test_sync_command_pulls_orders_and_auto_deducts(): void
     {
         $this->configureTikTok();

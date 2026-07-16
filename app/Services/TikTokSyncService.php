@@ -63,20 +63,50 @@ class TikTokSyncService
         return ['count' => $count, 'deducted' => $deducted];
     }
 
-    /** Tarik order berhalaman (maks ~500 per jendela). */
-    private function pullOrders(string $access, TiktokConnection $conn, array $filters): array
+    /**
+     * Tarik order berhalaman sampai habis (atau mentok batas pengaman).
+     *
+     * page_size 100 = maksimum TikTok. Batas halaman WAJIB dilaporkan kalau
+     * tercapai: memotong diam-diam bikin data tampak lengkap padahal tidak —
+     * ini pernah terjadi (batas 10 halaman × 50 = 500 order, sementara toko
+     * membuat >1.300 order/bulan → separuh Juli tak pernah masuk).
+     */
+    private function pullOrders(string $access, TiktokConnection $conn, array $filters, int $maxPages = 60): array
     {
         $all = [];
         $token = '';
         $pages = 0;
         do {
-            $data = $this->tiktok->searchOrders($access, $conn->shop_cipher, 50, $token, $filters);
+            $data = $this->tiktok->searchOrders($access, $conn->shop_cipher, 100, $token, $filters);
             $all = array_merge($all, $data['orders'] ?? []);
             $token = $data['next_page_token'] ?? '';
             $pages++;
-        } while ($token && $pages < 10);
+        } while ($token && $pages < $maxPages);
+
+        if ($token) {
+            Log::warning('[tiktok:sync] Batas '.$maxPages.' halaman tercapai tapi TikTok masih punya order tersisa — '
+                .count($all).' ditarik, DATA BELUM LENGKAP. Jalankan `tiktok:backfill` dengan rentang lebih sempit.');
+        }
 
         return $all;
+    }
+
+    /**
+     * Tarik SEMUA order pada rentang tanggal (berdasarkan tanggal order dibuat).
+     * Dipakai untuk mengisi riwayat yang belum lengkap — sync rutin hanya melihat
+     * perubahan sejak sinkron terakhir, jadi tak pernah menutup lubang lama.
+     *
+     * @return array{pulled:int, stored:int}
+     */
+    public function backfillOrders(TiktokConnection $conn, Carbon $from, Carbon $to): array
+    {
+        $access = $this->freshToken($conn);
+        $all = $this->pullOrders($access, $conn, [
+            'create_time_ge' => $from->timestamp,
+            'create_time_lt' => $to->timestamp,
+        ], maxPages: 400);   // 400 × 100 = 40.000 order
+
+        return ['pulled' => count($all), 'stored' => $this->orders->store($all)];
     }
 
     /** Tarik retur (perlu scope Return & Refund). */
@@ -91,7 +121,11 @@ class TikTokSyncService
             $all = array_merge($all, $data['return_orders'] ?? ($data['returns'] ?? []));
             $token = $data['next_page_token'] ?? '';
             $pages++;
-        } while ($token && $pages < 10);
+        } while ($token && $pages < 40);
+
+        if ($token) {
+            Log::warning('[tiktok:sync] Batas halaman retur tercapai — '.count($all).' ditarik, data belum lengkap.');
+        }
 
         return $this->returns->store($all);
     }
@@ -116,7 +150,11 @@ class TikTokSyncService
             $all = array_merge($all, $data['statements'] ?? ($data['statement_list'] ?? ($data['list'] ?? [])));
             $token = $data['next_page_token'] ?? '';
             $pages++;
-        } while ($token && $pages < 10);
+        } while ($token && $pages < 40);
+
+        if ($token) {
+            Log::warning('[tiktok:sync] Batas halaman pencairan tercapai — '.count($all).' ditarik, data belum lengkap.');
+        }
 
         return ['count' => $this->settlements->store($all), 'keys' => $firstKeys];
     }
