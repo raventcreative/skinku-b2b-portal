@@ -23,20 +23,30 @@
 @else
 @php
     $per = $bulan->translatedFormat('M Y');
+
+    // Kartu Penjualan dipecah per channel — angka bulat menyembunyikan dari mana
+    // omzetnya datang. Channel baru (Tokopedia/Lazada/offline) otomatis ikut
+    // muncul begitu ditambahkan di ReportService::channelSales().
+    $salesBreakdown = ($channelSales ?? null)
+        ? collect($channelSales)->map(fn ($c) => [
+            'label' => $c['label'], 'value' => $c['confirmed'], 'color' => $c['color'],
+        ])->values()->all()
+        : null;
+
     // Angka BERBASIS PERIODE ikut filter bulan; angka SAAT INI tidak —
     // memfilter "stok sekarang" per bulan tak punya arti.
     $cards = [
-        ['Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), 'emerald', $per],
-        ['PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per],
-        ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), 'amber', $per],
-        ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), 'blue', $per],
+        ['Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), 'emerald', $per, $salesBreakdown],
+        ['PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per, null],
+        ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), 'amber', $per, null],
+        ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), 'blue', $per, null],
     ];
     if ($user->isStaff()) {
-        $cards[] = ['Mitra Aktif', number_format($summary['total_partners'], 0, ',', '.'), 'purple', 'saat ini'];
-        $cards[] = ['Produk Aktif', number_format($summary['total_products'], 0, ',', '.'), 'rose', 'saat ini'];
-        $cards[] = ['Stok Pusat (unit)', number_format($summary['hq_stock_units'], 0, ',', '.'), 'cyan', 'saat ini'];
+        $cards[] = ['Mitra Aktif', number_format($summary['total_partners'], 0, ',', '.'), 'purple', 'saat ini', null];
+        $cards[] = ['Produk Aktif', number_format($summary['total_products'], 0, ',', '.'), 'rose', 'saat ini', null];
+        $cards[] = ['Stok Pusat (unit)', number_format($summary['hq_stock_units'], 0, ',', '.'), 'cyan', 'saat ini', null];
     } else {
-        $cards[] = ['Stok Saya (unit)', number_format($summary['partner_stock_units'], 0, ',', '.'), 'cyan', 'saat ini'];
+        $cards[] = ['Stok Saya (unit)', number_format($summary['partner_stock_units'], 0, ',', '.'), 'cyan', 'saat ini', null];
     }
 @endphp
 
@@ -54,14 +64,32 @@
 </div>
 
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    @foreach($cards as [$label, $value, $color, $note])
-        <div class="bg-white rounded-2xl border border-stone-200 p-5">
+    @foreach($cards as [$label, $value, $color, $note, $breakdown])
+        <div class="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col">
             <div class="flex items-baseline justify-between gap-1">
                 <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">{{ $label }}</p>
                 <span class="text-[9px] text-stone-300 shrink-0">{{ $note }}</span>
             </div>
             <p class="text-2xl font-bold text-stone-900 mt-2">{{ $value }}</p>
-            <span class="inline-block mt-2 w-8 h-1 rounded bg-{{ $color }}-500"></span>
+
+            @if($breakdown)
+                {{-- Rincian per channel — dari mana omzetnya datang --}}
+                <div class="mt-3 pt-3 border-t border-stone-100 space-y-1.5">
+                    @foreach($breakdown as $b)
+                        <div class="flex items-center justify-between gap-2 text-[11px]">
+                            <span class="flex items-center gap-1.5 text-stone-500 truncate">
+                                <span class="w-2 h-2 rounded-full inline-block shrink-0" style="background:{{ $b['color'] }}"></span>
+                                <span class="truncate">{{ $b['label'] }}</span>
+                            </span>
+                            <span class="font-semibold shrink-0 {{ $b['value'] > 0 ? 'text-stone-700' : 'text-stone-300' }}">
+                                {{ $b['value'] > 0 ? 'Rp '.number_format($b['value'], 0, ',', '.') : '·' }}
+                            </span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            <span class="inline-block mt-3 w-8 h-1 rounded bg-{{ $color }}-500"></span>
         </div>
     @endforeach
 </div>

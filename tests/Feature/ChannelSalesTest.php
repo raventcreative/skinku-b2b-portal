@@ -110,6 +110,39 @@ class ChannelSalesTest extends TestCase
         $this->assertEqualsWithDelta(1_000_000, $jul['reseller']['confirmed'], 0.01);
     }
 
+    public function test_penjualan_card_shows_per_channel_breakdown_not_just_a_lump_sum(): void
+    {
+        Carbon::setTestNow('2026-07-16 12:00:00');
+        $admin = User::create([
+            'name' => 'D', 'fullname' => 'D', 'username' => 'chadm4', 'email' => 'ch4@skinku.test',
+            'password' => Hash::make('secret123'),
+            'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+        TiktokOrder::create(['tiktok_order_id' => 'BD-1', 'status' => 'COMPLETED', 'total_amount' => 70_929_655, 'order_created_at' => '2026-07-10', 'line_items' => []]);
+
+        $res = $this->actingAs($admin)->get('/dashboard')->assertOk();
+
+        // total DAN asal-usulnya sama-sama terlihat di kartu
+        $res->assertSee('70.929.655');
+        $res->assertSee('TikTok');
+        $res->assertSee('Shopee');       // channel nol tetap terdaftar (biar jelas nol, bukan hilang)
+        $res->assertSee('Reseller / PO');
+
+        Carbon::setTestNow();
+    }
+
+    public function test_partner_does_not_see_cross_channel_breakdown(): void
+    {
+        $partner = User::create([
+            'name' => 'P', 'fullname' => 'P', 'username' => 'chpart', 'email' => 'chp@skinku.test',
+            'password' => Hash::make('secret123'),
+            'role' => User::ROLE_RESELLER, 'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $this->actingAs($partner)->get('/dashboard')->assertOk()
+            ->assertDontSee('Penjualan per Channel');
+    }
+
     public function test_dashboard_renders_channel_panel_for_staff(): void
     {
         $admin = User::create([
