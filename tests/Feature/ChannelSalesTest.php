@@ -70,6 +70,17 @@ class ChannelSalesTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_each_channel_has_a_light_shade_for_the_all_pie(): void
+    {
+        // Pie "semua" memakai warna tua = cair, muda = berjalan. Tanpa warna muda
+        // yang berbeda, dua tahap jadi tak terbedakan dalam satu lingkaran.
+        foreach (app(ReportService::class)->channelSales() as $ch) {
+            $this->assertMatchesRegularExpression('/^#[0-9a-f]{6}$/i', $ch['color']);
+            $this->assertMatchesRegularExpression('/^#[0-9a-f]{6}$/i', $ch['color_light']);
+            $this->assertNotSame($ch['color'], $ch['color_light']);
+        }
+    }
+
     public function test_cancel_rate_counts_orders_not_rupiah(): void
     {
         Carbon::setTestNow('2026-07-16 12:00:00');

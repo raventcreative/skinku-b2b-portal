@@ -125,18 +125,40 @@
             </div>
         </div>
 
-        {{-- Dua pie: proporsi channel pada tiap tahap --}}
+        {{-- Kiri: proporsi channel dari yang sudah cair.
+             Kanan: SEMUA (cair + berjalan) — warna tua = cair, muda = berjalan,
+             jadi komposisi total terbaca dalam satu lingkaran. --}}
         <div class="grid sm:grid-cols-2 gap-4 mb-4">
-            @foreach([['confirmed', 'Terealisasi', $sumConfirmed], ['pipeline', 'Masih Berjalan', $sumPipeline]] as [$bucket, $judul, $totalBucket])
-                <div class="rounded-xl border border-stone-100 p-3">
-                    <p class="text-[11px] font-semibold text-stone-600 text-center mb-2">{{ $judul }} · {{ $rp($totalBucket) }}</p>
-                    @if($totalBucket > 0)
-                        <div style="max-width:170px; margin:0 auto"><canvas id="channelChart-{{ $bucket }}" height="170"></canvas></div>
-                    @else
-                        <p class="text-[11px] text-stone-300 text-center py-10">belum ada</p>
-                    @endif
-                </div>
-            @endforeach
+            <div class="rounded-xl border border-stone-100 p-3">
+                <p class="text-[11px] font-semibold text-stone-600 text-center mb-2">Terealisasi · {{ $rp($sumConfirmed) }}</p>
+                @if($sumConfirmed > 0)
+                    <div style="max-width:170px; margin:0 auto"><canvas id="channelChart-confirmed" height="170"></canvas></div>
+                @else
+                    <p class="text-[11px] text-stone-300 text-center py-10">belum ada</p>
+                @endif
+            </div>
+            <div class="rounded-xl border border-stone-100 p-3">
+                <p class="text-[11px] font-semibold text-stone-600 text-center mb-2">Semua (cair + berjalan) · {{ $rp($estimasi) }}</p>
+                @if($estimasi > 0)
+                    <div style="max-width:170px; margin:0 auto"><canvas id="channelChart-all" height="170"></canvas></div>
+                    <div class="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-3">
+                        @foreach($channelSales as $ch)
+                            @if($ch['confirmed'] > 0)
+                                <span class="flex items-center gap-1 text-[10px] text-stone-500">
+                                    <span class="w-2 h-2 rounded-full inline-block" style="background:{{ $ch['color'] }}"></span>{{ $ch['label'] }} cair
+                                </span>
+                            @endif
+                            @if($ch['pipeline'] > 0)
+                                <span class="flex items-center gap-1 text-[10px] text-stone-500">
+                                    <span class="w-2 h-2 rounded-full inline-block" style="background:{{ $ch['color_light'] }}"></span>{{ $ch['label'] }} berjalan
+                                </span>
+                            @endif
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-[11px] text-stone-300 text-center py-10">belum ada</p>
+                @endif
+            </div>
         </div>
 
         {{-- Rincian per channel --}}
@@ -280,25 +302,34 @@
 
     @if(($channelSales ?? null))
     const channel = @json($channelSales);
-    // Satu doughnut per tahap: terealisasi vs masih berjalan.
-    ['confirmed', 'pipeline'].forEach(bucket => {
-        const el = document.getElementById('channelChart-' + bucket);
-        if (!el) return;   // tahap kosong → kanvasnya memang tak dirender
-        new Chart(el, {
-            type: 'doughnut',
-            data: {
-                labels: channel.map(c => c.label),
-                datasets: [{ data: channel.map(c => c[bucket]), backgroundColor: channel.map(c => c.color) }]
-            },
-            options: {
-                cutout: '58%',
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: c => c.label + ': Rp ' + c.raw.toLocaleString('id-ID') } }
-                }
+    const rupiah = v => 'Rp ' + v.toLocaleString('id-ID');
+    const doughnut = (el, labels, data, colors) => new Chart(el, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors }] },
+        options: {
+            cutout: '58%',
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => c.label + ': ' + rupiah(c.raw) } }
             }
-        });
+        }
     });
+
+    // Kiri: proporsi channel dari yang sudah cair.
+    const elC = document.getElementById('channelChart-confirmed');
+    if (elC) doughnut(elC, channel.map(c => c.label), channel.map(c => c.confirmed), channel.map(c => c.color));
+
+    // Kanan: SEMUA — tiap channel dipecah cair (warna tua) & berjalan (muda).
+    // Segmen nol dibuang supaya legenda tidak penuh entri kosong.
+    const elA = document.getElementById('channelChart-all');
+    if (elA) {
+        const seg = [];
+        channel.forEach(c => {
+            if (c.confirmed > 0) seg.push([c.label + ' cair', c.confirmed, c.color]);
+            if (c.pipeline > 0) seg.push([c.label + ' berjalan', c.pipeline, c.color_light]);
+        });
+        if (seg.length) doughnut(elA, seg.map(s => s[0]), seg.map(s => s[1]), seg.map(s => s[2]));
+    }
     @endif
 </script>
 @endunless

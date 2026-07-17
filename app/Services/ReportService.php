@@ -127,7 +127,9 @@ class ReportService
             return ['v' => round((float) $r->v, 2), 'n' => (int) $r->n];
         };
 
-        $build = function (string $key, string $label, string $color, callable $q) use ($agg) {
+        // Warna muda = tahap "masih berjalan" pada channel yang sama, dipakai di
+        // pie "semua" supaya cair vs berjalan terbaca dalam satu lingkaran.
+        $build = function (string $key, string $label, string $color, string $colorLight, callable $q) use ($agg) {
             $c = $agg($q('confirmed'));
             $p = $agg($q('pipeline'));
             $x = $agg($q('cancelled'));
@@ -135,7 +137,7 @@ class ReportService
             $allN = $c['n'] + $p['n'] + $x['n'] + $u['n'];
 
             return [
-                'key' => $key, 'label' => $label, 'color' => $color,
+                'key' => $key, 'label' => $label, 'color' => $color, 'color_light' => $colorLight,
                 'confirmed' => $c['v'], 'confirmed_n' => $c['n'],
                 'pipeline' => $p['v'], 'pipeline_n' => $p['n'],
                 'cancelled' => $x['v'], 'cancelled_n' => $x['n'],
@@ -148,19 +150,19 @@ class ReportService
         };
 
         return [
-            $build('reseller', 'Reseller / PO', '#0f4c3a', fn ($b) => $po(match ($b) {
+            $build('reseller', 'Reseller / PO', '#0f4c3a', '#7cc4ad', fn ($b) => $po(match ($b) {
                 'confirmed' => [self::REVENUE_STATUS],
                 'pipeline' => PurchaseOrder::PIPELINE_STATUSES,
                 'cancelled' => PurchaseOrder::CANCELLED_STATUSES,
                 'unconfirmed' => PurchaseOrder::UNCONFIRMED_STATUSES,
             })),
-            $build('tiktok', 'TikTok', '#ef4444', fn ($b) => $mp('tiktok_orders', TiktokOrder::class, match ($b) {
+            $build('tiktok', 'TikTok', '#ef4444', '#fca5a5', fn ($b) => $mp('tiktok_orders', TiktokOrder::class, match ($b) {
                 'confirmed' => TiktokOrder::DELIVERED_STATUSES,
                 'pipeline' => TiktokOrder::PIPELINE_STATUSES,
                 'cancelled' => TiktokOrder::CANCELLED_STATUSES,
                 'unconfirmed' => TiktokOrder::UNCONFIRMED_STATUSES,
             })),
-            $build('shopee', 'Shopee', '#f97316', fn ($b) => $mp('shopee_orders', ShopeeOrder::class, match ($b) {
+            $build('shopee', 'Shopee', '#f97316', '#fdba74', fn ($b) => $mp('shopee_orders', ShopeeOrder::class, match ($b) {
                 'confirmed' => ShopeeOrder::DELIVERED_STATUSES,
                 'pipeline' => ShopeeOrder::PIPELINE_STATUSES,
                 'cancelled' => ShopeeOrder::CANCELLED_STATUSES,
