@@ -11,7 +11,7 @@
             @if($user->canDo('view_learning'))
                 <a href="{{ route('learning.index') }}" class="flex items-center gap-3 p-4 rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50 transition">
                     <span class="w-10 h-10 rounded-lg bg-red-600 text-white flex items-center justify-center text-lg">▶</span>
-                    <div><p class="font-bold text-stone-800 text-sm">Pembelajaran</p><p class="text-[11px] text-stone-500">Materi video pelatihan</p></div>
+                    <div><p class="font-bold text-stone-800 text-sm">SKINKU Academy</p><p class="text-[11px] text-stone-500">Materi video pelatihan</p></div>
                 </a>
             @endif
             <a href="{{ route('account.password') }}" class="flex items-center gap-3 p-4 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50 transition">

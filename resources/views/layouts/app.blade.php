@@ -130,7 +130,7 @@
             @endif
 
             @if($u->canDo('view_learning'))
-                {!! navItem('learning.index', 'Pembelajaran', 'learning.*') !!}
+                {!! navItem('learning.index', 'SKINKU Academy', 'learning.*') !!}
             @endif
 
             @if($u->canDo('manage_users'))

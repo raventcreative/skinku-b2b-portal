@@ -35,8 +35,8 @@ class Permissions
         'view_audit_log' => 'Lihat Audit Log',
         'system_settings' => 'Pengaturan Sistem',
         'manage_permissions' => 'Manajemen Hak Akses',
-        'view_learning' => 'Akses Pembelajaran',
-        'manage_learning' => 'Kelola Materi Pembelajaran',
+        'view_learning' => 'Akses SKINKU Academy',
+        'manage_learning' => 'Kelola Materi SKINKU Academy',
         'manage_tiktok' => 'Integrasi TikTok Shop',
     ];
 

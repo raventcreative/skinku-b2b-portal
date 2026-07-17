@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', $lesson->title)
-@section('heading', 'Pembelajaran')
+@section('heading', 'SKINKU Academy')
 
 @section('content')
 <div class="max-w-4xl mx-auto">

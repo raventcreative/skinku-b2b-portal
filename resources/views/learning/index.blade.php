@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'Pembelajaran')
-@section('heading', 'Pusat Pembelajaran')
+@section('title', 'SKINKU Academy')
+@section('heading', 'SKINKU Academy')
 
 @section('content')
 <div class="flex justify-between items-center mb-5">
