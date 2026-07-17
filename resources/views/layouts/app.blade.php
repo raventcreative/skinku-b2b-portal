@@ -78,7 +78,8 @@
                 $isProdukManager = $u->canDo('manage_products') || $u->canDo('manage_production') || $u->canDo('manage_hq_stock');
                 $produkGroupOpen = request()->routeIs('products.index') || request()->routeIs('inventory.index')
                     || request()->routeIs('materials.*') || request()->routeIs('productions.*') || request()->routeIs('stock-movements.index')
-                    || request()->routeIs('stok-opname.*') || request()->routeIs('hq-stock.*');
+                    || request()->routeIs('stok-opname.*') || request()->routeIs('hq-stock.*')
+                    || request()->routeIs('backdated-sales.*');
             @endphp
 
             @if($isProdukManager)
@@ -101,6 +102,7 @@
                              dari Laporan Stok HQ. Route tetap aktif (stock-movements.index). --}}
                         {!! navItem('stok-opname.index', 'Stok Opname', 'stok-opname.index') !!}
                         {!! navItem('hq-stock.report', 'Laporan Stok HQ', 'hq-stock.report') !!}
+                        {!! navItem('backdated-sales.index', 'Penjualan Back-date', 'backdated-sales.*') !!}
                     @endif
                 </div>
             @else

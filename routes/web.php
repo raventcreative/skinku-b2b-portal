@@ -5,6 +5,7 @@ use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AccTemplateController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BackdatedSaleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\InventoryController;
@@ -94,6 +95,11 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/stok-opname', [StockOpnameController::class, 'index'])->name('stok-opname.index');
         Route::post('/stok-opname', [StockOpnameController::class, 'store'])->name('stok-opname.store');
         Route::get('/laporan-stok-hq', [HqStockReportController::class, 'index'])->name('hq-stock.report');
+
+        // Catat penjualan distributor yang sudah terjadi (back-date, dari Excel)
+        Route::get('/penjualan-backdate', [BackdatedSaleController::class, 'index'])->name('backdated-sales.index');
+        Route::post('/penjualan-backdate', [BackdatedSaleController::class, 'store'])->name('backdated-sales.store');
+        Route::post('/penjualan-backdate/batas', [BackdatedSaleController::class, 'setCutoff'])->name('backdated-sales.cutoff');
     });
 
     /* ---------------- Stock receipts (incoming stock + HPP average) ---------------- */

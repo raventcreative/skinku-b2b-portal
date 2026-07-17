@@ -6,6 +6,7 @@ use App\Models\Concerns\HasFiles;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 class PurchaseOrder extends Model
 {
@@ -77,10 +78,10 @@ class PurchaseOrder extends Model
     public const PAYMENT_REJECTED = 'rejected';
 
     protected $fillable = [
-        'po_number', 'created_by', 'user_id', 'company_name', 'user_role',
+        'po_number', 'created_by', 'user_id', 'company_name', 'user_role', 'order_date',
         'status', 'subtotal', 'discount', 'shipping_cost', 'total_amount',
         'payment_status', 'payment_note', 'paid_at', 'payment_verified_by',
-        'shipping_address', 'notes', 'revision_notes', 'completed_at', 'deleted_by',
+        'shipping_address', 'notes', 'revision_notes', 'completed_at', 'stock_skipped', 'deleted_by',
     ];
 
     protected function casts(): array
@@ -92,7 +93,20 @@ class PurchaseOrder extends Model
             'total_amount' => 'decimal:2',
             'completed_at' => 'datetime',
             'paid_at' => 'datetime',
+            'order_date' => 'date',
+            'stock_skipped' => 'boolean',
         ];
+    }
+
+    /**
+     * Tanggal transaksi sebenarnya. `created_at` = kapan BARISNYA dibuat — untuk
+     * entri back-date itu bukan tanggal ordernya.
+     */
+    public function orderDate(): Carbon
+    {
+        return $this->order_date
+            ? Carbon::parse($this->order_date)
+            : Carbon::parse($this->created_at);
     }
 
     public function items()

@@ -77,10 +77,11 @@ class ReportService
         $start = $month->copy()->startOfMonth();
         $end = $month->copy()->endOfMonth();
 
-        // PO: tanggal order = created_at. Marketplace: order_created_at.
+        // PO: pakai order_date bila diisi (entri back-date), jatuh ke created_at.
+        // Marketplace: order_created_at.
         $po = fn (array $statuses) => PurchaseOrder::query()
             ->whereIn('status', $statuses)
-            ->whereBetween('created_at', [$start, $end]);
+            ->whereRaw('COALESCE(order_date, DATE(created_at)) BETWEEN ? AND ?', [$start->toDateString(), $end->toDateString()]);
 
         $mp = fn (string $table, string $model, array $statuses) => Schema::hasTable($table)
             ? $model::whereIn('status', $statuses)->whereBetween('order_created_at', [$start, $end])

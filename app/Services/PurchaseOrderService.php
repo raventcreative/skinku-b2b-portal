@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\AppSetting;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -166,6 +168,28 @@ class PurchaseOrderService
                 throw new RuntimeException('PO ini sudah pernah diselesaikan sebelumnya.');
             }
 
+            // Barang untuk order pra-opname sudah keluar SEBELUM stok dihitung —
+            // hitungan opname sudah memperhitungkannya. Memotong lagi = hilang dua
+            // kali. Jadi PO-nya tetap dicatat (omzet), tapi stok tidak disentuh.
+            if ($this->isBeforeStockCutoff($po)) {
+                $po->status = PurchaseOrder::STATUS_COMPLETED;
+                $po->completed_at = now();
+                $po->stock_skipped = true;
+                if ($notes) {
+                    $po->revision_notes = $notes;
+                }
+                $po->save();
+
+                AuditService::log(
+                    action: 'complete_po_backdated',
+                    targetType: 'purchase_order',
+                    targetId: $po->id,
+                    after: ['stock_skipped' => true, 'order_date' => (string) $po->orderDate()->toDateString()],
+                );
+
+                return $po;
+            }
+
             foreach ($po->items as $item) {
                 $product = Product::lockForUpdate()->find($item->product_id);
                 if (! $product) {
@@ -218,6 +242,39 @@ class PurchaseOrderService
 
             return $po;
         });
+    }
+
+    /** Batas tanggal potong stok PO (null = tak ada batas → semua PO memotong stok). */
+    public function stockCutoff(): ?Carbon
+    {
+        return AppSetting::date(AppSetting::PO_DEDUCT_FROM);
+    }
+
+    /** PO pra-opname → catat penjualannya, jangan sentuh stok. */
+    public function isBeforeStockCutoff(PurchaseOrder $po): bool
+    {
+        $cut = $this->stockCutoff();
+
+        return $cut && $po->orderDate()->lt($cut);
+    }
+
+    /**
+     * Catat penjualan distributor yang sudah terjadi (back-date) — langsung
+     * selesai. Terpisah dari createForPartner() yang dipakai mitra memesan
+     * sendiri, supaya alur mitra yang sudah jalan tak terganggu.
+     *
+     * Stok dipotong HANYA jika tanggal order >= batas. Untuk order pra-opname
+     * stok tidak disentuh sama sekali (HQ maupun mitra) — barangnya sudah keluar
+     * sebelum dihitung.
+     *
+     * @param  array<int, array{product_id:int, qty:int}>  $lines
+     */
+    public function recordBackdatedSale(User $buyer, array $lines, Carbon $orderDate, ?string $notes, int $creatorId): PurchaseOrder
+    {
+        $po = $this->createForPartner($buyer, $lines, null, $notes);
+        $po->update(['order_date' => $orderDate->toDateString(), 'created_by' => $creatorId]);
+
+        return $this->complete($po->fresh(), $notes);
     }
 
     public function cancel(PurchaseOrder $po, ?string $reason = null): PurchaseOrder
