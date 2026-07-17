@@ -19,6 +19,23 @@
     @stack('head')
 </head>
 <body class="h-full bg-stone-100 text-stone-800 antialiased">
+
+{{-- Banner samaran: menempel di ATAS segalanya dan sticky, supaya mustahil lupa
+     sedang jadi orang lain. Lupa = PO uji coba masuk ke akun mitra sungguhan
+     atas nama mereka. --}}
+@isset($impersonator)
+@if($impersonator)
+    <div class="sticky top-0 z-50 bg-amber-400 text-amber-950 px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm font-semibold shadow">
+        <span>⚠ Anda sedang masuk sebagai <b>{{ auth()->user()?->fullname }}</b> ({{ auth()->user()?->role }}) — bukan akun Anda.</span>
+        <form method="POST" action="{{ route('impersonate.stop') }}">
+            @csrf
+            <button type="submit" class="px-3 py-1 rounded-lg bg-amber-950 text-amber-50 hover:bg-amber-900 text-xs">
+                Kembali ke akun saya ({{ $impersonator->fullname }})
+            </button>
+        </form>
+    </div>
+@endif
+@endisset
 @php
     $u = auth()->user();
     $isStaff = $u->isStaff();

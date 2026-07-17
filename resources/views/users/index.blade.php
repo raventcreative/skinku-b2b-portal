@@ -60,6 +60,16 @@
                             </form>
                             <button class="ml-2 text-blue-600 hover:text-blue-800 font-semibold"
                                 onclick='openResetPw({{ $row->id }}, {{ json_encode($row->fullname) }})'>Reset PW</button>
+                            {{-- Syaratnya sengaja dicerminkan di ImpersonationService juga:
+                                 menyembunyikan tombol bukan pengamanan, rutenya tetap bisa
+                                 dipanggil langsung. --}}
+                            @if($isSuper && !$row->isSuperAdmin() && $row->id !== auth()->id() && $row->status === 'active')
+                                <form method="POST" action="{{ route('users.impersonate', $row) }}" class="inline"
+                                    onsubmit="return confirm('Masuk sebagai {{ $row->fullname }}?\n\nSemua tindakan Anda akan tercatat atas nama mereka. Tercatat di Audit Log.')">
+                                    @csrf
+                                    <button class="ml-2 text-indigo-600 hover:text-indigo-800 font-semibold">Masuk sebagai</button>
+                                </form>
+                            @endif
                             @if($isSuper && !$row->isSuperAdmin() && $row->id !== auth()->id())
                                 <form method="POST" action="{{ route('users.destroy', $row) }}" class="inline" onsubmit="return confirm('Hapus user ini (soft delete)?')">
                                     @csrf @method('DELETE')

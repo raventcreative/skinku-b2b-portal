@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\ImpersonationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -175,6 +176,16 @@ class AuthController extends Controller
 
     public function changePassword(Request $request): RedirectResponse
     {
+        // Mengganti password milik akun yang sedang disamari akan mengunci
+        // pemilik aslinya di luar, dan di log tampak seolah DIA yang menggantinya.
+        // Super admin yang memang perlu mereset punya jalur sendiri di Kelola
+        // Anggota, yang tercatat atas namanya.
+        if ($request->session()->get(ImpersonationService::SESSION_KEY)) {
+            return back()->withErrors([
+                'password' => 'Tidak bisa mengganti password saat menyamai pengguna lain. Kembali ke akun Anda dulu.',
+            ]);
+        }
+
         $request->validate([
             'current_password' => ['required', 'current_password'],
             'password' => ['required', 'confirmed', PasswordRule::min(8)],

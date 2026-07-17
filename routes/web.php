@@ -8,6 +8,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackdatedSaleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HqStockReportController;
+use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
@@ -240,6 +241,18 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::middleware('permission:delete_users')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
+
+    /* ---------------- Masuk sebagai (impersonation) ---------------- */
+    // Mulai: hanya super admin (dijaga lagi di ImpersonationService).
+    Route::middleware('role:super_admin')->group(function () {
+        Route::post('/users/{user}/impersonate', [ImpersonationController::class, 'start'])->name('users.impersonate');
+    });
+
+    // Berhenti: SENGAJA di luar semua gerbang peran/permission. Yang memanggilnya
+    // adalah pengguna yang sedang disamari (mis. reseller) — menaruhnya di dalam
+    // gerbang super admin akan menjebak admin di akun orang tanpa jalan pulang.
+    // Pengamannya bukan peran, tapi kunci sesi yang hanya bisa dipasang start().
+    Route::post('/impersonate/stop', [ImpersonationController::class, 'stop'])->name('impersonate.stop');
 
     Route::middleware('permission:view_audit_log')->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
