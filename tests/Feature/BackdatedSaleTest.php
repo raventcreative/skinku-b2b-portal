@@ -276,6 +276,59 @@ class BackdatedSaleTest extends TestCase
         $this->assertSame(1, PurchaseOrder::count());
     }
 
+    public function test_can_fix_a_mistyped_order_date(): void
+    {
+        AppSetting::put(AppSetting::PO_DEDUCT_FROM, '2026-07-15');
+        $p = $this->product();
+        $svc = app(PurchaseOrderService::class);
+        $admin = $this->admin();
+
+        // Persis kasus produksi: 2020-06-08 padahal maksudnya 2026-06-08.
+        $po = $svc->recordBackdatedSale($this->partner(), [['product_id' => $p->id, 'qty' => 1]],
+            Carbon::parse('2020-06-08'), null, $admin->id);
+
+        $this->actingAs($admin)->patch(route('backdated-sales.date', $po), ['order_date' => '2026-06-08'])
+            ->assertRedirect()->assertSessionHas('status');
+
+        $this->assertSame('2026-06-08', $po->fresh()->orderDate()->toDateString());
+        $this->assertSame(100, (int) $p->fresh()->hq_stock);   // stok tak tersentuh: dua-duanya pra-batas
+    }
+
+    public function test_refuses_to_move_a_date_across_the_stock_cutoff(): void
+    {
+        // Entri pra-batas TIDAK memotong stok; pasca-batas memotong. Memindahkan
+        // diam-diam melintasi batas akan membuat stok tak sinkron tanpa jejak.
+        Carbon::setTestNow('2026-07-25');   // bekukan waktu: 20 Jul harus "masa lalu"
+        AppSetting::put(AppSetting::PO_DEDUCT_FROM, '2026-07-15');
+        $p = $this->product();
+        $admin = $this->admin();
+        $po = app(PurchaseOrderService::class)->recordBackdatedSale(
+            $this->partner(), [['product_id' => $p->id, 'qty' => 5]],
+            Carbon::parse('2026-07-01'), null, $admin->id,
+        );
+        $this->assertTrue($po->stock_skipped);
+
+        $this->actingAs($admin)->patch(route('backdated-sales.date', $po), ['order_date' => '2026-07-20'])
+            ->assertRedirect()->assertSessionHas('error');
+
+        $this->assertSame('2026-07-01', $po->fresh()->orderDate()->toDateString());  // tak berubah
+        $this->assertSame(100, (int) $p->fresh()->hq_stock);
+        Carbon::setTestNow();
+    }
+
+    public function test_date_fix_rejects_impossible_dates_too(): void
+    {
+        $admin = $this->admin();
+        $po = app(PurchaseOrderService::class)->recordBackdatedSale(
+            $this->partner(), [['product_id' => $this->product()->id, 'qty' => 1]],
+            Carbon::parse('2026-06-08'), null, $admin->id,
+        );
+
+        $this->actingAs($admin)->patch(route('backdated-sales.date', $po), ['order_date' => '2019-01-01'])
+            ->assertSessionHasErrors('order_date');
+        $this->assertSame('2026-06-08', $po->fresh()->orderDate()->toDateString());
+    }
+
     public function test_page_renders_and_partner_forbidden(): void
     {
         $this->actingAs($this->admin())->get(route('backdated-sales.index'))->assertOk()

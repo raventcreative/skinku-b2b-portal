@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Services\PurchaseOrderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -101,6 +102,52 @@ class BackdatedSaleController extends Controller
             : ' Stok dipotong seperti biasa.';
 
         return redirect()->route('backdated-sales.index')->with('status', $msg);
+    }
+
+    /**
+     * Perbaiki tanggal order sebuah entri back-date (salah ketik tahun itu nyata).
+     *
+     * Sengaja TIDAK mengizinkan perpindahan melintasi batas potong stok: entri
+     * pra-batas tak memotong stok, entri pasca-batas memotong. Memindahkannya
+     * diam-diam akan membuat stok tak sinkron tanpa jejak. Untuk kasus itu,
+     * hapus lalu catat ulang — eksplisit dan aman.
+     */
+    public function updateDate(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        abort_unless($request->user()->canDo('manage_hq_stock'), 403);
+        abort_unless($purchaseOrder->order_date !== null, 404, 'Bukan entri back-date.');
+
+        $data = $request->validate([
+            'order_date' => ['required', 'date', 'before_or_equal:today', 'after_or_equal:2024-01-01'],
+        ]);
+
+        $new = Carbon::parse($data['order_date']);
+        $cut = $this->service->stockCutoff();
+
+        if ($cut) {
+            $wasBefore = $purchaseOrder->orderDate()->lt($cut);
+            $willBefore = $new->lt($cut);
+            if ($wasBefore !== $willBefore) {
+                return back()->with('error',
+                    'Tanggal baru melewati batas potong stok ('.$cut->format('d M Y').'), '
+                    .'sehingga status potong stoknya ikut berubah. Hapus PO ini lalu catat ulang '
+                    .'supaya stoknya benar.');
+            }
+        }
+
+        $old = $purchaseOrder->orderDate()->toDateString();
+        $purchaseOrder->update(['order_date' => $new->toDateString()]);
+
+        AuditService::log(
+            action: 'fix_backdated_order_date',
+            targetType: 'purchase_order',
+            targetId: $purchaseOrder->id,
+            before: ['order_date' => $old],
+            after: ['order_date' => $new->toDateString()],
+        );
+
+        return back()->with('status',
+            "Tanggal {$purchaseOrder->po_number} diperbaiki: {$old} → {$new->format('d M Y')}.");
     }
 
     /** Set batas tanggal potong stok PO. */

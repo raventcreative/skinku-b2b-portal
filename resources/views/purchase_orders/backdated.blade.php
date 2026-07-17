@@ -130,7 +130,15 @@
                     @foreach($recent as $po)
                         <tr class="border-t border-stone-100">
                             <td class="px-4 py-2"><a href="{{ route('purchase-orders.show', $po) }}" class="font-semibold text-indigo-700 hover:underline">{{ $po->po_number }}</a></td>
-                            <td class="text-stone-600">{{ $po->orderDate()->format('d M Y') }}</td>
+                            {{-- Tanggal bisa diperbaiki langsung — salah ketik tahun itu nyata. --}}
+                            <td>
+                                <form method="POST" action="{{ route('backdated-sales.date', $po) }}">
+                                    @csrf @method('PATCH')
+                                    <input type="date" name="order_date" value="{{ $po->orderDate()->format('Y-m-d') }}"
+                                        onchange="this.form.submit()" title="ubah tanggal order"
+                                        class="px-1.5 py-1 border border-transparent hover:border-stone-300 focus:border-indigo-500 rounded text-xs text-stone-600 bg-transparent cursor-pointer">
+                                </form>
+                            </td>
                             {{-- Jatuh ke nama user kalau company_name kosong — jangan tampilkan
                                  strip, itu bikin entri jadi tak ketahuan punya siapa. --}}
                             <td class="text-stone-600">{{ $po->company_name ?: ($po->user->fullname ?? $po->user->name ?? '—') }}</td>
