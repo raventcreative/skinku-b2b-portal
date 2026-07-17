@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\PurgeBlockedException;
 use App\Models\AppSetting;
+use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
@@ -400,5 +402,131 @@ class PurchaseOrderService
         } while (PurchaseOrder::where('po_number', $candidate)->exists());
 
         return $candidate;
+    }
+
+    /**
+     * Hapus PO SEOLAH TAK PERNAH ADA: batalkan efek stoknya, buang jejak
+     * gerakannya, lalu hapus permanen. Untuk membersihkan data uji coba.
+     *
+     * Ini berbeda dari delete() (soft delete, stok DIBIARKAN) dan dari
+     * forceDestroy() lama yang menghapus PO tapi meninggalkan stock_movements
+     * menunjuk ke id yang sudah lenyap — stok tetap terpotong tanpa jejak asal.
+     *
+     * Gerakannya DIHAPUS, bukan dikompensasi dengan gerakan lawan: data uji
+     * coba tak boleh meninggalkan riwayat. Karena itu saldo disetel langsung
+     * tanpa menulis movement baru — menulisnya justru mengotori yang mau dibuang.
+     *
+     * MENOLAK bila ada saldo yang jadi negatif. Contoh nyata: PO menaruh 300 di
+     * mitra, lalu 5 keluar lewat gerakan LAIN; membatalkan 300 dari saldo 295
+     * menghasilkan -5. Memaksakannya = mengarang 5 unit dari udara. Yang begini
+     * harus dilihat manusia, bukan dibulatkan diam-diam.
+     *
+     * @param  bool  $dryRun  true = hitung & laporkan saja, tidak mengubah apa pun
+     * @return array{actions: array<int, string>, blockers: array<int, string>, movements: int}
+     */
+    public function purge(PurchaseOrder $po, bool $dryRun = true): array
+    {
+        return DB::transaction(function () use ($po, $dryRun) {
+            $moves = StockMovement::query()
+                ->where('reference_type', 'purchase_order')
+                ->where('reference_id', $po->id)
+                ->get();
+
+            // Efek bersih PO ini per (pemilik, produk). Dihitung dari
+            // after-before, bukan kolom quantity yang disimpan tanpa tanda.
+            $efek = [];
+            foreach ($moves as $m) {
+                $key = ($m->user_id ?? 'hq').':'.$m->product_id;
+                $efek[$key] ??= ['user_id' => $m->user_id, 'product_id' => $m->product_id, 'delta' => 0];
+                $efek[$key]['delta'] += (int) $m->after_qty - (int) $m->before_qty;
+            }
+
+            $actions = [];
+            $blockers = [];
+
+            foreach ($efek as $e) {
+                $balik = -1 * $e['delta'];
+                $product = Product::lockForUpdate()->find($e['product_id']);
+
+                if (! $product) {
+                    $blockers[] = "Produk id {$e['product_id']} sudah tidak ada — tak bisa dikoreksi.";
+
+                    continue;
+                }
+
+                if ($e['user_id'] === null) {
+                    $before = (int) $product->hq_stock;
+                    $after = $before + $balik;
+                    $label = "Stok HQ {$product->name}: {$before} → {$after}";
+
+                    if ($after < 0) {
+                        $blockers[] = $label.' — NEGATIF, dibatalkan.';
+
+                        continue;
+                    }
+
+                    $actions[] = $label;
+                    if (! $dryRun) {
+                        $product->hq_stock = $after;
+                        $product->save();
+                    }
+
+                    continue;
+                }
+
+                $line = Inventory::lockForUpdate()
+                    ->where('user_id', $e['user_id'])
+                    ->where('product_id', $e['product_id'])
+                    ->first();
+                $before = (int) ($line->quantity ?? 0);
+                $after = $before + $balik;
+                $nama = User::withTrashed()->find($e['user_id'])?->company_name ?? "user id {$e['user_id']}";
+                $label = "Stok {$nama} {$product->name}: {$before} → {$after}";
+
+                if ($after < 0) {
+                    $blockers[] = $label.' — NEGATIF: ada gerakan LAIN di luar PO ini yang sudah'
+                        .' memindahkan '.abs($after).' unit. Selesaikan itu dulu.';
+
+                    continue;
+                }
+
+                $actions[] = $label;
+                if (! $dryRun && $line) {
+                    $line->quantity = $after;
+                    $line->save();
+                }
+            }
+
+            if ($blockers) {
+                // Satu saldo negatif membatalkan SELURUH purge: separuh koreksi
+                // jauh lebih berbahaya daripada tidak dikoreksi sama sekali.
+                throw new PurgeBlockedException($blockers, $actions, $moves->count());
+            }
+
+            $hasil = ['actions' => $actions, 'blockers' => [], 'movements' => $moves->count()];
+
+            if ($dryRun) {
+                return $hasil;
+            }
+
+            StockMovement::where('reference_type', 'purchase_order')->where('reference_id', $po->id)->delete();
+            $po->files()->get()->each->delete();
+            $po->items()->delete();
+
+            // Pelaku diambil AuditService dari Auth::user(); lewat CLI itu null,
+            // jadi perintahnya wajib login sebagai super admin dulu — penghapusan
+            // permanen tanpa nama pelaku tidak boleh terjadi.
+            AuditService::log(
+                action: 'purge_po',
+                targetType: 'purchase_order',
+                targetId: $po->id,
+                before: ['po_number' => $po->po_number, 'total_amount' => $po->total_amount, 'status' => $po->status],
+                after: ['dibatalkan' => $actions, 'gerakan_dihapus' => $moves->count()],
+            );
+
+            $po->forceDelete();
+
+            return $hasil;
+        });
     }
 }
