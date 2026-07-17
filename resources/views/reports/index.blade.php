@@ -41,7 +41,7 @@
             ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), $per],
             ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), $per],
         ] : [
-            ['Penjualan PO', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), $per],
+            ['Penjualan PO (tagihan)', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), $per],
             ['Total PO', number_format($summary['total_po'], 0, ',', '.'), $per],
             ['Produk Aktif', number_format($summary['total_products'], 0, ',', '.'), 'saat ini'],
             ['Stok Pusat', number_format($summary['hq_stock_units'], 0, ',', '.'), 'saat ini'],
@@ -65,21 +65,46 @@
 @endunless
 
 @isset($grossProfit)
+@php
+    // Selisih Penjualan PO (total tagihan) vs Omzet Barang (subtotal produk) =
+    // ongkir dikurangi diskon. Ditampilkan eksplisit supaya dua angka yang
+    // sering kembar ini tidak terlihat seperti kartu duplikat tanpa guna.
+    $selisih = round($summary['total_sales'] - $grossProfit['revenue']);
+@endphp
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
-        <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">Omzet Barang (selesai)</p>
+        <div class="flex items-baseline justify-between gap-1">
+            <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">Omzet Barang (selesai)</p>
+            <span class="text-[9px] text-stone-300 shrink-0">{{ $per }}</span>
+        </div>
         <p class="text-xl font-bold text-stone-900 mt-2">Rp {{ number_format($grossProfit['revenue'], 0, ',', '.') }}</p>
+        <p class="text-[10px] text-stone-400 mt-1">
+            @if($selisih == 0)
+                = Penjualan PO (belum ada ongkir/diskon tercatat)
+            @else
+                = Penjualan PO {{ $selisih > 0 ? '−' : '+' }} Rp {{ number_format(abs($selisih), 0, ',', '.') }} ongkir/diskon
+            @endif
+        </p>
     </div>
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
-        <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">HPP (COGS)</p>
+        <div class="flex items-baseline justify-between gap-1">
+            <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">HPP (COGS)</p>
+            <span class="text-[9px] text-stone-300 shrink-0">{{ $per }}</span>
+        </div>
         <p class="text-xl font-bold text-stone-700 mt-2">Rp {{ number_format($grossProfit['cogs'], 0, ',', '.') }}</p>
     </div>
     <div class="bg-white rounded-2xl border border-emerald-200 bg-emerald-50/40 p-5">
-        <p class="text-[11px] uppercase tracking-wide text-emerald-600 font-semibold">Laba Kotor</p>
+        <div class="flex items-baseline justify-between gap-1">
+            <p class="text-[11px] uppercase tracking-wide text-emerald-600 font-semibold">Laba Kotor</p>
+            <span class="text-[9px] text-emerald-500/50 shrink-0">{{ $per }}</span>
+        </div>
         <p class="text-xl font-bold text-emerald-700 mt-2">Rp {{ number_format($grossProfit['profit'], 0, ',', '.') }}</p>
     </div>
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
-        <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">Margin Kotor</p>
+        <div class="flex items-baseline justify-between gap-1">
+            <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">Margin Kotor</p>
+            <span class="text-[9px] text-stone-300 shrink-0">{{ $per }}</span>
+        </div>
         <p class="text-xl font-bold text-stone-900 mt-2">{{ number_format($grossProfit['margin'], 1, ',', '.') }}%</p>
     </div>
 </div>

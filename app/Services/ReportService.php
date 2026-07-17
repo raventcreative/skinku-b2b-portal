@@ -23,15 +23,20 @@ class ReportService
     /**
      * Batasi query PO ke satu bulan berdasarkan TANGGAL ORDER (order_date bila
      * diisi, jatuh ke created_at). Null = tanpa batas (perilaku lama).
+     *
+     * $alias dipakai saat purchase_orders ikut dalam JOIN dan kolomnya harus
+     * dikualifikasi (mis. 'po'), supaya order_date tidak ambigu.
      */
-    private function inMonth($query, ?Carbon $month)
+    private function inMonth($query, ?Carbon $month, ?string $alias = null)
     {
         if (! $month) {
             return $query;
         }
 
+        $p = $alias ? $alias.'.' : '';
+
         return $query->whereRaw(
-            'COALESCE(order_date, DATE(created_at)) BETWEEN ? AND ?',
+            "COALESCE({$p}order_date, DATE({$p}created_at)) BETWEEN ? AND ?",
             [$month->copy()->startOfMonth()->toDateString(), $month->copy()->endOfMonth()->toDateString()],
         );
     }
@@ -177,13 +182,15 @@ class ReportService
      * average HPP (products.cogs). Goods revenue = sum of item subtotals (before
      * discount/shipping) so it lines up with COGS of goods sold.
      */
-    public function grossProfit(): array
+    public function grossProfit(?Carbon $month = null): array
     {
-        $rows = DB::table('purchase_order_items as poi')
+        $q = DB::table('purchase_order_items as poi')
             ->join('purchase_orders as po', 'po.id', '=', 'poi.purchase_order_id')
             ->join('products as p', 'p.id', '=', 'poi.product_id')
             ->where('po.status', self::REVENUE_STATUS)
-            ->whereNull('po.deleted_at')
+            ->whereNull('po.deleted_at');
+
+        $rows = $this->inMonth($q, $month, 'po')
             ->selectRaw('COALESCE(SUM(poi.total_price), 0) as revenue, COALESCE(SUM(poi.qty * p.cogs), 0) as cogs')
             ->first();
 
@@ -231,7 +238,7 @@ class ReportService
     }
 
     /** Top products by completed-sales revenue. */
-    public function salesByProduct(int $limit = 10, ?User $viewer = null): array
+    public function salesByProduct(int $limit = 10, ?User $viewer = null, ?Carbon $month = null): array
     {
         $q = DB::table('purchase_order_items as poi')
             ->join('purchase_orders as po', 'po.id', '=', 'poi.purchase_order_id')
@@ -241,7 +248,8 @@ class ReportService
             $q->where('po.user_id', $viewer->id);
         }
 
-        return $q->selectRaw('poi.product_name, SUM(poi.qty) as qty, SUM(poi.total_price) as revenue')
+        return $this->inMonth($q, $month, 'po')
+            ->selectRaw('poi.product_name, SUM(poi.qty) as qty, SUM(poi.total_price) as revenue')
             ->groupBy('poi.product_name')
             ->orderByDesc('revenue')
             ->limit($limit)
@@ -282,11 +290,11 @@ class ReportService
     }
 
     /** Sales grouped by partner (distributor/reseller). HQ view only. */
-    public function salesByPartner(string $role = User::ROLE_DISTRIBUTOR, int $limit = 10): array
+    public function salesByPartner(string $role = User::ROLE_DISTRIBUTOR, int $limit = 10, ?Carbon $month = null): array
     {
-        return PurchaseOrder::query()
+        return $this->inMonth(PurchaseOrder::query()
             ->where('status', self::REVENUE_STATUS)
-            ->where('user_role', $role)
+            ->where('user_role', $role), $month)
             ->selectRaw('company_name, SUM(total_amount) as revenue, COUNT(*) as orders')
             ->groupBy('company_name')
             ->orderByDesc('revenue')
@@ -300,11 +308,11 @@ class ReportService
     }
 
     /** Sales grouped by region (fallback to "Lainnya" when null). */
-    public function salesByRegion(): array
+    public function salesByRegion(?Carbon $month = null): array
     {
-        return PurchaseOrder::query()
+        return $this->inMonth(PurchaseOrder::query()
             ->leftJoin('users', 'users.id', '=', 'purchase_orders.user_id')
-            ->where('purchase_orders.status', self::REVENUE_STATUS)
+            ->where('purchase_orders.status', self::REVENUE_STATUS), $month, 'purchase_orders')
             ->selectRaw('COALESCE(NULLIF(users.region, ""), "Lainnya") as region, SUM(purchase_orders.total_amount) as revenue')
             ->groupBy('region')
             ->orderByDesc('revenue')

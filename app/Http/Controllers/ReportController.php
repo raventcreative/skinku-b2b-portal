@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class ReportController extends Controller
 {
@@ -22,18 +23,19 @@ class ReportController extends Controller
         $data = [
             'summary' => $this->reports->summary($user, $bulan),
             'salesTrend' => $this->reports->salesTrend($granularity, 14, $user, $bulan),
-            'salesByProduct' => $this->reports->salesByProduct(10, $user),
+            'salesByProduct' => $this->reports->salesByProduct(10, $user, $bulan),
             'poStatus' => $this->reports->poStatusDistribution($user, $bulan),
+            // Stok = posisi SAAT INI, bukan angka periode — sengaja tak difilter.
             'inventory' => $this->reports->inventoryMonitoring(12),
         ];
 
         // Partner-breakdown charts + profit are HQ-only.
         if ($user->isStaff()) {
-            $data['grossProfit'] = $this->reports->grossProfit();
+            $data['grossProfit'] = $this->reports->grossProfit($bulan);
             // Rincian per mitra — distributor & reseller sekaligus, dengan angka.
             $data['partnerDetail'] = $this->reports->partnerSalesDetail($bulan);
-            $data['salesByDistributor'] = $this->reports->salesByPartner(User::ROLE_DISTRIBUTOR);
-            $data['salesByRegion'] = $this->reports->salesByRegion();
+            $data['salesByDistributor'] = $this->reports->salesByPartner(User::ROLE_DISTRIBUTOR, 10, $bulan);
+            $data['salesByRegion'] = $this->reports->salesByRegion($bulan);
         }
 
         $data['granularity'] = $granularity;
@@ -43,18 +45,21 @@ class ReportController extends Controller
         return view('reports.index', $data);
     }
 
-    /** ?bulan=YYYY-MM → Carbon. Kosong/ngawur = null (semua periode). */
+    /**
+     * ?bulan=YYYY-MM → Carbon. Kosong/ngawur = null (semua periode).
+     *
+     * Regex memvalidasi bulan 01-12, jadi createFromFormat tak bisa gagal dan
+     * tak perlu try/catch. Versi lama membungkusnya dengan catch(\Throwable)
+     * yang justru MENELAN import Carbon yang hilang — filter diam-diam selalu
+     * null, dan halaman terlihat "semua periode" apa pun pilihan pengguna.
+     */
     private function parseMonth(?string $v): ?Carbon
     {
-        if (! $v || ! preg_match('/^\d{4}-\d{2}$/', $v)) {
+        if (! $v || ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $v)) {
             return null;
         }
 
-        try {
-            return Carbon::createFromFormat('Y-m-d', $v.'-01')->startOfMonth();
-        } catch (\Throwable $e) {
-            return null;
-        }
+        return Carbon::createFromFormat('Y-m-d', $v.'-01')->startOfMonth();
     }
 
     /** JSON endpoint for chart widgets (same data, machine-readable). */
