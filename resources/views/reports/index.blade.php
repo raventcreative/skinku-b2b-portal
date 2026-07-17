@@ -74,6 +74,79 @@
         <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">Penjualan per Region</h3><canvas id="regionChart" height="140"></canvas></div>
     @endif
 </div>
+
+{{-- Rincian per mitra: angka, bukan cuma grafik. Distributor + reseller +
+     pembeli lepas sekaligus, bisa ditelusuri ke PO-nya. --}}
+@isset($partnerDetail)
+    @php
+        $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
+        $totRev = collect($partnerDetail)->sum('revenue');
+        $totOrd = collect($partnerDetail)->sum('orders');
+    @endphp
+    <div class="bg-white rounded-2xl border border-stone-200 mt-6 overflow-hidden">
+        <div class="px-5 py-3 border-b border-stone-100 flex flex-wrap items-center gap-3">
+            <h3 class="text-sm font-bold text-stone-800">Penjualan per Mitra</h3>
+            <span class="text-[11px] text-stone-400">
+                {{ $bulan ? $bulan->translatedFormat('F Y') : 'semua periode' }} · PO selesai
+            </span>
+            <form method="GET" class="flex items-center gap-2 ml-auto">
+                <input type="hidden" name="granularity" value="{{ $granularity }}">
+                <input type="month" name="bulan" value="{{ $bulan?->format('Y-m') }}" onchange="this.form.submit()"
+                    class="px-2 py-1 border border-stone-300 rounded-lg text-xs">
+                @if($bulan)
+                    <a href="{{ route('reports.index') }}" class="text-[11px] text-indigo-600 hover:underline">semua</a>
+                @endif
+            </form>
+        </div>
+
+        @if(count($partnerDetail))
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
+                        <tr>
+                            <th class="text-left px-5 py-2">Mitra</th>
+                            <th class="text-left">Peran</th>
+                            <th class="text-right">Order</th>
+                            <th class="text-right">Rata-rata / order</th>
+                            <th class="text-right pr-5">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($partnerDetail as $p)
+                            <tr class="border-t border-stone-100 hover:bg-stone-50">
+                                <td class="px-5 py-2">
+                                    {{-- Telusur: buka daftar PO yang tersaring ke mitra ini --}}
+                                    <a href="{{ route('purchase-orders.index', ['q' => $p['label'], 'status' => 'completed']) }}"
+                                        class="font-semibold text-indigo-700 hover:underline">{{ $p['label'] }}</a>
+                                </td>
+                                <td class="text-stone-500">{{ $p['role'] ?? '—' }}</td>
+                                <td class="text-right text-stone-600">{{ number_format($p['orders'], 0, ',', '.') }}</td>
+                                <td class="text-right text-stone-500">{{ $rp($p['avg']) }}</td>
+                                <td class="text-right pr-5 font-bold text-stone-800">{{ $rp($p['revenue']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot>
+                        <tr class="border-t-2 border-stone-300 bg-stone-50 font-bold text-stone-800">
+                            <td class="px-5 py-2">TOTAL</td>
+                            <td></td>
+                            <td class="text-right">{{ number_format($totOrd, 0, ',', '.') }}</td>
+                            <td></td>
+                            <td class="text-right pr-5">{{ $rp($totRev) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <p class="px-5 py-2.5 text-[11px] text-stone-400 border-t border-stone-100">
+                💡 Klik nama mitra untuk melihat daftar PO-nya. Pembeli sekali-beli ikut muncul di sini.
+            </p>
+        @else
+            <p class="px-5 py-8 text-center text-xs text-stone-400">
+                Belum ada PO selesai{{ $bulan ? ' pada '.$bulan->translatedFormat('F Y') : '' }}.
+            </p>
+        @endif
+    </div>
+@endisset
 @endsection
 
 @push('scripts')

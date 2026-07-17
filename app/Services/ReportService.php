@@ -247,6 +247,34 @@ class ReportService
             ])->toArray();
     }
 
+    /**
+     * Rincian penjualan per mitra — angka, bukan cuma grafik. Mencakup
+     * distributor DAN reseller sekaligus, plus pembeli sekali-beli (yang tersimpan
+     * lewat company_name pada entri back-date).
+     *
+     * Dikelompokkan per company_name: itulah nama yang tampil di PO, dan untuk
+     * entri back-date bisa berupa nama pembeli lepas.
+     *
+     * @return array<int, array{label:string, role:?string, orders:int, revenue:float, avg:float}>
+     */
+    public function partnerSalesDetail(?Carbon $month = null): array
+    {
+        return $this->inMonth(
+            PurchaseOrder::query()->where('status', self::REVENUE_STATUS), $month,
+        )
+            ->selectRaw('company_name, user_role, COUNT(*) as orders, SUM(total_amount) as revenue')
+            ->groupBy('company_name', 'user_role')
+            ->orderByDesc('revenue')
+            ->get()
+            ->map(fn ($r) => [
+                'label' => $r->company_name ?: '(Tanpa Nama)',
+                'role' => $r->user_role,
+                'orders' => (int) $r->orders,
+                'revenue' => (float) $r->revenue,
+                'avg' => $r->orders > 0 ? round($r->revenue / $r->orders, 2) : 0.0,
+            ])->all();
+    }
+
     /** Sales grouped by partner (distributor/reseller). HQ view only. */
     public function salesByPartner(string $role = User::ROLE_DISTRIBUTOR, int $limit = 10): array
     {
