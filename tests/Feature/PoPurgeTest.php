@@ -184,4 +184,60 @@ class PoPurgeTest extends TestCase
         $this->assertSame(1, Artisan::call('po:purge', ['nomor' => 'SKN-PO-NGAWUR']));
         $this->assertStringContainsString('tidak ditemukan', Artisan::output());
     }
+
+    /**
+     * Kasus yang benar-benar terjadi dan merusak stok: PO uji coba 27 Jun
+     * di-purge pada 17 Jul, padahal stok opname 14 Jul sudah menyetel saldo
+     * mengikuti hitungan fisik. Purge mengembalikan 300 unit yang hitungan
+     * fisiknya sudah bilang tidak ada — stok HQ jadi kelebihan 300.
+     */
+    public function test_menolak_membalik_gerakan_yang_jatuh_sebelum_stok_opname(): void
+    {
+        [$p, $m, $po] = $this->skenario();
+        $sa = $this->superAdmin();
+
+        // Gerakan PO dimundurkan ke 27 Jun, opname-nya 14 Jul.
+        StockMovement::where('reference_id', $po->id)->update(['created_at' => '2026-06-27 11:05:00']);
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_ADJUSTMENT,
+            'quantity' => 1375, 'before_qty' => 1739, 'after_qty' => 364,
+            'reference_type' => 'opname', 'notes' => 'Stok opname 14 Jul 2026',
+            'created_at' => '2026-07-14 06:59:00',
+        ]);
+
+        $this->assertSame(1, Artisan::call('po:purge', [
+            'nomor' => 'SKN-PO-20260627-5881', '--force' => true, '--as' => $sa->username,
+        ]));
+        $out = Artisan::output();
+
+        $this->assertStringContainsString('DIBATALKAN', $out);
+        $this->assertStringContainsString('stok opname', $out);
+
+        // TIDAK ADA yang berubah — inilah yang seharusnya terjadi kemarin.
+        $this->assertSame(346, (int) $p->fresh()->hq_stock);
+        $this->assertSame(300, (int) Inventory::where('user_id', $m->id)->value('quantity'));
+        $this->assertNotNull(PurchaseOrder::withTrashed()->find($po->id));
+    }
+
+    /** Opname SEBELUM gerakan PO tidak memblokir: opname itu tak memuatnya. */
+    public function test_opname_yang_lebih_tua_dari_gerakan_po_tidak_memblokir(): void
+    {
+        [$p, $m, $po] = $this->skenario();
+        $sa = $this->superAdmin();
+
+        StockMovement::where('reference_id', $po->id)->update(['created_at' => '2026-07-20 11:05:00']);
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_ADJUSTMENT,
+            'quantity' => 10, 'before_qty' => 354, 'after_qty' => 364,
+            'reference_type' => 'opname', 'notes' => 'Stok opname 14 Jul 2026',
+            'created_at' => '2026-07-14 06:59:00',
+        ]);
+
+        $this->assertSame(0, Artisan::call('po:purge', [
+            'nomor' => 'SKN-PO-20260627-5881', '--force' => true, '--as' => $sa->username,
+        ]));
+
+        $this->assertSame(646, (int) $p->fresh()->hq_stock);
+        $this->assertNull(PurchaseOrder::withTrashed()->find($po->id));
+    }
 }

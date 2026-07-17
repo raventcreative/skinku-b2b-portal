@@ -424,6 +424,27 @@ class PurchaseOrderService
      * @param  bool  $dryRun  true = hitung & laporkan saja, tidak mengubah apa pun
      * @return array{actions: array<int, string>, blockers: array<int, string>, movements: int}
      */
+    /**
+     * Stok opname untuk produk ini yang terjadi SETELAH $sejak, kalau ada.
+     *
+     * Opname dicari pada gerakan HQ (user_id null) — di situlah hitungan fisik
+     * gudang pusat dicatat.
+     */
+    private function opnameSesudah(int $productId, ?Carbon $sejak): ?StockMovement
+    {
+        if (! $sejak) {
+            return null;
+        }
+
+        return StockMovement::query()
+            ->whereNull('user_id')
+            ->where('product_id', $productId)
+            ->where('reference_type', 'opname')
+            ->where('created_at', '>', $sejak)
+            ->orderByDesc('created_at')
+            ->first();
+    }
+
     public function purge(PurchaseOrder $po, bool $dryRun = true): array
     {
         return DB::transaction(function () use ($po, $dryRun) {
@@ -437,8 +458,17 @@ class PurchaseOrderService
             $efek = [];
             foreach ($moves as $m) {
                 $key = ($m->user_id ?? 'hq').':'.$m->product_id;
-                $efek[$key] ??= ['user_id' => $m->user_id, 'product_id' => $m->product_id, 'delta' => 0];
+                $efek[$key] ??= [
+                    'user_id' => $m->user_id,
+                    'product_id' => $m->product_id,
+                    'delta' => 0,
+                    'paling_awal' => $m->created_at,
+                ];
                 $efek[$key]['delta'] += (int) $m->after_qty - (int) $m->before_qty;
+
+                if ($m->created_at && $m->created_at->lt($efek[$key]['paling_awal'])) {
+                    $efek[$key]['paling_awal'] = $m->created_at;
+                }
             }
 
             $actions = [];
@@ -450,6 +480,25 @@ class PurchaseOrderService
 
                 if (! $product) {
                     $blockers[] = "Produk id {$e['product_id']} sudah tidak ada — tak bisa dikoreksi.";
+
+                    continue;
+                }
+
+                // Opname menyetel saldo mengikuti hitungan FISIK: apa pun yang
+                // terjadi sebelum tanggalnya sudah diperhitungkan olehnya.
+                // Membatalkan gerakan pra-opname lalu mengembalikan stoknya =
+                // menambah barang yang hitungan fisik sudah bilang tidak ada.
+                if ($opname = $this->opnameSesudah($e['product_id'], $e['paling_awal'])) {
+                    $blockers[] = sprintf(
+                        '%s: gerakan PO ini (%s) jatuh SEBELUM stok opname %s yang menyetel saldo ke %s'
+                        .' mengikuti hitungan fisik. Opname sudah memperhitungkannya — membalikkannya sekarang'
+                        .' akan menggandakan %d unit.',
+                        $product->name,
+                        $e['paling_awal']->format('d M Y'),
+                        $opname->created_at->format('d M Y'),
+                        number_format((int) $opname->after_qty, 0, ',', '.'),
+                        abs($balik),
+                    );
 
                     continue;
                 }
