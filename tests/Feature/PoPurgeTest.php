@@ -142,8 +142,15 @@ class PoPurgeTest extends TestCase
     {
         [$p] = $this->skenario();
 
+        $sa = $this->superAdmin();
+
         $this->assertSame(1, Artisan::call('po:purge', ['nomor' => 'SKN-PO-20260627-5881', '--force' => true]));
-        $this->assertStringContainsString('--as=<username> wajib', Artisan::output());
+        $out = Artisan::output();
+
+        $this->assertStringContainsString('--as wajib diisi', $out);
+        // Username yang sah ikut disebutkan: placeholder --as=<username> ditelan
+        // bash sebagai redirect, jadi menebak-nebak bukan pilihan.
+        $this->assertStringContainsString("--as={$sa->username}", $out);
         $this->assertSame(346, (int) $p->fresh()->hq_stock);
     }
 

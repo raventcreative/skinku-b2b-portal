@@ -96,21 +96,25 @@ class PoPurgeCommand extends Command
         $username = $this->option('as');
 
         if (! $username) {
-            $this->error('--as=<username> wajib diisi saat --force: penghapusan permanen harus tercatat pelakunya.');
+            $this->error('--as wajib diisi saat --force: penghapusan permanen harus tercatat pelakunya.');
+            $this->daftarSuperAdmin();
 
             return false;
         }
 
-        $actor = User::where('username', $username)->first();
+        // Username dicocokkan juga ke email: yang diingat orang biasanya emailnya.
+        $actor = User::where('username', $username)->orWhere('email', $username)->first();
 
         if (! $actor) {
             $this->error("Pengguna \"{$username}\" tidak ditemukan.");
+            $this->daftarSuperAdmin();
 
             return false;
         }
 
         if (! $actor->isSuperAdmin()) {
             $this->error("\"{$username}\" bukan super admin. Hanya super admin yang boleh menghapus permanen.");
+            $this->daftarSuperAdmin();
 
             return false;
         }
@@ -118,5 +122,29 @@ class PoPurgeCommand extends Command
         Auth::login($actor);
 
         return true;
+    }
+
+    /**
+     * Sebutkan username yang sah. Tanpa ini pengguna harus menebak-nebak, dan
+     * placeholder seperti --as=<username> justru ditelan bash sebagai redirect.
+     */
+    private function daftarSuperAdmin(): void
+    {
+        $daftar = User::where('role', User::ROLE_SUPER_ADMIN)
+            ->where('status', User::STATUS_ACTIVE)
+            ->orderBy('username')
+            ->get();
+
+        if ($daftar->isEmpty()) {
+            $this->warn('Tidak ada super admin aktif di sistem ini.');
+
+            return;
+        }
+
+        $this->newLine();
+        $this->line('Super admin aktif — pakai salah satu (tanpa kurung siku):');
+        foreach ($daftar as $u) {
+            $this->line("  --as={$u->username}   <fg=gray>({$u->fullname} · {$u->email})</>");
+        }
     }
 }
