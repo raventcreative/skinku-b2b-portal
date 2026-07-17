@@ -172,4 +172,64 @@ class StockHoldersCommandTest extends TestCase
         $this->assertSame(1, Artisan::call('stock:holders', ['cari' => 'TIDAK-ADA']));
         $this->assertStringContainsString('Tidak ada produk yang cocok', Artisan::output());
     }
+
+    public function test_trace_menampilkan_riwayat_hq_dan_menandai_opname(): void
+    {
+        $p = $this->product();
+
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_OUT,
+            'quantity' => 300, 'before_qty' => 646, 'after_qty' => 346,
+            'reference_type' => 'purchase_order', 'reference_id' => 999,
+        ]);
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_ADJUSTMENT,
+            'quantity' => 654, 'before_qty' => 346, 'after_qty' => 1000,
+            'reference_type' => 'opname', 'notes' => 'Opname 14 Juli',
+        ]);
+        $p->hq_stock = 1000;
+        $p->save();
+
+        $this->assertSame(0, Artisan::call('stock:holders', ['cari' => 'MIZU', '--trace' => true]));
+        $out = Artisan::output();
+
+        $this->assertStringContainsString('STOK PUSAT (HQ)', $out);
+        $this->assertStringContainsString('OPNAME', $out);
+        $this->assertStringContainsString('saldo disetel ke 1.000', $out);
+        // Peringatan inilah gunanya: gerakan sebelum opname tak boleh dibatalkan lagi.
+        $this->assertStringContainsString('sudah diperhitungkan opname', $out);
+    }
+
+    public function test_trace_menyebut_bila_produk_belum_pernah_diopname(): void
+    {
+        $p = $this->product();
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_OUT,
+            'quantity' => 300, 'before_qty' => 646, 'after_qty' => 346,
+            'reference_type' => 'purchase_order', 'reference_id' => 999,
+        ]);
+        $p->hq_stock = 346;
+        $p->save();
+
+        Artisan::call('stock:holders', ['cari' => 'MIZU', '--trace' => true]);
+        $this->assertStringContainsString('Belum pernah ada opname', Artisan::output());
+    }
+
+    /** Stok mitra nol tak boleh menyembunyikan riwayat HQ — justru itu yang dicari. */
+    public function test_trace_tetap_menampilkan_hq_walau_stok_mitra_nol(): void
+    {
+        $p = $this->product();
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_IN,
+            'quantity' => 646, 'before_qty' => 0, 'after_qty' => 646, 'notes' => 'Stok awal',
+        ]);
+        $p->hq_stock = 646;
+        $p->save();
+
+        Artisan::call('stock:holders', ['cari' => 'MIZU', '--trace' => true]);
+        $out = Artisan::output();
+
+        $this->assertStringContainsString('STOK PUSAT (HQ)', $out);
+        $this->assertStringContainsString('tidak ada stok mitra', $out);
+    }
 }

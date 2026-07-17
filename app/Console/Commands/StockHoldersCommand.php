@@ -53,7 +53,10 @@ class StockHoldersCommand extends Command
                 ->orderByDesc('quantity')
                 ->get();
 
-            if ($rows->isEmpty()) {
+            // Dengan --trace produknya tetap ditampilkan walau stok mitranya nol:
+            // riwayat HQ-nya (termasuk opname) justru yang paling perlu dilihat
+            // setelah stok mitra dibereskan.
+            if ($rows->isEmpty() && ! $this->option('trace')) {
                 continue;
             }
 
@@ -63,6 +66,10 @@ class StockHoldersCommand extends Command
             $this->newLine();
             $this->line("<options=bold>{$product->name}</> (SKU {$product->sku})");
             $this->line('Stok HQ: <fg=cyan>'.number_format((int) $product->hq_stock, 0, ',', '.').'</>  |  Stok Mitra (angka di grafik): <fg=yellow>'.number_format($total, 0, ',', '.').'</>');
+
+            if ($rows->isEmpty()) {
+                $this->line('  <fg=gray>(tidak ada stok mitra)</>');
+            }
 
             $this->table(
                 ['Pemilik', 'Peran', 'Status akun', 'Qty', 'Terakhir diubah'],
@@ -91,6 +98,7 @@ class StockHoldersCommand extends Command
             }
 
             if ($this->option('trace')) {
+                $this->traceHq($product);
                 foreach ($rows as $inv) {
                     $this->traceMovements($product, $inv);
                 }
@@ -102,6 +110,71 @@ class StockHoldersCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Riwayat stok PUSAT (user_id null), dengan opname ditandai.
+     *
+     * Ini yang menentukan apakah koreksi stok boleh dilakukan. Opname menyetel
+     * saldo mengikuti hitungan FISIK: gerakan sebelum opname sudah "diselesaikan"
+     * olehnya. Membatalkan PO yang jatuh SEBELUM opname lalu mengembalikan
+     * stoknya = menambah barang yang hitungan fisik sudah bilang tidak ada.
+     */
+    private function traceHq(Product $product): void
+    {
+        $moves = StockMovement::query()
+            ->whereNull('user_id')
+            ->where('product_id', $product->id)
+            ->orderBy('created_at')
+            ->get();
+
+        $this->newLine();
+        $this->line("  <options=bold>Riwayat: STOK PUSAT (HQ)</> — {$product->name}");
+
+        if ($moves->isEmpty()) {
+            $this->warn('  ⚠ Saldo HQ '.number_format((int) $product->hq_stock, 0, ',', '.').' unit TANPA satu pun gerakan — tak ada jejak sama sekali.');
+
+            return;
+        }
+
+        $opname = $moves->firstWhere('reference_type', 'opname');
+
+        $this->table(
+            ['Tanggal', 'Jenis', 'Qty', 'Saldo', 'Asal', 'Catatan'],
+            $moves->map(function (StockMovement $m) {
+                $delta = (int) $m->after_qty - (int) $m->before_qty;
+                $asal = $m->reference_type === 'opname'
+                    ? '★ OPNAME'
+                    : ($m->reference_type ? $m->reference_type.' #'.$m->reference_id : '-');
+
+                return [
+                    $m->created_at?->format('d M Y H:i') ?? '-',
+                    $m->movement_type,
+                    ($delta > 0 ? '+' : ($delta < 0 ? '−' : '')).number_format(abs($delta), 0, ',', '.'),
+                    number_format((int) $m->before_qty, 0, ',', '.').' → '.number_format((int) $m->after_qty, 0, ',', '.'),
+                    $asal,
+                    $m->notes ?: '-',
+                ];
+            })->all(),
+        );
+
+        $terakhir = (int) $moves->last()->after_qty;
+        if ($terakhir !== (int) $product->hq_stock) {
+            $this->warn(sprintf(
+                '  ⚠ Saldo HQ (%s) TIDAK cocok dengan gerakan terakhir (%s) — ada perubahan tanpa jejak.',
+                number_format((int) $product->hq_stock, 0, ',', '.'),
+                number_format($terakhir, 0, ',', '.'),
+            ));
+        }
+
+        if ($opname) {
+            $this->line('  <fg=cyan>★ Opname '.$opname->created_at?->format('d M Y').': saldo disetel ke '
+                .number_format((int) $opname->after_qty, 0, ',', '.').' mengikuti hitungan fisik.</>');
+            $this->warn('  ⚠ Gerakan SEBELUM tanggal itu sudah diperhitungkan opname. Membatalkannya');
+            $this->warn('    dan mengembalikan stoknya = menambah barang yang hitungan fisik bilang tidak ada.');
+        } else {
+            $this->line('  <fg=gray>Belum pernah ada opname untuk produk ini.</>');
+        }
     }
 
     /**
