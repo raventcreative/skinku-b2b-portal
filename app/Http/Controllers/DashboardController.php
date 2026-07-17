@@ -25,7 +25,8 @@ class DashboardController extends Controller
         // ?bulan=YYYY-MM berlaku untuk SELURUH dashboard; default bulan berjalan.
         $bulan = $this->parseMonth($request->query('bulan'));
 
-        $summary = $this->reports->summary($user, $bulan);
+        // Dashboard = lintas channel; Laporan Penjualan = khusus PO.
+        $summary = $this->reports->summary($user, $bulan, allChannels: true);
         $poStatus = $this->reports->poStatusDistribution($user, $bulan);
         $salesTrend = $this->reports->salesTrend('day', 31, $user, $bulan);
 

@@ -51,11 +51,13 @@ class ReportService
      * (penjualan & PO) dibatasi ke bulan itu; angka SAAT INI (mitra, produk,
      * stok) tetap apa adanya — memfilternya per bulan tak punya arti.
      *
-     * Saat bulan dipilih & pemirsa staff, `total_sales` mencakup SEMUA channel.
-     * Kartu lama hanya menghitung PO sehingga menulis "Rp 0" padahal TikTok
-     * berjalan — menyesatkan.
+     * $allChannels: true → `total_sales` mencakup SEMUA channel (dipakai Dashboard;
+     * kartu PO-saja menulis "Rp 0" padahal TikTok berjalan — menyesatkan).
+     * false → PO saja (dipakai Laporan Penjualan, yang memang laporan PO: omzet
+     * barang, HPP, dan laba kotornya semua berbasis PO). Eksplisit, supaya label
+     * yang sama tak berarti dua hal berbeda di dua halaman.
      */
-    public function summary(?User $viewer = null, ?Carbon $month = null): array
+    public function summary(?User $viewer = null, ?Carbon $month = null, bool $allChannels = false): array
     {
         $completed = $this->inMonth(
             $this->scopePo(PurchaseOrder::query()->where('status', self::REVENUE_STATUS), $viewer),
@@ -64,10 +66,9 @@ class ReportService
 
         $allPo = $this->inMonth($this->scopePo(PurchaseOrder::query(), $viewer), $month);
 
-        $totalSales = (float) (clone $completed)->sum('total_amount');
-        if ($month && $viewer && $viewer->isStaff()) {
-            $totalSales = (float) collect($this->channelSales($month))->sum('confirmed');
-        }
+        $totalSales = $allChannels && $month && $viewer?->isStaff()
+            ? (float) collect($this->channelSales($month))->sum('confirmed')
+            : (float) (clone $completed)->sum('total_amount');
 
         return [
             'total_sales' => $totalSales,

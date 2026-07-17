@@ -168,10 +168,49 @@ class ChannelSalesTest extends TestCase
         // menyesatkan. Sekarang harus mencakup semua channel.
         TiktokOrder::create(['tiktok_order_id' => 'TT-K', 'status' => 'COMPLETED', 'total_amount' => 52_000_000, 'order_created_at' => '2026-07-10', 'line_items' => []]);
 
-        $s = app(ReportService::class)->summary($admin, Carbon::parse('2026-07-15'));
+        // allChannels: true = mode Dashboard (lintas channel)
+        $s = app(ReportService::class)->summary($admin, Carbon::parse('2026-07-15'), allChannels: true);
 
         $this->assertEqualsWithDelta(52_000_000, $s['total_sales'], 0.01);
         Carbon::setTestNow();
+    }
+
+    public function test_dashboard_counts_all_channels_but_reports_page_counts_po_only(): void
+    {
+        // Label "Penjualan" pernah berarti dua hal berbeda di dua halaman tanpa
+        // penanda — sumber salah baca. Kini eksplisit lewat $allChannels.
+        Carbon::setTestNow('2026-07-16 12:00:00');
+        $admin = User::create([
+            'name' => 'E', 'fullname' => 'E', 'username' => 'chadm5', 'email' => 'ch5@skinku.test',
+            'password' => Hash::make('secret123'),
+            'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+        $this->po('PO-X', 'completed', 2_000_000, '2026-07-05');
+        TiktokOrder::create(['tiktok_order_id' => 'TT-X', 'status' => 'COMPLETED', 'total_amount' => 50_000_000, 'order_created_at' => '2026-07-10', 'line_items' => []]);
+
+        $svc = app(ReportService::class);
+        $bulan = Carbon::parse('2026-07-15');
+
+        // Dashboard: lintas channel
+        $this->assertEqualsWithDelta(52_000_000, $svc->summary($admin, $bulan, allChannels: true)['total_sales'], 0.01);
+        // Laporan Penjualan: PO saja (omzet barang/HPP/laba di situ semua basis PO)
+        $this->assertEqualsWithDelta(2_000_000, $svc->summary($admin, $bulan)['total_sales'], 0.01);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_reports_page_labels_the_period_and_scope(): void
+    {
+        $admin = User::create([
+            'name' => 'F', 'fullname' => 'F', 'username' => 'chadm6', 'email' => 'ch6@skinku.test',
+            'password' => Hash::make('secret123'),
+            'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $this->actingAs($admin)->get(route('reports.index'))->assertOk()
+            ->assertSee('Penjualan PO')            // bukan "Total Penjualan" yg ambigu
+            ->assertSee('semua periode')           // periode kartu jelas
+            ->assertSee('hanya mengubah grafik, bukan angka kartu');
     }
 
     public function test_month_filter_scopes_po_cards_and_status_chart(): void

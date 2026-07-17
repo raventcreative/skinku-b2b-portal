@@ -7,38 +7,62 @@
 @if($isPartner)
     <p class="text-xs text-stone-500 mb-4">Ringkasan pesanan (PO) Anda ke pusat SKINKU — total pembelian, jumlah PO, dan statusnya.</p>
 @endif
-<div class="flex justify-between items-center mb-4">
-    <form method="GET" class="flex gap-2 items-center text-sm">
-        <span class="text-stone-500">Granularitas tren:</span>
-        <select name="granularity" onchange="this.form.submit()" class="px-3 py-2 border border-stone-300 rounded-lg">
-            @foreach(['day' => 'Harian', 'week' => 'Mingguan', 'month' => 'Bulanan'] as $val => $label)
-                <option value="{{ $val }}" @selected($granularity===$val)>{{ $label }}</option>
-            @endforeach
-        </select>
-    </form>
-</div>
+{{-- Satu baris kendali: PERIODE menyaring seluruh halaman; granularitas hanya
+     mengatur bucket grafik tren. Dulu granularitas berdiri sendiri di atas
+     sehingga tampak seperti filter halaman — bikin salah baca. --}}
+@php $per = $bulan ? $bulan->translatedFormat('M Y') : 'semua periode'; @endphp
+<form method="GET" class="flex flex-wrap items-center gap-3 mb-4 text-sm">
+    <span class="text-stone-500">Periode</span>
+    <input type="month" name="bulan" value="{{ $bulan?->format('Y-m') }}" onchange="this.form.submit()"
+        class="px-3 py-2 border border-stone-300 rounded-lg text-xs">
+    @if($bulan)
+        <a href="{{ route('reports.index', ['granularity' => $granularity]) }}" class="text-xs text-indigo-600 hover:underline">semua periode</a>
+    @endif
+
+    <span class="text-stone-300">|</span>
+
+    <span class="text-stone-500 text-xs">Bucket grafik tren</span>
+    <select name="granularity" onchange="this.form.submit()" class="px-3 py-2 border border-stone-300 rounded-lg text-xs">
+        @foreach(['day' => 'Harian', 'week' => 'Mingguan', 'month' => 'Bulanan'] as $val => $label)
+            <option value="{{ $val }}" @selected($granularity===$val)>{{ $label }}</option>
+        @endforeach
+    </select>
+    <span class="text-[11px] text-stone-400">hanya mengubah grafik, bukan angka kartu</span>
+</form>
 
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     @php
+        // Halaman ini khusus PO — omzet barang, HPP & laba kotornya semua berbasis
+        // PO. Labelnya diberi "PO" agar tak tertukar dengan kartu Dashboard yang
+        // mencakup semua channel.
         $cards = $isPartner ? [
-            ['Total Pembelian (selesai)', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.')],
-            ['Jumlah PO Saya', number_format($summary['total_po'], 0, ',', '.')],
-            ['PO Pending', number_format($summary['pending_po'], 0, ',', '.')],
-            ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.')],
+            ['Total Pembelian (selesai)', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), $per],
+            ['Jumlah PO Saya', number_format($summary['total_po'], 0, ',', '.'), $per],
+            ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), $per],
+            ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), $per],
         ] : [
-            ['Total Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.')],
-            ['Total PO', number_format($summary['total_po'], 0, ',', '.')],
-            ['Produk Aktif', number_format($summary['total_products'], 0, ',', '.')],
-            ['Stok Pusat', number_format($summary['hq_stock_units'], 0, ',', '.')],
+            ['Penjualan PO', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), $per],
+            ['Total PO', number_format($summary['total_po'], 0, ',', '.'), $per],
+            ['Produk Aktif', number_format($summary['total_products'], 0, ',', '.'), 'saat ini'],
+            ['Stok Pusat', number_format($summary['hq_stock_units'], 0, ',', '.'), 'saat ini'],
         ];
     @endphp
-    @foreach($cards as [$l, $v])
+    @foreach($cards as [$l, $v, $note])
         <div class="bg-white rounded-2xl border border-stone-200 p-5">
-            <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">{{ $l }}</p>
+            <div class="flex items-baseline justify-between gap-1">
+                <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">{{ $l }}</p>
+                <span class="text-[9px] text-stone-300 shrink-0">{{ $note }}</span>
+            </div>
             <p class="text-xl font-bold text-stone-900 mt-2">{{ $v }}</p>
         </div>
     @endforeach
 </div>
+@unless($isPartner)
+    <p class="text-[11px] text-stone-400 -mt-4 mb-6">
+        ℹ️ Halaman ini khusus <b>penjualan PO/distributor</b>. Untuk omzet <b>semua channel</b>
+        (TikTok, Shopee, PO) lihat <a href="{{ route('dashboard') }}" class="text-indigo-600 hover:underline">Dashboard</a>.
+    </p>
+@endunless
 
 @isset($grossProfit)
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -86,17 +110,10 @@
     <div class="bg-white rounded-2xl border border-stone-200 mt-6 overflow-hidden">
         <div class="px-5 py-3 border-b border-stone-100 flex flex-wrap items-center gap-3">
             <h3 class="text-sm font-bold text-stone-800">Penjualan per Mitra</h3>
+            {{-- Ikut filter periode di atas — satu kendali untuk seluruh halaman. --}}
             <span class="text-[11px] text-stone-400">
                 {{ $bulan ? $bulan->translatedFormat('F Y') : 'semua periode' }} · PO selesai
             </span>
-            <form method="GET" class="flex items-center gap-2 ml-auto">
-                <input type="hidden" name="granularity" value="{{ $granularity }}">
-                <input type="month" name="bulan" value="{{ $bulan?->format('Y-m') }}" onchange="this.form.submit()"
-                    class="px-2 py-1 border border-stone-300 rounded-lg text-xs">
-                @if($bulan)
-                    <a href="{{ route('reports.index') }}" class="text-[11px] text-indigo-600 hover:underline">semua</a>
-                @endif
-            </form>
         </div>
 
         @if(count($partnerDetail))
