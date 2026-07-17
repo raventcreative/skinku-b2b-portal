@@ -51,6 +51,19 @@
             </div>
         </div>
 
+        {{-- Pembeli sekali-beli tak perlu dibuatkan akun — cukup namanya di sini. --}}
+        <div class="mb-4">
+            <label class="block text-[11px] font-semibold text-stone-500 mb-1">
+                Nama pembeli <span class="font-normal text-stone-400">(opsional — isi kalau pembeli sekali-beli, mis. “Vani”)</span>
+            </label>
+            <input name="buyer_name" value="{{ old('buyer_name') }}" maxlength="150"
+                placeholder="kosongkan kalau mitra tetap di atas"
+                class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            <p class="text-[11px] text-stone-400 mt-1">
+                Kalau diisi, nama ini yang tampil di daftar PO — mitra di atas cuma dipakai untuk tier harga.
+            </p>
+        </div>
+
         <div class="hidden sm:flex gap-2 text-[10px] uppercase tracking-wide text-stone-400 font-semibold mb-1">
             <span class="flex-1">Produk (ketik untuk cari)</span>
             <span class="w-20 text-right">Qty</span>
@@ -96,7 +109,9 @@
                         <tr class="border-t border-stone-100">
                             <td class="px-4 py-2"><a href="{{ route('purchase-orders.show', $po) }}" class="font-semibold text-indigo-700 hover:underline">{{ $po->po_number }}</a></td>
                             <td class="text-stone-600">{{ $po->orderDate()->format('d M Y') }}</td>
-                            <td class="text-stone-600">{{ $po->company_name ?: '—' }}</td>
+                            {{-- Jatuh ke nama user kalau company_name kosong — jangan tampilkan
+                                 strip, itu bikin entri jadi tak ketahuan punya siapa. --}}
+                            <td class="text-stone-600">{{ $po->company_name ?: ($po->user->fullname ?? $po->user->name ?? '—') }}</td>
                             <td class="text-right text-stone-700">{{ $rp($po->total_amount) }}</td>
                             <td class="px-4">
                                 @if($po->stock_skipped)

@@ -275,7 +275,7 @@ class PurchaseOrderService
      *
      * @param  array<int, array{product_id:int, qty:int}>  $lines
      */
-    public function recordBackdatedSale(User $buyer, array $lines, Carbon $orderDate, ?string $notes, int $creatorId): PurchaseOrder
+    public function recordBackdatedSale(User $buyer, array $lines, Carbon $orderDate, ?string $notes, int $creatorId, ?string $buyerName = null): PurchaseOrder
     {
         // Harga manual per baris (opsional) — harga lama kerap beda dari tier saat ini.
         $prices = [];
@@ -286,7 +286,14 @@ class PurchaseOrderService
         }
 
         $po = $this->createForPartner($buyer, $lines, null, $notes, $prices);
-        $po->update(['order_date' => $orderDate->toDateString(), 'created_by' => $creatorId]);
+
+        $attrs = ['order_date' => $orderDate->toDateString(), 'created_by' => $creatorId];
+        // Pembeli sekali-beli (mis. "Vani") tak perlu dibuatkan akun — namanya
+        // disimpan di PO. company_name memang field snapshot, bukan relasi.
+        if ($buyerName) {
+            $attrs['company_name'] = $buyerName;
+        }
+        $po->update($attrs);
 
         return $this->complete($po->fresh(), $notes);
     }

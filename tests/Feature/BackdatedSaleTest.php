@@ -183,6 +183,45 @@ class BackdatedSaleTest extends TestCase
         $this->assertEqualsWithDelta(50_000, (float) $po->total_amount, 0.01);  // tier, bukan 1
     }
 
+    public function test_one_time_buyer_needs_no_account(): void
+    {
+        // "Vani" beli sekali — tak perlu dibuatkan akun; mitra di form hanya
+        // dipakai untuk tier harga, namanya yang tersimpan di PO.
+        AppSetting::put(AppSetting::PO_DEDUCT_FROM, '2026-07-15');
+        $p = $this->product();
+        $erin = $this->partner();
+        $admin = $this->admin();
+        $usersBefore = User::count();   // hitung SETELAH semua akun uji dibuat
+
+        $this->actingAs($admin)->post(route('backdated-sales.store'), [
+            'user_id' => $erin->id,
+            'buyer_name' => 'Vani',
+            'order_date' => '2026-03-18',
+            'items' => [['product_id' => $p->id, 'qty' => 10, 'price' => 26_400]],
+        ])->assertRedirect();
+
+        $po = PurchaseOrder::latest('id')->first();
+        $this->assertSame('Vani', $po->company_name);
+        $this->assertEqualsWithDelta(264_000, (float) $po->total_amount, 0.01);
+        // tidak ada akun baru dibuat (admin yang login sudah dihitung sebelumnya)
+        $this->assertSame($usersBefore, User::count());
+    }
+
+    public function test_buyer_name_blank_keeps_partner_name(): void
+    {
+        AppSetting::put(AppSetting::PO_DEDUCT_FROM, '2026-07-15');
+        $p = $this->product();
+        $erin = $this->partner();
+
+        $this->actingAs($this->admin())->post(route('backdated-sales.store'), [
+            'user_id' => $erin->id,
+            'order_date' => '2026-03-18',
+            'items' => [['product_id' => $p->id, 'qty' => 1]],
+        ])->assertRedirect();
+
+        $this->assertSame($erin->company_name, PurchaseOrder::latest('id')->first()->company_name);
+    }
+
     public function test_page_renders_and_partner_forbidden(): void
     {
         $this->actingAs($this->admin())->get(route('backdated-sales.index'))->assertOk()

@@ -44,6 +44,8 @@ class BackdatedSaleController extends Controller
         $data = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
             'order_date' => ['required', 'date'],
+            // Pembeli sekali-beli: cukup namanya, tak perlu dibuatkan akun.
+            'buyer_name' => ['nullable', 'string', 'max:150'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
@@ -62,6 +64,7 @@ class BackdatedSaleController extends Controller
                 orderDate: Carbon::parse($data['order_date']),
                 notes: $data['notes'] ?? null,
                 creatorId: $request->user()->id,
+                buyerName: $data['buyer_name'] ?? null,
             );
         } catch (\Throwable $e) {
             return back()->withInput()->withErrors(['items' => $e->getMessage()]);
