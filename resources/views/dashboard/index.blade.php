@@ -159,8 +159,13 @@
         <div class="grid sm:grid-cols-2 gap-4 mb-4">
             <div class="rounded-xl border border-stone-100 p-3">
                 <p class="text-[11px] font-semibold text-stone-600 text-center mb-2">Terealisasi · {{ $rp($sumConfirmed) }}</p>
+                {{-- Canvas dibiarkan selebar panel, tinggi yang mengunci ukuran donat
+                     (radius = min(lebar,tinggi)/2, jadi donatnya tetap 170px dan
+                     terpusat). Dulu dikurung max-width:170px — tooltip Chart.js
+                     digambar DI ATAS canvas, jadi teks yang lebih lebar dari 170px
+                     terpotong dan angkanya tak terbaca. --}}
                 @if($sumConfirmed > 0)
-                    <div style="max-width:170px; margin:0 auto"><canvas id="channelChart-confirmed" height="170"></canvas></div>
+                    <div style="height:170px"><canvas id="channelChart-confirmed"></canvas></div>
                 @else
                     <p class="text-[11px] text-stone-300 text-center py-10">belum ada</p>
                 @endif
@@ -168,7 +173,7 @@
             <div class="rounded-xl border border-stone-100 p-3">
                 <p class="text-[11px] font-semibold text-stone-600 text-center mb-2">Semua (cair + berjalan) · {{ $rp($estimasi) }}</p>
                 @if($estimasi > 0)
-                    <div style="max-width:170px; margin:0 auto"><canvas id="channelChart-all" height="170"></canvas></div>
+                    <div style="height:170px"><canvas id="channelChart-all"></canvas></div>
                     <div class="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-3">
                         @foreach($channelSales as $ch)
                             @if($ch['confirmed'] > 0)
@@ -335,12 +340,25 @@
         type: 'doughnut',
         data: { labels, datasets: [{ data, backgroundColor: colors }] },
         options: {
+            // Tinggi wadah yang mengunci ukuran donat; canvas boleh selebar panel
+            // supaya tooltip punya ruang. Tanpa ini donat memenuhi lebar penuh.
+            maintainAspectRatio: false,
             cutout: '58%',
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: c => c.label + ': ' + rupiah(c.raw) } }
-            }
-        }
+                tooltip: {
+                    callbacks: {
+                        // Judul tooltip SUDAH menampilkan label; mengulanginya di isi
+                        // bikin teks dua kali lebih lebar dan terpotong canvas.
+                        label: c => {
+                            const total = c.dataset.data.reduce((a, b) => a + b, 0);
+                            const porsi = total > 0 ? (c.raw / total * 100) : 0;
+                            return rupiah(c.raw) + ' · ' + porsi.toLocaleString('id-ID', { maximumFractionDigits: 1 }) + '%';
+                        },
+                    },
+                },
+            },
+        },
     });
 
     // Kiri: proporsi channel dari yang sudah cair.

@@ -290,4 +290,34 @@ class ChannelSalesTest extends TestCase
         // digambar lama → baru
         $this->assertLessThan($trend[13]['label'], $trend[0]['label']);
     }
+
+    /**
+     * Tooltip donat channel dulu terpotong: canvas dikurung max-width:170px,
+     * sedangkan tooltip Chart.js digambar DI ATAS canvas — teks yang lebih lebar
+     * ikut terpotong, sehingga "Rp 1.966.000" terbaca "Rp 1.966".
+     */
+    public function test_donat_channel_tidak_mengurung_lebar_canvas(): void
+    {
+        Carbon::setTestNow('2026-07-16 12:00:00');
+        $admin = User::create([
+            'name' => 'G', 'fullname' => 'G', 'username' => 'chadm7', 'email' => 'ch7@skinku.test',
+            'password' => Hash::make('secret123'),
+            'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+        $this->po('PO-T1', 'completed', 1_966_000, '2026-07-05');
+
+        $html = $this->actingAs($admin)->get('/dashboard')->assertOk()->getContent();
+
+        // Kurungan lebar itu penyebabnya — tak boleh kembali.
+        $this->assertStringNotContainsString('max-width:170px', $html);
+        // Tinggi wadah yang mengunci ukuran donat, bukan lebar canvas.
+        $this->assertStringContainsString('height:170px', $html);
+        $this->assertStringContainsString('maintainAspectRatio: false', $html);
+
+        // Isi tooltip tak lagi mengulang label yang sudah ada di judulnya —
+        // pengulangan itu yang bikin teksnya dua kali lebih lebar.
+        $this->assertStringNotContainsString("c.label + ': ' + rupiah(c.raw)", $html);
+
+        Carbon::setTestNow();
+    }
 }
