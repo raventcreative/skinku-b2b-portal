@@ -112,6 +112,57 @@ class ChannelSalesTest extends TestCase
             ->assertSee('Batal &amp; Belum Bayar', false);
     }
 
+    public function test_total_penjualan_card_covers_all_channels_not_just_po(): void
+    {
+        Carbon::setTestNow('2026-07-16 12:00:00');
+        $admin = User::create([
+            'name' => 'C', 'fullname' => 'C', 'username' => 'chadm3', 'email' => 'ch3@skinku.test',
+            'password' => Hash::make('secret123'),
+            'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+        // Tak ada PO sama sekali, tapi TikTok jalan. Kartu lama menulis "Rp 0" —
+        // menyesatkan. Sekarang harus mencakup semua channel.
+        TiktokOrder::create(['tiktok_order_id' => 'TT-K', 'status' => 'COMPLETED', 'total_amount' => 52_000_000, 'order_created_at' => '2026-07-10', 'line_items' => []]);
+
+        $s = app(ReportService::class)->summary($admin, Carbon::parse('2026-07-15'));
+
+        $this->assertEqualsWithDelta(52_000_000, $s['total_sales'], 0.01);
+        Carbon::setTestNow();
+    }
+
+    public function test_month_filter_scopes_po_cards_and_status_chart(): void
+    {
+        $this->po('PO-JUN', 'completed', 3_000_000, '2026-06-10');
+        $this->po('PO-JUL', 'pending', 1_000_000, '2026-07-10');
+        $svc = app(ReportService::class);
+
+        $jun = $svc->summary(null, Carbon::parse('2026-06-15'));
+        $jul = $svc->summary(null, Carbon::parse('2026-07-15'));
+
+        $this->assertSame(1, $jun['total_po']);
+        $this->assertSame(0, $jun['pending_po']);
+        $this->assertSame(1, $jul['total_po']);
+        $this->assertSame(1, $jul['pending_po']);
+
+        // pie status PO ikut tersaring
+        $junStatus = collect($svc->poStatusDistribution(null, Carbon::parse('2026-06-15')))->keyBy('label');
+        $this->assertSame(1, $junStatus['completed']['total']);
+        $this->assertSame(0, $junStatus['pending']['total']);
+    }
+
+    public function test_reports_page_keeps_all_time_numbers(): void
+    {
+        // Halaman Laporan Penjualan memanggil tanpa bulan → perilaku lama (semua
+        // waktu) harus utuh; jangan diam-diam berubah jadi bulan berjalan.
+        $this->po('PO-OLD', 'completed', 5_000_000, '2020-01-05');
+        $this->po('PO-NEW', 'completed', 1_000_000, '2026-07-10');
+
+        $s = app(ReportService::class)->summary();
+
+        $this->assertSame(2, $s['total_po']);
+        $this->assertEqualsWithDelta(6_000_000, $s['total_sales'], 0.01);
+    }
+
     public function test_dashboard_can_look_at_a_past_month(): void
     {
         $admin = User::create([

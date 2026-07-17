@@ -20,6 +20,22 @@ class ReportService
 {
     private const REVENUE_STATUS = PurchaseOrder::STATUS_COMPLETED;
 
+    /**
+     * Batasi query PO ke satu bulan berdasarkan TANGGAL ORDER (order_date bila
+     * diisi, jatuh ke created_at). Null = tanpa batas (perilaku lama).
+     */
+    private function inMonth($query, ?Carbon $month)
+    {
+        if (! $month) {
+            return $query;
+        }
+
+        return $query->whereRaw(
+            'COALESCE(order_date, DATE(created_at)) BETWEEN ? AND ?',
+            [$month->copy()->startOfMonth()->toDateString(), $month->copy()->endOfMonth()->toDateString()],
+        );
+    }
+
     /** Scope helper: partners only see their own data. */
     private function scopePo($query, ?User $viewer)
     {
@@ -30,18 +46,31 @@ class ReportService
         return $query;
     }
 
-    /** Top-line KPI cards for the dashboard. */
-    public function summary(?User $viewer = null): array
+    /**
+     * KPI utama. $month opsional: bila diisi, angka yang BERBASIS PERIODE
+     * (penjualan & PO) dibatasi ke bulan itu; angka SAAT INI (mitra, produk,
+     * stok) tetap apa adanya — memfilternya per bulan tak punya arti.
+     *
+     * Saat bulan dipilih & pemirsa staff, `total_sales` mencakup SEMUA channel.
+     * Kartu lama hanya menghitung PO sehingga menulis "Rp 0" padahal TikTok
+     * berjalan — menyesatkan.
+     */
+    public function summary(?User $viewer = null, ?Carbon $month = null): array
     {
-        $completed = $this->scopePo(
-            PurchaseOrder::query()->where('status', self::REVENUE_STATUS),
-            $viewer
+        $completed = $this->inMonth(
+            $this->scopePo(PurchaseOrder::query()->where('status', self::REVENUE_STATUS), $viewer),
+            $month,
         );
 
-        $allPo = $this->scopePo(PurchaseOrder::query(), $viewer);
+        $allPo = $this->inMonth($this->scopePo(PurchaseOrder::query(), $viewer), $month);
+
+        $totalSales = (float) (clone $completed)->sum('total_amount');
+        if ($month && $viewer && $viewer->isStaff()) {
+            $totalSales = (float) collect($this->channelSales($month))->sum('confirmed');
+        }
 
         return [
-            'total_sales' => (float) (clone $completed)->sum('total_amount'),
+            'total_sales' => $totalSales,
             'total_po' => (clone $allPo)->count(),
             'pending_po' => (clone $allPo)->where('status', PurchaseOrder::STATUS_PENDING)->count(),
             'completed_po' => (clone $completed)->count(),
@@ -168,15 +197,18 @@ class ReportService
     }
 
     /** Sales totals grouped by day/week/month for the trend line chart. */
-    public function salesTrend(string $granularity = 'day', int $points = 14, ?User $viewer = null): array
+    public function salesTrend(string $granularity = 'day', int $points = 14, ?User $viewer = null, ?Carbon $month = null): array
     {
         $driver = DB::connection()->getDriverName();
-        $format = $this->dateFormatExpr('completed_at', $granularity, $driver);
+        // Basis tanggal ORDER, bukan completed_at: entri back-date diselesaikan
+        // hari ini tetapi transaksinya terjadi di masa lalu — memakai completed_at
+        // menaruhnya di titik yang salah pada grafik.
+        $format = $this->dateFormatExpr('COALESCE(order_date, DATE(completed_at))', $granularity, $driver);
 
-        $rows = $this->scopePo(
+        $rows = $this->inMonth($this->scopePo(
             PurchaseOrder::query()->where('status', self::REVENUE_STATUS)->whereNotNull('completed_at'),
-            $viewer
-        )
+            $viewer,
+        ), $month)
             ->selectRaw("$format as bucket, SUM(total_amount) as total, COUNT(*) as orders")
             ->groupBy('bucket')
             ->orderBy('bucket')
@@ -248,9 +280,9 @@ class ReportService
     }
 
     /** PO count grouped by status — pie chart. */
-    public function poStatusDistribution(?User $viewer = null): array
+    public function poStatusDistribution(?User $viewer = null, ?Carbon $month = null): array
     {
-        $rows = $this->scopePo(PurchaseOrder::query(), $viewer)
+        $rows = $this->inMonth($this->scopePo(PurchaseOrder::query(), $viewer), $month)
             ->selectRaw('status, COUNT(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status')

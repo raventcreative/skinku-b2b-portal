@@ -22,25 +22,44 @@
     </div>
 @else
 @php
+    $per = $bulan->translatedFormat('M Y');
+    // Angka BERBASIS PERIODE ikut filter bulan; angka SAAT INI tidak —
+    // memfilter "stok sekarang" per bulan tak punya arti.
     $cards = [
-        ['Total Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), 'emerald'],
-        ['Total PO', number_format($summary['total_po'], 0, ',', '.'), 'stone'],
-        ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), 'amber'],
-        ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), 'blue'],
+        ['Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), 'emerald', $per],
+        ['PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per],
+        ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), 'amber', $per],
+        ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), 'blue', $per],
     ];
     if ($user->isStaff()) {
-        $cards[] = ['Mitra Aktif', number_format($summary['total_partners'], 0, ',', '.'), 'purple'];
-        $cards[] = ['Produk Aktif', number_format($summary['total_products'], 0, ',', '.'), 'rose'];
-        $cards[] = ['Stok Pusat (unit)', number_format($summary['hq_stock_units'], 0, ',', '.'), 'cyan'];
+        $cards[] = ['Mitra Aktif', number_format($summary['total_partners'], 0, ',', '.'), 'purple', 'saat ini'];
+        $cards[] = ['Produk Aktif', number_format($summary['total_products'], 0, ',', '.'), 'rose', 'saat ini'];
+        $cards[] = ['Stok Pusat (unit)', number_format($summary['hq_stock_units'], 0, ',', '.'), 'cyan', 'saat ini'];
     } else {
-        $cards[] = ['Stok Saya (unit)', number_format($summary['partner_stock_units'], 0, ',', '.'), 'cyan'];
+        $cards[] = ['Stok Saya (unit)', number_format($summary['partner_stock_units'], 0, ',', '.'), 'cyan', 'saat ini'];
     }
 @endphp
 
+{{-- Filter periode — berlaku untuk seluruh dashboard --}}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <span class="text-xs text-stone-500">Periode</span>
+    <form method="GET" class="flex items-center gap-2">
+        <input type="month" name="bulan" value="{{ $bulan->format('Y-m') }}" onchange="this.form.submit()"
+            class="px-3 py-1.5 border border-stone-300 rounded-lg text-xs">
+    </form>
+    @if(! $bulan->isSameMonth(now()))
+        <a href="{{ route('dashboard') }}" class="text-xs text-indigo-600 hover:underline">← bulan ini</a>
+    @endif
+    <span class="text-[11px] text-stone-400 ml-auto">Kartu bertanda “saat ini” tidak ikut filter</span>
+</div>
+
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    @foreach($cards as [$label, $value, $color])
+    @foreach($cards as [$label, $value, $color, $note])
         <div class="bg-white rounded-2xl border border-stone-200 p-5">
-            <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">{{ $label }}</p>
+            <div class="flex items-baseline justify-between gap-1">
+                <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">{{ $label }}</p>
+                <span class="text-[9px] text-stone-300 shrink-0">{{ $note }}</span>
+            </div>
             <p class="text-2xl font-bold text-stone-900 mt-2">{{ $value }}</p>
             <span class="inline-block mt-2 w-8 h-1 rounded bg-{{ $color }}-500"></span>
         </div>
@@ -49,11 +68,11 @@
 
 <div class="grid lg:grid-cols-3 gap-6 mb-6">
     <div class="lg:col-span-2 bg-white rounded-2xl border border-stone-200 p-5">
-        <h3 class="text-sm font-bold text-stone-800 mb-3">Tren Penjualan (14 hari terakhir)</h3>
+        <h3 class="text-sm font-bold text-stone-800 mb-3">Tren Penjualan — {{ $bulan->translatedFormat('F Y') }}</h3>
         <canvas id="salesTrendChart" height="110"></canvas>
     </div>
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
-        <h3 class="text-sm font-bold text-stone-800 mb-3">Distribusi Status PO</h3>
+        <h3 class="text-sm font-bold text-stone-800 mb-3">Distribusi Status PO — {{ $bulan->translatedFormat('M Y') }}</h3>
         <canvas id="poStatusChart" height="200"></canvas>
     </div>
 </div>
@@ -77,18 +96,7 @@
     <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-6">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 class="text-sm font-bold text-stone-800">Penjualan per Channel</h3>
-            <div class="flex items-center gap-2 ml-auto">
-                <span class="text-[11px] text-stone-400 hidden sm:inline">berdasarkan tanggal order masuk</span>
-                {{-- Pemilih bulan: bisa menengok bulan lalu, bukan paten bulan ini --}}
-                <form method="GET" class="flex items-center gap-1">
-                    <input type="month" name="bulan" value="{{ $bulan->format('Y-m') }}"
-                        onchange="this.form.submit()"
-                        class="px-2 py-1 border border-stone-300 rounded-lg text-xs">
-                </form>
-                @if(! $bulan->isSameMonth(now()))
-                    <a href="{{ route('dashboard') }}" class="text-[11px] text-indigo-600 hover:underline">bulan ini</a>
-                @endif
-            </div>
+            <span class="text-[11px] text-stone-400 ml-auto">{{ $bulan->translatedFormat('F Y') }} · berdasarkan tanggal order masuk</span>
         </div>
 
         {{-- Ringkasan: sudah jadi + masih jalan = estimasi; batal/belum-bayar dipisah --}}

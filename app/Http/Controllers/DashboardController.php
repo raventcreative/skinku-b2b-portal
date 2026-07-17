@@ -22,13 +22,14 @@ class DashboardController extends Controller
             return view('dashboard.index', ['user' => $user, 'limited' => true]);
         }
 
-        $summary = $this->reports->summary($user);
-        $poStatus = $this->reports->poStatusDistribution($user);
-        $salesTrend = $this->reports->salesTrend('day', 14, $user);
+        // ?bulan=YYYY-MM berlaku untuk SELURUH dashboard; default bulan berjalan.
+        $bulan = $this->parseMonth($request->query('bulan'));
+
+        $summary = $this->reports->summary($user, $bulan);
+        $poStatus = $this->reports->poStatusDistribution($user, $bulan);
+        $salesTrend = $this->reports->salesTrend('day', 31, $user, $bulan);
 
         // Penjualan per channel — data HQ, hanya untuk staff (mitra lihat PO sendiri).
-        // ?bulan=YYYY-MM untuk menengok bulan lain; default bulan berjalan.
-        $bulan = $this->parseMonth($request->query('bulan'));
         $channelSales = $user->isStaff() ? $this->reports->channelSales($bulan) : null;
 
         // Recent POs visible to this user.
