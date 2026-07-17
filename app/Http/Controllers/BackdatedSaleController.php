@@ -26,6 +26,25 @@ class BackdatedSaleController extends Controller
     {
         abort_unless($request->user()->canDo('manage_hq_stock'), 403);
 
+        // Riwayat entri back-date: bisa disaring per bulan & ada totalnya, supaya
+        // bisa dicocokkan langsung dengan angka bulanan di Excel.
+        $entries = PurchaseOrder::whereNotNull('order_date')->with('user');
+
+        $bulan = $request->query('entri_bulan');
+        if ($bulan && preg_match('/^\d{4}-\d{2}$/', $bulan)) {
+            try {
+                $m = Carbon::createFromFormat('Y-m-d', $bulan.'-01');
+                $entries->whereBetween('order_date', [
+                    $m->copy()->startOfMonth()->toDateString(),
+                    $m->copy()->endOfMonth()->toDateString(),
+                ]);
+            } catch (\Throwable $e) {
+                $bulan = null;   // input ngawur → tampilkan semua, bukan error
+            }
+        } else {
+            $bulan = null;
+        }
+
         return view('purchase_orders.backdated', [
             'partners' => User::whereIn('role', [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER])
                 ->where('status', User::STATUS_ACTIVE)->orderBy('fullname')->get(),
@@ -33,7 +52,10 @@ class BackdatedSaleController extends Controller
             'products' => Product::where('status', Product::STATUS_ACTIVE)->orderBy('name')
                 ->get(['id', 'name', 'sku', 'price_distributor', 'price_reseller']),
             'cutoff' => $this->service->stockCutoff(),
-            'recent' => PurchaseOrder::whereNotNull('order_date')->with('user')->latest('id')->limit(10)->get(),
+            'entriBulan' => $bulan,
+            'entriTotal' => (float) (clone $entries)->sum('total_amount'),
+            'entriCount' => (clone $entries)->count(),
+            'recent' => $entries->orderByDesc('order_date')->orderByDesc('id')->paginate(25)->withQueryString(),
         ]);
     }
 

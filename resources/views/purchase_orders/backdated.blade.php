@@ -96,9 +96,31 @@
             onclick="return confirm('Catat penjualan ini?')">Catat Penjualan</button>
     </form>
 
-    @if(count($recent))
-        <div class="bg-white rounded-2xl border border-stone-200 mt-5 overflow-hidden">
-            <div class="px-4 py-2.5 border-b border-stone-100 text-sm font-bold text-stone-800">Entri Back-date Terakhir</div>
+    <div class="bg-white rounded-2xl border border-stone-200 mt-5 overflow-hidden">
+        <div class="px-4 py-3 border-b border-stone-100 flex flex-wrap items-center gap-3">
+            <span class="text-sm font-bold text-stone-800">Riwayat Entri Back-date</span>
+
+            {{-- Saring per bulan + total, supaya bisa dicocokkan dengan Excel bulanan --}}
+            <form method="GET" class="flex items-center gap-2 ml-auto">
+                <input type="month" name="entri_bulan" value="{{ $entriBulan }}" onchange="this.form.submit()"
+                    class="px-2 py-1 border border-stone-300 rounded-lg text-xs">
+                @if($entriBulan)
+                    <a href="{{ route('backdated-sales.index') }}" class="text-[11px] text-indigo-600 hover:underline">semua</a>
+                @endif
+            </form>
+        </div>
+
+        <div class="px-4 py-2.5 bg-stone-50 border-b border-stone-100 flex flex-wrap items-baseline gap-2 text-xs">
+            <span class="text-stone-500">
+                {{ $entriBulan ? \Illuminate\Support\Carbon::parse($entriBulan.'-01')->translatedFormat('F Y') : 'Semua periode' }}
+                · <b>{{ number_format($entriCount, 0, ',', '.') }}</b> entri
+            </span>
+            <span class="ml-auto text-stone-500">Total tercatat
+                <b class="text-stone-900 text-sm">{{ $rp($entriTotal) }}</b>
+            </span>
+        </div>
+
+        @if(count($recent))
             <table class="w-full text-xs">
                 <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
                     <tr><th class="text-left px-4 py-2">No. PO</th><th class="text-left">Tgl Order</th>
@@ -124,8 +146,16 @@
                     @endforeach
                 </tbody>
             </table>
-        </div>
-    @endif
+
+            @if($recent->hasPages())
+                <div class="px-4 py-3 border-t border-stone-100">{{ $recent->links() }}</div>
+            @endif
+        @else
+            <p class="px-4 py-8 text-center text-xs text-stone-400">
+                {{ $entriBulan ? 'Tidak ada entri back-date pada bulan ini.' : 'Belum ada entri back-date.' }}
+            </p>
+        @endif
+    </div>
 </div>
 
 <script>

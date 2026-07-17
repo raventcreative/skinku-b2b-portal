@@ -222,6 +222,35 @@ class BackdatedSaleTest extends TestCase
         $this->assertSame($erin->company_name, PurchaseOrder::latest('id')->first()->company_name);
     }
 
+    public function test_history_is_not_capped_and_totals_per_month(): void
+    {
+        AppSetting::put(AppSetting::PO_DEDUCT_FROM, '2026-07-15');
+        $p = $this->product();
+        $erin = $this->partner();
+        $admin = $this->admin();
+        $svc = app(PurchaseOrderService::class);
+
+        // 30 entri Juni (> 10, batas pratinjau lama) + 1 entri Mei
+        foreach (range(1, 30) as $i) {
+            $svc->recordBackdatedSale($erin, [['product_id' => $p->id, 'qty' => 1, 'price' => 10_000]],
+                Carbon::parse('2026-06-10'), null, $admin->id);
+        }
+        $svc->recordBackdatedSale($erin, [['product_id' => $p->id, 'qty' => 1, 'price' => 999_000]],
+            Carbon::parse('2026-05-10'), null, $admin->id);
+
+        // Tanpa saringan: semua entri terhitung (31), bukan cuma 10
+        $this->actingAs($admin)->get(route('backdated-sales.index'))->assertOk()
+            ->assertSee('31')->assertSee('1.299.000');   // 30×10rb + 999rb
+
+        // Disaring per bulan → total Juni saja, untuk dicocokkan dengan Excel
+        $this->actingAs($admin)->get(route('backdated-sales.index', ['entri_bulan' => '2026-06']))->assertOk()
+            ->assertSee('300.000')->assertDontSee('1.299.000');
+
+        // Bulan kosong tidak error
+        $this->actingAs($admin)->get(route('backdated-sales.index', ['entri_bulan' => '2020-01']))->assertOk()
+            ->assertSee('Tidak ada entri back-date pada bulan ini.');
+    }
+
     public function test_page_renders_and_partner_forbidden(): void
     {
         $this->actingAs($this->admin())->get(route('backdated-sales.index'))->assertOk()
