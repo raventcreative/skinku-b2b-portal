@@ -29,7 +29,9 @@ class BackdatedSaleController extends Controller
         return view('purchase_orders.backdated', [
             'partners' => User::whereIn('role', [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER])
                 ->where('status', User::STATUS_ACTIVE)->orderBy('fullname')->get(),
-            'products' => Product::where('status', Product::STATUS_ACTIVE)->orderBy('name')->get(),
+            // Kedua harga tier dikirim: harga isi-otomatis mengikuti mitra terpilih.
+            'products' => Product::where('status', Product::STATUS_ACTIVE)->orderBy('name')
+                ->get(['id', 'name', 'sku', 'price_distributor', 'price_reseller']),
             'cutoff' => $this->service->stockCutoff(),
             'recent' => PurchaseOrder::whereNotNull('order_date')->with('user')->latest('id')->limit(10)->get(),
         ]);
@@ -46,6 +48,8 @@ class BackdatedSaleController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.qty' => ['required', 'integer', 'min:0'],
+            // Harga manual: kosong = pakai harga tier saat ini.
+            'items.*.price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $buyer = User::findOrFail($data['user_id']);

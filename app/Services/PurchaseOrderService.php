@@ -19,12 +19,16 @@ class PurchaseOrderService
     /**
      * Create a Purchase Order for a partner.
      *
-     * The total is ALWAYS computed on the server from current DB prices based
-     * on the buyer's role — the client cannot influence pricing or totals.
+     * Total dihitung di SERVER dari harga DB sesuai tier pembeli — klien tak bisa
+     * mengubah harga/total. Pengecualian: $priceOverrides, khusus entri back-date
+     * oleh staf (lihat recordBackdatedSale) — bukan dari form mitra.
      *
      * @param  array<int,array{product_id:int,qty:int}>  $lines
+     * @param  array<int, float>  $priceOverrides  [product_id => harga satuan]. Harga
+     *                                             LAMA kerap beda dari tier sekarang, jadi harus bisa ditulis apa adanya.
+     *                                             Kosong = pakai harga tier (perilaku lama).
      */
-    public function createForPartner(User $buyer, array $lines, ?string $shippingAddress, ?string $notes): PurchaseOrder
+    public function createForPartner(User $buyer, array $lines, ?string $shippingAddress, ?string $notes, array $priceOverrides = []): PurchaseOrder
     {
         $clean = [];
         foreach ($lines as $line) {
@@ -43,7 +47,7 @@ class PurchaseOrderService
 
         $priceField = $buyer->priceField();
 
-        return DB::transaction(function () use ($buyer, $clean, $priceField, $shippingAddress, $notes) {
+        return DB::transaction(function () use ($buyer, $clean, $priceField, $shippingAddress, $notes, $priceOverrides) {
             $products = Product::whereIn('id', array_keys($clean))
                 ->where('status', Product::STATUS_ACTIVE)
                 ->lockForUpdate()
@@ -61,7 +65,9 @@ class PurchaseOrderService
                     ]);
                 }
 
-                $unitPrice = (float) $product->{$priceField};
+                $unitPrice = isset($priceOverrides[$productId])
+                    ? (float) $priceOverrides[$productId]
+                    : (float) $product->{$priceField};
                 $lineTotal = $unitPrice * $qty;
                 $subtotal += $lineTotal;
 
@@ -271,7 +277,15 @@ class PurchaseOrderService
      */
     public function recordBackdatedSale(User $buyer, array $lines, Carbon $orderDate, ?string $notes, int $creatorId): PurchaseOrder
     {
-        $po = $this->createForPartner($buyer, $lines, null, $notes);
+        // Harga manual per baris (opsional) — harga lama kerap beda dari tier saat ini.
+        $prices = [];
+        foreach ($lines as $l) {
+            if (isset($l['price']) && $l['price'] !== null && $l['price'] !== '') {
+                $prices[(int) $l['product_id']] = (float) $l['price'];
+            }
+        }
+
+        $po = $this->createForPartner($buyer, $lines, null, $notes, $prices);
         $po->update(['order_date' => $orderDate->toDateString(), 'created_by' => $creatorId]);
 
         return $this->complete($po->fresh(), $notes);

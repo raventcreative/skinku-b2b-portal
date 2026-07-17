@@ -135,6 +135,54 @@ class BackdatedSaleTest extends TestCase
         $this->assertSame('2026-07-08', $po->orderDate()->toDateString());
     }
 
+    public function test_manual_price_overrides_current_tier_price(): void
+    {
+        AppSetting::put(AppSetting::PO_DEDUCT_FROM, '2026-07-15');
+        $p = $this->product();          // price_reseller = 25.000 (harga SEKARANG)
+        $erin = $this->partner();
+
+        // Entri Excel lama: 100 sabun @23.000 — harga lama, bukan tier sekarang.
+        $this->actingAs($this->admin())->post(route('backdated-sales.store'), [
+            'user_id' => $erin->id,
+            'order_date' => '2026-01-19',
+            'items' => [['product_id' => $p->id, 'qty' => 100, 'price' => 23_000]],
+        ])->assertRedirect();
+
+        $po = PurchaseOrder::where('user_id', $erin->id)->with('items')->first();
+        $this->assertEqualsWithDelta(23_000, (float) $po->items[0]->unit_price, 0.01);
+        $this->assertEqualsWithDelta(2_300_000, (float) $po->total_amount, 0.01);  // bukan 2.5jt dari tier
+    }
+
+    public function test_blank_price_falls_back_to_tier_price(): void
+    {
+        AppSetting::put(AppSetting::PO_DEDUCT_FROM, '2026-07-15');
+        $p = $this->product();
+        $erin = $this->partner();
+
+        $this->actingAs($this->admin())->post(route('backdated-sales.store'), [
+            'user_id' => $erin->id,
+            'order_date' => '2026-01-19',
+            'items' => [['product_id' => $p->id, 'qty' => 2, 'price' => null]],
+        ])->assertRedirect();
+
+        $po = PurchaseOrder::where('user_id', $erin->id)->first();
+        $this->assertEqualsWithDelta(50_000, (float) $po->total_amount, 0.01);   // 2 × 25rb tier
+    }
+
+    public function test_partner_form_pricing_still_server_side_only(): void
+    {
+        // Mitra memesan sendiri: harga TETAP dari server. Jangan sampai dukungan
+        // harga manual membocorkan kendali harga ke form mitra.
+        $p = $this->product();
+        $erin = $this->partner();
+
+        $po = app(PurchaseOrderService::class)->createForPartner(
+            $erin, [['product_id' => $p->id, 'qty' => 2, 'price' => 1]], null, null,
+        );
+
+        $this->assertEqualsWithDelta(50_000, (float) $po->total_amount, 0.01);  // tier, bukan 1
+    }
+
     public function test_page_renders_and_partner_forbidden(): void
     {
         $this->actingAs($this->admin())->get(route('backdated-sales.index'))->assertOk()
