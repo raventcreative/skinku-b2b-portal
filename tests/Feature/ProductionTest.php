@@ -263,4 +263,45 @@ class ProductionTest extends TestCase
         $this->actingAs($r)->get('/productions/create')->assertForbidden();
         $this->actingAs($r)->get('/materials')->assertForbidden();
     }
+
+    /**
+     * Riwayat HPP dulu HANYA bisa dicapai dari Produk Master. Orang yang mencari
+     * riwayat HPP membuka menu "Produksi (HPP)" — nama menunya menjanjikan itu —
+     * lalu buntu: kolom produknya mati, angka HPP-nya mati.
+     */
+    public function test_halaman_produksi_menautkan_ke_riwayat_hpp_produknya(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+        $p = $this->product();
+        $this->material('Bahan', 100, 1000);
+
+        Production::create([
+            'production_number' => 'PRD-00001', 'product_id' => $p->id, 'product_name' => $p->name,
+            'output_qty' => 100, 'total_cost' => 1_000_000, 'hpp_per_unit' => 10_000,
+            'produced_at' => '2026-07-13', 'created_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)->get('/productions')->assertOk()
+            ->assertSee(route('products.hpp-history', $p), escape: false);
+    }
+
+    public function test_riwayat_hpp_terbuka_dan_menampilkan_hpp_sekarang(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+        $p = $this->product();
+        $p->update(['cogs' => 14129]);
+
+        $this->actingAs($admin)->get(route('products.hpp-history', $p))->assertOk()
+            ->assertSee('Riwayat HPP')
+            ->assertSee('14.129');
+    }
+
+    /** Tautan HPP hanya untuk yang boleh melihat biaya produksi. */
+    public function test_mitra_tidak_melihat_tautan_riwayat_hpp(): void
+    {
+        $mitra = $this->user(User::ROLE_DISTRIBUTOR);
+        $p = $this->product();
+
+        $this->actingAs($mitra)->get(route('products.hpp-history', $p))->assertForbidden();
+    }
 }

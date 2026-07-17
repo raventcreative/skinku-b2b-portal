@@ -27,10 +27,30 @@
                 <tr class="border-t border-stone-100 hover:bg-stone-50">
                     <td class="px-4 py-2.5"><a href="{{ route('productions.show', $p) }}" class="font-bold text-red-700 hover:underline">{{ $p->production_number }}</a></td>
                     <td class="text-stone-600">{{ $p->produced_at?->format('d M Y') }}</td>
-                    <td class="font-semibold text-stone-800">{{ $p->product_name }}</td>
+                    {{-- Riwayat HPP dulu HANYA bisa dicapai dari Produk Master. Orang
+                         yang mencari riwayat HPP membukanya dari sini — halaman
+                         Produksi (HPP) — lalu buntu karena kolom produknya mati. --}}
+                    <td class="font-semibold text-stone-800">
+                        @if($p->product && auth()->user()->canDo('manage_production'))
+                            <a href="{{ route('products.hpp-history', $p->product) }}"
+                                class="hover:text-red-600 hover:underline" title="Lihat riwayat HPP {{ $p->product_name }}">{{ $p->product_name }}</a>
+                        @else
+                            {{ $p->product_name }}
+                        @endif
+                    </td>
                     <td class="text-right text-stone-600">{{ number_format($p->output_qty, 0, ',', '.') }}</td>
                     <td class="text-right text-stone-700">Rp {{ number_format($p->total_cost, 0, ',', '.') }}</td>
-                    <td class="text-right pr-4 font-bold text-emerald-700">Rp {{ number_format($p->hpp_per_unit, 0, ',', '.') }}</td>
+                    {{-- HPP batch ini, bukan rata-rata bergerak produknya. Dua angka
+                         yang gampang tertukar, jadi angkanya sendiri menuju riwayat
+                         yang menunjukkan bedanya. --}}
+                    <td class="text-right pr-4 font-bold text-emerald-700">
+                        @if($p->product && auth()->user()->canDo('manage_production'))
+                            <a href="{{ route('products.hpp-history', $p->product) }}"
+                                class="hover:underline" title="HPP batch ini — klik untuk riwayat & rata-rata bergerak">Rp {{ number_format($p->hpp_per_unit, 0, ',', '.') }}</a>
+                        @else
+                            Rp {{ number_format($p->hpp_per_unit, 0, ',', '.') }}
+                        @endif
+                    </td>
                     <td class="text-stone-400">{{ $p->creator->fullname ?? 'System' }}</td>
                 </tr>
             @empty
