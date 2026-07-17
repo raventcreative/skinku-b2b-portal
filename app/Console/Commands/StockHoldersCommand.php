@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Inventory;
 use App\Models\Product;
+use App\Models\PurchaseOrder;
+use App\Models\StockMovement;
 use Illuminate\Console\Command;
 
 /**
@@ -21,7 +23,8 @@ class StockHoldersCommand extends Command
 {
     protected $signature = 'stock:holders
         {cari? : Cari produk berdasarkan nama atau SKU (kosong = semua produk yang ada stok mitranya)}
-        {--zero : Ikut tampilkan baris ber-qty 0}';
+        {--zero : Ikut tampilkan baris ber-qty 0}
+        {--trace : Bongkar riwayat gerakan stok tiap pemegang, lengkap dengan PO asalnya}';
 
     protected $description = 'Tampilkan siapa saja yang memegang stok mitra per produk (termasuk akun terhapus)';
 
@@ -86,6 +89,12 @@ class StockHoldersCommand extends Command
                     $hantu->count(),
                 ));
             }
+
+            if ($this->option('trace')) {
+                foreach ($rows as $inv) {
+                    $this->traceMovements($product, $inv);
+                }
+            }
         }
 
         if (! $adaIsi) {
@@ -93,5 +102,86 @@ class StockHoldersCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Riwayat gerakan stok satu pemegang untuk satu produk, plus PO asalnya.
+     *
+     * PO dicari dengan withTrashed(): menghapus PO tidak mengembalikan stok dan
+     * tidak menyentuh stock_movements sama sekali, jadi gerakan yang berasal dari
+     * PO terhapus tetap membentuk saldo. Tanpa withTrashed() barisnya jadi
+     * "PO ?" dan justru sumber kebingungannya yang hilang dari layar.
+     */
+    private function traceMovements(Product $product, Inventory $inv): void
+    {
+        $moves = StockMovement::query()
+            ->where('product_id', $product->id)
+            ->where('user_id', $inv->user_id)
+            ->orderBy('created_at')
+            ->get();
+
+        $nama = $inv->user?->company_name ?: ($inv->user?->fullname ?? 'user id '.$inv->user_id);
+
+        $this->newLine();
+        $this->line("  <options=bold>Riwayat: {$nama}</> — {$product->name}");
+
+        if ($moves->isEmpty()) {
+            $this->warn('  ⚠ Saldo '.number_format((int) $inv->quantity, 0, ',', '.').' unit TANPA satu pun gerakan stok — baris ini masuk tanpa jejak (impor/seed/manual DB).');
+
+            return;
+        }
+
+        // PO diambil sekaligus supaya tidak query per baris.
+        $poIds = $moves->where('reference_type', 'purchase_order')->pluck('reference_id')->filter()->unique();
+        $pos = $poIds->isEmpty()
+            ? collect()
+            : PurchaseOrder::withTrashed()->whereIn('id', $poIds)->get()->keyBy('id');
+
+        $adaPoTerhapus = false;
+
+        $baris = $moves->map(function (StockMovement $m) use ($pos, &$adaPoTerhapus) {
+            $asal = '-';
+
+            if ($m->reference_type === 'purchase_order') {
+                $po = $pos->get($m->reference_id);
+                if (! $po) {
+                    $asal = 'PO id '.$m->reference_id.' (HILANG PERMANEN)';
+                    $adaPoTerhapus = true;
+                } else {
+                    $asal = $po->po_number;
+                    if ($po->trashed()) {
+                        $asal .= ' ⚠ DIHAPUS';
+                        $adaPoTerhapus = true;
+                    }
+                }
+            } elseif ($m->reference_type) {
+                $asal = $m->reference_type.' #'.$m->reference_id;
+            }
+
+            return [
+                $m->created_at?->format('d M Y H:i') ?? '-',
+                $m->movement_type,
+                ($m->quantity > 0 ? '+' : '').number_format((int) $m->quantity, 0, ',', '.'),
+                number_format((int) $m->before_qty, 0, ',', '.').' → '.number_format((int) $m->after_qty, 0, ',', '.'),
+                $asal,
+            ];
+        })->all();
+
+        $this->table(['Tanggal', 'Jenis', 'Qty', 'Saldo', 'Asal'], $baris);
+
+        // Saldo inventory vs saldo terakhir menurut gerakan: kalau beda, ada yang
+        // mengubah inventory tanpa mencatat gerakannya.
+        $terakhir = (int) $moves->last()->after_qty;
+        if ($terakhir !== (int) $inv->quantity) {
+            $this->warn(sprintf(
+                '  ⚠ Saldo inventory (%s) TIDAK cocok dengan gerakan terakhir (%s) — ada perubahan tanpa jejak.',
+                number_format((int) $inv->quantity, 0, ',', '.'),
+                number_format($terakhir, 0, ',', '.'),
+            ));
+        }
+
+        if ($adaPoTerhapus) {
+            $this->warn('  ⚠ Ada PO terhapus di riwayat ini. Menghapus PO TIDAK menarik balik stoknya — saldo di atas tetap utuh.');
+        }
     }
 }
