@@ -46,7 +46,11 @@ class InventoryController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'type' => ['required', Rule::in([StockMovement::TYPE_IN, StockMovement::TYPE_OUT, StockMovement::TYPE_ADJUSTMENT])],
             'quantity' => ['required', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string', 'max:500'],
+            // Alasan WAJIB. Penyesuaian manual adalah satu-satunya gerakan stok
+            // tanpa dokumen sumber; tanpa keterangan ia jadi perubahan yang tak
+            // bisa dijelaskan siapa pun selamanya. required di HTML saja tak cukup
+            // — POST bisa dikirim langsung tanpa lewat form.
+            'notes' => ['required', 'string', 'max:500'],
         ]);
 
         $product = Product::findOrFail($data['product_id']);
@@ -83,7 +87,11 @@ class InventoryController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'type' => ['required', Rule::in([StockMovement::TYPE_IN, StockMovement::TYPE_OUT, StockMovement::TYPE_ADJUSTMENT])],
             'quantity' => ['required', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string', 'max:500'],
+            // Alasan WAJIB. Penyesuaian manual adalah satu-satunya gerakan stok
+            // tanpa dokumen sumber; tanpa keterangan ia jadi perubahan yang tak
+            // bisa dijelaskan siapa pun selamanya. required di HTML saja tak cukup
+            // — POST bisa dikirim langsung tanpa lewat form.
+            'notes' => ['required', 'string', 'max:500'],
         ]);
 
         if ($user->isPartner() && (int) $data['user_id'] !== $user->id) {

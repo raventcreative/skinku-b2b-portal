@@ -23,6 +23,9 @@
                         <td class="text-stone-500">{{ $p->sku }}</td>
                         <td class="text-right font-bold {{ $p->hq_stock <= 0 ? 'text-rose-600' : 'text-stone-800' }}">{{ $p->hq_stock }}</td>
                         <td class="px-4 py-2">
+                            {{-- Alasan WAJIB: penyesuaian manual tanpa keterangan jadi
+                                 gerakan stok yang tak bisa dijelaskan siapa pun selamanya.
+                                 Dulu form ini tak punya kolomnya sama sekali. --}}
                             <form method="POST" action="{{ route('inventory.hq-adjust') }}" class="flex gap-1 justify-end items-center">
                                 @csrf
                                 <input type="hidden" name="product_id" value="{{ $p->id }}">
@@ -30,6 +33,8 @@
                                     @foreach($movementTypes as $t)<option value="{{ $t }}">{{ $t }}</option>@endforeach
                                 </select>
                                 <input type="number" name="quantity" min="1" value="1" class="w-16 px-2 py-1 border border-stone-300 rounded text-center text-[11px]">
+                                <input type="text" name="notes" required maxlength="500" placeholder="Alasan (wajib)"
+                                    class="w-40 px-2 py-1 border border-stone-300 rounded text-[11px]">
                                 <button class="px-3 py-1 bg-red-600 text-white rounded text-[11px]">Simpan</button>
                             </form>
                         </td>
@@ -69,6 +74,8 @@
                                 @foreach($movementTypes as $t)<option value="{{ $t }}">{{ $t }}</option>@endforeach
                             </select>
                             <input type="number" name="quantity" min="1" value="1" class="w-14 px-2 py-1 border border-stone-300 rounded text-center text-[11px]">
+                            <input type="text" name="notes" required maxlength="500" placeholder="Alasan (wajib)"
+                                class="w-40 px-2 py-1 border border-stone-300 rounded text-[11px]">
                             <button class="px-3 py-1 bg-red-600 text-white rounded text-[11px]">OK</button>
                         </form>
                     </td>
