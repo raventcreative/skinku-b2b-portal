@@ -230,11 +230,47 @@ class ReportService
             ->reverse()
             ->values();
 
-        return $rows->map(fn ($r) => [
+        $series = $rows->map(fn ($r) => [
             'label' => (string) $r->bucket,
             'total' => (float) $r->total,
             'orders' => (int) $r->orders,
         ])->toArray();
+
+        // Satu bulan dipilih → gambar SEMUA harinya, hari tanpa penjualan diisi
+        // 0. Tanpa ini grafik cuma memuat hari yang ada transaksinya dan garis
+        // melompatinya begitu saja — hari nol terlihat seperti tak pernah ada.
+        return $month && $granularity === 'day' ? $this->fillDays($series, $month) : $series;
+    }
+
+    /**
+     * Lengkapi deret harian sepanjang $month (tgl 1 s/d akhir bulan) dengan
+     * titik bernilai 0 untuk hari yang tak punya penjualan.
+     *
+     * Bulan berjalan berhenti di HARI INI, bukan akhir bulan: menggambar hari
+     * yang belum terjadi sebagai 0 membuat grafik seolah penjualan ambruk.
+     *
+     * @param  array<int, array{label:string, total:float, orders:int}>  $series
+     * @return array<int, array{label:string, total:float, orders:int}>
+     */
+    private function fillDays(array $series, Carbon $month): array
+    {
+        $byLabel = collect($series)->keyBy('label');
+        $cursor = $month->copy()->startOfMonth();
+        $end = $month->copy()->endOfMonth();
+        $today = Carbon::today();
+
+        if ($end->gt($today) && ! $cursor->gt($today)) {
+            $end = $today;
+        }
+
+        $out = [];
+        while (! $cursor->gt($end)) {
+            $label = $cursor->toDateString();
+            $out[] = $byLabel->get($label) ?? ['label' => $label, 'total' => 0.0, 'orders' => 0];
+            $cursor->addDay();
+        }
+
+        return $out;
     }
 
     /** Top products by completed-sales revenue. */

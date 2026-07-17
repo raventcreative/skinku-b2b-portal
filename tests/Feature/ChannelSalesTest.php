@@ -209,8 +209,10 @@ class ChannelSalesTest extends TestCase
 
         $this->actingAs($admin)->get(route('reports.index'))->assertOk()
             ->assertSee('Penjualan PO')            // bukan "Total Penjualan" yg ambigu
-            ->assertSee('semua periode')           // periode kartu jelas
-            ->assertSee('hanya mengubah grafik, bukan angka kartu');
+            ->assertSee('semua periode')           // tautan keluar dari default bulan berjalan
+            // Dropdown bucket grafik sudah dibuang — grafik mengikuti periode.
+            ->assertDontSee('Bucket grafik tren')
+            ->assertDontSee('name="granularity"', escape: false);
     }
 
     public function test_month_filter_scopes_po_cards_and_status_chart(): void

@@ -72,12 +72,7 @@ class ReportMonthFilterTest extends TestCase
         $this->seedTwoMonths();
         $admin = User::where('username', 'rmfadm')->first();
 
-        // Tanpa filter = semua periode → 1.000.000
-        $this->actingAs($admin)->get('/reports')
-            ->assertOk()
-            ->assertSee('1.000.000');
-
-        // Filter Juli → HANYA 250.000, dan 1.000.000 tak boleh muncul lagi.
+        // Filter Juli → HANYA 250.000, dan total semua periode tak boleh muncul.
         $this->actingAs($admin)->get('/reports?bulan=2026-07')
             ->assertOk()
             ->assertSee('250.000')
@@ -87,9 +82,27 @@ class ReportMonthFilterTest extends TestCase
         $this->actingAs($admin)->get('/reports?bulan=2026-06')
             ->assertOk()
             ->assertSee('750.000');
+
+        // bulan=all → semua periode → 1.000.000
+        $this->actingAs($admin)->get('/reports?bulan=all')
+            ->assertOk()
+            ->assertSee('1.000.000');
     }
 
-    public function test_bulan_kosong_atau_ngawur_jatuh_ke_semua_periode(): void
+    public function test_default_tanpa_parameter_adalah_bulan_berjalan(): void
+    {
+        Carbon::setTestNow('2026-07-17 10:00:00');
+        $this->seedTwoMonths();
+        $admin = User::where('username', 'rmfadm')->first();
+
+        // Tanpa ?bulan= sama sekali → Juli (bulan berjalan), BUKAN semua periode.
+        $this->actingAs($admin)->get('/reports')
+            ->assertOk()
+            ->assertSee('250.000')
+            ->assertDontSee('1.000.000');
+    }
+
+    public function test_bulan_kosong_atau_ngawur_jatuh_ke_bulan_berjalan(): void
     {
         Carbon::setTestNow('2026-07-17 10:00:00');
         $this->seedTwoMonths();
@@ -98,8 +111,45 @@ class ReportMonthFilterTest extends TestCase
         foreach (['', 'bukan-bulan', '2026-13', '2026-00', '99999-01'] as $v) {
             $this->actingAs($admin)->get('/reports?bulan='.urlencode($v))
                 ->assertOk()
-                ->assertSee('1.000.000');
+                ->assertSee('250.000')
+                ->assertDontSee('1.000.000');
         }
+    }
+
+    public function test_grafik_bulan_terpilih_memuat_semua_hari_sampai_hari_ini(): void
+    {
+        Carbon::setTestNow('2026-07-17 10:00:00');
+        $this->seedTwoMonths();
+        $reports = app(ReportService::class);
+
+        $juli = $reports->salesTrend('day', 31, null, Carbon::parse('2026-07-01'));
+
+        // Bulan berjalan: 1 s/d 17 Juli — TIDAK sampai 31, karena hari yang
+        // belum terjadi digambar 0 dan bikin grafik seolah penjualan ambruk.
+        $this->assertCount(17, $juli);
+        $this->assertSame('2026-07-01', $juli[0]['label']);
+        $this->assertSame('2026-07-17', $juli[16]['label']);
+
+        // Hari tanpa penjualan tetap ada sebagai titik 0, bukan dilompati.
+        $this->assertEqualsWithDelta(0.0, $juli[0]['total'], 0.01);
+        $this->assertEqualsWithDelta(250_000, collect($juli)->firstWhere('label', '2026-07-08')['total'], 0.01);
+
+        // Bulan lampau digambar penuh 1-30 Juni.
+        $juni = $reports->salesTrend('day', 31, null, Carbon::parse('2026-06-01'));
+        $this->assertCount(30, $juni);
+        $this->assertSame('2026-06-30', $juni[29]['label']);
+        $this->assertEqualsWithDelta(750_000, collect($juni)->firstWhere('label', '2026-06-08')['total'], 0.01);
+    }
+
+    public function test_semua_periode_memakai_bucket_bulanan_tanpa_isian_nol(): void
+    {
+        Carbon::setTestNow('2026-07-17 10:00:00');
+        $this->seedTwoMonths();
+        $reports = app(ReportService::class);
+
+        // month=null → tak ada rentang yang jelas untuk diisi; apa adanya.
+        $tren = $reports->salesTrend('month', 12, null, null);
+        $this->assertSame(['2026-06', '2026-07'], collect($tren)->pluck('label')->all());
     }
 
     public function test_laba_kotor_dan_hpp_ikut_terfilter(): void

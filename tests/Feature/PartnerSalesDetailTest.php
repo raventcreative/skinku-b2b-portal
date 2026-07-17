@@ -72,9 +72,19 @@ class PartnerSalesDetailTest extends TestCase
     {
         $this->po('Kamay', 'distributor', 2_250_000, '2026-06-10');
 
-        $this->actingAs($this->admin())->get(route('reports.index'))->assertOk()
+        // admin() dibuat sekali: username/email-nya tetap, memanggilnya berkali-kali
+        // melanggar unique constraint.
+        $admin = $this->admin();
+
+        // bulan=all: PO-nya Juni, sedangkan halaman kini default ke bulan
+        // berjalan. Yang diuji di sini tabelnya, bukan filternya.
+        $this->actingAs($admin)->get(route('reports.index', ['bulan' => 'all']))->assertOk()
             ->assertSee('Penjualan per Mitra')
             ->assertSee('Kamay')
             ->assertSee('2.250.000');
+
+        // ...dan memilih bulan lain memang menyaringnya keluar.
+        $this->actingAs($admin)->get(route('reports.index', ['bulan' => '2026-06']))->assertOk()->assertSee('Kamay');
+        $this->actingAs($admin)->get(route('reports.index', ['bulan' => '2026-05']))->assertOk()->assertDontSee('Kamay');
     }
 }

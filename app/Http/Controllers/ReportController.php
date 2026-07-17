@@ -10,19 +10,28 @@ use Illuminate\Support\Carbon;
 
 class ReportController extends Controller
 {
+    /** Nilai ?bulan= yang berarti "jangan batasi periode". */
+    public const ALL_PERIODS = 'all';
+
     public function __construct(private ReportService $reports) {}
 
     public function index(Request $request)
     {
         $user = $request->user();
-        $granularity = $request->query('granularity', 'day');
 
-        // ?bulan=YYYY-MM opsional. KOSONG = semua periode (perilaku lama halaman ini).
+        // ?bulan=YYYY-MM. Kosong = bulan berjalan; 'all' = semua periode.
         $bulan = $this->parseMonth($request->query('bulan'));
+
+        // Grafik MENGIKUTI periode, tak lagi dipilih terpisah: satu bulan →
+        // titik per hari sepanjang bulan itu; semua periode → per bulan.
+        // Dropdown granularitas dulu berdiri sendiri dan tampak seperti filter
+        // halaman padahal cuma mengubah bucket grafik — sumber salah baca.
+        $granularity = $bulan ? 'day' : 'month';
+        $points = $bulan ? $bulan->daysInMonth : 12;
 
         $data = [
             'summary' => $this->reports->summary($user, $bulan),
-            'salesTrend' => $this->reports->salesTrend($granularity, 14, $user, $bulan),
+            'salesTrend' => $this->reports->salesTrend($granularity, $points, $user, $bulan),
             'salesByProduct' => $this->reports->salesByProduct(10, $user, $bulan),
             'poStatus' => $this->reports->poStatusDistribution($user, $bulan),
             // Stok = posisi SAAT INI, bukan angka periode — sengaja tak difilter.
@@ -46,7 +55,10 @@ class ReportController extends Controller
     }
 
     /**
-     * ?bulan=YYYY-MM → Carbon. Kosong/ngawur = null (semua periode).
+     * ?bulan=YYYY-MM → Carbon. 'all' = semua periode (null). Kosong/ngawur =
+     * bulan berjalan — itulah yang hampir selalu ingin dilihat, jadi jadi default.
+     * "Semua periode" kini harus diminta eksplisit lewat bulan=all supaya bisa
+     * dibedakan dari "tidak mengisi apa-apa".
      *
      * Regex memvalidasi bulan 01-12, jadi createFromFormat tak bisa gagal dan
      * tak perlu try/catch. Versi lama membungkusnya dengan catch(\Throwable)
@@ -55,8 +67,12 @@ class ReportController extends Controller
      */
     private function parseMonth(?string $v): ?Carbon
     {
-        if (! $v || ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $v)) {
+        if ($v === self::ALL_PERIODS) {
             return null;
+        }
+
+        if (! $v || ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $v)) {
+            return Carbon::now()->startOfMonth();
         }
 
         return Carbon::createFromFormat('Y-m-d', $v.'-01')->startOfMonth();

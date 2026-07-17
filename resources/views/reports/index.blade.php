@@ -7,27 +7,24 @@
 @if($isPartner)
     <p class="text-xs text-stone-500 mb-4">Ringkasan pesanan (PO) Anda ke pusat SKINKU — total pembelian, jumlah PO, dan statusnya.</p>
 @endif
-{{-- Satu baris kendali: PERIODE menyaring seluruh halaman; granularitas hanya
-     mengatur bucket grafik tren. Dulu granularitas berdiri sendiri di atas
-     sehingga tampak seperti filter halaman — bikin salah baca. --}}
+{{-- Satu kendali saja: PERIODE. Grafik tren mengikutinya sendiri (satu bulan →
+     per hari, semua periode → per bulan). Dropdown granularitas dibuang: dia
+     berdiri sendiri di atas dan tampak seperti filter halaman padahal cuma
+     mengubah bucket grafik. --}}
 @php $per = $bulan ? $bulan->translatedFormat('M Y') : 'semua periode'; @endphp
 <form method="GET" class="flex flex-wrap items-center gap-3 mb-4 text-sm">
     <span class="text-stone-500">Periode</span>
     <input type="month" name="bulan" value="{{ $bulan?->format('Y-m') }}" onchange="this.form.submit()"
         class="px-3 py-2 border border-stone-300 rounded-lg text-xs">
     @if($bulan)
-        <a href="{{ route('reports.index', ['granularity' => $granularity]) }}" class="text-xs text-indigo-600 hover:underline">semua periode</a>
+        <a href="{{ route('reports.index', ['bulan' => \App\Http\Controllers\ReportController::ALL_PERIODS]) }}"
+            class="text-xs text-indigo-600 hover:underline">semua periode</a>
+    @else
+        {{-- Jangan tambahkan input hidden bernama "bulan" di sini: namanya
+             bentrok dengan picker di atas, yang belakang menang saat submit,
+             sehingga memilih bulan dari mode ini malah terkirim sebagai "all". --}}
+        <span class="text-xs text-stone-400">menampilkan semua periode — pilih bulan untuk mempersempit</span>
     @endif
-
-    <span class="text-stone-300">|</span>
-
-    <span class="text-stone-500 text-xs">Bucket grafik tren</span>
-    <select name="granularity" onchange="this.form.submit()" class="px-3 py-2 border border-stone-300 rounded-lg text-xs">
-        @foreach(['day' => 'Harian', 'week' => 'Mingguan', 'month' => 'Bulanan'] as $val => $label)
-            <option value="{{ $val }}" @selected($granularity===$val)>{{ $label }}</option>
-        @endforeach
-    </select>
-    <span class="text-[11px] text-stone-400">hanya mengubah grafik, bukan angka kartu</span>
 </form>
 
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
