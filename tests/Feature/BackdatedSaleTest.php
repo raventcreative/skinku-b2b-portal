@@ -251,6 +251,31 @@ class BackdatedSaleTest extends TestCase
             ->assertSee('Tidak ada entri back-date pada bulan ini.');
     }
 
+    public function test_rejects_impossible_order_dates(): void
+    {
+        // Salah ketik tahun (2020 padahal maksudnya 2026) pernah lolos dan baru
+        // ketahuan lewat grafik tren. Tanggal masa depan jelas mustahil.
+        $p = $this->product();
+        $erin = $this->partner();
+        $admin = $this->admin();
+        $payload = fn ($date) => [
+            'user_id' => $erin->id, 'order_date' => $date,
+            'items' => [['product_id' => $p->id, 'qty' => 1]],
+        ];
+
+        $this->actingAs($admin)->post(route('backdated-sales.store'), $payload('2020-06-08'))
+            ->assertSessionHasErrors('order_date');
+        $this->actingAs($admin)->post(route('backdated-sales.store'), $payload(now()->addDay()->toDateString()))
+            ->assertSessionHasErrors('order_date');
+
+        $this->assertSame(0, PurchaseOrder::count());
+
+        // tanggal masuk akal tetap lolos
+        $this->actingAs($admin)->post(route('backdated-sales.store'), $payload('2026-06-08'))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(1, PurchaseOrder::count());
+    }
+
     public function test_page_renders_and_partner_forbidden(): void
     {
         $this->actingAs($this->admin())->get(route('backdated-sales.index'))->assertOk()

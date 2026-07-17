@@ -65,7 +65,10 @@ class BackdatedSaleController extends Controller
 
         $data = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
-            'order_date' => ['required', 'date'],
+            // Penjualan tak mungkin terjadi di masa depan. Batas bawah menangkap
+            // salah ketik tahun (mis. 2020 ketika maksudnya 2026) — pernah terjadi
+            // dan baru ketahuan lewat grafik tren.
+            'order_date' => ['required', 'date', 'before_or_equal:today', 'after_or_equal:2024-01-01'],
             // Pembeli sekali-beli: cukup namanya, tak perlu dibuatkan akun.
             'buyer_name' => ['nullable', 'string', 'max:150'],
             'notes' => ['nullable', 'string', 'max:1000'],

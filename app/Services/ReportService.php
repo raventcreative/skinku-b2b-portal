@@ -213,9 +213,14 @@ class ReportService
         ), $month)
             ->selectRaw("$format as bucket, SUM(total_amount) as total, COUNT(*) as orders")
             ->groupBy('bucket')
-            ->orderBy('bucket')
-            ->limit($points * 3)
-            ->get();
+            // Ambil N periode TERBARU lalu balik urutannya untuk digambar dari
+            // lama→baru. Versi lama: orderBy naik + limit → yang terambil justru
+            // periode paling TUA, padahal labelnya "14 hari terakhir".
+            ->orderByDesc('bucket')
+            ->limit($points)
+            ->get()
+            ->reverse()
+            ->values();
 
         return $rows->map(fn ($r) => [
             'label' => (string) $r->bucket,

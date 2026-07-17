@@ -223,4 +223,30 @@ class ChannelSalesTest extends TestCase
         $this->actingAs($admin)->get('/dashboard?bulan=ngawur')->assertOk();
         $this->actingAs($admin)->get('/dashboard?bulan=2026-13')->assertOk();
     }
+
+    public function test_trend_shows_the_lates_t_periods_not_the_oldest(): void
+    {
+        // 40 hari berdata. Versi lama: orderBy naik + limit → yang tergambar
+        // justru hari paling TUA, padahal labelnya "hari terakhir".
+        foreach (range(0, 39) as $i) {
+            $d = Carbon::parse('2026-06-01')->addDays($i);
+            $po = PurchaseOrder::create([
+                'po_number' => 'T-'.$i, 'created_by' => 1, 'user_id' => 1,
+                'status' => 'completed', 'total_amount' => 1000 + $i, 'user_role' => 'reseller',
+            ]);
+            // tren memakai order_date (bukan created_at); completed_at wajib terisi
+            PurchaseOrder::where('id', $po->id)->update([
+                'order_date' => $d->toDateString(), 'completed_at' => now(),
+            ]);
+        }
+
+        $trend = app(ReportService::class)->salesTrend('day', 14);
+
+        $this->assertCount(14, $trend);
+        // 14 terakhir dari 1 Jun +39 hari = 27 Jun s/d 10 Jul
+        $this->assertSame('2026-06-27', $trend[0]['label']);
+        $this->assertSame('2026-07-10', $trend[13]['label']);
+        // digambar lama → baru
+        $this->assertLessThan($trend[13]['label'], $trend[0]['label']);
+    }
 }
