@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\TiktokConnection;
+use App\Models\TiktokSettlement;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -12,6 +13,13 @@ use Illuminate\Support\Facades\Log;
  */
 class TikTokSyncService
 {
+    /**
+     * Keterangan yang dianggap belum selesai dan layak dicoba lagi. "Potongan
+     * lain"/"Penyesuaian TikTok" itu tebakan dari agregat, bukan hasil baca
+     * rincian — statement-nya masih perlu ditanyakan ulang ke API.
+     */
+    public const KETERANGAN_KABUR = ['Potongan lain', 'Penyesuaian TikTok'];
+
     public function __construct(
         private TikTokClient $tiktok,
         private TikTokOrderService $orders,
@@ -157,6 +165,64 @@ class TikTokSyncService
         }
 
         return ['count' => $this->settlements->store($all), 'keys' => $firstKeys];
+    }
+
+    /**
+     * Isi keterangan pencairan (potongan apa) — SATU panggilan API per statement,
+     * jadi tak bisa diborong seperti yang lain.
+     *
+     * Itu sebabnya tombolnya dulu dibatasi "60 per klik": request web keburu
+     * timeout. Cron tak punya batasan itu — dijalankan berkala, tumpukannya
+     * habis sendiri tanpa siapa pun mengklik.
+     *
+     * @param  int  $limit  jumlah statement per jalan
+     * @return array{done:int, failed:int, remaining:int}
+     */
+    public function describeSettlements(TiktokConnection $conn, int $limit = 60): array
+    {
+        $targets = TiktokSettlement::query()
+            ->where(fn ($q) => $q->whereNull('kind')->orWhereIn('kind', self::KETERANGAN_KABUR))
+            ->orderByDesc('statement_time')
+            ->limit($limit)
+            ->get();
+
+        if ($targets->isEmpty()) {
+            return ['done' => 0, 'failed' => 0, 'remaining' => 0];
+        }
+
+        $access = $this->freshToken($conn);
+        $done = 0;
+        $failed = 0;
+
+        foreach ($targets as $s) {
+            try {
+                $data = $this->tiktok->getStatementTransactions($access, $conn->shop_cipher, $s->tiktok_statement_id, 50);
+                $txns = $data['statement_transactions'] ?? ($data['transactions'] ?? ($data['list'] ?? []));
+                $k = $this->settlements->deriveKind(is_array($txns) ? $txns : [], $s);
+                $s->update(['kind' => $k['label'], 'kind_raw' => $k['raw']]);
+                $done++;
+            } catch (\Throwable $e) {
+                // Dulu cuma $failed++ tanpa jejak: kalau SEMUA gagal (token, scope,
+                // rate limit) layarnya cuma bilang "0 diisi" tanpa pernah menyebut
+                // sebabnya. Kegagalan diam-diam itu yang menghabiskan waktu.
+                $failed++;
+                Log::warning('[tiktok:describe] Statement '.$s->tiktok_statement_id.' gagal: '.$e->getMessage());
+            }
+        }
+
+        return [
+            'done' => $done,
+            'failed' => $failed,
+            'remaining' => $this->sisaTanpaKeterangan(),
+        ];
+    }
+
+    /** Berapa pencairan yang keterangannya masih kosong/kabur. */
+    public function sisaTanpaKeterangan(): int
+    {
+        return TiktokSettlement::query()
+            ->where(fn ($q) => $q->whereNull('kind')->orWhereIn('kind', self::KETERANGAN_KABUR))
+            ->count();
     }
 
     /** Access token yang masih valid (refresh otomatis kalau mau expire). */

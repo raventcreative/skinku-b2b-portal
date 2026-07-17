@@ -8,12 +8,27 @@
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <a href="{{ route('tiktok.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Integrasi</a>
     @php $needKind = $settlements->getCollection()->whereNull('kind')->count(); @endphp
+    {{-- Kedua tombol ini JALAN PINTAS, bukan satu-satunya jalan: semuanya sudah
+         dijadwalkan. Tanpa keterangan ini tombolnya terbaca seperti pekerjaan
+         wajib harian, dan orang mengira integrasinya manual. --}}
     <form method="POST" action="{{ route('tiktok.settlements.describe') }}" class="ml-auto">@csrf
-        <button class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">🏷️ Ambil Keterangan (60/klik)</button>
+        <button class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50"
+            title="Otomatis tiap jam. Tombol ini cuma untuk mendahului jadwal.">🏷️ Ambil Keterangan sekarang</button>
     </form>
     <form method="POST" action="{{ route('tiktok.settlements.sync') }}">@csrf
-        <button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">↻ Tarik Pencairan</button>
+        <button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"
+            title="Otomatis tiap hari 01:00. Tombol ini cuma untuk mendahului jadwal.">↻ Tarik Pencairan sekarang</button>
     </form>
+</div>
+
+<div class="mb-4 px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-[11px] text-stone-600">
+    <span class="font-semibold text-stone-700">Semua tarikan berjalan otomatis</span> — tombol di atas hanya untuk mendahului jadwal.
+    <span class="block mt-1">
+        Order tiap 30 menit · Retur &amp; pencairan tiap hari 01:00 · Keterangan potongan tiap jam · Sapu penuh tiap hari 03:30.
+    </span>
+    @if($needKind)
+        <span class="block mt-1 text-amber-700">{{ $needKind }} pencairan di halaman ini belum berketerangan — akan terisi sendiri, tak perlu ditunggui.</span>
+    @endif
 </div>
 
 {{-- Pembukuan: default MATI. Kode siap, tapi buku keuangan tak tersentuh sampai dinyalakan. --}}

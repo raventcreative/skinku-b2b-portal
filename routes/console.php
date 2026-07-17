@@ -38,6 +38,15 @@ Schedule::command('tiktok:sync')->everyThirtyMinutes()->withoutOverlapping(15);
 // Retur & pencairan cukup sekali sehari (jarang berubah, hemat kuota API).
 Schedule::command('tiktok:sync --returns --settlements')->dailyAt('01:00')->withoutOverlapping(30);
 
+/*
+ * Keterangan pencairan: SATU panggilan API per statement, jadi tak bisa diborong
+ * seperti tarikan lain. Dulu ini satu-satunya bagian yang manual — tombolnya
+ * dibatasi 60/klik supaya request web tak timeout, dan tumpukannya cuma habis
+ * kalau ada yang rajin mengklik. Dijalankan tiap jam: tumpukan digerogoti
+ * sendiri, dan berhenti tanpa menyentuh API begitu tak ada tunggakan.
+ */
+Schedule::command('tiktok:describe')->hourly()->withoutOverlapping(20);
+
 // Sapu penuh sekali sehari: jaring pengaman kalau ada perubahan status yang lolos
 // dari jendela update_time (mis. cron sempat mati lama).
 Schedule::command('tiktok:sync --full')->dailyAt('03:30')->withoutOverlapping(30);

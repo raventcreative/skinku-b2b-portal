@@ -340,35 +340,20 @@ class TikTokController extends Controller
         $conn = TiktokConnection::latest('id')->first();
         abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok Shop.');
 
-        $batch = 60;
-        $stale = ['Potongan lain', 'Penyesuaian TikTok'];
-        $targets = TiktokSettlement::where(fn ($q) => $q->whereNull('kind')->orWhereIn('kind', $stale))
-            ->orderByDesc('statement_time')->limit($batch)->get();
-
-        $done = 0;
-        $failed = 0;
+        // Logikanya di TikTokSyncService — dipakai bersama cron `tiktok:describe`.
+        // Tombol ini cuma jalan pintas "jangan tunggu jadwal", bukan satu-satunya
+        // jalan. Batas 60 tetap ada di sini karena request web bisa timeout.
         try {
-            $access = $this->freshToken($conn);
-            foreach ($targets as $s) {
-                try {
-                    $data = $this->tiktok->getStatementTransactions($access, $conn->shop_cipher, $s->tiktok_statement_id, 50);
-                    $txns = $data['statement_transactions'] ?? ($data['transactions'] ?? ($data['list'] ?? []));
-                    $k = $this->settlements->deriveKind(is_array($txns) ? $txns : [], $s);
-                    $s->update(['kind' => $k['label'], 'kind_raw' => $k['raw']]);
-                    $done++;
-                } catch (\Throwable $e) {
-                    $failed++;
-                }
-            }
+            $r = $this->sync->describeSettlements($conn, 60);
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal ambil keterangan: '.$e->getMessage());
         }
 
-        $remaining = TiktokSettlement::where(fn ($q) => $q->whereNull('kind')->orWhere('kind', 'Potongan lain'))->count();
-
-        return back()->with('status', "Keterangan diisi: {$done}"
-            .($failed ? ", {$failed} gagal" : '')
-            .($remaining ? ". Masih {$remaining} belum berketerangan — klik lagi untuk lanjut." : '. Semua sudah berketerangan.'));
+        return back()->with('status', "Keterangan diisi: {$r['done']}"
+            .($r['failed'] ? ", {$r['failed']} gagal (lihat log)" : '')
+            .($r['remaining']
+                ? ". Masih {$r['remaining']} belum berketerangan — akan dilanjutkan otomatis tiap jam, atau klik lagi."
+                : '. Semua sudah berketerangan.'));
     }
 
     /** Set batas tanggal mulai potong stok (order sebelumnya = sudah tercakup opname). */
