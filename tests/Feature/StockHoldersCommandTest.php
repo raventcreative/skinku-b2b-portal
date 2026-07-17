@@ -107,8 +107,14 @@ class StockHoldersCommandTest extends TestCase
         ]);
         StockMovement::create([
             'product_id' => $p->id, 'user_id' => $mitra->id, 'movement_type' => StockMovement::TYPE_PO_FULFILLMENT,
-            'quantity' => 200, 'before_qty' => 95, 'after_qty' => 295,
+            'quantity' => 205, 'before_qty' => 95, 'after_qty' => 300,
             'reference_type' => 'purchase_order', 'reference_id' => $poHapus->id,
+        ]);
+        // OUT: quantity disimpan sebagai NILAI MUTLAK (abs), arahnya cuma ada di
+        // movement_type dan pada after<before. Baris ini mengunci itu.
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => $mitra->id, 'movement_type' => StockMovement::TYPE_OUT,
+            'quantity' => 5, 'before_qty' => 300, 'after_qty' => 295, 'notes' => 'Retur rusak',
         ]);
         Inventory::create(['user_id' => $mitra->id, 'product_id' => $p->id, 'quantity' => 295]);
 
@@ -124,6 +130,13 @@ class StockHoldersCommandTest extends TestCase
         $this->assertStringContainsString('Ada PO terhapus di riwayat ini', $out);
         // Saldo cocok dengan gerakan → tak boleh ada peringatan selisih.
         $this->assertStringNotContainsString('ada perubahan tanpa jejak', $out);
+
+        // Barang KELUAR harus tampil bertanda minus. quantity-nya tersimpan 5
+        // (abs); memakai kolom itu apa adanya menghasilkan "+5" untuk stok yang
+        // justru berkurang — persis salah baca yang memicu penelusuran ini.
+        $this->assertStringContainsString('−5', $out);
+        $this->assertStringNotContainsString('+5', $out);
+        $this->assertStringContainsString('Retur rusak', $out);   // catatan ikut tampil
     }
 
     public function test_trace_menandai_saldo_yang_tak_punya_jejak_gerakan(): void

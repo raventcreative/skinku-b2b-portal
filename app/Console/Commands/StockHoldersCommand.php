@@ -158,16 +158,22 @@ class StockHoldersCommand extends Command
                 $asal = $m->reference_type.' #'.$m->reference_id;
             }
 
+            // Arah diturunkan dari after-before, BUKAN dari kolom quantity:
+            // quantity disimpan sebagai abs($delta), jadi memakainya apa adanya
+            // menampilkan "+5" untuk barang yang justru keluar.
+            $delta = (int) $m->after_qty - (int) $m->before_qty;
+
             return [
                 $m->created_at?->format('d M Y H:i') ?? '-',
                 $m->movement_type,
-                ($m->quantity > 0 ? '+' : '').number_format((int) $m->quantity, 0, ',', '.'),
+                ($delta > 0 ? '+' : ($delta < 0 ? '−' : '')).number_format(abs($delta), 0, ',', '.'),
                 number_format((int) $m->before_qty, 0, ',', '.').' → '.number_format((int) $m->after_qty, 0, ',', '.'),
                 $asal,
+                $m->notes ?: '-',
             ];
         })->all();
 
-        $this->table(['Tanggal', 'Jenis', 'Qty', 'Saldo', 'Asal'], $baris);
+        $this->table(['Tanggal', 'Jenis', 'Qty', 'Saldo', 'Asal', 'Catatan'], $baris);
 
         // Saldo inventory vs saldo terakhir menurut gerakan: kalau beda, ada yang
         // mengubah inventory tanpa mencatat gerakannya.
