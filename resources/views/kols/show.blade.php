@@ -12,6 +12,7 @@
         str_starts_with($v, '🟡') => 'text-amber-600',
         str_starts_with($v, '🟠') => 'text-orange-600',
         str_starts_with($v, '🔴') => 'text-rose-700',
+        str_starts_with($v, '⚪') => 'text-stone-400',
         default => 'text-stone-800',
     };
 @endphp
@@ -87,7 +88,21 @@
             @forelse($kol->screenings as $s)
                 <tr class="border-t border-stone-100 align-top">
                     <td class="px-4 py-2.5 text-stone-600">{{ $s->tanggal_listing->format('d M Y') }}</td>
-                    <td class="text-right text-stone-700">{{ $rp($s->ratecard) }}</td>
+                    <td class="text-right text-stone-700">
+                        @if($s->ratecard !== null)
+                            {{ $rp($s->ratecard) }}
+                        @elseif($u->canDo('kol.screening.manage'))
+                            {{-- Isi harga setelah nego — verdict/CPM/rank langsung hidup. --}}
+                            <form method="POST" action="{{ route('kol-screenings.ratecard', $s) }}" class="flex gap-1 justify-end">
+                                @csrf @method('PATCH')
+                                <input type="number" name="ratecard" min="0" required placeholder="isi harga"
+                                    class="w-24 px-2 py-1 border border-stone-300 rounded text-[11px] text-right">
+                                <button class="px-2 py-1 bg-stone-700 text-white rounded text-[11px]">Set</button>
+                            </form>
+                        @else
+                            —
+                        @endif
+                    </td>
                     {{-- Satu kolom per video — angka mentahnya, bukan deret bertitik. --}}
                     @foreach($s->views() as $v)
                         <td class="text-right px-2 text-stone-600">{{ number_format($v, 0, ',', '.') }}</td>

@@ -215,6 +215,7 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::put('/kols/{kol}', [KolController::class, 'update'])->name('kols.update');
             Route::get('/kol-screenings/create', [KolScreeningController::class, 'create'])->name('kol-screenings.create');
             Route::post('/kol-screenings', [KolScreeningController::class, 'store'])->name('kol-screenings.store');
+            Route::patch('/kol-screenings/{screening}/ratecard', [KolScreeningController::class, 'updateRatecard'])->name('kol-screenings.ratecard');
         });
 
         Route::middleware('permission:kol.deal.manage')->group(function () {

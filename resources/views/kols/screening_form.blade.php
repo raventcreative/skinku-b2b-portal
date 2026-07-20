@@ -60,9 +60,10 @@
                 <input type="date" name="tanggal_listing" required value="{{ old('tanggal_listing', now()->format('Y-m-d')) }}"
                     class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
             </label>
-            <label class="text-[11px] font-semibold text-stone-500">Ratecard (Rp, harga kerjasama per video)
-                <input type="number" name="ratecard" required min="0" value="{{ old('ratecard') }}" placeholder="mis. 1500000"
+            <label class="text-[11px] font-semibold text-stone-500">Ratecard (Rp — opsional, kosongkan bila belum nego)
+                <input type="number" name="ratecard" min="0" value="{{ old('ratecard') }}" placeholder="mis. 1500000"
                     class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                <span class="block mt-1 text-[10px] text-stone-400">Tanpa harga: median, ratio, GMV, viral & fake tetap dihitung; CPM/verdict/rank menunggu ratecard diisi.</span>
             </label>
         </div>
 

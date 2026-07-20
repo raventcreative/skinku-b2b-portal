@@ -64,6 +64,7 @@ class KolController extends Controller
         return match ($k->latestScreening->verdict_median) {
             KolScreening::VERDICT_WORTH => 'worth',
             KolScreening::VERDICT_MASIH => 'masih',
+            KolScreening::VERDICT_BELUM_HARGA => 'tanpa_harga',
             default => 'mahal',
         };
     }

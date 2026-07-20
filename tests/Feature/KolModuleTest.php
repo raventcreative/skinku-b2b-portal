@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Kol;
 use App\Models\KolScreening;
 use App\Models\User;
@@ -598,5 +599,79 @@ class KolModuleTest extends TestCase
 
         $this->actingAs($spec)->get(route('kols.index', ['sort' => 'gmv', 'dir' => 'desc']))->assertOk();
         $this->actingAs($spec)->get(route('kols.index', ['sort' => 'ratecard', 'dir' => 'asc']))->assertOk();
+    }
+
+    /**
+     * Ratecard OPSIONAL (permintaan Freddie, deviasi dari Excel "Wajib diisi"):
+     * kandidat bisa discreening dari views publik SEBELUM nego harga. Tanpa
+     * ratecard: median/ratio/GMV/viral/fake tetap hidup; CPM/CPV/verdict/rank
+     * menunggu — verdict netral ⚪, BUKAN Kemahalan.
+     */
+    public function test_screening_tanpa_ratecard_metrik_views_tetap_hidup(): void
+    {
+        $spec = $this->user('kol_specialist', 'specnr');
+
+        $payload = [
+            'tiktok_username' => 'tanpaharga', 'followers' => 100_000,
+            'tanggal_listing' => '2026-07-10',
+        ];
+        foreach (range(1, 7) as $i) {
+            $payload["views_{$i}"] = 50_000;
+        }
+
+        $this->actingAs($spec)->post(route('kol-screenings.store'), $payload)->assertRedirect();
+
+        $s = KolScreening::whereHas('kol', fn ($q) => $q->where('tiktok_username', 'tanpaharga'))->first();
+        $this->assertNotNull($s);
+        $this->assertNull($s->ratecard);
+        $this->assertNull($s->cpm_median);
+        $this->assertNull($s->cpv_median);
+        $this->assertSame(KolScreening::VERDICT_BELUM_HARGA, $s->verdict_median);
+        $this->assertSame(KolScreening::VERDICT_BELUM_HARGA, $s->verdict_rata);
+        // Metrik berbasis views tetap hidup tanpa harga.
+        $this->assertSame(50_000, $s->median_views);
+        $this->assertGreaterThan(0, $s->gmv_estimate);
+        $this->assertSame('🟢Safe', $s->fake_label);
+
+        // Daftar & listing tak meledak; ratecard tampil "—", rank tak memuatnya.
+        $this->actingAs($spec)->get(route('kols.index'))->assertOk()->assertSee('Belum Ada Ratecard');
+        $this->actingAs($spec)->get(route('kols.listing'))->assertOk();
+    }
+
+    public function test_ratecard_bisa_diisi_belakangan_dan_verdict_langsung_hidup(): void
+    {
+        $spec = $this->user('kol_specialist', 'specfr');
+        $kol = Kol::create(['tiktok_username' => 'negokol', 'followers' => 100_000]);
+        $s = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-10', 'ratecard' => null,
+            'views_1' => 100_000, 'views_2' => 100_000, 'views_3' => 100_000, 'views_4' => 100_000,
+            'views_5' => 100_000, 'views_6' => 100_000, 'views_7' => 100_000,
+        ]);
+        $this->assertSame(KolScreening::VERDICT_BELUM_HARGA, $s->verdict_median);
+
+        // Nego selesai -> isi harga -> verdict hidup, tercatat di Audit Log.
+        $this->actingAs($spec)->patch(route('kol-screenings.ratecard', $s), ['ratecard' => 2_000_000])
+            ->assertRedirect();
+
+        $s->refresh();
+        $this->assertSame(2_000_000, $s->ratecard);
+        $this->assertSame(KolScreening::VERDICT_WORTH, $s->verdict_median);   // CPM 20rb < 60rb
+        $this->assertNotNull(AuditLog::where('action', 'update_kol_screening_ratecard')->first());
+    }
+
+    public function test_filter_verdict_tanpa_harga(): void
+    {
+        $spec = $this->user('kol_specialist', 'spectf');
+        $ada = Kol::create(['tiktok_username' => 'adaharga', 'followers' => 100_000]);
+        $this->screen($ada, 1_000_000, 100_000);
+        $tanpa = Kol::create(['tiktok_username' => 'tanpaharga2', 'followers' => 100_000]);
+        KolScreening::create([
+            'kol_id' => $tanpa->id, 'tanggal_listing' => '2026-07-10', 'ratecard' => null,
+            'views_1' => 10_000, 'views_2' => 10_000, 'views_3' => 10_000, 'views_4' => 10_000,
+            'views_5' => 10_000, 'views_6' => 10_000, 'views_7' => 10_000,
+        ]);
+
+        $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'tanpa_harga']))->assertOk()
+            ->assertSee('tanpaharga2')->assertDontSee('adaharga');
     }
 }

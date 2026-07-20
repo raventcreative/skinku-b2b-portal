@@ -11,6 +11,7 @@
         str_starts_with($v, '🟡') => 'text-amber-600',
         str_starts_with($v, '🟠') => 'text-orange-600',
         str_starts_with($v, '🔴') => 'text-rose-700',
+        str_starts_with($v, '⚪') => 'text-stone-400',
         default => 'text-stone-800',
     };
 @endphp
@@ -58,7 +59,7 @@
                         @if($k?->tiktok_link)<a href="{{ $k->tiktok_link }}" target="_blank" rel="noopener" class="ml-1 text-stone-400 hover:text-stone-700">↗</a>@endif
                     </td>
                     <td class="text-right text-stone-700">{{ number_format((int) ($k->followers ?? 0), 0, ',', '.') }}</td>
-                    <td class="text-right px-2 text-stone-700">{{ $rp($s->ratecard) }}</td>
+                    <td class="text-right px-2 text-stone-700">{{ $s->ratecard !== null ? $rp($s->ratecard) : '—' }}</td>
                     @foreach($s->views() as $v)
                         <td class="text-right px-2 text-stone-600">{{ number_format($v, 0, ',', '.') }}</td>
                     @endforeach

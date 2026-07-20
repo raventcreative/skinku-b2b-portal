@@ -16,6 +16,9 @@ class KolScreening extends Model
 
     public const VERDICT_MAHAL = '🔴 Kemahalan';
 
+    /** Ratecard belum diisi (belum nego) — netral, BUKAN murah/mahal. */
+    public const VERDICT_BELUM_HARGA = '⚪ Belum Ada Ratecard';
+
     protected $fillable = [
         'kol_id', 'tanggal_listing', 'ratecard',
         'views_1', 'views_2', 'views_3', 'views_4', 'views_5', 'views_6', 'views_7',
@@ -57,14 +60,26 @@ class KolScreening extends Model
         return $v[3];
     }
 
-    /** Rupiah per 1000 views basis median. Null bila median 0 — CPM tak terdefinisi. */
+    /**
+     * Rupiah per 1000 views basis median. Null bila median 0 (CPM tak
+     * terdefinisi) ATAU ratecard belum diisi (belum nego — tak ada harga
+     * yang bisa dihitung).
+     */
     public function getCpmMedianAttribute(): ?float
     {
+        if ($this->ratecard === null) {
+            return null;
+        }
+
         return $this->median_views > 0 ? round($this->ratecard / $this->median_views * 1000, 0) : null;
     }
 
     public function getCpmRataAttribute(): ?float
     {
+        if ($this->ratecard === null) {
+            return null;
+        }
+
         return $this->rata_views > 0 ? round($this->ratecard / $this->rata_views * 1000, 0) : null;
     }
 
@@ -86,6 +101,12 @@ class KolScreening extends Model
      */
     public function getVerdictMedianAttribute(): string
     {
+        // Belum ada harga = netral. Beda dengan views-nol (tetap Kemahalan):
+        // tanpa ratecard tak ada yang bisa dinilai murah/mahal.
+        if ($this->ratecard === null) {
+            return self::VERDICT_BELUM_HARGA;
+        }
+
         if ($this->cpm_median === null) {
             return self::VERDICT_MAHAL;
         }
@@ -104,6 +125,10 @@ class KolScreening extends Model
      */
     public function getVerdictRataAttribute(): string
     {
+        if ($this->ratecard === null) {
+            return self::VERDICT_BELUM_HARGA;
+        }
+
         if ($this->cpm_rata === null) {
             return config('kol.mean_tier_terburuk');
         }

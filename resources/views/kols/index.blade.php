@@ -33,6 +33,7 @@
             <option value="worth" @selected(($filters['verdict'] ?? '') === 'worth')>🟢 Worth It</option>
             <option value="masih" @selected(($filters['verdict'] ?? '') === 'masih')>🟡 Masih Oke</option>
             <option value="mahal" @selected(($filters['verdict'] ?? '') === 'mahal')>🔴 Kemahalan</option>
+            <option value="tanpa_harga" @selected(($filters['verdict'] ?? '') === 'tanpa_harga')>⚪ Belum ada ratecard</option>
             <option value="belum" @selected(($filters['verdict'] ?? '') === 'belum')>Belum discreening</option>
         </select>
         {{-- Sort aktif ikut dipertahankan saat ganti filter. --}}
@@ -135,7 +136,7 @@
                     <td class="text-stone-600">{{ $kol->status }}</td>
                     @php $ls = $kol->latestScreening; @endphp
                     @if($ls)
-                        <td class="text-right text-stone-700">{{ $rp($ls->ratecard) }}</td>
+                        <td class="text-right text-stone-700">{{ $ls->ratecard !== null ? $rp($ls->ratecard) : '—' }}</td>
                         {{-- Satu kolom per video, rata kanan — rapi seperti Excel. --}}
                         @foreach($ls->views() as $v)
                             <td class="text-right px-2 text-stone-600">{{ number_format($v, 0, ',', '.') }}</td>
@@ -148,7 +149,7 @@
                         <td class="text-right px-2 text-stone-700">{{ $ls->cpm_median !== null ? number_format($ls->cpm_median, 0, ',', '.') : '—' }}</td>
                         <td class="text-right px-2 text-stone-600">{{ $ls->cpv_median !== null ? number_format($ls->cpv_median, $ls->cpv_median < 100 ? 1 : 0, ',', '.') : '—' }}</td>
                         <td class="text-right px-2 font-bold text-stone-700">{{ isset($ranks[$ls->id]) ? '#'.$ranks[$ls->id] : '—' }}</td>
-                        <td class="px-3 font-semibold whitespace-nowrap {{ str_starts_with($ls->verdict_median, '🟢') ? 'text-emerald-700' : (str_starts_with($ls->verdict_median, '🟡') ? 'text-amber-600' : 'text-rose-700') }}">
+                        <td class="px-3 font-semibold whitespace-nowrap {{ str_starts_with($ls->verdict_median, '🟢') ? 'text-emerald-700' : (str_starts_with($ls->verdict_median, '🟡') ? 'text-amber-600' : (str_starts_with($ls->verdict_median, '⚪') ? 'text-stone-400' : 'text-rose-700')) }}">
                             {{ $ls->verdict_median }}
                         </td>
                         <td class="whitespace-nowrap">

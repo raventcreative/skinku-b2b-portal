@@ -44,7 +44,7 @@ class KolScreeningController extends Controller
             'provinsi' => ['nullable', 'string', 'max:100'],
             'agency' => ['nullable', 'string', 'max:150'],
             'tanggal_listing' => ['required', 'date', 'before_or_equal:today'],
-            'ratecard' => ['required', 'integer', 'min:0'],
+            'ratecard' => ['nullable', 'integer', 'min:0'],   // opsional: harga sering baru ada setelah nego
         ];
         for ($i = 1; $i <= 7; $i++) {
             $rules["views_{$i}"] = ['required', 'integer', 'min:0'];
@@ -86,7 +86,7 @@ class KolScreeningController extends Controller
             return KolScreening::create([
                 'kol_id' => $kol->id,
                 'tanggal_listing' => $data['tanggal_listing'],
-                'ratecard' => $data['ratecard'],
+                'ratecard' => $data['ratecard'] ?? null,
                 ...collect(range(1, 7))->mapWithKeys(fn ($i) => ["views_{$i}" => $data["views_{$i}"]])->all(),
                 'created_by' => $request->user()->id,
             ]);
@@ -110,5 +110,28 @@ class KolScreeningController extends Controller
         return redirect()->route('kols.show', $screening->kol_id)
             ->with('status', 'Screening tersimpan — median '.number_format($screening->median_views, 0, ',', '.')
                 ." views, verdict {$screening->verdict_median}.");
+    }
+
+    /**
+     * Isi ratecard BELAKANGAN — pasangan dari ratecard-opsional saat input.
+     * Tanpa jalur ini, screening tanpa harga jadi jalan buntu: verdict/CPM/rank
+     * tak pernah bisa muncul setelah nego selesai.
+     */
+    public function updateRatecard(Request $request, KolScreening $screening): RedirectResponse
+    {
+        $data = $request->validate(['ratecard' => ['required', 'integer', 'min:0']]);
+
+        $before = $screening->ratecard;
+        $screening->update(['ratecard' => $data['ratecard']]);
+
+        AuditService::log(
+            action: 'update_kol_screening_ratecard',
+            targetType: 'kol_screening',
+            targetId: $screening->id,
+            before: ['ratecard' => $before],
+            after: ['ratecard' => $screening->ratecard, 'verdict' => $screening->verdict_median],
+        );
+
+        return back()->with('status', "Ratecard diisi — verdict: {$screening->verdict_median}.");
     }
 }
