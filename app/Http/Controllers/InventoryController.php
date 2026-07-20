@@ -33,7 +33,15 @@ class InventoryController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('inventory.index', compact('user', 'hqProducts', 'partnerStock'));
+        // Daftar produk aktif untuk pemilih "Sesuaikan Stok" — mitra perlu ini
+        // untuk mencatat barang keluar / mengisi saldo awal produk yang belum
+        // ada di daftar stoknya (baris dibuat otomatis saat pertama disesuaikan).
+        $activeProducts = Product::query()
+            ->where('status', Product::STATUS_ACTIVE)
+            ->orderBy('name')
+            ->get(['id', 'name', 'sku']);
+
+        return view('inventory.index', compact('user', 'hqProducts', 'partnerStock', 'activeProducts'));
     }
 
     /** HQ stock adjustment (gudang / management only). */
@@ -94,7 +102,12 @@ class InventoryController extends Controller
             'notes' => ['required', 'string', 'max:500'],
         ]);
 
-        if ($user->isPartner() && (int) $data['user_id'] !== $user->id) {
+        // Otorisasi eksplisit: staf boleh menyesuaikan stok mitra mana pun;
+        // mitra hanya miliknya sendiri; selain itu ditolak. Guard lama hanya
+        // memblokir mitra menyentuh stok orang lain, sehingga user non-staf
+        // non-mitra (mis. afiliator) lolos dan bisa menyesuaikan stok siapa saja.
+        $ownLine = (int) $data['user_id'] === $user->id;
+        if (! $user->isStaff() && ! ($user->isPartner() && $ownLine)) {
             abort(403, 'Anda hanya dapat menyesuaikan stok milik Anda.');
         }
 
@@ -112,7 +125,22 @@ class InventoryController extends Controller
             return back()->withErrors(['quantity' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Stok mitra berhasil disesuaikan.');
+        // Mitra menyesuaikan stoknya sendiri = perubahan tanpa dokumen sumber.
+        // WAJIB tercatat: inilah jaring pengaman yang membuat self-service aman.
+        AuditService::log(
+            action: 'adjust_partner_stock',
+            targetType: 'inventory',
+            targetId: (int) $data['product_id'],
+            after: [
+                'user_id' => (int) $data['user_id'],
+                'type' => $data['type'],
+                'quantity' => (int) $data['quantity'],
+                'alasan' => $data['notes'],
+            ],
+            targetUserId: (int) $data['user_id'],
+        );
+
+        return back()->with('status', 'Stok berhasil disesuaikan.');
     }
 
     public function setMinimum(Request $request): RedirectResponse

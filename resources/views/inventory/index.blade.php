@@ -59,9 +59,51 @@
     <div class="px-5 py-3 border-b border-stone-100 flex flex-wrap items-center gap-2">
         <span class="text-sm font-bold text-stone-800">{{ $u->isPartner() ? 'Stok Saya' : 'Stok Mitra' }}</span>
         @if($u->isPartner())
-            <span class="text-[11px] text-stone-500">— catat barang keluar: cari produknya, pilih <b>Barang Keluar</b>, isi jumlah &amp; alasan, klik OK.</span>
+            <span class="text-[11px] text-stone-500">— catat barang keluar: cari produknya di tabel, pilih <b>Barang Keluar</b>, isi jumlah &amp; alasan, klik OK.</span>
         @endif
     </div>
+
+    @if($u->isPartner())
+        {{-- <details> = pemicu murni HTML, tak butuh JS. Sengaja di LUAR tabel
+             supaya tetap muncul walau stok masih kosong — produk yang belum ada
+             di daftar pun bisa dipilih di sini (barisnya dibuat otomatis saat
+             pertama disesuaikan), termasuk untuk mengisi saldo awal. --}}
+        <details class="border-b border-stone-100 group">
+            <summary class="px-5 py-3 cursor-pointer text-sm font-semibold text-red-700 hover:bg-stone-50 select-none list-none flex items-center gap-2">
+                <span class="text-lg leading-none">＋</span> Sesuaikan Stok Sendiri
+                <span class="text-[11px] font-normal text-stone-400">(barang keluar, atau isi saldo awal)</span>
+            </summary>
+            <div class="px-5 pb-4 pt-1 bg-stone-50/60">
+                <form method="POST" action="{{ route('inventory.partner-adjust') }}" class="flex flex-wrap items-end gap-3">
+                    @csrf
+                    <input type="hidden" name="user_id" value="{{ $u->id }}">
+                    <label class="text-[11px] text-stone-500">Produk
+                        <select name="product_id" required class="mt-1 block w-56 px-2 py-1.5 border border-stone-300 rounded text-xs">
+                            <option value="">— pilih produk —</option>
+                            @foreach($activeProducts as $prod)
+                                <option value="{{ $prod->id }}">{{ $prod->name }} ({{ $prod->sku }})</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label class="text-[11px] text-stone-500">Jenis
+                        <select name="type" class="mt-1 block w-40 px-2 py-1.5 border border-stone-300 rounded text-xs">
+                            @foreach($movementTypes as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
+                        </select>
+                    </label>
+                    <label class="text-[11px] text-stone-500">Jumlah
+                        <input type="number" name="quantity" min="1" value="1" required class="mt-1 block w-20 px-2 py-1.5 border border-stone-300 rounded text-xs text-center">
+                    </label>
+                    <label class="text-[11px] text-stone-500 flex-1 min-w-[12rem]">Alasan (wajib)
+                        <input type="text" name="notes" required maxlength="500" placeholder="mis. jual ke customer / saldo awal" class="mt-1 block w-full px-2 py-1.5 border border-stone-300 rounded text-xs">
+                    </label>
+                    <button class="px-4 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700">Simpan</button>
+                </form>
+                <p class="text-[11px] text-stone-400 mt-2">
+                    Barang keluar tak boleh melebihi stok tercatat. Untuk produk yang fisiknya sudah Anda pegang tapi belum tercatat, pilih <b>Barang Masuk</b> dengan alasan "saldo awal".
+                </p>
+            </div>
+        </details>
+    @endif
     <div class="overflow-x-auto">
     <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
