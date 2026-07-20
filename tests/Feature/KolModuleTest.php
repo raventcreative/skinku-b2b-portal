@@ -1,0 +1,165 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Kol;
+use App\Models\KolScreening;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class KolModuleTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function user(string $role, string $u): User
+    {
+        return User::create([
+            'name' => $u, 'fullname' => strtoupper($u), 'username' => $u, 'email' => "{$u}@skinku.test",
+            'password' => Hash::make('secret123'), 'role' => $role, 'status' => User::STATUS_ACTIVE,
+        ]);
+    }
+
+    private function kol(int $followers = 50_000): Kol
+    {
+        static $n = 0;
+        $n++;
+
+        return Kol::create(['tiktok_username' => "kol{$n}", 'followers' => $followers]);
+    }
+
+    /** Semua route KOL tertutup untuk siapa pun tanpa kol.view — termasuk mitra & afiliator. */
+    public function test_tanpa_kol_view_semua_route_403(): void
+    {
+        $kol = $this->kol();
+
+        foreach ([
+            $this->user(User::ROLE_DISTRIBUTOR, 'mitra1'),
+            $this->user(User::ROLE_RESELLER, 'mitra2'),
+            $this->user('affiliator', 'afil1'),   // role dinamis, bukan staf/mitra
+            $this->user(User::ROLE_GUDANG, 'gud1'),
+        ] as $user) {
+            $this->actingAs($user)->get(route('kols.index'))->assertForbidden();
+            $this->actingAs($user)->get(route('kols.show', $kol))->assertForbidden();
+            $this->actingAs($user)->get(route('kol-deals.index'))->assertForbidden();
+            $this->actingAs($user)->post(route('kols.store'), [])->assertForbidden();
+        }
+    }
+
+    public function test_kol_specialist_bisa_membuka_daftar_dan_menambah_kol(): void
+    {
+        $spec = $this->user('kol_specialist', 'spec1');
+
+        $this->actingAs($spec)->get(route('kols.index'))->assertOk()->assertSee('Database KOL');
+
+        $this->actingAs($spec)->post(route('kols.store'), [
+            'tiktok_username' => 'skincarequeen', 'followers' => 250_000, 'kategori' => 'Skinfluencer',
+        ])->assertRedirect();
+
+        $this->assertSame('Middle', Kol::where('tiktok_username', 'skincarequeen')->first()->level);
+    }
+
+    /**
+     * Batas level TEPAT di angka batas: angka batas naik ke jenjang atasnya,
+     * kecuali 2,5jt yang masih Mega (rentang "1jt–2,5jt" inklusif).
+     */
+    public function test_level_otomatis_benar_di_batas_batas(): void
+    {
+        $cases = [
+            [9_999, 'Nano'], [10_000, 'Mikro'],
+            [99_999, 'Mikro'], [100_000, 'Middle'],
+            [499_999, 'Middle'], [500_000, 'Makro'],
+            [999_999, 'Makro'], [1_000_000, 'Mega'],
+            [2_500_000, 'Mega'], [2_500_001, 'Super Mega'],
+        ];
+
+        foreach ($cases as [$followers, $expected]) {
+            $this->assertSame($expected, $this->kol($followers)->level, "followers={$followers}");
+        }
+    }
+
+    /** Median 7 angka = nilai tengah setelah urut; angka 0 ikut diurutkan, tidak dibuang. */
+    public function test_median_views_benar_termasuk_ada_angka_nol(): void
+    {
+        $kol = $this->kol();
+
+        $s = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => 1_000_000,
+            'views_1' => 5000, 'views_2' => 0, 'views_3' => 12000, 'views_4' => 800,
+            'views_5' => 0, 'views_6' => 3000, 'views_7' => 700,
+        ]);
+
+        // Urut: 0,0,700,800,3000,5000,12000 → tengah = 800.
+        $this->assertSame(800, $s->median_views);
+        $this->assertSame(21_500, $s->total_views);
+        $this->assertEqualsWithDelta(21_500 / 7, $s->rata_views, 0.1);
+    }
+
+    /** Verdict mengikuti ambang config — diuji dengan ambang yang DISETEL di test, bukan tebakan. */
+    public function test_verdict_worth_it_di_bawah_ambang_dan_kemahalan_di_atasnya(): void
+    {
+        config(['kol.cpm_threshold' => 25_000]);
+        $kol = $this->kol(100_000);
+
+        // ratecard 2jt, median 100rb views → CPM 20.000 ≤ 25.000 → Worth It.
+        $murah = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => 2_000_000,
+            'views_1' => 100_000, 'views_2' => 100_000, 'views_3' => 100_000, 'views_4' => 100_000,
+            'views_5' => 100_000, 'views_6' => 100_000, 'views_7' => 100_000,
+        ]);
+        $this->assertEqualsWithDelta(20_000, $murah->cpm_median, 0.01);
+        $this->assertSame(KolScreening::VERDICT_WORTH, $murah->verdict_median);
+
+        // ratecard 3jt, median 100rb → CPM 30.000 > 25.000 → Kemahalan.
+        $mahal = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-02', 'ratecard' => 3_000_000,
+            'views_1' => 100_000, 'views_2' => 100_000, 'views_3' => 100_000, 'views_4' => 100_000,
+            'views_5' => 100_000, 'views_6' => 100_000, 'views_7' => 100_000,
+        ]);
+        $this->assertSame(KolScreening::VERDICT_MAHAL, $mahal->verdict_median);
+
+        // Views nol semua → CPM tak terdefinisi → tetap Kemahalan, bukan verdict kosong.
+        $nol = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-03', 'ratecard' => 1_000_000,
+            'views_1' => 0, 'views_2' => 0, 'views_3' => 0, 'views_4' => 0,
+            'views_5' => 0, 'views_6' => 0, 'views_7' => 0,
+        ]);
+        $this->assertNull($nol->cpm_median);
+        $this->assertSame(KolScreening::VERDICT_MAHAL, $nol->verdict_median);
+    }
+
+    public function test_screening_lewat_form_menghitung_dan_menampilkan_hasil(): void
+    {
+        config(['kol.cpm_threshold' => 25_000]);
+        $spec = $this->user('kol_specialist', 'spec2');
+        $kol = $this->kol(200_000);
+
+        $payload = ['kol_id' => $kol->id, 'tanggal_listing' => '2026-07-10', 'ratecard' => 1_000_000];
+        foreach (range(1, 7) as $i) {
+            $payload["views_{$i}"] = 50_000;
+        }
+
+        $this->actingAs($spec)->post(route('kol-screenings.store'), $payload)
+            ->assertRedirect(route('kols.show', $kol->id));
+
+        // Halaman detail menampilkan hasil: median, CPM (1jt/50rb×1000 = 20rb), ratio (50rb/200rb = 25%).
+        $html = $this->actingAs($spec)->get(route('kols.show', $kol))->assertOk()->getContent();
+        $this->assertStringContainsString('50.000', $html);
+        $this->assertStringContainsString('20.000', $html);
+        $this->assertStringContainsString('25,00%', $html);
+        $this->assertStringContainsString('Worth It', $html);
+    }
+
+    public function test_ratio_dihitung_dari_followers_kol(): void
+    {
+        $kol = $this->kol(100_000);
+        $s = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => 1,
+            'views_1' => 4000, 'views_2' => 4000, 'views_3' => 4000, 'views_4' => 4000,
+            'views_5' => 4000, 'views_6' => 4000, 'views_7' => 4000,
+        ]);
+
+        $this->assertEqualsWithDelta(4.0, $s->ratio, 0.01);   // 4000/100000 = 4%
+    }
+}
