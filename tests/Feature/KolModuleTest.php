@@ -308,4 +308,30 @@ class KolModuleTest extends TestCase
         $this->assertStringContainsString('Kemahalan', $html);
         $this->assertStringContainsString('detail →', $html);      // jalan ke rincian jelas
     }
+
+    /**
+     * Detail screening menampilkan DATA MENTAHNYA — 7 views satu per satu +
+     * total — bukan cuma hasil olahan. Plus dua verdict (median & mean) seperti
+     * dua kolom indikator di Excel sumber.
+     */
+    public function test_detail_menampilkan_7_views_mentah_total_dan_dua_verdict(): void
+    {
+        config(['kol.cpm_threshold' => 25_000]);
+        $spec = $this->user('kol_specialist', 'specd');
+        $kol = Kol::create(['tiktok_username' => 'detailkol', 'followers' => 100_000]);
+
+        KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-10', 'ratecard' => 1_000_000,
+            'views_1' => 105_200, 'views_2' => 6_627, 'views_3' => 1_165, 'views_4' => 131_400,
+            'views_5' => 2_874, 'views_6' => 1_040, 'views_7' => 11_000,
+        ]);
+
+        $html = $this->actingAs($spec)->get(route('kols.show', $kol))->assertOk()->getContent();
+
+        $this->assertStringContainsString('105.200', $html);   // views mentah tampil
+        $this->assertStringContainsString('131.400', $html);
+        $this->assertStringContainsString('259.306', $html);   // total views
+        $this->assertStringContainsString('Verdict (Median)', $html);
+        $this->assertStringContainsString('Verdict (Mean)', $html);
+    }
 }

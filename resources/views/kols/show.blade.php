@@ -62,24 +62,38 @@
     <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr><th class="text-left px-4 py-2">Tanggal</th><th class="text-right">Ratecard</th>
-                <th class="text-right">Median Views</th><th class="text-right">Rata Views</th>
-                <th class="text-right">CPM Median</th><th class="text-right">CPM Rata</th>
-                <th class="text-right">Ratio</th><th class="text-left px-4">Verdict</th></tr>
+                <th class="text-right" title="Views 7 video, satu per satu">7 Views</th>
+                <th class="text-right">Total</th>
+                <th class="text-right">Median</th><th class="text-right">Rata</th>
+                <th class="text-right">Ratio</th>
+                <th class="text-left px-3" title="basis median views">Verdict (Median)</th>
+                <th class="text-left px-4" title="basis rata-rata views — pembanding, seperti kolom Mean di Excel">Verdict (Mean)</th></tr>
         </thead>
         <tbody>
             @forelse($kol->screenings as $s)
-                <tr class="border-t border-stone-100">
+                <tr class="border-t border-stone-100 align-top">
                     <td class="px-4 py-2.5 text-stone-600">{{ $s->tanggal_listing->format('d M Y') }}</td>
                     <td class="text-right text-stone-700">{{ $rp($s->ratecard) }}</td>
+                    {{-- Angka mentah 7 video ikut tampil — inilah "data rinciannya",
+                         bukan cuma hasil olahannya. --}}
+                    <td class="text-right text-stone-500 text-[10px] leading-tight">
+                        @foreach($s->views() as $v){{ number_format($v, 0, ',', '.') }}@if(!$loop->last) · @endif @endforeach
+                    </td>
+                    <td class="text-right text-stone-600">{{ number_format($s->total_views, 0, ',', '.') }}</td>
                     <td class="text-right font-semibold text-stone-800">{{ number_format($s->median_views, 0, ',', '.') }}</td>
                     <td class="text-right text-stone-600">{{ number_format($s->rata_views, 1, ',', '.') }}</td>
-                    <td class="text-right text-stone-700">{{ $s->cpm_median !== null ? $rp($s->cpm_median) : '—' }}</td>
-                    <td class="text-right text-stone-600">{{ $s->cpm_rata !== null ? $rp($s->cpm_rata) : '—' }}</td>
                     <td class="text-right text-stone-600">{{ $s->ratio !== null ? number_format($s->ratio, 2, ',', '.').'%' : '—' }}</td>
-                    <td class="px-4 font-semibold {{ $s->verdict_median === \App\Models\KolScreening::VERDICT_WORTH ? 'text-emerald-700' : 'text-rose-700' }}">{{ $s->verdict_median }}</td>
+                    <td class="px-3 font-semibold whitespace-nowrap {{ $s->verdict_median === \App\Models\KolScreening::VERDICT_WORTH ? 'text-emerald-700' : 'text-rose-700' }}">
+                        {{ $s->verdict_median }}
+                        <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_median !== null ? $rp($s->cpm_median) : '—' }}</span>
+                    </td>
+                    <td class="px-4 font-semibold whitespace-nowrap {{ $s->verdict_rata === \App\Models\KolScreening::VERDICT_WORTH ? 'text-emerald-700' : 'text-rose-700' }}">
+                        {{ $s->verdict_rata }}
+                        <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_rata !== null ? $rp($s->cpm_rata) : '—' }}</span>
+                    </td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="px-4 py-6 text-center text-stone-400">Belum ada screening.</td></tr>
+                <tr><td colspan="9" class="px-4 py-6 text-center text-stone-400">Belum ada screening.</td></tr>
             @endforelse
         </tbody>
     </table>
