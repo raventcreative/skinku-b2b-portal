@@ -41,6 +41,7 @@
                 <th rowspan="2" class="text-left align-bottom px-3">Rata-Rata [Median] CPM Indicator</th>
                 <th rowspan="2" class="text-left align-bottom px-3">GMV + Viral + Fake Detector</th>
                 <th rowspan="2" class="text-left align-bottom px-3">Agency/ Non Agency</th>
+                <th rowspan="2" class="text-right align-bottom px-3" title="RANK(CPM Mean; seluruh screening; ascending) — kolom Z Excel">Rank</th>
             </tr>
             <tr class="bg-yellow-50 text-yellow-900">
                 @for($i = 1; $i <= 7; $i++)<th class="text-right px-2 py-1">{{ $i }}</th>@endfor
@@ -69,21 +70,22 @@
                     {{-- Indikator Mean: 5 tingkat. Format teks meniru sel Excel. --}}
                     <td class="px-3 whitespace-nowrap">
                         <span class="font-semibold {{ $vColor($s->verdict_rata) }}">{{ $s->verdict_rata }}</span>
-                        <span class="block text-[10px] text-stone-500">CPM {{ $s->cpm_rata !== null ? number_format($s->cpm_rata, 0, ',', '.') : '—' }} | Ratio {{ $s->ratio_rata !== null ? number_format($s->ratio_rata, 0, ',', '.').'%' : '—' }}</span>
+                        <span class="block text-[10px] text-stone-500">CPM {{ $s->cpm_rata !== null ? number_format($s->cpm_rata, 0, ',', '.') : '—' }} | CPV {{ $s->cpv_rata !== null ? number_format($s->cpv_rata, $s->cpv_rata < 100 ? 1 : 0, ',', '.') : '—' }} | Ratio {{ $s->ratio_rata !== null ? number_format($s->ratio_rata, 0, ',', '.').'%' : '—' }}</span>
                     </td>
                     {{-- Indikator Median: 3 tingkat (Worth It / Masih Oke / Kemahalan). --}}
                     <td class="px-3 whitespace-nowrap">
                         <span class="font-semibold {{ $vColor($s->verdict_median) }}">{{ $s->verdict_median }}</span>
-                        <span class="block text-[10px] text-stone-500">CPM {{ $s->cpm_median !== null ? number_format($s->cpm_median, 0, ',', '.') : '—' }} | Ratio {{ $s->ratio !== null ? number_format($s->ratio, 0, ',', '.').'%' : '—' }}</span>
+                        <span class="block text-[10px] text-stone-500">CPM {{ $s->cpm_median !== null ? number_format($s->cpm_median, 0, ',', '.') : '—' }} | CPV {{ $s->cpv_median !== null ? number_format($s->cpv_median, $s->cpv_median < 100 ? 1 : 0, ',', '.') : '—' }} | Ratio {{ $s->ratio !== null ? number_format($s->ratio, 0, ',', '.').'%' : '—' }}</span>
                     </td>
                     <td class="px-3 whitespace-nowrap">
                         <span class="text-stone-800">💰GMV {{ number_format($s->gmv_estimate, 0, ',', '.') }}</span>
                         <span class="block text-[10px] text-stone-500">🚀Viral: {{ $s->viral_label }} | 👤Fake: {{ $s->fake_label ?? '—' }}</span>
                     </td>
                     <td class="px-3 text-stone-600">{{ $k->agency ?? '—' }}</td>
+                    <td class="px-3 text-right font-bold text-stone-700">{{ isset($ranks[$s->id]) ? '#'.$ranks[$s->id] : '—' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="21" class="px-4 py-8 text-center text-stone-400">Belum ada screening. Input lewat tombol <b>+ Screening</b> di Database KOL.</td></tr>
+                <tr><td colspan="22" class="px-4 py-8 text-center text-stone-400">Belum ada screening. Input lewat tombol <b>+ Screening</b> di Database KOL.</td></tr>
             @endforelse
         </tbody>
     </table>

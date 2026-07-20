@@ -98,11 +98,11 @@
                     <td class="text-right text-stone-600">{{ $s->ratio !== null ? number_format($s->ratio, 2, ',', '.').'%' : '—' }}</td>
                     <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($s->verdict_median) }}">
                         {{ $s->verdict_median }}
-                        <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_median !== null ? $rp($s->cpm_median) : '—' }}</span>
+                        <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_median !== null ? $rp($s->cpm_median) : '—' }} · CPV {{ $s->cpv_median !== null ? 'Rp '.number_format($s->cpv_median, $s->cpv_median < 100 ? 1 : 0, ',', '.') : '—' }}</span>
                     </td>
                     <td class="px-4 font-semibold whitespace-nowrap {{ $vColor($s->verdict_rata) }}">
                         {{ $s->verdict_rata }}
-                        <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_rata !== null ? $rp($s->cpm_rata) : '—' }}</span>
+                        <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_rata !== null ? $rp($s->cpm_rata) : '—' }} · CPV {{ $s->cpv_rata !== null ? 'Rp '.number_format($s->cpv_rata, $s->cpv_rata < 100 ? 1 : 0, ',', '.') : '—' }}</span>
                     </td>
                     <td class="px-4 whitespace-nowrap">
                         <span class="font-semibold text-stone-800">🪙 {{ $rp($s->gmv_estimate) }}</span>

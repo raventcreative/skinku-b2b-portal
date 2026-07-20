@@ -46,6 +46,9 @@ class KolController extends Controller
             'dir' => $dir,
             'levels' => ['Nano', 'Mikro', 'Middle', 'Makro', 'Mega', 'Super Mega'],
             'kategoriList' => config('kol.kategori'),
+            // Rank global (kolom Z Excel) — daftar menampilkan rank milik
+            // screening terakhir tiap KOL.
+            'ranks' => $this->ranks(),
         ]);
     }
 
@@ -77,7 +80,36 @@ class KolController extends Controller
             ->orderByDesc('id')
             ->paginate(50);
 
-        return view('kols.listing', ['rows' => $rows]);
+        return view('kols.listing', ['rows' => $rows, 'ranks' => $this->ranks()]);
+    }
+
+    /**
+     * Peringkat screening — porting kolom Z Excel: RANK(CPM mean; seluruh
+     * kolom; ascending). Rank 1 = CPM mean termurah. Dihitung atas SEMUA
+     * screening (bukan cuma halaman aktif), nilai kembar berbagi rank yang
+     * sama dan rank berikutnya melompat — persis perilaku RANK() Excel.
+     *
+     * @return array<int, int> [screening_id => rank]
+     */
+    private function ranks(): array
+    {
+        $rows = KolScreening::query()->get()
+            ->map(fn (KolScreening $s) => ['id' => $s->id, 'cpm' => $s->cpm_rata])
+            ->filter(fn ($r) => $r['cpm'] !== null)
+            ->sortBy('cpm')
+            ->values();
+
+        $ranks = [];
+        $prevCpm = null;
+        $prevRank = 0;
+        foreach ($rows as $i => $r) {
+            $rank = ($prevCpm !== null && abs($r['cpm'] - $prevCpm) < 0.001) ? $prevRank : $i + 1;
+            $ranks[$r['id']] = $rank;
+            $prevCpm = $r['cpm'];
+            $prevRank = $rank;
+        }
+
+        return $ranks;
     }
 
     private function sorted($kols, string $sort, string $dir)

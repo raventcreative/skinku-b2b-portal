@@ -126,6 +126,21 @@ class KolScreening extends Model
     }
 
     /*
+     * CPV (Cost Per View) = biaya per SATU view = ratecard ÷ views = CPM ÷ 1000.
+     * Tidak ada di Excel — permintaan tambahan Freddie; definisinya baku.
+     */
+
+    public function getCpvMedianAttribute(): ?float
+    {
+        return $this->cpm_median !== null ? round($this->cpm_median / 1000, 2) : null;
+    }
+
+    public function getCpvRataAttribute(): ?float
+    {
+        return $this->cpm_rata !== null ? round($this->cpm_rata / 1000, 2) : null;
+    }
+
+    /*
      * GMV + Viral + Fake Detector — porting rumus Excel kolom W (rumusnya
      * terbaca utuh di formula bar, konstanta di config/kol.php).
      */

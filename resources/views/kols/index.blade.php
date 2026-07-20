@@ -107,6 +107,7 @@
                 <th rowspan="2" class="text-right align-bottom">Total</th>
                 <th rowspan="2" class="text-right align-bottom">Median</th>
                 <th rowspan="2" class="text-right align-bottom" title="Median views ÷ followers">Ratio</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="Peringkat CPM Mean termurah di seluruh screening (kolom Z Excel)">Rank</th>
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Urut berdasarkan CPM median — termurah dulu">{!! $sortLink('verdict', 'Verdict Terakhir') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV + deteksi viral & followers palsu (rumus Excel kolom W)">GMV · Viral · Fake</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
@@ -138,9 +139,10 @@
                         <td class="text-right text-stone-500">{{ number_format($ls->total_views, 0, ',', '.') }}</td>
                         <td class="text-right font-semibold text-stone-800">{{ number_format($ls->median_views, 0, ',', '.') }}</td>
                         <td class="text-right text-stone-600">{{ $ls->ratio !== null ? number_format($ls->ratio, 1, ',', '.').'%' : '—' }}</td>
+                        <td class="text-right px-2 font-bold text-stone-700">{{ isset($ranks[$ls->id]) ? '#'.$ranks[$ls->id] : '—' }}</td>
                         <td class="px-3 font-semibold {{ str_starts_with($ls->verdict_median, '🟢') ? 'text-emerald-700' : (str_starts_with($ls->verdict_median, '🟡') ? 'text-amber-600' : 'text-rose-700') }}">
                             {{ $ls->verdict_median }}
-                            <span class="text-stone-400">· CPM {{ $ls->cpm_median !== null ? $rp($ls->cpm_median) : '—' }}</span>
+                            <span class="block text-[10px] font-normal text-stone-400">CPM {{ $ls->cpm_median !== null ? $rp($ls->cpm_median) : '—' }} · CPV {{ $ls->cpv_median !== null ? 'Rp '.number_format($ls->cpv_median, $ls->cpv_median < 100 ? 1 : 0, ',', '.') : '—' }}</span>
                         </td>
                         <td class="whitespace-nowrap">
                             <span class="font-semibold text-stone-800">🪙 {{ $rp($ls->gmv_estimate) }}</span>
@@ -154,7 +156,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="19" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="20" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>

@@ -473,4 +473,49 @@ class KolModuleTest extends TestCase
 
         $this->assertSame('CMEDIA', Kol::where('tiktok_username', 'agencykol')->value('agency'));
     }
+
+    /**
+     * Rank — porting kolom Z Excel: RANK(CPM Mean; seluruh screening; asc).
+     * Rank 1 = termurah; nilai kembar berbagi rank, rank berikutnya melompat.
+     */
+    public function test_rank_mengikuti_cpm_mean_termurah_dengan_perilaku_rank_excel(): void
+    {
+        $spec = $this->user('kol_specialist', 'specrk');
+        $a = Kol::create(['tiktok_username' => 'ranka', 'followers' => 100_000]);
+        $b = Kol::create(['tiktok_username' => 'rankb', 'followers' => 100_000]);
+        $c = Kol::create(['tiktok_username' => 'rankc', 'followers' => 100_000]);
+        $d = Kol::create(['tiktok_username' => 'rankd', 'followers' => 100_000]);
+
+        $this->screen($a, 1_000_000, 100_000);   // CPM mean 10rb  -> rank 1
+        $this->screen($b, 2_000_000, 100_000);   // CPM mean 20rb  -> rank 2 (kembar)
+        $this->screen($c, 2_000_000, 100_000);   // CPM mean 20rb  -> rank 2 (kembar)
+        $this->screen($d, 3_000_000, 100_000);   // CPM mean 30rb  -> rank 4 (melompat, bukan 3)
+
+        $html = $this->actingAs($spec)->get(route('kols.listing'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('#1', $html);
+        $this->assertStringContainsString('#2', $html);
+        $this->assertStringContainsString('#4', $html);
+        $this->assertStringNotContainsString('#3', $html);   // dilompati karena kembar di rank 2
+
+        // Rank juga tampil di Database KOL (rank milik screening terakhir).
+        $this->actingAs($spec)->get(route('kols.index'))->assertOk()->assertSee('#4');
+    }
+
+    /** CPV = CPM / 1000 — biaya per satu view. */
+    public function test_cpv_terhitung_dan_tampil(): void
+    {
+        $spec = $this->user('kol_specialist', 'speccv');
+        $kol = Kol::create(['tiktok_username' => 'cpvkol', 'followers' => 100_000]);
+        $s = $this->screen($kol, 3_000_000, 90_000);   // CPM median 33.333,33 -> CPV 33,33
+
+        $this->assertEqualsWithDelta(33.33, $s->cpv_median, 0.01);
+        $this->assertEqualsWithDelta(33.33, $s->cpv_rata, 0.01);
+
+        // Views nol -> CPV null, bukan error bagi-nol.
+        $nol = $this->screen($kol, 1_000_000, 0);
+        $this->assertNull($nol->cpv_median);
+
+        $this->actingAs($spec)->get(route('kols.index'))->assertOk()->assertSee('CPV');
+    }
 }
