@@ -69,7 +69,8 @@
                 <th rowspan="2" class="text-right align-bottom">Median</th><th rowspan="2" class="text-right align-bottom">Rata</th>
                 <th rowspan="2" class="text-right align-bottom">Ratio</th>
                 <th rowspan="2" class="text-left px-3 align-bottom" title="basis median views">Verdict (Median)</th>
-                <th rowspan="2" class="text-left px-4 align-bottom" title="basis rata-rata views — pembanding, seperti kolom Mean di Excel">Verdict (Mean)</th></tr>
+                <th rowspan="2" class="text-left px-4 align-bottom" title="basis rata-rata views — pembanding, seperti kolom Mean di Excel">Verdict (Mean)</th>
+                <th rowspan="2" class="text-left px-4 align-bottom" title="Estimasi GMV + deteksi viral & followers palsu">GMV · Viral · Fake</th></tr>
             <tr>
                 @for($i = 1; $i <= 7; $i++)<th class="text-right px-2 py-1">{{ $i }}</th>@endfor
             </tr>
@@ -95,9 +96,13 @@
                         {{ $s->verdict_rata }}
                         <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_rata !== null ? $rp($s->cpm_rata) : '—' }}</span>
                     </td>
+                    <td class="px-4 whitespace-nowrap">
+                        <span class="font-semibold text-stone-800">🪙 {{ $rp($s->gmv_estimate) }}</span>
+                        <span class="block text-[10px] text-stone-500">🚀 Viral: {{ $s->viral_label }} · 👤 Fake: {{ $s->fake_label ?? '—' }}</span>
+                    </td>
                 </tr>
             @empty
-                <tr><td colspan="15" class="px-4 py-6 text-center text-stone-400">Belum ada screening.</td></tr>
+                <tr><td colspan="16" class="px-4 py-6 text-center text-stone-400">Belum ada screening.</td></tr>
             @endforelse
         </tbody>
     </table>

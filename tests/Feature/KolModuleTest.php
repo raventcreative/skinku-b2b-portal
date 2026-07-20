@@ -337,4 +337,87 @@ class KolModuleTest extends TestCase
         $this->assertStringContainsString('Verdict (Median)', $html);
         $this->assertStringContainsString('Verdict (Mean)', $html);
     }
+
+    /**
+     * GMV + Viral + Fake — porting rumus Excel kolom W, divalidasi dengan BARIS
+     * NYATA dari spreadsheet: followers 6.956, views [105.200, 6.627, 1.165,
+     * 131.400, 2.874, 1.040, 11.000] → median 6.627, mean 37.044 → sel Excel
+     * menampilkan "GMV 3.021.912 | Viral:High | Fake:Safe".
+     */
+    public function test_gmv_viral_fake_cocok_dengan_baris_nyata_excel(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'dummyexcel', 'followers' => 6_956]);
+        $s = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-04-22', 'ratecard' => 55_000,
+            'views_1' => 105_200, 'views_2' => 6_627, 'views_3' => 1_165, 'views_4' => 131_400,
+            'views_5' => 2_874, 'views_6' => 1_040, 'views_7' => 11_000,
+        ]);
+
+        $this->assertSame(6_627, $s->median_views);
+        $this->assertSame(3_021_912, $s->gmv_estimate);      // 6627 × 0,012 × 38.000
+        $this->assertSame('High', $s->viral_label);           // mean 37.044 ≥ 6.627×2
+        $this->assertSame('🟢Safe', $s->fake_label);          // 6.627 ≥ 6.956×5%
+    }
+
+    public function test_viral_dan_fake_di_batas_ambang(): void
+    {
+        // Viral: median 10.000 → High mulai mean 20.000, Mid mulai 13.000.
+        $kol = Kol::create(['tiktok_username' => 'ambang', 'followers' => 1_000_000]);
+
+        $mid = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => 1,
+            // urut: 1.000×3, 10.000(median), 19.000×3 → total 91.000, mean 13.000 persis
+            'views_1' => 1_000, 'views_2' => 1_000, 'views_3' => 1_000, 'views_4' => 10_000,
+            'views_5' => 19_000, 'views_6' => 19_000, 'views_7' => 40_000,
+        ]);
+        $this->assertSame(13_000.0, $mid->rata_views);
+        $this->assertSame('Mid', $mid->viral_label);          // tepat di ambang 1.3× → Mid
+
+        // Fake: followers 1jt → Red < 20.000, Watch < 50.000, Safe ≥ 50.000.
+        $red = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-02', 'ratecard' => 1,
+            'views_1' => 19_999, 'views_2' => 19_999, 'views_3' => 19_999, 'views_4' => 19_999,
+            'views_5' => 19_999, 'views_6' => 19_999, 'views_7' => 19_999,
+        ]);
+        $this->assertSame('●Red', $red->fake_label);
+
+        $safe = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-03', 'ratecard' => 1,
+            'views_1' => 50_000, 'views_2' => 50_000, 'views_3' => 50_000, 'views_4' => 50_000,
+            'views_5' => 50_000, 'views_6' => 50_000, 'views_7' => 50_000,
+        ]);
+        $this->assertSame('🟢Safe', $safe->fake_label);       // tepat 5% → Safe (bukan <)
+    }
+
+    /** Deviasi sengaja dari Excel: views nol semua → Low, bukan High. */
+    public function test_viral_media_nol_bukan_high(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'nolvi', 'followers' => 10_000]);
+        $s = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => 1_000,
+            'views_1' => 0, 'views_2' => 0, 'views_3' => 0, 'views_4' => 0,
+            'views_5' => 0, 'views_6' => 0, 'views_7' => 0,
+        ]);
+
+        // Rumus Excel mentah menghasilkan "High" untuk 0 ≥ 0×2 — jelas bukan maksudnya.
+        $this->assertSame('Low', $s->viral_label);
+        $this->assertSame(0, $s->gmv_estimate);
+        $this->assertSame('●Red', $s->fake_label);
+    }
+
+    public function test_daftar_menampilkan_kolom_gmv_viral_fake(): void
+    {
+        $spec = $this->user('kol_specialist', 'specg');
+        $kol = Kol::create(['tiktok_username' => 'gmvlist', 'followers' => 6_956]);
+        KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => 55_000,
+            'views_1' => 105_200, 'views_2' => 6_627, 'views_3' => 1_165, 'views_4' => 131_400,
+            'views_5' => 2_874, 'views_6' => 1_040, 'views_7' => 11_000,
+        ]);
+
+        $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('GMV · Viral · Fake', $html);
+        $this->assertStringContainsString('3.021.912', $html);
+        $this->assertStringContainsString('High', $html);
+    }
 }

@@ -92,4 +92,51 @@ class KolScreening extends Model
             ? self::VERDICT_WORTH
             : self::VERDICT_MAHAL;
     }
+
+    /*
+     * GMV + Viral + Fake Detector — porting rumus Excel kolom W (rumusnya
+     * terbaca utuh di formula bar, konstanta di config/kol.php).
+     */
+
+    /** Estimasi GMV: median × konversi × nilai order rata-rata. */
+    public function getGmvEstimateAttribute(): int
+    {
+        return (int) round($this->median_views * config('kol.gmv_conversion') * config('kol.gmv_avg_order'));
+    }
+
+    /**
+     * High = mean jauh di atas median (ada video meledak, bukan performa stabil).
+     * Median 0 → Low: rumus Excel-nya menghasilkan "High" untuk views nol semua
+     * (0 ≥ 0×2), yang jelas bukan maksudnya — deviasi kecil yang disengaja.
+     */
+    public function getViralLabelAttribute(): string
+    {
+        if ($this->median_views <= 0) {
+            return 'Low';
+        }
+
+        return match (true) {
+            $this->rata_views >= $this->median_views * config('kol.viral_high') => 'High',
+            $this->rata_views >= $this->median_views * config('kol.viral_mid') => 'Mid',
+            default => 'Low',
+        };
+    }
+
+    /**
+     * Deteksi followers palsu: median views terlalu kecil dibanding followers.
+     * Null bila followers 0 — tak ada pembanding, bukan berarti aman.
+     */
+    public function getFakeLabelAttribute(): ?string
+    {
+        $followers = (int) ($this->kol?->followers ?? 0);
+        if ($followers <= 0) {
+            return null;
+        }
+
+        return match (true) {
+            $this->median_views < $followers * config('kol.fake_red') => '●Red',
+            $this->median_views < $followers * config('kol.fake_watch') => '◯Watch',
+            default => '🟢Safe',
+        };
+    }
 }

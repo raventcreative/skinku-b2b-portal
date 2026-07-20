@@ -105,6 +105,7 @@
                 <th rowspan="2" class="text-right align-bottom">Median</th>
                 <th rowspan="2" class="text-right align-bottom" title="Median views ÷ followers">Ratio</th>
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Urut berdasarkan CPM median — termurah dulu">{!! $sortLink('verdict', 'Verdict Terakhir') !!}</th>
+                <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV + deteksi viral & followers palsu (rumus Excel kolom W)">GMV · Viral · Fake</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
             </tr>
             <tr>
@@ -138,15 +139,19 @@
                             {{ $ls->verdict_median }}
                             <span class="text-stone-400">· CPM {{ $ls->cpm_median !== null ? $rp($ls->cpm_median) : '—' }}</span>
                         </td>
+                        <td class="whitespace-nowrap">
+                            <span class="font-semibold text-stone-800">🪙 {{ $rp($ls->gmv_estimate) }}</span>
+                            <span class="block text-[10px] text-stone-500">🚀 {{ $ls->viral_label }} · 👤 {{ $ls->fake_label ?? '—' }}</span>
+                        </td>
                     @else
-                        <td colspan="12" class="px-3 text-stone-300">belum discreening</td>
+                        <td colspan="13" class="px-3 text-stone-300">belum discreening</td>
                     @endif
                     <td class="text-right px-4">
                         <a href="{{ route('kols.show', $kol) }}" class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap">detail →</a>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="18" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="19" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>
