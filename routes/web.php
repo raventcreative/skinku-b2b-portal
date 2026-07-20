@@ -246,6 +246,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::put('/kanban-cards/{card}', [KanbanController::class, 'updateCard'])->name('kanban.cards.update');
         Route::delete('/kanban-cards/{card}', [KanbanController::class, 'destroyCard'])->name('kanban.cards.destroy');
         Route::post('/kanban-cards/{card}/move', [KanbanController::class, 'moveCard'])->name('kanban.cards.move');
+        Route::post('/kanban-cards/{card}/comments', [KanbanController::class, 'storeComment'])->name('kanban.comments.store');
+        Route::delete('/kanban-comments/{comment}', [KanbanController::class, 'destroyComment'])->name('kanban.comments.destroy');
     });
 
     /* ---------------- Integrasi TikTok Shop ---------------- */

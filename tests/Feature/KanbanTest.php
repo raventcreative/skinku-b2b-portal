@@ -216,4 +216,61 @@ class KanbanTest extends TestCase
         $this->actingAs($mitra)->get(route('kanban.index'))->assertForbidden();
         $this->actingAs($mitra)->get(route('kanban.show', $board))->assertForbidden();
     }
+
+    public function test_komentar_bisa_ditambah_dan_tampil_di_modal_kartu(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN, 'kbadm12');
+        $board = $this->board($admin);
+        $card = $board->columns[0]->cards()->create(['title' => 'Kartu Komentar', 'position' => 0]);
+
+        $this->actingAs($admin)->post(route('kanban.comments.store', $card), [
+            'body' => 'Tolong follow up KOL ini besok',
+        ])->assertRedirect();
+
+        $this->assertSame(1, $card->comments()->count());
+
+        $html = $this->actingAs($admin)->get(route('kanban.show', $board))->assertOk()->getContent();
+        $this->assertStringContainsString('Tolong follow up KOL ini besok', $html);
+        $this->assertStringContainsString('💬 1', $html);                 // hitungan di muka kartu
+        $this->assertStringContainsString('Deskripsi', $html);            // modal memuat field lengkap
+        $this->assertStringContainsString('Deadline', $html);
+        $this->assertStringContainsString('Penanggung jawab', $html);
+    }
+
+    /** Hapus komentar: hanya penulisnya atau super admin. */
+    public function test_hapus_komentar_hanya_penulis_atau_super_admin(): void
+    {
+        $penulis = $this->user(User::ROLE_ADMIN, 'kbadm13');
+        $lain = $this->user(User::ROLE_ADMIN, 'kbadm14');
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'kbsuper2');
+        $board = $this->board($penulis);
+        $card = $board->columns[0]->cards()->create(['title' => 'K', 'position' => 0]);
+        $c1 = $card->comments()->create(['body' => 'komentar satu', 'user_id' => $penulis->id]);
+        $c2 = $card->comments()->create(['body' => 'komentar dua', 'user_id' => $penulis->id]);
+
+        // Orang lain (bukan penulis, bukan super) -> 403, komentar utuh.
+        $this->actingAs($lain)->delete(route('kanban.comments.destroy', $c1))->assertForbidden();
+        $this->assertSame(2, $card->comments()->count());
+
+        // Penulis boleh hapus miliknya; super admin boleh hapus siapa pun.
+        $this->actingAs($penulis)->delete(route('kanban.comments.destroy', $c1))->assertRedirect();
+        $this->actingAs($super)->delete(route('kanban.comments.destroy', $c2))->assertRedirect();
+        $this->assertSame(0, $card->comments()->count());
+    }
+
+    /** Komentar penulis yang akunnya dihapus tetap terbaca. */
+    public function test_komentar_tetap_terbaca_walau_penulisnya_dihapus(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN, 'kbadm15');
+        $mantan = $this->user(User::ROLE_ADMIN, 'kbadm16');
+        $board = $this->board($admin);
+        $card = $board->columns[0]->cards()->create(['title' => 'K', 'position' => 0]);
+        $card->comments()->create(['body' => 'catatan penting dari mantan staf', 'user_id' => $mantan->id]);
+
+        $mantan->forceDelete();   // user hilang total -> user_id jadi null (nullOnDelete)
+
+        $html = $this->actingAs($admin)->get(route('kanban.show', $board))->assertOk()->getContent();
+        $this->assertStringContainsString('catatan penting dari mantan staf', $html);
+        $this->assertStringContainsString('(akun terhapus)', $html);
+    }
 }

@@ -19,7 +19,7 @@
             <button class="px-2 py-1 bg-stone-700 text-white rounded text-xs">Simpan</button>
         </form>
     </details>
-    <span class="ml-auto text-[11px] text-stone-400">Geser kartu antar kolom — tersimpan otomatis & tercatat di Audit Log.</span>
+    <span class="ml-auto text-[11px] text-stone-400">Klik kartu = detail & komentar · geser kartu = pindah kolom (tersimpan otomatis).</span>
 </div>
 
 @if($errors->any())
@@ -54,49 +54,103 @@
             <div class="px-2 pb-2 space-y-2 min-h-[2.5rem]" data-cards data-column-id="{{ $column->id }}">
                 @foreach($column->cards as $card)
                     @php $overdue = $card->due_date && $card->due_date->isPast(); @endphp
-                    <div class="bg-white rounded-xl border border-stone-200 shadow-sm p-3 cursor-grab" data-card="{{ $card->id }}">
-                        <details>
-                            <summary class="list-none cursor-pointer">
-                                <p class="text-sm font-semibold text-stone-800">{{ $card->title }}</p>
-                                <div class="flex flex-wrap items-center gap-2 mt-1 text-[10px]">
-                                    @if($card->assignee)
-                                        <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">{{ $card->assignee->fullname }}</span>
-                                    @endif
-                                    @if($card->due_date)
-                                        <span class="{{ $overdue ? 'text-rose-600 font-bold' : 'text-stone-400' }}">📅 {{ $card->due_date->format('d M') }}{{ $overdue ? ' — lewat!' : '' }}</span>
-                                    @endif
-                                </div>
-                                @if($card->description)<p class="text-[11px] text-stone-500 mt-1 line-clamp-2">{{ $card->description }}</p>@endif
-                            </summary>
-                            {{-- Klik kartu → form edit lengkap. --}}
-                            <form method="POST" action="{{ route('kanban.cards.update', $card) }}" class="mt-2 pt-2 border-t border-stone-100 space-y-2">
+                    {{-- Muka kartu ala Trello: judul + badge. Klik → modal detail. --}}
+                    <div class="bg-white rounded-xl border border-stone-200 shadow-sm p-3 cursor-grab hover:border-stone-300"
+                        data-card="{{ $card->id }}" data-opens="cardModal-{{ $card->id }}">
+                        <p class="text-sm font-semibold text-stone-800">{{ $card->title }}</p>
+                        <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
+                            @if($card->due_date)
+                                <span class="px-1.5 py-0.5 rounded {{ $overdue ? 'bg-rose-100 text-rose-700 font-bold' : 'bg-stone-100 text-stone-500' }}">📅 {{ $card->due_date->format('d M') }}{{ $overdue ? ' — lewat!' : '' }}</span>
+                            @endif
+                            @if($card->description)<span class="text-stone-400" title="ada deskripsi">≡</span>@endif
+                            @if($card->comments->count())<span class="text-stone-500">💬 {{ $card->comments->count() }}</span>@endif
+                            @if($card->assignee)
+                                <span class="ml-auto px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">{{ $card->assignee->fullname }}</span>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- Modal detail kartu (native <dialog> — tanpa library). --}}
+                    <dialog id="cardModal-{{ $card->id }}" class="rounded-2xl p-0 w-[92vw] max-w-lg backdrop:bg-black/40 border border-stone-200">
+                        <div class="p-5">
+                            <div class="flex items-start justify-between gap-3 mb-3">
+                                <p class="text-[10px] uppercase tracking-wide text-stone-400 font-semibold">Kolom: {{ $column->name }}</p>
+                                <button type="button" onclick="this.closest('dialog').close()" class="text-stone-400 hover:text-stone-700 text-lg leading-none">✕</button>
+                            </div>
+
+                            <form method="POST" action="{{ route('kanban.cards.update', $card) }}" class="space-y-3">
                                 @csrf @method('PUT')
-                                <input name="title" value="{{ $card->title }}" required maxlength="255" class="w-full px-2 py-1 border border-stone-300 rounded text-xs">
-                                <textarea name="description" rows="2" maxlength="5000" placeholder="deskripsi…" class="w-full px-2 py-1 border border-stone-300 rounded text-xs">{{ $card->description }}</textarea>
-                                <select name="assignee_user_id" class="w-full px-2 py-1 border border-stone-300 rounded text-xs">
-                                    <option value="">— penanggung jawab —</option>
-                                    @foreach($assignees as $a)
-                                        <option value="{{ $a->id }}" @selected($card->assignee_user_id === $a->id)>{{ $a->fullname }}</option>
-                                    @endforeach
-                                </select>
-                                <input type="date" name="due_date" value="{{ $card->due_date?->format('Y-m-d') }}" class="w-full px-2 py-1 border border-stone-300 rounded text-xs">
-                                <div class="flex justify-between items-center">
-                                    <button class="px-3 py-1 bg-stone-700 text-white rounded text-xs">Simpan</button>
+                                <input name="title" value="{{ $card->title }}" required maxlength="255"
+                                    class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-stone-500 mb-1">≡ Deskripsi</label>
+                                    <textarea name="description" rows="3" maxlength="5000" placeholder="rincian tugas…"
+                                        class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ $card->description }}</textarea>
                                 </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-stone-500 mb-1">👤 Penanggung jawab</label>
+                                        <select name="assignee_user_id" class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                                            <option value="">— pilih —</option>
+                                            @foreach($assignees as $a)
+                                                <option value="{{ $a->id }}" @selected($card->assignee_user_id === $a->id)>{{ $a->fullname }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-stone-500 mb-1">📅 Deadline</label>
+                                        <input type="date" name="due_date" value="{{ $card->due_date?->format('Y-m-d') }}"
+                                            class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                                    </div>
+                                </div>
+                                <button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700">Simpan Kartu</button>
                             </form>
-                            <form method="POST" action="{{ route('kanban.cards.destroy', $card) }}" class="mt-1 text-right"
+
+                            {{-- Thread komentar — kronologis, seperti Trello. --}}
+                            <div class="mt-5 pt-4 border-t border-stone-100">
+                                <p class="text-[11px] font-semibold text-stone-500 mb-2">💬 Komentar ({{ $card->comments->count() }})</p>
+                                <div class="space-y-3 max-h-56 overflow-y-auto">
+                                    @forelse($card->comments as $comment)
+                                        <div class="text-sm">
+                                            <div class="flex items-baseline gap-2">
+                                                <span class="font-semibold text-stone-800 text-xs">{{ $comment->author->fullname ?? '(akun terhapus)' }}</span>
+                                                <span class="text-[10px] text-stone-400">{{ $comment->created_at->format('d M Y H:i') }}</span>
+                                                @if($u->isSuperAdmin() || $comment->user_id === $u->id)
+                                                    <form method="POST" action="{{ route('kanban.comments.destroy', $comment) }}" class="ml-auto"
+                                                        onsubmit="return confirm('Hapus komentar ini?')">
+                                                        @csrf @method('DELETE')
+                                                        <button class="text-[10px] text-stone-300 hover:text-rose-600">hapus</button>
+                                                    </form>
+                                                @endif
+                                            </div>
+                                            <p class="text-xs text-stone-600 whitespace-pre-line">{{ $comment->body }}</p>
+                                        </div>
+                                    @empty
+                                        <p class="text-xs text-stone-300">Belum ada komentar.</p>
+                                    @endforelse
+                                </div>
+                                <form method="POST" action="{{ route('kanban.comments.store', $card) }}" class="mt-3 flex gap-2">
+                                    @csrf
+                                    <input name="body" required maxlength="3000" placeholder="tulis komentar…"
+                                        class="flex-1 px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                                    <button class="px-3 py-2 bg-stone-700 text-white rounded-lg text-sm hover:bg-stone-800">Kirim</button>
+                                </form>
+                            </div>
+
+                            <form method="POST" action="{{ route('kanban.cards.destroy', $card) }}" class="mt-4 text-right"
                                 onsubmit="return confirm('Hapus kartu {{ $card->title }}?')">
                                 @csrf @method('DELETE')
-                                <button class="text-[10px] text-rose-500 hover:text-rose-700">hapus kartu</button>
+                                <button class="text-[11px] text-rose-500 hover:text-rose-700">hapus kartu</button>
                             </form>
-                        </details>
-                    </div>
+                        </div>
+                    </dialog>
                 @endforeach
             </div>
 
             <form method="POST" action="{{ route('kanban.cards.store', $column) }}" class="p-2 pt-0">@csrf
-                <input name="title" required maxlength="255" placeholder="+ tambah kartu…"
+                <input name="title" required maxlength="255" placeholder="+ tambah kartu… (Enter)"
                     class="w-full px-3 py-2 bg-transparent border border-dashed border-stone-300 rounded-xl text-xs placeholder-stone-400 focus:bg-white">
+                <p class="px-1 pt-1 text-[10px] text-stone-400">deadline, deskripsi & komentar: klik kartunya setelah dibuat</p>
             </form>
         </div>
     @endforeach
@@ -116,12 +170,24 @@ const post = (url, body) => fetch(url, {
     body: JSON.stringify(body),
 }).then(r => { if (!r.ok) { alert('Gagal menyimpan perpindahan — muat ulang halaman.'); location.reload(); } });
 
+// Klik kartu buka modal — tapi JANGAN saat kartu baru saja di-drag.
+let justDragged = false;
+document.querySelectorAll('[data-opens]').forEach(el => {
+    el.addEventListener('click', () => {
+        if (justDragged) return;
+        document.getElementById(el.dataset.opens).showModal();
+    });
+});
+
 // Drag kartu antar/dalam kolom.
 document.querySelectorAll('[data-cards]').forEach(el => {
     new Sortable(el, {
         group: 'cards',
         animation: 150,
+        draggable: '[data-card]',
+        onStart: () => { justDragged = true; },
         onEnd: (evt) => {
+            setTimeout(() => { justDragged = false; }, 150);
             const cardId = evt.item.dataset.card;
             const target = evt.to;
             const orderedIds = [...target.querySelectorAll('[data-card]')].map(c => c.dataset.card);

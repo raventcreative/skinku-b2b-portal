@@ -27,4 +27,10 @@ class BoardCard extends Model
     {
         return $this->belongsTo(User::class, 'assignee_user_id');
     }
+
+    /** Urut kronologis (tertua dulu) — dibaca seperti percakapan. */
+    public function comments()
+    {
+        return $this->hasMany(BoardCardComment::class, 'card_id')->orderBy('created_at')->orderBy('id');
+    }
 }

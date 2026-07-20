@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Board;
 use App\Models\BoardCard;
+use App\Models\BoardCardComment;
 use App\Models\BoardColumn;
 use App\Models\User;
 use App\Services\AuditService;
@@ -59,7 +60,7 @@ class KanbanController extends Controller
 
     public function show(Board $board)
     {
-        $board->load(['columns.cards.assignee']);
+        $board->load(['columns.cards.assignee', 'columns.cards.comments.author']);
 
         // Kandidat penanggung jawab: pengguna internal aktif — mitra tak ikut
         // (mereka tak punya akses kanban sama sekali).
@@ -188,6 +189,32 @@ class KanbanController extends Controller
             before: ['judul' => $card->title, 'kolom' => $card->column->name]);
 
         return back()->with('status', 'Kartu dihapus.');
+    }
+
+    /* ---------------- Komentar kartu ---------------- */
+
+    public function storeComment(Request $request, BoardCard $card): RedirectResponse
+    {
+        $data = $request->validate(['body' => ['required', 'string', 'max:3000']]);
+
+        $card->comments()->create(['body' => $data['body'], 'user_id' => $request->user()->id]);
+
+        // Tanpa Audit Log: komentar sudah membawa penulis + waktu sendiri, dan
+        // mencatat tiap komentar cuma membanjiri log.
+        return back()->with('status', 'Komentar ditambahkan.');
+    }
+
+    public function destroyComment(Request $request, BoardCardComment $comment): RedirectResponse
+    {
+        // Hanya penulisnya sendiri atau super admin — menghapus omongan orang
+        // lain bukan hak siapa pun.
+        $user = $request->user();
+        abort_unless($user->isSuperAdmin() || $comment->user_id === $user->id, 403,
+            'Hanya penulis komentar atau Super Admin yang boleh menghapusnya.');
+
+        $comment->delete();
+
+        return back()->with('status', 'Komentar dihapus.');
     }
 
     /**
