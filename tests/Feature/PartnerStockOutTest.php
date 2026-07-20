@@ -89,7 +89,7 @@ class PartnerStockOutTest extends TestCase
         $this->assertSame(50, (int) Inventory::where('user_id', $b->id)->value('quantity'));
     }
 
-    public function test_mitra_melihat_dua_form_bukan_dropdown_membingungkan(): void
+    public function test_mitra_melihat_dua_jalur_jelas_bukan_dropdown_membingungkan(): void
     {
         $d = $this->distributor();
         $p = $this->product();
@@ -97,12 +97,12 @@ class PartnerStockOutTest extends TestCase
 
         $html = $this->actingAs($d)->get(route('inventory.index'))->assertOk()->getContent();
 
-        // Dua tujuan yang jelas, terpisah.
-        $this->assertStringContainsString('Catat Barang Keluar', $html);
+        // Barang keluar → tombol ke form nota; koreksi → form set stok. Dua jalur.
+        $this->assertStringContainsString('Barang Keluar (Penjualan)', $html);
+        $this->assertStringContainsString(route('partner-sales.index'), $html);
         $this->assertStringContainsString('Set / Koreksi Stok', $html);
 
-        // Tak ada lagi opsi dropdown "Barang Masuk"/"Koreksi" di sisi mitra —
-        // itulah yang bikin bingung. Type OUT dikirim lewat hidden input.
+        // Tak ada lagi dropdown Masuk/Keluar/Koreksi di sisi mitra.
         $this->assertStringNotContainsString('>Barang Masuk (+)<', $html);
         $this->assertStringNotContainsString('>Koreksi / Penyesuaian<', $html);
     }
@@ -152,16 +152,16 @@ class PartnerStockOutTest extends TestCase
         $this->assertSame('jual ke customer', $log->after_data['alasan']);
     }
 
-    public function test_pemilih_produk_muncul_walau_stok_kosong(): void
+    public function test_form_set_stok_muncul_walau_stok_kosong(): void
     {
         $d = $this->distributor();
         $this->product();
 
-        // PUTU FRERIN case: stok kosong, tapi form tetap ada untuk isi saldo awal.
+        // PUTU FRERIN case: stok kosong, tapi form Set Stok tetap ada untuk isi
+        // saldo awal, dan pemilih produknya terisi.
         $this->actingAs($d)->get(route('inventory.index'))->assertOk()
-            ->assertSee('Catat Barang Keluar')
             ->assertSee('Set / Koreksi Stok')
-            ->assertSee('MIZU BODY WASH - 500ml')   // produk terdaftar di pemilih
+            ->assertSee('MIZU BODY WASH - 500ml')
             ->assertSee('saldo awal');
     }
 

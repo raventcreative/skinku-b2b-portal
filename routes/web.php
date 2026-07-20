@@ -12,6 +12,7 @@ use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
+use App\Http\Controllers\PartnerSaleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionController;
@@ -87,6 +88,11 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::post('/inventory/partner-adjust', [InventoryController::class, 'adjustPartner'])->name('inventory.partner-adjust');
     Route::post('/inventory/partner-set', [InventoryController::class, 'setPartner'])->name('inventory.partner-set');
+
+    // Penjualan mitra ke customer akhir (barang keluar bentuk nota). Di bawah
+    // menu Stok, bukan menu sidebar baru.
+    Route::get('/inventory/sales', [PartnerSaleController::class, 'index'])->name('partner-sales.index');
+    Route::post('/inventory/sales', [PartnerSaleController::class, 'store'])->name('partner-sales.store');
     Route::post('/inventory/minimum', [InventoryController::class, 'setMinimum'])->name('inventory.minimum');
 
     Route::middleware('permission:manage_hq_stock')->group(function () {

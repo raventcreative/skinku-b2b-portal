@@ -67,31 +67,19 @@
              Di LUAR tabel supaya tetap ada walau stok kosong (baris dibuat
              otomatis saat pertama disentuh). --}}
         <div class="grid md:grid-cols-2 gap-px bg-stone-100 border-b border-stone-100">
-            {{-- Form 1: barang keluar (yang paling sering) --}}
-            <div class="bg-white p-5">
-                <p class="text-sm font-bold text-stone-800 mb-1">📤 Catat Barang Keluar</p>
-                <p class="text-[11px] text-stone-400 mb-3">Saat Anda menjual / mengirim barang ke pelanggan.</p>
-                <form method="POST" action="{{ route('inventory.partner-adjust') }}" class="space-y-2">
-                    @csrf
-                    <input type="hidden" name="user_id" value="{{ $u->id }}">
-                    <input type="hidden" name="type" value="{{ \App\Models\StockMovement::TYPE_OUT }}">
-                    <select name="product_id" required class="block w-full px-2 py-1.5 border border-stone-300 rounded text-xs">
-                        <option value="">— pilih produk —</option>
-                        @foreach($activeProducts as $prod)
-                            <option value="{{ $prod->id }}">{{ $prod->name }} ({{ $prod->sku }})</option>
-                        @endforeach
-                    </select>
-                    <div class="flex gap-2">
-                        <input type="number" name="quantity" min="1" value="1" required placeholder="Jumlah keluar"
-                            class="w-28 px-2 py-1.5 border border-stone-300 rounded text-xs text-center">
-                        <input type="text" name="notes" required maxlength="500" placeholder="Alasan (mis. jual ke customer)"
-                            class="flex-1 px-2 py-1.5 border border-stone-300 rounded text-xs">
-                    </div>
-                    <button class="px-4 py-1.5 bg-red-600 text-white rounded text-xs hover:bg-red-700 w-full">Catat Keluar</button>
-                </form>
+            {{-- Barang keluar = penjualan ke customer, bentuknya nota (1 customer
+                 banyak produk + harga). Formnya sendiri (mirip Buat PO), bukan
+                 satu baris di sini. --}}
+            <div class="bg-white p-5 flex flex-col">
+                <p class="text-sm font-bold text-stone-800 mb-1">📤 Barang Keluar (Penjualan)</p>
+                <p class="text-[11px] text-stone-400 mb-3">Jual ke customer: satu nota bisa banyak produk, lengkap dengan harga &amp; total. Stok terpotong otomatis.</p>
+                <a href="{{ route('partner-sales.index') }}"
+                    class="mt-auto inline-block text-center px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700">
+                    Catat Penjualan / Barang Keluar →
+                </a>
             </div>
 
-            {{-- Form 2: set stok absolut — saldo awal / koreksi hitung fisik.
+            {{-- Set stok absolut — saldo awal / koreksi hitung fisik.
                  Tanpa toggle tambah/kurang: cukup isi stok sebenarnya. --}}
             <div class="bg-white p-5">
                 <p class="text-sm font-bold text-stone-800 mb-1">📝 Set / Koreksi Stok</p>
@@ -133,19 +121,10 @@
                     <td class="text-right text-stone-500">{{ $line->minimum_stock }}</td>
                     <td class="px-4 py-2">
                         @if($u->isPartner())
-                            {{-- Aksi cepat per baris: barang keluar saja, tanpa dropdown.
-                                 Set/koreksi & saldo awal lewat form di atas. --}}
-                            <form method="POST" action="{{ route('inventory.partner-adjust') }}" class="flex gap-1 justify-end items-center">
-                                @csrf
-                                <input type="hidden" name="user_id" value="{{ $line->user_id }}">
-                                <input type="hidden" name="product_id" value="{{ $line->product_id }}">
-                                <input type="hidden" name="type" value="{{ \App\Models\StockMovement::TYPE_OUT }}">
-                                <span class="text-[11px] text-stone-400">Keluar</span>
-                                <input type="number" name="quantity" min="1" value="1" class="w-14 px-2 py-1 border border-stone-300 rounded text-center text-[11px]">
-                                <input type="text" name="notes" required maxlength="500" placeholder="Alasan"
-                                    class="w-36 px-2 py-1 border border-stone-300 rounded text-[11px]">
-                                <button class="px-3 py-1 bg-red-600 text-white rounded text-[11px]">−</button>
-                            </form>
+                            {{-- Read-only untuk mitra: tiap pengurangan lewat jalur jelas —
+                                 penjualan (nota) atau koreksi (Set Stok) di atas. Tak ada
+                                 jalur cepat ketiga yang bikin data tak konsisten. --}}
+                            <span class="text-stone-300 text-[11px]">—</span>
                         @else
                             {{-- Staf: kontrol penuh atas stok mitra mana pun (Masuk/Keluar/Koreksi). --}}
                             <form method="POST" action="{{ route('inventory.partner-adjust') }}" class="flex gap-1 justify-end items-center">
