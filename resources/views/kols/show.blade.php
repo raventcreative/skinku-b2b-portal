@@ -76,7 +76,7 @@
                     <td class="text-right text-stone-700">{{ $rp($s->ratecard) }}</td>
                     {{-- Angka mentah 7 video ikut tampil — inilah "data rinciannya",
                          bukan cuma hasil olahannya. --}}
-                    <td class="text-right text-stone-500 text-[10px] leading-tight">
+                    <td class="text-right text-stone-600 text-xs leading-relaxed">
                         @foreach($s->views() as $v){{ number_format($v, 0, ',', '.') }}@if(!$loop->last) · @endif @endforeach
                     </td>
                     <td class="text-right text-stone-600">{{ number_format($s->total_views, 0, ',', '.') }}</td>

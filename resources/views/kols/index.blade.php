@@ -99,7 +99,8 @@
                 {{-- Angka kurasi terakhir langsung di daftar — tanpa masuk detail
                      satu-satu. Rincian penuh (7 views, riwayat) tetap di detail. --}}
                 <th class="text-right" title="Harga kerjasama yang diminta (screening terakhir)">Ratecard</th>
-                <th class="text-right">Median Views</th>
+                <th class="text-right" title="Views 7 video terakhir, apa adanya">7 Views Terakhir</th>
+                <th class="text-right">Median</th>
                 <th class="text-right" title="Median views ÷ followers">Ratio</th>
                 <th class="text-left px-3" title="Urut berdasarkan CPM median — termurah dulu">{!! $sortLink('verdict', 'Verdict Terakhir') !!}</th>
                 <th class="text-right px-4"></th>
@@ -121,6 +122,12 @@
                     @php $ls = $kol->latestScreening; @endphp
                     @if($ls)
                         <td class="text-right text-stone-700">{{ $rp($ls->ratecard) }}</td>
+                        {{-- Rincian mentah langsung di daftar — tanpa masuk detail
+                             satu-satu. Total di baris kedua biar tetap satu kolom. --}}
+                        <td class="text-right text-stone-600 whitespace-nowrap">
+                            @foreach($ls->views() as $v){{ number_format($v, 0, ',', '.') }}@if(!$loop->last) · @endif @endforeach
+                            <span class="block text-[10px] text-stone-400">total {{ number_format($ls->total_views, 0, ',', '.') }}</span>
+                        </td>
                         <td class="text-right font-semibold text-stone-800">{{ number_format($ls->median_views, 0, ',', '.') }}</td>
                         <td class="text-right text-stone-600">{{ $ls->ratio !== null ? number_format($ls->ratio, 1, ',', '.').'%' : '—' }}</td>
                         <td class="px-3">
@@ -128,14 +135,14 @@
                             <span class="text-stone-400">· CPM {{ $ls->cpm_median !== null ? $rp($ls->cpm_median) : '—' }}</span>
                         </td>
                     @else
-                        <td colspan="4" class="px-3 text-stone-300">belum discreening</td>
+                        <td colspan="5" class="px-3 text-stone-300">belum discreening</td>
                     @endif
                     <td class="text-right px-4">
                         <a href="{{ route('kols.show', $kol) }}" class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap">detail →</a>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="10" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="11" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>
