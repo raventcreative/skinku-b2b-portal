@@ -84,17 +84,22 @@ class KolController extends Controller
     }
 
     /**
-     * Peringkat screening — porting kolom Z Excel: RANK(CPM mean; seluruh
-     * kolom; ascending). Rank 1 = CPM mean termurah. Dihitung atas SEMUA
-     * screening (bukan cuma halaman aktif), nilai kembar berbagi rank yang
-     * sama dan rank berikutnya melompat — persis perilaku RANK() Excel.
+     * Peringkat screening. Rank 1 = CPM MEDIAN termurah, atas SEMUA screening;
+     * nilai kembar berbagi rank dan rank berikutnya melompat (perilaku RANK()).
+     *
+     * DEVIASI SADAR dari Excel: kolom Z me-rank pakai CPM MEAN — dan itu
+     * menyesatkan. Kasus nyata @mulmull: satu video meledak 9,8jt views
+     * menyeret mean sampai CPM mean ±10rb (rank 1 "termurah") padahal median
+     * views cuma 3.000 → CPM median 5jt → Kemahalan. Rank #1 berdampingan
+     * dengan verdict merah membingungkan siapa pun. Median kebal outlier dan
+     * konsisten dengan verdict yang ditampilkan — itu basis rank di sini.
      *
      * @return array<int, int> [screening_id => rank]
      */
     private function ranks(): array
     {
         $rows = KolScreening::query()->get()
-            ->map(fn (KolScreening $s) => ['id' => $s->id, 'cpm' => $s->cpm_rata])
+            ->map(fn (KolScreening $s) => ['id' => $s->id, 'cpm' => $s->cpm_median])
             ->filter(fn ($r) => $r['cpm'] !== null)
             ->sortBy('cpm')
             ->values();

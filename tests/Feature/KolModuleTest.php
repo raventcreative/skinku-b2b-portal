@@ -518,4 +518,54 @@ class KolModuleTest extends TestCase
 
         $this->actingAs($spec)->get(route('kols.index'))->assertOk()->assertSee('CPV');
     }
+
+    /**
+     * Regresi rank: kasus @mulmull nyata — satu video meledak (9,8jt views)
+     * menyeret CPM MEAN jadi termurah, padahal CPM MEDIAN 5jt (Kemahalan).
+     * Rank harus ikut MEDIAN: KOL semacam ini di DASAR peringkat, bukan #1.
+     */
+    public function test_rank_pakai_median_video_meledak_tak_bisa_curi_rank_satu(): void
+    {
+        $spec = $this->user('kol_specialist', 'specml');
+
+        $sehat = Kol::create(['tiktok_username' => 'sehatkol', 'followers' => 100_000]);
+        $this->screen($sehat, 1_700_000, 109_000);   // CPM median ~15.596 -> murah beneran
+
+        $meledak = Kol::create(['tiktok_username' => 'meledakkol', 'followers' => 12_000]);
+        KolScreening::create([
+            'kol_id' => $meledak->id, 'tanggal_listing' => '2026-07-10', 'ratecard' => 15_000_000,
+            'views_1' => 1_300, 'views_2' => 10_000, 'views_3' => 1_000, 'views_4' => 16_300,
+            'views_5' => 9_859_250, 'views_6' => 3_000, 'views_7' => 1_000,
+        ]);
+        $s = KolScreening::where('kol_id', $meledak->id)->first();
+        $this->assertLessThan(15_000, $s->cpm_rata);        // mean-nya memang "murah" palsu
+        $this->assertSame(5_000_000.0, $s->cpm_median);     // median jujur: 5jt
+
+        $html = $this->actingAs($spec)->get(route('kols.listing'))->assertOk()->getContent();
+
+        // Rank ikut median: sehat #1, meledak #2 (terakhir) — bukan sebaliknya.
+        $posSehat = strpos($html, 'sehatkol');
+        $posMeledak = strpos($html, 'meledakkol');
+        $this->assertNotFalse($posSehat);
+        $this->assertNotFalse($posMeledak);
+        // Cek rank di dekat masing-masing baris.
+        $rowSehat = substr($html, $posSehat, 3000);
+        $rowMeledak = substr($html, $posMeledak, 3000);
+        $this->assertStringContainsString('#1', $rowSehat);
+        $this->assertStringContainsString('#2', $rowMeledak);
+    }
+
+    public function test_cpm_dan_cpv_jadi_kolom_tabel_di_daftar(): void
+    {
+        $spec = $this->user('kol_specialist', 'speccol');
+        $kol = Kol::create(['tiktok_username' => 'kolomkol', 'followers' => 100_000]);
+        $this->screen($kol, 1_200_000, 36_000);   // CPM 33.333, CPV 33,3
+
+        $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('>CPM</th>', $html);
+        $this->assertStringContainsString('>CPV</th>', $html);
+        $this->assertStringContainsString('33.333', $html);   // CPM di sel sendiri
+        $this->assertStringContainsString('33,3', $html);     // CPV di sel sendiri
+    }
 }
