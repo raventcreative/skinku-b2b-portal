@@ -38,6 +38,11 @@ class Permissions
         'view_learning' => 'Akses SKINKU Academy',
         'manage_learning' => 'Kelola Materi SKINKU Academy',
         'manage_tiktok' => 'Integrasi TikTok Shop',
+        'kol.view' => 'Lihat Database KOL & Hasil Kurasi',
+        'kol.screening.manage' => 'Input/Edit Screening KOL',
+        'kol.deal.manage' => 'Kelola Deal KOL (buat/edit/hapus)',
+        'kol.deal.finance' => 'Finansial Deal KOL (biaya, status bayar, rekening)',
+        'kol.report.view' => 'Laporan KOL (fase berikutnya)',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -62,6 +67,15 @@ class Permissions
         'view_learning' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER],
         'manage_learning' => [User::ROLE_ADMIN],
         'manage_tiktok' => [User::ROLE_ADMIN],
+        // kol_specialist = role dinamis (di-seed migrasi 000045), jadi string
+        // literal, bukan konstanta User. Finansial & laporan SENGAJA kosong:
+        // kol.deal.finance diberikan per-orang lewat matriks hak akses, dan
+        // kol.report.view baru berarti di fase 3.
+        'kol.view' => ['kol_specialist'],
+        'kol.screening.manage' => ['kol_specialist'],
+        'kol.deal.manage' => ['kol_specialist'],
+        'kol.deal.finance' => [],
+        'kol.report.view' => [],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */
