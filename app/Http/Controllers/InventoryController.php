@@ -182,6 +182,61 @@ class InventoryController extends Controller
         return back()->with('status', "Stok disetel ke {$line->quantity}.");
     }
 
+    /** Halaman Penyesuaian Stok — form multi-baris (mirip nota penjualan). */
+    public function adjustForm(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user->isPartner(), 403, 'Hanya mitra yang menyesuaikan stoknya sendiri di sini.');
+
+        // Produk aktif + stok mitra saat ini, supaya form bisa memandu "sekarang X".
+        $products = Product::query()
+            ->where('status', Product::STATUS_ACTIVE)
+            ->orderBy('name')
+            ->get(['id', 'name', 'sku']);
+
+        $current = Inventory::where('user_id', $user->id)->pluck('quantity', 'product_id');
+
+        // Suntikkan stok sekarang ke tiap produk (0 bila belum ada).
+        $products->each(fn ($p) => $p->current_qty = (int) ($current[$p->id] ?? 0));
+
+        return view('inventory.adjust', ['user' => $user, 'products' => $products]);
+    }
+
+    /** Simpan penyesuaian multi-baris (set stok absolut per produk). */
+    public function adjustBulk(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isPartner(), 403, 'Hanya mitra yang menyesuaikan stoknya sendiri di sini.');
+
+        $data = $request->validate([
+            'notes' => ['required', 'string', 'max:500'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['nullable', 'integer', 'exists:products,id'],
+            'items.*.target' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        try {
+            $applied = $this->service->bulkSetPartnerStock($user->id, $data['items'], $data['notes']);
+        } catch (RuntimeException $e) {
+            return back()->withInput()->withErrors(['items' => $e->getMessage()]);
+        }
+
+        AuditService::log(
+            action: 'bulk_set_partner_stock',
+            targetType: 'inventory',
+            after: [
+                'user_id' => $user->id,
+                'jumlah_produk' => count($applied),
+                'alasan' => $data['notes'],
+                'rincian' => $applied,
+            ],
+            targetUserId: $user->id,
+        );
+
+        return redirect()->route('inventory.index')
+            ->with('status', count($applied).' produk disesuaikan. Stok kini sesuai yang Anda isi.');
+    }
+
     /**
      * Staf boleh menyesuaikan stok mitra mana pun; mitra hanya miliknya
      * sendiri; selain itu ditolak. Guard lama hanya memblokir mitra menyentuh

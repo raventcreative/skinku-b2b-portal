@@ -88,6 +88,9 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::post('/inventory/partner-adjust', [InventoryController::class, 'adjustPartner'])->name('inventory.partner-adjust');
     Route::post('/inventory/partner-set', [InventoryController::class, 'setPartner'])->name('inventory.partner-set');
+    // Penyesuaian stok multi-baris (halaman sendiri, mirip nota penjualan).
+    Route::get('/inventory/adjust', [InventoryController::class, 'adjustForm'])->name('inventory.adjust');
+    Route::post('/inventory/adjust', [InventoryController::class, 'adjustBulk'])->name('inventory.adjust.store');
 
     // Penjualan mitra ke customer akhir (barang keluar bentuk nota). Di bawah
     // menu Stok, bukan menu sidebar baru.

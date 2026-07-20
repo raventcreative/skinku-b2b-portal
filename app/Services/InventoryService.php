@@ -158,6 +158,76 @@ class InventoryService
         });
     }
 
+    /**
+     * Set stok beberapa produk sekaligus ke angka absolut, dalam satu transaksi.
+     * Mirror dari nota penjualan tapi untuk penyesuaian: satu "nota adjustment"
+     * banyak baris.
+     *
+     * Baris tanpa produk / tanpa target DILEWATI (baris kosong di form). Baris
+     * yang target-nya sama dengan stok sekarang juga dilewati diam-diam — dalam
+     * form banyak baris, "tak berubah" itu wajar dan tak boleh menggagalkan yang
+     * lain. Kalau setelah disaring TAK ADA yang berubah, barulah menolak.
+     *
+     * Seluruhnya atomik: satu baris gagal (mis. target negatif) → semua batal,
+     * tak ada stok yang tersetel separuh.
+     *
+     * @param  array<int, array{product_id?:mixed, target?:mixed}>  $lines
+     * @return array<int, array{product_id:int, before:int, after:int}>
+     */
+    public function bulkSetPartnerStock(int $userId, array $lines, string $notes): array
+    {
+        return DB::transaction(function () use ($userId, $lines, $notes) {
+            $applied = [];
+
+            foreach ($lines as $line) {
+                $productId = (int) ($line['product_id'] ?? 0);
+                $target = $line['target'] ?? null;
+
+                if ($productId <= 0 || $target === null || $target === '') {
+                    continue; // baris kosong
+                }
+                $target = (int) $target;
+
+                if ($target < 0) {
+                    throw new RuntimeException('Stok tidak boleh negatif.');
+                }
+
+                $row = Inventory::lockForUpdate()->firstOrNew([
+                    'user_id' => $userId,
+                    'product_id' => $productId,
+                ]);
+                $before = (int) ($row->quantity ?? 0);
+
+                if ($target === $before) {
+                    continue; // tak berubah — lewati, jangan gagalkan yang lain
+                }
+
+                $row->quantity = $target;
+                $row->minimum_stock = $row->minimum_stock ?? 0;
+                $row->last_updated = now();
+                $row->save();
+
+                $this->writeMovement(
+                    productId: $productId,
+                    userId: $userId,
+                    type: StockMovement::TYPE_ADJUSTMENT,
+                    quantity: abs($target - $before),
+                    before: $before,
+                    after: $target,
+                    notes: $notes,
+                );
+
+                $applied[] = ['product_id' => $productId, 'before' => $before, 'after' => $target];
+            }
+
+            if (empty($applied)) {
+                throw new RuntimeException('Tak ada perubahan stok — isi minimal satu produk dengan jumlah yang berbeda dari stok sekarang.');
+            }
+
+            return $applied;
+        });
+    }
+
     /** Update only the replenishment threshold for a partner stock line. */
     public function setPartnerMinimum(int $userId, int $productId, int $minimum): Inventory
     {

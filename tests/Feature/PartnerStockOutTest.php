@@ -89,7 +89,7 @@ class PartnerStockOutTest extends TestCase
         $this->assertSame(50, (int) Inventory::where('user_id', $b->id)->value('quantity'));
     }
 
-    public function test_penyesuaian_lewat_dropdown_sku_bukan_baris_per_produk(): void
+    public function test_dua_tombol_penyesuaian_di_atas_penjualan(): void
     {
         $d = $this->distributor();
         $p = $this->product();
@@ -97,25 +97,25 @@ class PartnerStockOutTest extends TestCase
 
         $html = $this->actingAs($d)->get(route('inventory.index'))->assertOk()->getContent();
 
-        // Barang keluar (penjualan) tetap lewat nota — pintu masuk satu-satunya.
+        // Dua jalur, masing-masing tombol ke halaman sendiri.
+        $this->assertStringContainsString('Penyesuaian Stok / Adjustment', $html);
+        $this->assertStringContainsString(route('inventory.adjust'), $html);
         $this->assertStringContainsString('Barang Keluar (Penjualan)', $html);
         $this->assertStringContainsString(route('partner-sales.index'), $html);
 
-        // Penyesuaian = satu form dropdown berlabel jelas, pilih produk + SKU.
-        $this->assertStringContainsString('Penyesuaian Stok / Adjustment', $html);
-        $this->assertStringContainsString(route('inventory.partner-set'), $html);
-        $this->assertStringContainsString('name="target"', $html);
-        $this->assertStringContainsString('MZ-500ML', $html);   // SKU di opsi dropdown
-
-        // Baris tabel mitra read-only: tak ada form Set/adjust per baris.
-        $this->assertStringNotContainsString('>Barang Keluar (−)<', $html);
+        // Penyesuaian harus muncul DI ATAS penjualan (permintaan).
+        $this->assertLessThan(
+            strpos($html, route('partner-sales.index')),
+            strpos($html, route('inventory.adjust')),
+            'Tombol Penyesuaian Stok harus berada di atas Catat Penjualan.',
+        );
     }
 
     public function test_tabel_hanya_menampilkan_produk_yang_ada_stoknya(): void
     {
         $d = $this->distributor();
         $ada = $this->product();
-        $kosong = Product::create([
+        Product::create([
             'name' => 'HAKKA MOUTH SPRAY', 'sku' => 'HK-1', 'hq_stock' => 0,
             'status' => 'active', 'cogs' => 5000, 'price_distributor' => 10000, 'price_reseller' => 12000,
         ]);
@@ -123,12 +123,9 @@ class PartnerStockOutTest extends TestCase
 
         $html = $this->actingAs($d)->get(route('inventory.index'))->assertOk()->getContent();
 
-        // Produk ber-stok tampil di tabel; produk tanpa stok TIDAK jadi baris nol
-        // di tabel — tapi tetap ada di dropdown penyesuaian (untuk saldo awal).
-        $this->assertStringContainsString('MIZU BODY WASH - 500ml', $html);
-        $this->assertStringContainsString('HK-1', $html);   // ada di dropdown
-        // Tabel body tak memuat baris HAKKA (qty 0) — dipastikan lewat jumlah baris data.
+        // Produk ber-stok tampil di tabel; produk tanpa stok TIDAK jadi baris nol.
         $this->assertSame(1, substr_count($html, 'font-semibold text-stone-800">MIZU'));
+        $this->assertStringNotContainsString('HAKKA MOUTH SPRAY', $html); // tak ada baris nol
     }
 
     public function test_stok_kosong_mengarahkan_ke_penyesuaian_stok(): void
@@ -176,26 +173,98 @@ class PartnerStockOutTest extends TestCase
         $this->assertSame('jual ke customer', $log->after_data['alasan']);
     }
 
-    public function test_produk_bisa_diisi_saldo_awal_lewat_dropdown_walau_belum_ada_stoknya(): void
+    public function test_halaman_penyesuaian_multi_baris_menyetel_banyak_produk_sekaligus(): void
     {
         $d = $this->distributor();
-        $p = $this->product();
+        $a = $this->product();
+        $b = Product::create([
+            'name' => 'HADA GLOW', 'sku' => 'HD-1', 'hq_stock' => 0,
+            'status' => 'active', 'cogs' => 5000, 'price_distributor' => 10000, 'price_reseller' => 12000,
+        ]);
+        Inventory::create(['user_id' => $d->id, 'product_id' => $a->id, 'quantity' => 10]);
 
-        // PUTU FRERIN case: belum ada baris inventory sama sekali. Produknya
-        // tetap muncul di DROPDOWN penyesuaian (bukan baris tabel), jadi saldo
-        // awal bisa diisi lewat form Set Stok.
-        $this->assertSame(0, Inventory::where('user_id', $d->id)->count());
+        // Halaman form ada, dengan pemilih produk.
+        $this->actingAs($d)->get(route('inventory.adjust'))->assertOk()
+            ->assertSee('Penyesuaian Stok')
+            ->assertSee('MIZU BODY WASH - 500ml');
 
-        $this->actingAs($d)->get(route('inventory.index'))->assertOk()
-            ->assertSee('MZ-500ML')                 // produk ada di dropdown SKU
-            ->assertSee('Penyesuaian Stok / Adjustment');
+        // Satu submit, banyak produk: A diset 40 (dari 10), B saldo awal 25.
+        $this->actingAs($d)->post(route('inventory.adjust.store'), [
+            'notes' => 'hitung fisik 20 Jul',
+            'items' => [
+                ['product_id' => $a->id, 'target' => 40],
+                ['product_id' => $b->id, 'target' => 25],
+            ],
+        ])->assertRedirect(route('inventory.index'));
 
-        // Dan form-nya benar-benar membuat barisnya dari nol.
-        $this->actingAs($d)->post(route('inventory.partner-set'), [
-            'user_id' => $d->id, 'product_id' => $p->id, 'target' => 40, 'notes' => 'saldo awal',
+        $this->assertSame(40, (int) Inventory::where('user_id', $d->id)->where('product_id', $a->id)->value('quantity'));
+        $this->assertSame(25, (int) Inventory::where('user_id', $d->id)->where('product_id', $b->id)->value('quantity'));
+    }
+
+    public function test_penyesuaian_bulk_atomik_satu_baris_negatif_batalkan_semua(): void
+    {
+        $d = $this->distributor();
+        $a = $this->product();
+        Inventory::create(['user_id' => $d->id, 'product_id' => $a->id, 'quantity' => 10]);
+
+        // target negatif ditolak validasi → tak ada yang berubah.
+        $this->actingAs($d)->from(route('inventory.adjust'))->post(route('inventory.adjust.store'), [
+            'notes' => 'x',
+            'items' => [['product_id' => $a->id, 'target' => -5]],
+        ])->assertSessionHasErrors();
+
+        $this->assertSame(10, (int) Inventory::where('user_id', $d->id)->where('product_id', $a->id)->value('quantity'));
+    }
+
+    public function test_penyesuaian_bulk_melewati_baris_tak_berubah_dan_kosong(): void
+    {
+        $d = $this->distributor();
+        $a = $this->product();
+        $b = Product::create([
+            'name' => 'HADA GLOW', 'sku' => 'HD-1', 'hq_stock' => 0,
+            'status' => 'active', 'cogs' => 5000, 'price_distributor' => 10000, 'price_reseller' => 12000,
+        ]);
+        Inventory::create(['user_id' => $d->id, 'product_id' => $a->id, 'quantity' => 10]);
+
+        // A diisi 10 (SAMA — dilewati), baris kosong (dilewati), B diisi 30 (berubah).
+        $this->actingAs($d)->post(route('inventory.adjust.store'), [
+            'notes' => 'koreksi',
+            'items' => [
+                ['product_id' => $a->id, 'target' => 10],
+                ['product_id' => null, 'target' => null],
+                ['product_id' => $b->id, 'target' => 30],
+            ],
         ])->assertRedirect();
 
-        $this->assertSame(40, (int) Inventory::where('user_id', $d->id)->value('quantity'));
+        // Hanya B yang menghasilkan gerakan stok.
+        $this->assertSame(1, StockMovement::where('user_id', $d->id)->count());
+        $this->assertSame(30, (int) Inventory::where('user_id', $d->id)->where('product_id', $b->id)->value('quantity'));
+    }
+
+    public function test_penyesuaian_bulk_tercatat_di_audit_log(): void
+    {
+        $d = $this->distributor();
+        $a = $this->product();
+
+        $this->actingAs($d)->post(route('inventory.adjust.store'), [
+            'notes' => 'saldo awal',
+            'items' => [['product_id' => $a->id, 'target' => 40]],
+        ]);
+
+        $log = AuditLog::where('action', 'bulk_set_partner_stock')->first();
+        $this->assertNotNull($log);
+        $this->assertSame($d->id, (int) $log->performed_by);
+        $this->assertSame('saldo awal', $log->after_data['alasan']);
+    }
+
+    public function test_non_mitra_tak_bisa_buka_halaman_penyesuaian(): void
+    {
+        $admin = User::create([
+            'name' => 'A', 'fullname' => 'Admin', 'username' => 'adm', 'email' => 'adm@skinku.test',
+            'password' => Hash::make('secret123'), 'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $this->actingAs($admin)->get(route('inventory.adjust'))->assertForbidden();
     }
 
     public function test_set_stok_menyetel_ke_angka_absolut_bukan_menambah(): void
