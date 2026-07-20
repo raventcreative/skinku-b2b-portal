@@ -16,7 +16,9 @@ class KolController extends Controller
         $filters = $request->only(['level', 'kategori', 'status', 'verdict']);
 
         // Arah & kolom sort divalidasi ke daftar putih — nilai ngawur jatuh ke default.
-        $sort = in_array($request->query('sort'), ['username', 'followers', 'level', 'kategori', 'status', 'verdict'], true)
+        $sortable = ['username', 'followers', 'level', 'kategori', 'status',
+            'ratecard', 'total', 'median', 'ratio', 'cpm', 'cpv', 'rank', 'verdict', 'gmv'];
+        $sort = in_array($request->query('sort'), $sortable, true)
             ? $request->query('sort') : 'username';
         $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
 
@@ -119,13 +121,25 @@ class KolController extends Controller
 
     private function sorted($kols, string $sort, string $dir)
     {
-        // Verdict diurutkan pakai CPM median (angka di balik verdict-nya):
-        // asc = paling murah dulu. Yang belum discreening SELALU di bawah,
-        // apa pun arahnya — "tak ada data" bukan murah ataupun mahal.
-        if ($sort === 'verdict') {
-            $belum = $kols->filter(fn (Kol $k) => $k->latestScreening?->cpm_median === null);
-            $ada = $kols->filter(fn (Kol $k) => $k->latestScreening?->cpm_median !== null)
-                ->sortBy(fn (Kol $k) => $k->latestScreening->cpm_median, SORT_REGULAR, $dir === 'desc');
+        // Kolom turunan screening — SEMUA header angka bisa diurutkan, seperti
+        // Excel. Yang belum discreening SELALU di bawah, apa pun arahnya:
+        // "tak ada data" bukan kecil ataupun besar.
+        // rank & verdict & cpv memakai CPM MEDIAN sebagai nilai sort-nya —
+        // rank memang turunan langsung CPM median, dan CPV cuma CPM ÷ 1000.
+        $screeningVal = match ($sort) {
+            'ratecard' => fn (Kol $k) => $k->latestScreening?->ratecard,
+            'total' => fn (Kol $k) => $k->latestScreening?->total_views,
+            'median' => fn (Kol $k) => $k->latestScreening?->median_views,
+            'ratio' => fn (Kol $k) => $k->latestScreening?->ratio,
+            'gmv' => fn (Kol $k) => $k->latestScreening?->gmv_estimate,
+            'cpm', 'cpv', 'rank', 'verdict' => fn (Kol $k) => $k->latestScreening?->cpm_median,
+            default => null,
+        };
+
+        if ($screeningVal !== null) {
+            $belum = $kols->filter(fn (Kol $k) => $screeningVal($k) === null);
+            $ada = $kols->filter(fn (Kol $k) => $screeningVal($k) !== null)
+                ->sortBy($screeningVal, SORT_REGULAR, $dir === 'desc');
 
             return $ada->concat($belum);
         }

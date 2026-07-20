@@ -102,16 +102,18 @@
                 <th rowspan="2" class="text-left px-3 align-bottom">{!! $sortLink('level', 'Level') !!}</th>
                 <th rowspan="2" class="text-left align-bottom">{!! $sortLink('kategori', 'Kategori') !!}</th>
                 <th rowspan="2" class="text-left align-bottom">{!! $sortLink('status', 'Status') !!}</th>
-                <th rowspan="2" class="text-right align-bottom" title="Harga kerjasama yang diminta (screening terakhir)">Ratecard</th>
+                {{-- SEMUA kolom angka bisa diurutkan, seperti Excel. Yang belum
+                     discreening selalu tenggelam ke bawah apa pun arahnya. --}}
+                <th rowspan="2" class="text-right align-bottom" title="Harga kerjasama yang diminta (screening terakhir)">{!! $sortLink('ratecard', 'Ratecard') !!}</th>
                 <th colspan="7" class="text-center py-1.5 border-b border-stone-200">Views 7 Video Terakhir</th>
-                <th rowspan="2" class="text-right align-bottom">Total</th>
-                <th rowspan="2" class="text-right align-bottom">Median</th>
-                <th rowspan="2" class="text-right align-bottom" title="Median views ÷ followers">Ratio</th>
-                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ median views × 1000 — biaya per 1000 views">CPM</th>
-                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ median views — biaya per satu view">CPV</th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="Peringkat CPM Mean termurah di seluruh screening (kolom Z Excel)">Rank</th>
+                <th rowspan="2" class="text-right align-bottom">{!! $sortLink('total', 'Total') !!}</th>
+                <th rowspan="2" class="text-right align-bottom">{!! $sortLink('median', 'Median') !!}</th>
+                <th rowspan="2" class="text-right align-bottom" title="Median views ÷ followers">{!! $sortLink('ratio', 'Ratio') !!}</th>
+                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ median views × 1000 — biaya per 1000 views">{!! $sortLink('cpm', 'CPM') !!}</th>
+                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ median views — biaya per satu view">{!! $sortLink('cpv', 'CPV') !!}</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="Peringkat CPM Median termurah di seluruh screening">{!! $sortLink('rank', 'Rank') !!}</th>
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Urut berdasarkan CPM median — termurah dulu">{!! $sortLink('verdict', 'Verdict Terakhir') !!}</th>
-                <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV + deteksi viral & followers palsu (rumus Excel kolom W)">GMV · Viral · Fake</th>
+                <th rowspan="2" class="text-left align-bottom" title="Urut berdasarkan estimasi GMV">{!! $sortLink('gmv', 'GMV · Viral · Fake') !!}</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
             </tr>
             <tr>

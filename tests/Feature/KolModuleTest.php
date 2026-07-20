@@ -563,9 +563,40 @@ class KolModuleTest extends TestCase
 
         $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
 
-        $this->assertStringContainsString('>CPM</th>', $html);
-        $this->assertStringContainsString('>CPV</th>', $html);
+        // Header CPM/CPV kini TAUTAN SORT (seperti Excel), bukan teks mati.
+        $this->assertStringContainsString('sort=cpm', $html);
+        $this->assertStringContainsString('sort=cpv', $html);
+        $this->assertStringContainsString('sort=rank', $html);
         $this->assertStringContainsString('33.333', $html);   // CPM di sel sendiri
         $this->assertStringContainsString('33,3', $html);     // CPV di sel sendiri
+    }
+
+    /** Semua kolom angka bisa di-sort dari header — termasuk Rank & GMV. */
+    public function test_sort_rank_dan_kolom_angka_lain_dari_header(): void
+    {
+        $spec = $this->user('kol_specialist', 'specsr');
+        $murah = Kol::create(['tiktok_username' => 'aamurah', 'followers' => 100_000]);
+        $this->screen($murah, 1_000_000, 100_000);    // CPM 10rb -> rank 1
+        $mahal = Kol::create(['tiktok_username' => 'zzmahal', 'followers' => 100_000]);
+        $this->screen($mahal, 8_000_000, 100_000);    // CPM 80rb -> rank 2
+        Kol::create(['tiktok_username' => 'kosong1', 'followers' => 5_000]);   // belum discreening
+
+        // Sort rank asc: rank 1 dulu; yang belum discreening SELALU di dasar.
+        $html = $this->actingAs($spec)->get(route('kols.index', ['sort' => 'rank', 'dir' => 'asc']))->assertOk()->getContent();
+        $this->assertLessThan(strpos($html, 'zzmahal'), strpos($html, 'aamurah'));
+        $this->assertGreaterThan(strpos($html, 'zzmahal'), strpos($html, 'kosong1'));
+
+        // Sort rank desc: urutan berbalik, tapi yang kosong TETAP di dasar.
+        $html = $this->actingAs($spec)->get(route('kols.index', ['sort' => 'rank', 'dir' => 'desc']))->assertOk()->getContent();
+        $this->assertLessThan(strpos($html, 'aamurah'), strpos($html, 'zzmahal'));
+        $this->assertGreaterThan(strpos($html, 'aamurah'), strpos($html, 'kosong1'));
+
+        // Kolom lain ikut bisa: total views desc — mahal & murah sama 100rb×7,
+        // jadi cukup pastikan tidak meledak dan kosong tetap di bawah.
+        $html = $this->actingAs($spec)->get(route('kols.index', ['sort' => 'total', 'dir' => 'desc']))->assertOk()->getContent();
+        $this->assertGreaterThan(strpos($html, 'aamurah'), strpos($html, 'kosong1'));
+
+        $this->actingAs($spec)->get(route('kols.index', ['sort' => 'gmv', 'dir' => 'desc']))->assertOk();
+        $this->actingAs($spec)->get(route('kols.index', ['sort' => 'ratecard', 'dir' => 'asc']))->assertOk();
     }
 }
