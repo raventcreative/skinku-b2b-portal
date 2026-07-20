@@ -150,6 +150,12 @@
                 {!! navItem('learning.index', 'SKINKU Academy', 'learning.*') !!}
             @endif
 
+            @if($u->canDo('kol.view'))
+                {{-- 'kol*' (bukan 'kols.*') supaya menu tetap menyala di halaman
+                     kol-deals.* dan kol-screenings.* --}}
+                {!! navItem('kols.index', 'KOL', 'kol*') !!}
+            @endif
+
             @if($u->canDo('manage_users'))
                 {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
             @endif

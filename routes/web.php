@@ -10,6 +10,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\KolController;
+use App\Http\Controllers\KolDealController;
+use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\PartnerSaleController;
@@ -197,6 +200,29 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::put('/accounting/template/{template}', [AccTemplateController::class, 'update'])->name('accounting.templates.update');
         Route::delete('/accounting/template/{template}', [AccTemplateController::class, 'destroy'])
             ->middleware('permission:delete_accounting')->name('accounting.templates.destroy');
+    });
+
+    /* ---------------- Modul KOL (Fase 1: kurasi & deal) ---------------- */
+    // Seluruh modul di balik kol.view — mitra/afiliator tak melihat apa pun.
+    Route::middleware('permission:kol.view')->group(function () {
+        Route::get('/kols', [KolController::class, 'index'])->name('kols.index');
+        Route::get('/kols/{kol}', [KolController::class, 'show'])->whereNumber('kol')->name('kols.show');
+
+        Route::middleware('permission:kol.screening.manage')->group(function () {
+            Route::post('/kols', [KolController::class, 'store'])->name('kols.store');
+            Route::put('/kols/{kol}', [KolController::class, 'update'])->name('kols.update');
+            Route::get('/kol-screenings/create', [KolScreeningController::class, 'create'])->name('kol-screenings.create');
+            Route::post('/kol-screenings', [KolScreeningController::class, 'store'])->name('kol-screenings.store');
+        });
+
+        Route::middleware('permission:kol.deal.manage')->group(function () {
+            Route::get('/kol-deals', [KolDealController::class, 'index'])->name('kol-deals.index');
+            Route::get('/kol-deals/create', [KolDealController::class, 'create'])->name('kol-deals.create');
+            Route::post('/kol-deals', [KolDealController::class, 'store'])->name('kol-deals.store');
+            Route::get('/kol-deals/{deal}/edit', [KolDealController::class, 'edit'])->name('kol-deals.edit');
+            Route::put('/kol-deals/{deal}', [KolDealController::class, 'update'])->name('kol-deals.update');
+            Route::delete('/kol-deals/{deal}', [KolDealController::class, 'destroy'])->name('kol-deals.destroy');
+        });
     });
 
     /* ---------------- Integrasi TikTok Shop ---------------- */
