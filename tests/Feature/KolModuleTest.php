@@ -307,9 +307,9 @@ class KolModuleTest extends TestCase
         $this->assertStringContainsString('8,3%', $html);          // ratio 1000/12000
         $this->assertStringContainsString('Kemahalan', $html);
         $this->assertStringContainsString('detail →', $html);      // jalan ke rincian jelas
-        // 7 views mentah + totalnya ikut di DAFTAR — tanpa klik ke detail.
-        $this->assertStringContainsString('7 Views Terakhir', $html);
-        $this->assertStringContainsString('total 7.000', $html);
+        // 7 views mentah per kolom + total ikut di DAFTAR — tanpa klik ke detail.
+        $this->assertStringContainsString('Views 7 Video Terakhir', $html);
+        $this->assertStringContainsString('7.000', $html);   // kolom Total
     }
 
     /**
