@@ -3,13 +3,26 @@
 return [
 
     /*
-     * TODO(Freddie): AMBANG CPM UNTUK VERDICT — INI PLACEHOLDER, BUKAN KEPUTUSAN.
+     * Tingkatan verdict — DARI RUMUS ASLI file KOL SKINKU.xlsx (bukan tebakan;
+     * placeholder lama sudah diganti). Sheet memakai dua skala:
      *
-     * CPM (rupiah per 1000 views) ≤ ambang → 🟢 Worth It; di atasnya → 🔴 Kemahalan.
-     * Excel sumber tidak menyebut angkanya eksplisit, jadi sengaja TIDAK ditebak.
-     * 50.000 dipilih hanya supaya fiturnya hidup; ganti begitu Freddie menentukan.
+     * Kolom V (indikator MEDIAN, 3 tingkat):
+     *   CPM < 60rb → 🟢 Worth It · < 120rb → 🟡 Masih Oke · sisanya 🔴 Kemahalan
+     *
+     * Kolom U (indikator MEAN, 5 tingkat — rumus terbaru; baris-baris awal sheet
+     * masih memakai rumus lama 3 tingkat, versi 5 tingkat inilah yang dipakai):
+     *   CPM < 10rb Sangat Bagus · < 20rb Bagus · < 30rb Dipertimbangkan ·
+     *   < 50rb Buruk · sisanya Sangat Buruk
      */
-    'cpm_threshold' => (int) env('KOL_CPM_THRESHOLD', 50_000),
+    'median_worth' => 60_000,
+    'median_masih_oke' => 120_000,
+    'mean_tiers' => [
+        [10_000, '🟢 Sangat Bagus'],
+        [20_000, '🟡 Bagus'],
+        [30_000, '🟠 Dipertimbangkan'],
+        [50_000, '🔴 Buruk'],
+    ],
+    'mean_tier_terburuk' => '⚫ Sangat Buruk',
 
     /*
      * Pilihan kategori pada form KOL. Di config (bukan tabel) karena kols.kategori

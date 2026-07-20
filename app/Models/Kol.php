@@ -20,7 +20,7 @@ class Kol extends Model
     public const STATUSES = [self::STATUS_PROSPEK, self::STATUS_AKTIF, self::STATUS_HOLD, self::STATUS_NON_AKTIF];
 
     protected $fillable = [
-        'tiktok_username', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'status', 'catatan',
+        'tiktok_username', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency', 'status', 'catatan',
     ];
 
     protected function casts(): array

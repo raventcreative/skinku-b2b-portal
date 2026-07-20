@@ -49,14 +49,35 @@ class KolController extends Controller
         ]);
     }
 
-    /** worth / mahal / belum — kunci filter verdict dari screening terakhir. */
+    /** worth / masih / mahal / belum — kunci filter verdict dari screening terakhir. */
     private function verdictKey(Kol $k): string
     {
         if (! $k->latestScreening) {
             return 'belum';
         }
 
-        return $k->latestScreening->verdict_median === KolScreening::VERDICT_WORTH ? 'worth' : 'mahal';
+        return match ($k->latestScreening->verdict_median) {
+            KolScreening::VERDICT_WORTH => 'worth',
+            KolScreening::VERDICT_MASIH => 'masih',
+            default => 'mahal',
+        };
+    }
+
+    /**
+     * Replika sheet "Listing KOL": satu baris per screening (bukan per KOL),
+     * urutan & isi kolom persis Excel — Bulan/Tanggal Listing, Username, Link,
+     * Followers, Ratecard, Views 1-7, Total, Avg, Median, CPM Mean/Median,
+     * dua indikator, GMV+Viral+Fake, Agency.
+     */
+    public function listing()
+    {
+        $rows = KolScreening::query()
+            ->with('kol')
+            ->orderByDesc('tanggal_listing')
+            ->orderByDesc('id')
+            ->paginate(50);
+
+        return view('kols.listing', ['rows' => $rows]);
     }
 
     private function sorted($kols, string $sort, string $dir)
@@ -90,6 +111,7 @@ class KolController extends Controller
             'followers' => ['required', 'integer', 'min:0'],
             'kategori' => ['nullable', 'string', 'max:100'],
             'provinsi' => ['nullable', 'string', 'max:100'],
+            'agency' => ['nullable', 'string', 'max:150'],
             'catatan' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -123,6 +145,7 @@ class KolController extends Controller
             'followers' => ['required', 'integer', 'min:0'],
             'kategori' => ['nullable', 'string', 'max:100'],
             'provinsi' => ['nullable', 'string', 'max:100'],
+            'agency' => ['nullable', 'string', 'max:150'],
             'status' => ['required', Rule::in(Kol::STATUSES)],
             'catatan' => ['nullable', 'string', 'max:2000'],
         ]);

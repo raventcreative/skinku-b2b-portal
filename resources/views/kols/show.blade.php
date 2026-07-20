@@ -7,6 +7,13 @@
     $u = auth()->user();
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $canFinance = $u->canDo('kol.deal.finance');
+    $vColor = fn (string $v) => match (true) {
+        str_starts_with($v, '🟢') => 'text-emerald-700',
+        str_starts_with($v, '🟡') => 'text-amber-600',
+        str_starts_with($v, '🟠') => 'text-orange-600',
+        str_starts_with($v, '🔴') => 'text-rose-700',
+        default => 'text-stone-800',
+    };
 @endphp
 
 <a href="{{ route('kols.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Database KOL</a>
@@ -19,7 +26,7 @@
             </h2>
             <p class="text-xs text-stone-500 mt-1">
                 {{ number_format($kol->followers, 0, ',', '.') }} followers · <b>{{ $kol->level }}</b>
-                · {{ $kol->kategori ?: 'tanpa kategori' }} · {{ $kol->provinsi ?: '—' }} · status <b>{{ $kol->status }}</b>
+                · {{ $kol->kategori ?: 'tanpa kategori' }} · {{ $kol->provinsi ?: '—' }} · {{ $kol->agency ?: 'Non-Agency' }} · status <b>{{ $kol->status }}</b>
             </p>
             @if($kol->catatan)<p class="text-xs text-stone-500 mt-2">{{ $kol->catatan }}</p>@endif
         </div>
@@ -45,6 +52,7 @@
                     @foreach($kategoriList as $kat)<option value="{{ $kat }}" @selected(old('kategori', $kol->kategori) === $kat)>{{ $kat }}</option>@endforeach
                 </select>
                 <input name="provinsi" maxlength="100" placeholder="provinsi" value="{{ old('provinsi', $kol->provinsi) }}" class="px-3 py-2 border border-stone-300 rounded-lg">
+                <input name="agency" maxlength="150" placeholder="agency (kosong = non-agency)" value="{{ old('agency', $kol->agency) }}" class="px-3 py-2 border border-stone-300 rounded-lg">
                 <select name="status" class="px-3 py-2 border border-stone-300 rounded-lg">
                     @foreach(\App\Models\Kol::STATUSES as $st)<option value="{{ $st }}" @selected(old('status', $kol->status) === $st)>{{ $st }}</option>@endforeach
                 </select>
@@ -88,11 +96,11 @@
                     <td class="text-right font-semibold text-stone-800">{{ number_format($s->median_views, 0, ',', '.') }}</td>
                     <td class="text-right text-stone-600">{{ number_format($s->rata_views, 1, ',', '.') }}</td>
                     <td class="text-right text-stone-600">{{ $s->ratio !== null ? number_format($s->ratio, 2, ',', '.').'%' : '—' }}</td>
-                    <td class="px-3 font-semibold whitespace-nowrap {{ $s->verdict_median === \App\Models\KolScreening::VERDICT_WORTH ? 'text-emerald-700' : 'text-rose-700' }}">
+                    <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($s->verdict_median) }}">
                         {{ $s->verdict_median }}
                         <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_median !== null ? $rp($s->cpm_median) : '—' }}</span>
                     </td>
-                    <td class="px-4 font-semibold whitespace-nowrap {{ $s->verdict_rata === \App\Models\KolScreening::VERDICT_WORTH ? 'text-emerald-700' : 'text-rose-700' }}">
+                    <td class="px-4 font-semibold whitespace-nowrap {{ $vColor($s->verdict_rata) }}">
                         {{ $s->verdict_rata }}
                         <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_rata !== null ? $rp($s->cpm_rata) : '—' }}</span>
                     </td>

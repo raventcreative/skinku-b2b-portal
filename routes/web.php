@@ -206,6 +206,8 @@ Route::middleware(['auth', 'role'])->group(function () {
     // Seluruh modul di balik kol.view — mitra/afiliator tak melihat apa pun.
     Route::middleware('permission:kol.view')->group(function () {
         Route::get('/kols', [KolController::class, 'index'])->name('kols.index');
+        // Replika sheet "Listing KOL" — satu baris per screening, kolom persis Excel.
+        Route::get('/kols/listing', [KolController::class, 'listing'])->name('kols.listing');
         Route::get('/kols/{kol}', [KolController::class, 'show'])->whereNumber('kol')->name('kols.show');
 
         Route::middleware('permission:kol.screening.manage')->group(function () {

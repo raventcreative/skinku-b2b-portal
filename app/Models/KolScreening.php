@@ -12,6 +12,8 @@ class KolScreening extends Model
 {
     public const VERDICT_WORTH = '🟢 Worth It';
 
+    public const VERDICT_MASIH = '🟡 Masih Oke';
+
     public const VERDICT_MAHAL = '🔴 Kemahalan';
 
     protected $fillable = [
@@ -75,22 +77,52 @@ class KolScreening extends Model
     }
 
     /**
+     * Indikator MEDIAN — 3 tingkat, rumus kolom V sheet Listing KOL:
+     * < 60rb Worth It · < 120rb Masih Oke · sisanya Kemahalan.
+     *
      * CPM null (views nol semua) tetap Kemahalan: bayar ratecard untuk nol views
      * jelas bukan Worth It, dan verdict kosong cuma memindahkan keputusan ke
      * pembaca.
      */
     public function getVerdictMedianAttribute(): string
     {
-        return $this->cpm_median !== null && $this->cpm_median <= config('kol.cpm_threshold')
-            ? self::VERDICT_WORTH
-            : self::VERDICT_MAHAL;
+        if ($this->cpm_median === null) {
+            return self::VERDICT_MAHAL;
+        }
+
+        return match (true) {
+            $this->cpm_median < config('kol.median_worth') => self::VERDICT_WORTH,
+            $this->cpm_median < config('kol.median_masih_oke') => self::VERDICT_MASIH,
+            default => self::VERDICT_MAHAL,
+        };
     }
 
+    /**
+     * Indikator MEAN — 5 tingkat, rumus TERBARU kolom U sheet Listing KOL
+     * (baris awal sheet masih memakai rumus lama 3 tingkat; versi 5 tingkat
+     * yang dipakai). Skala penuh di config/kol.php.
+     */
     public function getVerdictRataAttribute(): string
     {
-        return $this->cpm_rata !== null && $this->cpm_rata <= config('kol.cpm_threshold')
-            ? self::VERDICT_WORTH
-            : self::VERDICT_MAHAL;
+        if ($this->cpm_rata === null) {
+            return config('kol.mean_tier_terburuk');
+        }
+
+        foreach (config('kol.mean_tiers') as [$batas, $label]) {
+            if ($this->cpm_rata < $batas) {
+                return $label;
+            }
+        }
+
+        return config('kol.mean_tier_terburuk');
+    }
+
+    /** Ratio versi mean (kolom U: Q/F) — pendamping ratio median yang sudah ada. */
+    public function getRatioRataAttribute(): ?float
+    {
+        $followers = (int) ($this->kol?->followers ?? 0);
+
+        return $followers > 0 ? round($this->rata_views / $followers * 100, 2) : null;
     }
 
     /*

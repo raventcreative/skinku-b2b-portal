@@ -47,6 +47,11 @@
                     value="{{ old('provinsi', $selectedKol?->provinsi) }}"
                     class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
             </label>
+            <label class="text-[11px] font-semibold text-stone-500">Agency / Non Agency
+                <input name="agency" id="agencyInput" maxlength="150" placeholder="kosongkan bila non-agency"
+                    value="{{ old('agency', $selectedKol?->agency) }}"
+                    class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
         </div>
 
         <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-400 mb-2">Kurasi</p>
@@ -90,7 +95,7 @@ inp.addEventListener('input', () => {
     const k = KOLS.find(x => x.tiktok_username.toLowerCase() === name.toLowerCase());
     if (k) {
         hint.textContent = '✓ sudah terdaftar — screening ditambahkan ke KOL ini';
-        for (const [id, val] of [['linkInput', k.tiktok_link], ['followersInput', k.followers], ['kategoriInput', k.kategori], ['provinsiInput', k.provinsi]]) {
+        for (const [id, val] of [['linkInput', k.tiktok_link], ['followersInput', k.followers], ['kategoriInput', k.kategori], ['provinsiInput', k.provinsi], ['agencyInput', k.agency]]) {
             const el = document.getElementById(id);
             if (el && val !== null && val !== '') el.value = val;
         }

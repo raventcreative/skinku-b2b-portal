@@ -96,37 +96,43 @@ class KolModuleTest extends TestCase
         $this->assertEqualsWithDelta(21_500 / 7, $s->rata_views, 0.1);
     }
 
-    /** Verdict mengikuti ambang config — diuji dengan ambang yang DISETEL di test, bukan tebakan. */
-    public function test_verdict_worth_it_di_bawah_ambang_dan_kemahalan_di_atasnya(): void
+    /**
+     * Tingkatan verdict DARI RUMUS ASLI KOL SKINKU.xlsx (bukan lagi placeholder):
+     * Median (kolom V): <60rb Worth It · <120rb Masih Oke · sisanya Kemahalan.
+     * Mean (kolom U, rumus terbaru): <10rb Sangat Bagus · <20rb Bagus ·
+     * <30rb Dipertimbangkan · <50rb Buruk · sisanya Sangat Buruk.
+     */
+    public function test_verdict_median_tiga_tingkat_di_batasnya(): void
     {
-        config(['kol.cpm_threshold' => 25_000]);
         $kol = $this->kol(100_000);
 
-        // ratecard 2jt, median 100rb views → CPM 20.000 ≤ 25.000 → Worth It.
-        $murah = KolScreening::create([
-            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => 2_000_000,
-            'views_1' => 100_000, 'views_2' => 100_000, 'views_3' => 100_000, 'views_4' => 100_000,
-            'views_5' => 100_000, 'views_6' => 100_000, 'views_7' => 100_000,
-        ]);
-        $this->assertEqualsWithDelta(20_000, $murah->cpm_median, 0.01);
-        $this->assertSame(KolScreening::VERDICT_WORTH, $murah->verdict_median);
+        // CPM = ratecard/100rb*1000 -> ratecard 5,9jt = CPM 59rb (Worth, di bawah batas)
+        $this->assertSame(KolScreening::VERDICT_WORTH, $this->screen($kol, 5_900_000, 100_000)->verdict_median);
+        $this->assertSame(KolScreening::VERDICT_MASIH, $this->screen($kol, 6_000_000, 100_000)->verdict_median);   // 60rb persis -> Masih Oke
+        $this->assertSame(KolScreening::VERDICT_MASIH, $this->screen($kol, 11_900_000, 100_000)->verdict_median);  // 119rb
+        $this->assertSame(KolScreening::VERDICT_MAHAL, $this->screen($kol, 12_000_000, 100_000)->verdict_median);  // 120rb persis -> Kemahalan
 
-        // ratecard 3jt, median 100rb → CPM 30.000 > 25.000 → Kemahalan.
-        $mahal = KolScreening::create([
-            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-02', 'ratecard' => 3_000_000,
-            'views_1' => 100_000, 'views_2' => 100_000, 'views_3' => 100_000, 'views_4' => 100_000,
-            'views_5' => 100_000, 'views_6' => 100_000, 'views_7' => 100_000,
-        ]);
-        $this->assertSame(KolScreening::VERDICT_MAHAL, $mahal->verdict_median);
-
-        // Views nol semua → CPM tak terdefinisi → tetap Kemahalan, bukan verdict kosong.
-        $nol = KolScreening::create([
-            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-03', 'ratecard' => 1_000_000,
-            'views_1' => 0, 'views_2' => 0, 'views_3' => 0, 'views_4' => 0,
-            'views_5' => 0, 'views_6' => 0, 'views_7' => 0,
-        ]);
+        // Views nol semua -> CPM tak terdefinisi -> tetap Kemahalan, bukan kosong.
+        $nol = $this->screen($kol, 1_000_000, 0);
         $this->assertNull($nol->cpm_median);
         $this->assertSame(KolScreening::VERDICT_MAHAL, $nol->verdict_median);
+    }
+
+    public function test_verdict_mean_lima_tingkat_di_batasnya(): void
+    {
+        $kol = $this->kol(100_000);
+
+        $cases = [
+            [900_000, '🟢 Sangat Bagus'],       // CPM 9rb
+            [1_000_000, '🟡 Bagus'],            // 10rb persis naik tingkat
+            [1_900_000, '🟡 Bagus'],
+            [2_000_000, '🟠 Dipertimbangkan'],  // 20rb
+            [3_000_000, '🔴 Buruk'],            // 30rb
+            [5_000_000, '⚫ Sangat Buruk'],     // 50rb
+        ];
+        foreach ($cases as [$ratecard, $expected]) {
+            $this->assertSame($expected, $this->screen($kol, $ratecard, 100_000)->verdict_rata, "ratecard={$ratecard}");
+        }
     }
 
     /**
@@ -136,7 +142,6 @@ class KolModuleTest extends TestCase
      */
     public function test_screening_username_baru_membuat_kol_sekaligus(): void
     {
-        config(['kol.cpm_threshold' => 25_000]);
         $spec = $this->user('kol_specialist', 'spec2');
 
         $payload = [
@@ -229,20 +234,24 @@ class KolModuleTest extends TestCase
 
     public function test_filter_verdict_menyaring_worth_mahal_dan_belum(): void
     {
-        config(['kol.cpm_threshold' => 25_000]);
         $spec = $this->user('kol_specialist', 'specf');
 
         $murah = Kol::create(['tiktok_username' => 'murah', 'followers' => 100_000]);
         $this->screen($murah, 1_000_000, 100_000);   // CPM 10rb → worth
         $mahal = Kol::create(['tiktok_username' => 'mahal', 'followers' => 100_000]);
-        $this->screen($mahal, 5_000_000, 100_000);   // CPM 50rb → kemahalan
+        $this->screen($mahal, 15_000_000, 100_000);   // CPM 150rb -> kemahalan (>=120rb)
+        $masih = Kol::create(['tiktok_username' => 'masihoke', 'followers' => 100_000]);
+        $this->screen($masih, 10_000_000, 100_000);   // CPM 100rb -> masih oke
         Kol::create(['tiktok_username' => 'polos', 'followers' => 5_000]);   // belum discreening
 
         $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'worth']))->assertOk()
             ->assertSee('@murah')->assertDontSee('@mahal')->assertDontSee('@polos');
 
         $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'mahal']))->assertOk()
-            ->assertSee('@mahal')->assertDontSee('@murah');
+            ->assertSee('@mahal')->assertDontSee('@murah')->assertDontSee('@masihoke');
+
+        $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'masih']))->assertOk()
+            ->assertSee('@masihoke')->assertDontSee('@mahal')->assertDontSee('@murah');
 
         $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'belum']))->assertOk()
             ->assertSee('@polos')->assertDontSee('@murah')->assertDontSee('@mahal');
@@ -250,7 +259,6 @@ class KolModuleTest extends TestCase
 
     public function test_sort_verdict_urut_cpm_termurah_dulu_dan_belum_screening_selalu_di_bawah(): void
     {
-        config(['kol.cpm_threshold' => 25_000]);
         $spec = $this->user('kol_specialist', 'specs');
 
         $b = Kol::create(['tiktok_username' => 'bbb', 'followers' => 100_000]);
@@ -295,7 +303,6 @@ class KolModuleTest extends TestCase
      */
     public function test_daftar_kol_menampilkan_ratecard_median_dan_ratio(): void
     {
-        config(['kol.cpm_threshold' => 25_000]);
         $spec = $this->user('kol_specialist', 'specl');
         $kol = Kol::create(['tiktok_username' => 'mulmull', 'followers' => 12_000]);
         $this->screen($kol, 5_000_000, 1_000);   // CPM 5jt — kemahalan
@@ -319,7 +326,6 @@ class KolModuleTest extends TestCase
      */
     public function test_detail_menampilkan_7_views_mentah_total_dan_dua_verdict(): void
     {
-        config(['kol.cpm_threshold' => 25_000]);
         $spec = $this->user('kol_specialist', 'specd');
         $kol = Kol::create(['tiktok_username' => 'detailkol', 'followers' => 100_000]);
 
@@ -419,5 +425,52 @@ class KolModuleTest extends TestCase
         $this->assertStringContainsString('GMV · Viral · Fake', $html);
         $this->assertStringContainsString('3.021.912', $html);
         $this->assertStringContainsString('High', $html);
+    }
+
+    /**
+     * Halaman "Listing KOL" = replika sheet Excel: satu baris per screening,
+     * kolom persis. Divalidasi pakai BARIS NYATA pertama spreadsheet.
+     */
+    public function test_halaman_listing_replika_excel_dengan_baris_nyata(): void
+    {
+        $spec = $this->user('kol_specialist', 'specx');
+        $kol = Kol::create(['tiktok_username' => 'dummyxx', 'followers' => 6_956, 'agency' => 'OUR GOOD MEDIA']);
+        KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-04-22', 'ratecard' => 55_000,
+            'views_1' => 105_200, 'views_2' => 6_627, 'views_3' => 1_165, 'views_4' => 131_400,
+            'views_5' => 2_874, 'views_6' => 1_040, 'views_7' => 11_000,
+        ]);
+
+        $html = $this->actingAs($spec)->get(route('kols.listing'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Views 7 Video Terakhir Tiktok', $html);
+        $this->assertStringContainsString('CPM AVG (Mean)', $html);
+        $this->assertStringContainsString('Rata-Rata [Median] CPM Indicator', $html);
+        $this->assertStringContainsString('GMV + Viral + Fake Detector', $html);
+        // Angka baris Excel: total 259.306, mean 37.044, CPM mean 1.485 ->
+        // Sangat Bagus; CPM median 8.299 -> Worth It; GMV 3.021.912; agency tampil.
+        $this->assertStringContainsString('259.306', $html);
+        $this->assertStringContainsString('37.044', $html);
+        $this->assertStringContainsString('Sangat Bagus', $html);
+        $this->assertStringContainsString('Worth It', $html);
+        $this->assertStringContainsString('3.021.912', $html);
+        $this->assertStringContainsString('OUR GOOD MEDIA', $html);
+    }
+
+    public function test_agency_ikut_tersimpan_lewat_form_screening(): void
+    {
+        $spec = $this->user('kol_specialist', 'specag');
+
+        $payload = [
+            'tiktok_username' => 'agencykol', 'followers' => 50_000, 'agency' => 'CMEDIA',
+            'tanggal_listing' => '2026-07-10', 'ratecard' => 500_000,
+        ];
+        foreach (range(1, 7) as $i) {
+            $payload["views_{$i}"] = 10_000;
+        }
+
+        $this->actingAs($spec)->post(route('kol-screenings.store'), $payload)->assertRedirect();
+
+        $this->assertSame('CMEDIA', Kol::where('tiktok_username', 'agencykol')->value('agency'));
     }
 }

@@ -31,6 +31,7 @@
         <select name="verdict" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
             <option value="">Semua verdict</option>
             <option value="worth" @selected(($filters['verdict'] ?? '') === 'worth')>🟢 Worth It</option>
+            <option value="masih" @selected(($filters['verdict'] ?? '') === 'masih')>🟡 Masih Oke</option>
             <option value="mahal" @selected(($filters['verdict'] ?? '') === 'mahal')>🔴 Kemahalan</option>
             <option value="belum" @selected(($filters['verdict'] ?? '') === 'belum')>Belum discreening</option>
         </select>
@@ -46,7 +47,8 @@
             <a href="{{ route('kol-deals.index') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">Daftar Deal</a>
         @endif
         @if($u->canDo('kol.screening.manage'))
-            <a href="{{ route('kol-screenings.create') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">+ Screening</a>
+            <a href="{{ route('kols.listing') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">Listing KOL (format Excel)</a>
+        <a href="{{ route('kol-screenings.create') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">+ Screening</a>
             <button onclick="document.getElementById('addKol').classList.toggle('hidden')"
                 class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah KOL</button>
         @endif
@@ -66,6 +68,7 @@
             @foreach($kategoriList as $kat)<option value="{{ $kat }}" @selected(old('kategori') === $kat)>{{ $kat }}</option>@endforeach
         </select>
         <input name="provinsi" maxlength="100" placeholder="provinsi (opsional)" value="{{ old('provinsi') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
+        <input name="agency" maxlength="150" placeholder="agency (kosongkan bila non-agency)" value="{{ old('agency') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
         <input name="catatan" maxlength="2000" placeholder="catatan (opsional)" value="{{ old('catatan') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
         <div><button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Simpan</button></div>
     </form>
@@ -135,7 +138,7 @@
                         <td class="text-right text-stone-500">{{ number_format($ls->total_views, 0, ',', '.') }}</td>
                         <td class="text-right font-semibold text-stone-800">{{ number_format($ls->median_views, 0, ',', '.') }}</td>
                         <td class="text-right text-stone-600">{{ $ls->ratio !== null ? number_format($ls->ratio, 1, ',', '.').'%' : '—' }}</td>
-                        <td class="px-3">
+                        <td class="px-3 font-semibold {{ str_starts_with($ls->verdict_median, '🟢') ? 'text-emerald-700' : (str_starts_with($ls->verdict_median, '🟡') ? 'text-amber-600' : 'text-rose-700') }}">
                             {{ $ls->verdict_median }}
                             <span class="text-stone-400">· CPM {{ $ls->cpm_median !== null ? $rp($ls->cpm_median) : '—' }}</span>
                         </td>
