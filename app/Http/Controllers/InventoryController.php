@@ -30,30 +30,16 @@ class InventoryController extends Controller
             ->orderBy('name')
             ->get();
 
-        if ($user->isPartner()) {
-            // Mitra melihat SEMUA produk aktif sebagai baris — bukan hanya yang
-            // sudah punya stok. Dengan begitu tiap produk selalu punya baris yang
-            // bisa dikoreksi inline (set stok), termasuk saldo awal produk yang
-            // fisiknya dipegang tapi belum tercatat. Baris yang belum ada = qty 0
-            // (Inventory sementara, tak disimpan sampai benar-benar di-set).
-            $existing = Inventory::where('user_id', $user->id)->get()->keyBy('product_id');
-
-            $partnerStock = $activeProducts->map(function (Product $p) use ($existing, $user) {
-                $line = $existing->get($p->id) ?? new Inventory([
-                    'user_id' => $user->id, 'product_id' => $p->id, 'quantity' => 0, 'minimum_stock' => 0,
-                ]);
-                $line->setRelation('product', $p);
-
-                return $line;
-            });
-        } else {
-            // Staf: baris stok mitra yang benar-benar ada, dipaginasi.
-            $partnerStock = Inventory::query()
-                ->with('product', 'user')
-                ->orderByDesc('updated_at')
-                ->paginate(20)
-                ->withQueryString();
-        }
+        // Baris stok yang BENAR-BENAR dimiliki — mitra lihat miliknya sendiri.
+        // Tak lagi semua-produk-jadi-baris (10 baris nol berantakan); produk
+        // baru diisi lewat form dropdown "Penyesuaian Stok" yang membuat barisnya
+        // otomatis saat pertama di-set.
+        $partnerStock = Inventory::query()
+            ->with('product', 'user')
+            ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id)->where('quantity', '>', 0))
+            ->orderByDesc('updated_at')
+            ->paginate(20)
+            ->withQueryString();
 
         return view('inventory.index', compact('user', 'hqProducts', 'partnerStock', 'activeProducts'));
     }
