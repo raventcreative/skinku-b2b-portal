@@ -89,7 +89,7 @@ class PartnerStockOutTest extends TestCase
         $this->assertSame(50, (int) Inventory::where('user_id', $b->id)->value('quantity'));
     }
 
-    public function test_mitra_melihat_dua_jalur_jelas_bukan_dropdown_membingungkan(): void
+    public function test_koreksi_stok_inline_per_baris_tanpa_dropdown_keluar_masuk(): void
     {
         $d = $this->distributor();
         $p = $this->product();
@@ -97,23 +97,31 @@ class PartnerStockOutTest extends TestCase
 
         $html = $this->actingAs($d)->get(route('inventory.index'))->assertOk()->getContent();
 
-        // Barang keluar → tombol ke form nota; koreksi → form set stok. Dua jalur.
+        // Barang keluar (penjualan) tetap lewat nota — pintu masuk satu-satunya.
         $this->assertStringContainsString('Barang Keluar (Penjualan)', $html);
         $this->assertStringContainsString(route('partner-sales.index'), $html);
-        $this->assertStringContainsString('Set / Koreksi Stok', $html);
 
-        // Tak ada lagi dropdown Masuk/Keluar/Koreksi di sisi mitra.
+        // Koreksi kini INLINE per baris: form set stok (partner-set) di tabel,
+        // bukan panel terpisah. Isi stok sebenarnya (target), bukan selisih.
+        $this->assertStringContainsString(route('inventory.partner-set'), $html);
+        $this->assertStringContainsString('name="target"', $html);
+
+        // Tak ada dropdown Masuk/Keluar/Koreksi di sisi mitra.
+        $this->assertStringNotContainsString('>Barang Keluar (−)<', $html);
         $this->assertStringNotContainsString('>Barang Masuk (+)<', $html);
-        $this->assertStringNotContainsString('>Koreksi / Penyesuaian<', $html);
     }
 
-    public function test_stok_kosong_menjelaskan_kenapa_dan_apa_yang_harus_dilakukan(): void
+    public function test_stok_kosong_tetap_menampilkan_semua_produk_untuk_dikoreksi(): void
     {
         $d = $this->distributor();
+        $this->product();
 
+        // Mitra tanpa stok TIDAK lagi buntu: semua produk aktif muncul sebagai
+        // baris qty 0, tiap baris bisa langsung di-set (saldo awal).
         $this->actingAs($d)->get(route('inventory.index'))->assertOk()
-            ->assertSee('Belum ada stok tercatat')
-            ->assertSee('setelah PO Anda diselesaikan HQ');
+            ->assertSee('MIZU BODY WASH - 500ml')
+            ->assertSee(route('inventory.partner-set'), escape: false)
+            ->assertDontSee('Belum ada produk aktif');
     }
 
     public function test_mitra_mengisi_saldo_awal_produk_yang_belum_ada_di_daftarnya(): void
@@ -152,17 +160,18 @@ class PartnerStockOutTest extends TestCase
         $this->assertSame('jual ke customer', $log->after_data['alasan']);
     }
 
-    public function test_form_set_stok_muncul_walau_stok_kosong(): void
+    public function test_setiap_produk_aktif_punya_baris_set_walau_belum_ada_stoknya(): void
     {
         $d = $this->distributor();
         $this->product();
 
-        // PUTU FRERIN case: stok kosong, tapi form Set Stok tetap ada untuk isi
-        // saldo awal, dan pemilih produknya terisi.
+        // PUTU FRERIN case: belum ada baris inventory sama sekali, tapi produknya
+        // tetap tampil dengan qty 0 dan tombol Set — bisa langsung isi saldo awal.
+        $this->assertSame(0, Inventory::where('user_id', $d->id)->count());
+
         $this->actingAs($d)->get(route('inventory.index'))->assertOk()
-            ->assertSee('Set / Koreksi Stok')
             ->assertSee('MIZU BODY WASH - 500ml')
-            ->assertSee('saldo awal');
+            ->assertSee('>Set<', false);
     }
 
     public function test_set_stok_menyetel_ke_angka_absolut_bukan_menambah(): void
