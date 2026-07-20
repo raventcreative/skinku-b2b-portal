@@ -86,6 +86,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     /* ---------------- Inventory & Stock Movements ---------------- */
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::post('/inventory/partner-adjust', [InventoryController::class, 'adjustPartner'])->name('inventory.partner-adjust');
+    Route::post('/inventory/partner-set', [InventoryController::class, 'setPartner'])->name('inventory.partner-set');
     Route::post('/inventory/minimum', [InventoryController::class, 'setMinimum'])->name('inventory.minimum');
 
     Route::middleware('permission:manage_hq_stock')->group(function () {

@@ -102,14 +102,7 @@ class InventoryController extends Controller
             'notes' => ['required', 'string', 'max:500'],
         ]);
 
-        // Otorisasi eksplisit: staf boleh menyesuaikan stok mitra mana pun;
-        // mitra hanya miliknya sendiri; selain itu ditolak. Guard lama hanya
-        // memblokir mitra menyentuh stok orang lain, sehingga user non-staf
-        // non-mitra (mis. afiliator) lolos dan bisa menyesuaikan stok siapa saja.
-        $ownLine = (int) $data['user_id'] === $user->id;
-        if (! $user->isStaff() && ! ($user->isPartner() && $ownLine)) {
-            abort(403, 'Anda hanya dapat menyesuaikan stok milik Anda.');
-        }
+        $this->authorizeStockLine($user, (int) $data['user_id']);
 
         $delta = $data['type'] === StockMovement::TYPE_OUT ? -$data['quantity'] : $data['quantity'];
 
@@ -140,7 +133,67 @@ class InventoryController extends Controller
             targetUserId: (int) $data['user_id'],
         );
 
-        return back()->with('status', 'Stok berhasil disesuaikan.');
+        return back()->with('status', 'Barang keluar dicatat.');
+    }
+
+    /**
+     * SET stok mitra ke angka absolut (saldo awal / koreksi hitung fisik).
+     *
+     * Menggantikan dropdown Masuk/Keluar/Penyesuaian: mitra cukup menyatakan
+     * "stok sebenarnya sekian", sistem yang menghitung selisihnya. Karena itu
+     * form ini tak punya toggle tambah/kurang — memang tak perlu.
+     */
+    public function setPartner(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'target' => ['required', 'integer', 'min:0'],
+            'notes' => ['required', 'string', 'max:500'],
+        ]);
+
+        $this->authorizeStockLine($user, (int) $data['user_id']);
+
+        try {
+            $line = $this->service->setPartnerStock(
+                userId: (int) $data['user_id'],
+                productId: (int) $data['product_id'],
+                target: (int) $data['target'],
+                notes: $data['notes'],
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['target' => $e->getMessage()]);
+        }
+
+        AuditService::log(
+            action: 'set_partner_stock',
+            targetType: 'inventory',
+            targetId: (int) $data['product_id'],
+            after: [
+                'user_id' => (int) $data['user_id'],
+                'stok_baru' => (int) $data['target'],
+                'alasan' => $data['notes'],
+            ],
+            targetUserId: (int) $data['user_id'],
+        );
+
+        return back()->with('status', "Stok disetel ke {$line->quantity}.");
+    }
+
+    /**
+     * Staf boleh menyesuaikan stok mitra mana pun; mitra hanya miliknya
+     * sendiri; selain itu ditolak. Guard lama hanya memblokir mitra menyentuh
+     * stok orang lain, sehingga user non-staf non-mitra (mis. peran afiliator)
+     * lolos dan bisa menyesuaikan stok siapa saja.
+     */
+    private function authorizeStockLine($user, int $targetUserId): void
+    {
+        $ownLine = $targetUserId === $user->id;
+        if (! $user->isStaff() && ! ($user->isPartner() && $ownLine)) {
+            abort(403, 'Anda hanya dapat menyesuaikan stok milik Anda.');
+        }
     }
 
     public function setMinimum(Request $request): RedirectResponse

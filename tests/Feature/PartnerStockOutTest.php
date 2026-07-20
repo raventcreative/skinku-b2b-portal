@@ -89,7 +89,7 @@ class PartnerStockOutTest extends TestCase
         $this->assertSame(50, (int) Inventory::where('user_id', $b->id)->value('quantity'));
     }
 
-    public function test_halaman_stok_memakai_label_manusia_bukan_kode_mentah(): void
+    public function test_mitra_melihat_dua_form_bukan_dropdown_membingungkan(): void
     {
         $d = $this->distributor();
         $p = $this->product();
@@ -97,11 +97,14 @@ class PartnerStockOutTest extends TestCase
 
         $html = $this->actingAs($d)->get(route('inventory.index'))->assertOk()->getContent();
 
-        $this->assertStringContainsString('Barang Keluar', $html);
-        // Value backend tetap OUT; yang tak boleh muncul adalah OUT sebagai LABEL.
-        $this->assertStringContainsString('value="OUT"', $html);
-        $this->assertStringContainsString('>Barang Keluar', $html);
-        $this->assertStringNotContainsString('>OUT<', $html);
+        // Dua tujuan yang jelas, terpisah.
+        $this->assertStringContainsString('Catat Barang Keluar', $html);
+        $this->assertStringContainsString('Set / Koreksi Stok', $html);
+
+        // Tak ada lagi opsi dropdown "Barang Masuk"/"Koreksi" di sisi mitra —
+        // itulah yang bikin bingung. Type OUT dikirim lewat hidden input.
+        $this->assertStringNotContainsString('>Barang Masuk (+)<', $html);
+        $this->assertStringNotContainsString('>Koreksi / Penyesuaian<', $html);
     }
 
     public function test_stok_kosong_menjelaskan_kenapa_dan_apa_yang_harus_dilakukan(): void
@@ -149,15 +152,93 @@ class PartnerStockOutTest extends TestCase
         $this->assertSame('jual ke customer', $log->after_data['alasan']);
     }
 
-    public function test_tombol_dan_pemilih_produk_muncul_di_stok_saya(): void
+    public function test_pemilih_produk_muncul_walau_stok_kosong(): void
     {
         $d = $this->distributor();
         $this->product();
 
+        // PUTU FRERIN case: stok kosong, tapi form tetap ada untuk isi saldo awal.
         $this->actingAs($d)->get(route('inventory.index'))->assertOk()
-            ->assertSee('Sesuaikan Stok Sendiri')
+            ->assertSee('Catat Barang Keluar')
+            ->assertSee('Set / Koreksi Stok')
             ->assertSee('MIZU BODY WASH - 500ml')   // produk terdaftar di pemilih
-            ->assertSee('saldo awal');               // petunjuk saldo awal
+            ->assertSee('saldo awal');
+    }
+
+    public function test_set_stok_menyetel_ke_angka_absolut_bukan_menambah(): void
+    {
+        $d = $this->distributor();
+        $p = $this->product();
+        Inventory::create(['user_id' => $d->id, 'product_id' => $p->id, 'quantity' => 50]);
+
+        // "Stok sebenarnya 30" → disetel ke 30, bukan 50+30.
+        $this->actingAs($d)->post(route('inventory.partner-set'), [
+            'user_id' => $d->id, 'product_id' => $p->id,
+            'target' => 30, 'notes' => 'koreksi hitung fisik',
+        ])->assertRedirect();
+
+        $this->assertSame(30, (int) Inventory::where('user_id', $d->id)->value('quantity'));
+
+        $m = StockMovement::where('user_id', $d->id)->latest('id')->first();
+        $this->assertSame('ADJUSTMENT', $m->movement_type);
+        $this->assertSame(50, (int) $m->before_qty);
+        $this->assertSame(30, (int) $m->after_qty);
+    }
+
+    public function test_set_stok_mengisi_saldo_awal_dari_nol(): void
+    {
+        $d = $this->distributor();
+        $p = $this->product();
+
+        $this->actingAs($d)->post(route('inventory.partner-set'), [
+            'user_id' => $d->id, 'product_id' => $p->id,
+            'target' => 40, 'notes' => 'saldo awal',
+        ])->assertRedirect();
+
+        $this->assertSame(40, (int) Inventory::where('user_id', $d->id)->where('product_id', $p->id)->value('quantity'));
+    }
+
+    public function test_set_stok_ke_angka_sama_ditolak(): void
+    {
+        $d = $this->distributor();
+        $p = $this->product();
+        Inventory::create(['user_id' => $d->id, 'product_id' => $p->id, 'quantity' => 50]);
+
+        $this->actingAs($d)->from(route('inventory.index'))->post(route('inventory.partner-set'), [
+            'user_id' => $d->id, 'product_id' => $p->id,
+            'target' => 50, 'notes' => 'tak berubah',
+        ])->assertSessionHasErrors('target');
+
+        // Tak ada gerakan sampah untuk perubahan nol.
+        $this->assertSame(0, StockMovement::count());
+    }
+
+    public function test_set_stok_tercatat_di_audit_log(): void
+    {
+        $d = $this->distributor();
+        $p = $this->product();
+
+        $this->actingAs($d)->post(route('inventory.partner-set'), [
+            'user_id' => $d->id, 'product_id' => $p->id, 'target' => 40, 'notes' => 'saldo awal',
+        ]);
+
+        $log = AuditLog::where('action', 'set_partner_stock')->first();
+        $this->assertNotNull($log);
+        $this->assertSame($d->id, (int) $log->performed_by);
+        $this->assertSame(40, (int) $log->after_data['stok_baru']);
+    }
+
+    public function test_set_stok_mitra_lain_ditolak(): void
+    {
+        $a = $this->distributor('putu');
+        $b = $this->distributor('wayan');
+        $p = $this->product();
+
+        $this->actingAs($a)->post(route('inventory.partner-set'), [
+            'user_id' => $b->id, 'product_id' => $p->id, 'target' => 999, 'notes' => 'curang',
+        ])->assertForbidden();
+
+        $this->assertSame(0, Inventory::where('user_id', $b->id)->count());
     }
 
     public function test_afiliator_tidak_bisa_menyesuaikan_stok_mitra(): void

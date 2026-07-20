@@ -108,6 +108,56 @@ class InventoryService
         });
     }
 
+    /**
+     * SET stok mitra ke angka absolut (saldo awal / koreksi hasil hitung fisik).
+     *
+     * Selisih dihitung DI DALAM transaksi setelah baris dikunci, bukan dari
+     * angka yang dikirim klien — kalau tidak, dua penyesuaian bersamaan bisa
+     * saling menimpa. Tercatat sebagai ADJUSTMENT (before→after menyimpan arah).
+     *
+     * Ini pengganti dropdown Masuk/Keluar/Penyesuaian yang membingungkan: mitra
+     * cukup menyatakan "stok sebenarnya sekian", sistem yang menghitung deltanya.
+     *
+     * @throws RuntimeException bila target negatif atau tak ada perubahan
+     */
+    public function setPartnerStock(int $userId, int $productId, int $target, ?string $notes = null): Inventory
+    {
+        if ($target < 0) {
+            throw new RuntimeException('Stok tidak boleh negatif.');
+        }
+
+        return DB::transaction(function () use ($userId, $productId, $target, $notes) {
+            $line = Inventory::lockForUpdate()->firstOrNew([
+                'user_id' => $userId,
+                'product_id' => $productId,
+            ]);
+
+            $before = (int) ($line->quantity ?? 0);
+            $delta = $target - $before;
+
+            if ($delta === 0) {
+                throw new RuntimeException("Stok sudah {$target}, tidak ada yang diubah.");
+            }
+
+            $line->quantity = $target;
+            $line->minimum_stock = $line->minimum_stock ?? 0;
+            $line->last_updated = now();
+            $line->save();
+
+            $this->writeMovement(
+                productId: $productId,
+                userId: $userId,
+                type: StockMovement::TYPE_ADJUSTMENT,
+                quantity: abs($delta),
+                before: $before,
+                after: $target,
+                notes: $notes,
+            );
+
+            return $line;
+        });
+    }
+
     /** Update only the replenishment threshold for a partner stock line. */
     public function setPartnerMinimum(int $userId, int $productId, int $minimum): Inventory
     {
