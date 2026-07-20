@@ -287,4 +287,25 @@ class KolModuleTest extends TestCase
         // Nilai sort/dir ngawur tidak meledak — jatuh ke default.
         $this->actingAs($spec)->get(route('kols.index', ['sort' => 'hack', 'dir' => 'up']))->assertOk();
     }
+
+    /**
+     * Angka kurasi terakhir tampil DI DAFTAR: ratecard (harga yang diminta),
+     * median views, ratio — tanpa harus membuka detail satu-satu. Daftar yang
+     * hanya menampilkan verdict membuat orang bertanya "datanya mana?".
+     */
+    public function test_daftar_kol_menampilkan_ratecard_median_dan_ratio(): void
+    {
+        config(['kol.cpm_threshold' => 25_000]);
+        $spec = $this->user('kol_specialist', 'specl');
+        $kol = Kol::create(['tiktok_username' => 'mulmull', 'followers' => 12_000]);
+        $this->screen($kol, 5_000_000, 1_000);   // CPM 5jt — kemahalan
+
+        $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('5.000.000', $html);    // ratecard tampil
+        $this->assertStringContainsString('1.000', $html);         // median views
+        $this->assertStringContainsString('8,3%', $html);          // ratio 1000/12000
+        $this->assertStringContainsString('Kemahalan', $html);
+        $this->assertStringContainsString('detail →', $html);      // jalan ke rincian jelas
+    }
 }

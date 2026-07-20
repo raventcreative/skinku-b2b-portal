@@ -96,7 +96,13 @@
                 <th class="text-left px-3">{!! $sortLink('level', 'Level') !!}</th>
                 <th class="text-left">{!! $sortLink('kategori', 'Kategori') !!}</th>
                 <th class="text-left">{!! $sortLink('status', 'Status') !!}</th>
-                <th class="text-left" title="Urut berdasarkan CPM median — termurah dulu">{!! $sortLink('verdict', 'Verdict Terakhir') !!}</th>
+                {{-- Angka kurasi terakhir langsung di daftar — tanpa masuk detail
+                     satu-satu. Rincian penuh (7 views, riwayat) tetap di detail. --}}
+                <th class="text-right" title="Harga kerjasama yang diminta (screening terakhir)">Ratecard</th>
+                <th class="text-right">Median Views</th>
+                <th class="text-right" title="Median views ÷ followers">Ratio</th>
+                <th class="text-left px-3" title="Urut berdasarkan CPM median — termurah dulu">{!! $sortLink('verdict', 'Verdict Terakhir') !!}</th>
+                <th class="text-right px-4"></th>
             </tr>
         </thead>
         <tbody>
@@ -112,17 +118,24 @@
                     <td class="px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $levelBadge[$kol->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $kol->level }}</span></td>
                     <td class="text-stone-600">{{ $kol->kategori ?: '—' }}</td>
                     <td class="text-stone-600">{{ $kol->status }}</td>
-                    <td>
-                        @if($kol->latestScreening)
-                            {{ $kol->latestScreening->verdict_median }}
-                            <span class="text-stone-400">· CPM {{ $kol->latestScreening->cpm_median !== null ? $rp($kol->latestScreening->cpm_median) : '—' }}</span>
-                        @else
-                            <span class="text-stone-300">belum discreening</span>
-                        @endif
+                    @php $ls = $kol->latestScreening; @endphp
+                    @if($ls)
+                        <td class="text-right text-stone-700">{{ $rp($ls->ratecard) }}</td>
+                        <td class="text-right font-semibold text-stone-800">{{ number_format($ls->median_views, 0, ',', '.') }}</td>
+                        <td class="text-right text-stone-600">{{ $ls->ratio !== null ? number_format($ls->ratio, 1, ',', '.').'%' : '—' }}</td>
+                        <td class="px-3">
+                            {{ $ls->verdict_median }}
+                            <span class="text-stone-400">· CPM {{ $ls->cpm_median !== null ? $rp($ls->cpm_median) : '—' }}</span>
+                        </td>
+                    @else
+                        <td colspan="4" class="px-3 text-stone-300">belum discreening</td>
+                    @endif
+                    <td class="text-right px-4">
+                        <a href="{{ route('kols.show', $kol) }}" class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap">detail →</a>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="10" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>
