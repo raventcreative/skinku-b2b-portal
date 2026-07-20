@@ -129,19 +129,30 @@ class KolModuleTest extends TestCase
         $this->assertSame(KolScreening::VERDICT_MAHAL, $nol->verdict_median);
     }
 
-    public function test_screening_lewat_form_menghitung_dan_menampilkan_hasil(): void
+    /**
+     * Form screening = satu baris Excel: KOL yang belum ada dibuatkan sekalian.
+     * Memaksa "daftarkan dulu, baru screening" berarti input dua kali — persis
+     * yang mau dihilangkan dari Excel.
+     */
+    public function test_screening_username_baru_membuat_kol_sekaligus(): void
     {
         config(['kol.cpm_threshold' => 25_000]);
         $spec = $this->user('kol_specialist', 'spec2');
-        $kol = $this->kol(200_000);
 
-        $payload = ['kol_id' => $kol->id, 'tanggal_listing' => '2026-07-10', 'ratecard' => 1_000_000];
+        $payload = [
+            'tiktok_username' => 'glowupwithfalih', 'followers' => 200_000,
+            'kategori' => 'Skinfluencer', 'tanggal_listing' => '2026-07-10', 'ratecard' => 1_000_000,
+        ];
         foreach (range(1, 7) as $i) {
             $payload["views_{$i}"] = 50_000;
         }
 
-        $this->actingAs($spec)->post(route('kol-screenings.store'), $payload)
-            ->assertRedirect(route('kols.show', $kol->id));
+        $this->actingAs($spec)->post(route('kol-screenings.store'), $payload)->assertRedirect();
+
+        $kol = Kol::where('tiktok_username', 'glowupwithfalih')->first();
+        $this->assertNotNull($kol);                       // KOL dibuat otomatis
+        $this->assertSame('Middle', $kol->level);
+        $this->assertSame(1, $kol->screenings()->count());
 
         // Halaman detail menampilkan hasil: median, CPM (1jt/50rb×1000 = 20rb), ratio (50rb/200rb = 25%).
         $html = $this->actingAs($spec)->get(route('kols.show', $kol))->assertOk()->getContent();
@@ -149,6 +160,48 @@ class KolModuleTest extends TestCase
         $this->assertStringContainsString('20.000', $html);
         $this->assertStringContainsString('25,00%', $html);
         $this->assertStringContainsString('Worth It', $html);
+    }
+
+    /** Username lama (termasuk ditulis pakai "@") dipakai ulang, bukan diduplikat. */
+    public function test_screening_username_lama_dipakai_ulang_dan_followers_terbarukan(): void
+    {
+        $spec = $this->user('kol_specialist', 'spec3');
+        $kol = Kol::create(['tiktok_username' => 'silvatrasite', 'followers' => 100_000]);
+
+        $payload = [
+            'tiktok_username' => '@silvatrasite',   // pakai @ pun tetap orang yang sama
+            'followers' => 392_800,                  // angka baru → ratio ikut angka segar
+            'tanggal_listing' => '2026-07-10', 'ratecard' => 3_000_000,
+        ];
+        foreach (range(1, 7) as $i) {
+            $payload["views_{$i}"] = 30_000;
+        }
+
+        $this->actingAs($spec)->post(route('kol-screenings.store'), $payload)
+            ->assertRedirect(route('kols.show', $kol->id));
+
+        $this->assertSame(1, Kol::count());              // TIDAK ada KOL duplikat
+        $this->assertSame(392_800, $kol->fresh()->followers);
+        $this->assertSame(1, $kol->screenings()->count());
+    }
+
+    /** Field opsional yang dikosongkan TIDAK menimpa data lama KOL. */
+    public function test_screening_ulang_tanpa_kategori_tidak_menghapus_kategori_lama(): void
+    {
+        $spec = $this->user('kol_specialist', 'spec4');
+        $kol = Kol::create(['tiktok_username' => 'fluffyaa', 'followers' => 1_700_000, 'kategori' => 'Makeup']);
+
+        $payload = [
+            'tiktok_username' => 'fluffyaa', 'followers' => 1_700_000,
+            'tanggal_listing' => '2026-07-10', 'ratecard' => 6_500_000,
+        ];
+        foreach (range(1, 7) as $i) {
+            $payload["views_{$i}"] = 9_000;
+        }
+
+        $this->actingAs($spec)->post(route('kol-screenings.store'), $payload)->assertRedirect();
+
+        $this->assertSame('Makeup', $kol->fresh()->kategori);
     }
 
     public function test_ratio_dihitung_dari_followers_kol(): void

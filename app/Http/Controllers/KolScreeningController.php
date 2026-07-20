@@ -7,22 +7,41 @@ use App\Models\KolScreening;
 use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class KolScreeningController extends Controller
 {
     public function create(Request $request)
     {
+        // Daftar KOL existing untuk autocomplete — supaya username lama tak
+        // diketik ulang salah eja (yang bikin duplikat).
         return view('kols.screening_form', [
-            'kols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username', 'followers']),
-            // ?kol= pra-pilih dari halaman detail KOL.
-            'selectedKolId' => (int) $request->query('kol', 0),
+            'kols' => Kol::orderBy('tiktok_username')
+                ->get(['id', 'tiktok_username', 'tiktok_link', 'followers', 'kategori', 'provinsi']),
+            'kategoriList' => config('kol.kategori'),
+            // ?kol= pra-isi dari halaman detail KOL.
+            'selectedKol' => $request->query('kol') ? Kol::find($request->query('kol')) : null,
         ]);
     }
 
+    /**
+     * Satu submit = KOL + screening sekaligus, meniru Excel sumber: di sana satu
+     * baris berisi username, link, followers, ratecard, dan 7 views. Memaksa
+     * "daftarkan KOL dulu, baru screening" berarti input dua kali — persis yang
+     * mau dihilangkan dari Excel.
+     *
+     * Username yang sudah ada dipakai ulang (tak ada duplikat); yang baru
+     * dibuatkan. Followers selalu di-update ke angka terbaru: dia dipakai ratio,
+     * dan angka basi bikin ratio menyesatkan.
+     */
     public function store(Request $request): RedirectResponse
     {
         $rules = [
-            'kol_id' => ['required', 'integer', 'exists:kols,id'],
+            'tiktok_username' => ['required', 'string', 'max:100'],
+            'tiktok_link' => ['nullable', 'url', 'max:255'],
+            'followers' => ['required', 'integer', 'min:0'],
+            'kategori' => ['nullable', 'string', 'max:100'],
+            'provinsi' => ['nullable', 'string', 'max:100'],
             'tanggal_listing' => ['required', 'date', 'before_or_equal:today'],
             'ratecard' => ['required', 'integer', 'min:0'],
         ];
@@ -31,9 +50,44 @@ class KolScreeningController extends Controller
         }
 
         $data = $request->validate($rules);
-        $data['created_by'] = $request->user()->id;
+        $username = ltrim(trim($data['tiktok_username']), '@');   // "@nama" dan "nama" = orang yang sama
 
-        $screening = KolScreening::create($data);
+        $screening = DB::transaction(function () use ($data, $username, $request) {
+            $kol = Kol::where('tiktok_username', $username)->first();
+
+            if (! $kol) {
+                $kol = Kol::create([
+                    'tiktok_username' => $username,
+                    'tiktok_link' => $data['tiktok_link'] ?? null,
+                    'followers' => $data['followers'],
+                    'kategori' => $data['kategori'] ?? null,
+                    'provinsi' => $data['provinsi'] ?? null,
+                ]);
+
+                AuditService::log(
+                    action: 'create_kol',
+                    targetType: 'kol',
+                    targetId: $kol->id,
+                    after: ['username' => $kol->tiktok_username, 'followers' => $kol->followers, 'via' => 'screening'],
+                );
+            } else {
+                // Isi hanya yang dikirim; jangan menimpa kategori/link lama dengan kosong.
+                $kol->update(array_filter([
+                    'followers' => $data['followers'],
+                    'tiktok_link' => $data['tiktok_link'] ?? null,
+                    'kategori' => $data['kategori'] ?? null,
+                    'provinsi' => $data['provinsi'] ?? null,
+                ], fn ($v) => $v !== null && $v !== ''));
+            }
+
+            return KolScreening::create([
+                'kol_id' => $kol->id,
+                'tanggal_listing' => $data['tanggal_listing'],
+                'ratecard' => $data['ratecard'],
+                ...collect(range(1, 7))->mapWithKeys(fn ($i) => ["views_{$i}" => $data["views_{$i}"]])->all(),
+                'created_by' => $request->user()->id,
+            ]);
+        });
 
         AuditService::log(
             action: 'create_kol_screening',
