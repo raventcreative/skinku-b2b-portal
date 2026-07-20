@@ -77,8 +77,10 @@ class Permissions
         'kol.deal.manage' => ['kol_specialist'],
         'kol.deal.finance' => [],
         'kol.report.view' => [],
-        // Alat internal tim — mitra tak pernah dapat. Role lain via matriks.
-        'kanban.view' => [User::ROLE_ADMIN, 'kol_specialist'],
+        // Dipakai SEMUA tim internal (klarifikasi Freddie) — admin, gudang,
+        // kol_specialist dapat default; role dinamis lain via matriks. Mitra
+        // diblokir KERAS oleh middleware 'internal' apa pun kata matriks.
+        'kanban.view' => [User::ROLE_ADMIN, User::ROLE_GUDANG, 'kol_specialist'],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */

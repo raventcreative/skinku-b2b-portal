@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\Board;
 use App\Models\BoardColumn;
+use App\Models\RolePermission;
 use App\Models\User;
+use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -41,12 +43,15 @@ class KanbanTest extends TestCase
         foreach ([
             $this->user(User::ROLE_DISTRIBUTOR, 'kbmitra'),
             $this->user(User::ROLE_RESELLER, 'kbresel'),
-            $this->user(User::ROLE_GUDANG, 'kbgud'),
         ] as $user) {
             $this->actingAs($user)->get(route('kanban.index'))->assertForbidden();
             $this->actingAs($user)->get(route('kanban.show', $board))->assertForbidden();
             $this->actingAs($user)->post(route('kanban.store'), ['name' => 'x'])->assertForbidden();
         }
+
+        // Semua tim internal dapat default — gudang & kol_specialist termasuk.
+        $this->actingAs($this->user(User::ROLE_GUDANG, 'kbgud'))->get(route('kanban.index'))->assertOk();
+        $this->actingAs($this->user('kol_specialist', 'kbspec'))->get(route('kanban.index'))->assertOk();
 
         // Sidebar mitra tak memuat menu Kanban.
         $this->actingAs(User::where('username', 'kbmitra')->first())
@@ -187,5 +192,28 @@ class KanbanTest extends TestCase
             ->assertSee('sortablejs');   // library drag ikut termuat
 
         $this->actingAs($admin)->get(route('kanban.index'))->assertOk()->assertSee('Papan Uji');
+    }
+
+    /**
+     * Blokir KERAS mitra: kanban.view yang keliru tercentang untuk role mitra
+     * di matriks TIDAK membuka apa pun — middleware 'internal' berdiri di atas
+     * permission. Papan tugas internal bisa memuat strategi & harga deal.
+     */
+    public function test_mitra_tetap_403_walau_permission_tercentang_di_matriks(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN, 'kbadm11');
+        $board = $this->board($admin);
+        $mitra = $this->user(User::ROLE_DISTRIBUTOR, 'kbmitra2');
+
+        // Simulasikan salah centang di Manajemen Hak Akses.
+        RolePermission::create([
+            'role' => User::ROLE_DISTRIBUTOR, 'permission_key' => 'kanban.view', 'allowed' => true,
+        ]);
+        Permissions::flushCache();
+        $this->assertTrue($mitra->canDo('kanban.view'));   // permission-nya memang lolos...
+
+        // ...tapi pintunya tetap terkunci.
+        $this->actingAs($mitra)->get(route('kanban.index'))->assertForbidden();
+        $this->actingAs($mitra)->get(route('kanban.show', $board))->assertForbidden();
     }
 }

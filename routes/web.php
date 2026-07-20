@@ -230,7 +230,9 @@ Route::middleware(['auth', 'role'])->group(function () {
     });
 
     /* ---------------- Kanban (papan tugas tim ala Trello) ---------------- */
-    Route::middleware('permission:kanban.view')->group(function () {
+    // 'internal' = blokir keras mitra, DI ATAS permission: kanban.view yang
+    // keliru tercentang untuk role mitra di matriks tetap tak membuka apa pun.
+    Route::middleware(['permission:kanban.view', 'internal'])->group(function () {
         Route::get('/kanban', [KanbanController::class, 'index'])->name('kanban.index');
         Route::post('/kanban', [KanbanController::class, 'store'])->name('kanban.store');
         Route::get('/kanban/{board}', [KanbanController::class, 'show'])->name('kanban.show');
