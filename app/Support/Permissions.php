@@ -43,6 +43,7 @@ class Permissions
         'kol.deal.manage' => 'Kelola Deal KOL (buat/edit/hapus)',
         'kol.deal.finance' => 'Finansial Deal KOL (biaya, status bayar, rekening)',
         'kol.report.view' => 'Laporan KOL (fase berikutnya)',
+        'kanban.view' => 'Papan Kanban (tugas tim ala Trello)',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -76,6 +77,8 @@ class Permissions
         'kol.deal.manage' => ['kol_specialist'],
         'kol.deal.finance' => [],
         'kol.report.view' => [],
+        // Alat internal tim — mitra tak pernah dapat. Role lain via matriks.
+        'kanban.view' => [User::ROLE_ADMIN, 'kol_specialist'],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */

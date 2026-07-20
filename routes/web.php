@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\KanbanController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDealController;
 use App\Http\Controllers\KolScreeningController;
@@ -226,6 +227,23 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::put('/kol-deals/{deal}', [KolDealController::class, 'update'])->name('kol-deals.update');
             Route::delete('/kol-deals/{deal}', [KolDealController::class, 'destroy'])->name('kol-deals.destroy');
         });
+    });
+
+    /* ---------------- Kanban (papan tugas tim ala Trello) ---------------- */
+    Route::middleware('permission:kanban.view')->group(function () {
+        Route::get('/kanban', [KanbanController::class, 'index'])->name('kanban.index');
+        Route::post('/kanban', [KanbanController::class, 'store'])->name('kanban.store');
+        Route::get('/kanban/{board}', [KanbanController::class, 'show'])->name('kanban.show');
+        Route::put('/kanban/{board}', [KanbanController::class, 'update'])->name('kanban.update');
+        Route::delete('/kanban/{board}', [KanbanController::class, 'destroy'])->name('kanban.destroy');
+        Route::post('/kanban/{board}/columns', [KanbanController::class, 'storeColumn'])->name('kanban.columns.store');
+        Route::post('/kanban/{board}/columns/reorder', [KanbanController::class, 'reorderColumns'])->name('kanban.columns.reorder');
+        Route::put('/kanban-columns/{column}', [KanbanController::class, 'updateColumn'])->name('kanban.columns.update');
+        Route::delete('/kanban-columns/{column}', [KanbanController::class, 'destroyColumn'])->name('kanban.columns.destroy');
+        Route::post('/kanban-columns/{column}/cards', [KanbanController::class, 'storeCard'])->name('kanban.cards.store');
+        Route::put('/kanban-cards/{card}', [KanbanController::class, 'updateCard'])->name('kanban.cards.update');
+        Route::delete('/kanban-cards/{card}', [KanbanController::class, 'destroyCard'])->name('kanban.cards.destroy');
+        Route::post('/kanban-cards/{card}/move', [KanbanController::class, 'moveCard'])->name('kanban.cards.move');
     });
 
     /* ---------------- Integrasi TikTok Shop ---------------- */

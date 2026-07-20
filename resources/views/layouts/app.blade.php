@@ -156,6 +156,10 @@
                 {!! navItem('kols.index', 'KOL', 'kol*') !!}
             @endif
 
+            @if($u->canDo('kanban.view'))
+                {!! navItem('kanban.index', 'Kanban', 'kanban.*') !!}
+            @endif
+
             @if($u->canDo('manage_users'))
                 {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
             @endif
