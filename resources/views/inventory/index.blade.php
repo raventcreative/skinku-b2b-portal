@@ -5,7 +5,14 @@
 @section('content')
 @php
     $u = $user;
-    $movementTypes = [\App\Models\StockMovement::TYPE_IN, \App\Models\StockMovement::TYPE_OUT, \App\Models\StockMovement::TYPE_ADJUSTMENT];
+    // Value tetap IN/OUT/ADJUSTMENT (kontrak backend), tapi label bahasa manusia.
+    // Sebelumnya dropdown menampilkan kode Inggris mentah — mitra yang mencari
+    // "stok keluar" tak menemukannya di balik kata "OUT".
+    $movementTypes = [
+        \App\Models\StockMovement::TYPE_OUT => 'Barang Keluar (−)',
+        \App\Models\StockMovement::TYPE_IN => 'Barang Masuk (+)',
+        \App\Models\StockMovement::TYPE_ADJUSTMENT => 'Koreksi / Penyesuaian',
+    ];
 @endphp
 
 @if($u->canDo('manage_hq_stock'))
@@ -30,7 +37,7 @@
                                 @csrf
                                 <input type="hidden" name="product_id" value="{{ $p->id }}">
                                 <select name="type" class="px-2 py-1 border border-stone-300 rounded text-[11px]">
-                                    @foreach($movementTypes as $t)<option value="{{ $t }}">{{ $t }}</option>@endforeach
+                                    @foreach($movementTypes as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
                                 </select>
                                 <input type="number" name="quantity" min="1" value="1" class="w-16 px-2 py-1 border border-stone-300 rounded text-center text-[11px]">
                                 <input type="text" name="notes" required maxlength="500" placeholder="Alasan (wajib)"
@@ -49,7 +56,12 @@
 @endif
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-    <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">{{ $u->isPartner() ? 'Stok Saya' : 'Stok Mitra' }}</div>
+    <div class="px-5 py-3 border-b border-stone-100 flex flex-wrap items-center gap-2">
+        <span class="text-sm font-bold text-stone-800">{{ $u->isPartner() ? 'Stok Saya' : 'Stok Mitra' }}</span>
+        @if($u->isPartner())
+            <span class="text-[11px] text-stone-500">— catat barang keluar: cari produknya, pilih <b>Barang Keluar</b>, isi jumlah &amp; alasan, klik OK.</span>
+        @endif
+    </div>
     <div class="overflow-x-auto">
     <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
@@ -71,7 +83,7 @@
                             <input type="hidden" name="user_id" value="{{ $line->user_id }}">
                             <input type="hidden" name="product_id" value="{{ $line->product_id }}">
                             <select name="type" class="px-2 py-1 border border-stone-300 rounded text-[11px]">
-                                @foreach($movementTypes as $t)<option value="{{ $t }}">{{ $t }}</option>@endforeach
+                                @foreach($movementTypes as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
                             </select>
                             <input type="number" name="quantity" min="1" value="1" class="w-14 px-2 py-1 border border-stone-300 rounded text-center text-[11px]">
                             <input type="text" name="notes" required maxlength="500" placeholder="Alasan (wajib)"
@@ -81,7 +93,12 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="px-4 py-6 text-center text-stone-400">Belum ada data stok.</td></tr>
+                <tr><td colspan="5" class="px-4 py-8 text-center text-stone-400 text-xs leading-relaxed">
+                    Belum ada stok tercatat.
+                    @if($u->isPartner())
+                        <span class="block mt-1">Stok muncul di sini setelah PO Anda diselesaikan HQ. Barang keluar hanya bisa dicatat dari stok yang tercatat — belum ada stok, belum ada yang bisa dikeluarkan.</span>
+                    @endif
+                </td></tr>
             @endforelse
         </tbody>
     </table>
