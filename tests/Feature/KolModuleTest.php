@@ -215,4 +215,76 @@ class KolModuleTest extends TestCase
 
         $this->assertEqualsWithDelta(4.0, $s->ratio, 0.01);   // 4000/100000 = 4%
     }
+
+    /** Screening 7 views seragam supaya CPM gampang dihitung: ratecard/views×1000. */
+    private function screen(Kol $kol, int $ratecard, int $views): KolScreening
+    {
+        $payload = ['kol_id' => $kol->id, 'tanggal_listing' => '2026-07-10', 'ratecard' => $ratecard];
+        foreach (range(1, 7) as $i) {
+            $payload["views_{$i}"] = $views;
+        }
+
+        return KolScreening::create($payload);
+    }
+
+    public function test_filter_verdict_menyaring_worth_mahal_dan_belum(): void
+    {
+        config(['kol.cpm_threshold' => 25_000]);
+        $spec = $this->user('kol_specialist', 'specf');
+
+        $murah = Kol::create(['tiktok_username' => 'murah', 'followers' => 100_000]);
+        $this->screen($murah, 1_000_000, 100_000);   // CPM 10rb → worth
+        $mahal = Kol::create(['tiktok_username' => 'mahal', 'followers' => 100_000]);
+        $this->screen($mahal, 5_000_000, 100_000);   // CPM 50rb → kemahalan
+        Kol::create(['tiktok_username' => 'polos', 'followers' => 5_000]);   // belum discreening
+
+        $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'worth']))->assertOk()
+            ->assertSee('@murah')->assertDontSee('@mahal')->assertDontSee('@polos');
+
+        $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'mahal']))->assertOk()
+            ->assertSee('@mahal')->assertDontSee('@murah');
+
+        $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'belum']))->assertOk()
+            ->assertSee('@polos')->assertDontSee('@murah')->assertDontSee('@mahal');
+    }
+
+    public function test_sort_verdict_urut_cpm_termurah_dulu_dan_belum_screening_selalu_di_bawah(): void
+    {
+        config(['kol.cpm_threshold' => 25_000]);
+        $spec = $this->user('kol_specialist', 'specs');
+
+        $b = Kol::create(['tiktok_username' => 'bbb', 'followers' => 100_000]);
+        $this->screen($b, 3_000_000, 100_000);   // CPM 30rb
+        $a = Kol::create(['tiktok_username' => 'aaa', 'followers' => 100_000]);
+        $this->screen($a, 1_000_000, 100_000);   // CPM 10rb — termurah
+        Kol::create(['tiktok_username' => 'zzz_polos', 'followers' => 5_000]);   // tanpa screening
+
+        $html = $this->actingAs($spec)
+            ->get(route('kols.index', ['sort' => 'verdict', 'dir' => 'asc']))->assertOk()->getContent();
+
+        // asc: termurah (aaa) sebelum bbb, dan yang belum discreening paling bawah.
+        $this->assertLessThan(strpos($html, '@bbb'), strpos($html, '@aaa'));
+        $this->assertGreaterThan(strpos($html, '@bbb'), strpos($html, '@zzz_polos'));
+
+        // desc: bbb dulu — tapi yang belum discreening TETAP di bawah, "tak ada
+        // data" bukan berarti paling mahal.
+        $html = $this->actingAs($spec)
+            ->get(route('kols.index', ['sort' => 'verdict', 'dir' => 'desc']))->assertOk()->getContent();
+        $this->assertLessThan(strpos($html, '@aaa'), strpos($html, '@bbb'));
+        $this->assertGreaterThan(strpos($html, '@aaa'), strpos($html, '@zzz_polos'));
+    }
+
+    public function test_sort_followers_dua_arah(): void
+    {
+        $spec = $this->user('kol_specialist', 'specr');
+        Kol::create(['tiktok_username' => 'kecil', 'followers' => 1_000]);
+        Kol::create(['tiktok_username' => 'besar', 'followers' => 2_000_000]);
+
+        $html = $this->actingAs($spec)
+            ->get(route('kols.index', ['sort' => 'followers', 'dir' => 'desc']))->assertOk()->getContent();
+        $this->assertLessThan(strpos($html, '@kecil'), strpos($html, '@besar'));
+
+        // Nilai sort/dir ngawur tidak meledak — jatuh ke default.
+        $this->actingAs($spec)->get(route('kols.index', ['sort' => 'hack', 'dir' => 'up']))->assertOk();
+    }
 }

@@ -27,6 +27,16 @@
             <option value="">Semua status</option>
             @foreach(\App\Models\Kol::STATUSES as $st)<option value="{{ $st }}" @selected(($filters['status'] ?? '') === $st)>{{ $st }}</option>@endforeach
         </select>
+        {{-- Filter hasil kurasi: langsung saring yang layak / kemahalan. --}}
+        <select name="verdict" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+            <option value="">Semua verdict</option>
+            <option value="worth" @selected(($filters['verdict'] ?? '') === 'worth')>🟢 Worth It</option>
+            <option value="mahal" @selected(($filters['verdict'] ?? '') === 'mahal')>🔴 Kemahalan</option>
+            <option value="belum" @selected(($filters['verdict'] ?? '') === 'belum')>Belum discreening</option>
+        </select>
+        {{-- Sort aktif ikut dipertahankan saat ganti filter. --}}
+        <input type="hidden" name="sort" value="{{ $sort }}">
+        <input type="hidden" name="dir" value="{{ $dir }}">
         @if(array_filter($filters))
             <a href="{{ route('kols.index') }}" class="text-indigo-600 hover:underline">reset</a>
         @endif
@@ -68,11 +78,25 @@
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
     <div class="overflow-x-auto">
     <table class="w-full text-xs whitespace-nowrap">
+        @php
+            // Header = tautan sort. Klik pertama asc, klik lagi balik arah;
+            // filter aktif ikut terbawa. Panah menandai kolom yang sedang dipakai.
+            $sortLink = function (string $col, string $label) use ($sort, $dir, $filters) {
+                $nextDir = ($sort === $col && $dir === 'asc') ? 'desc' : 'asc';
+                $arrow = $sort === $col ? ($dir === 'asc' ? ' ↑' : ' ↓') : '';
+                $url = route('kols.index', array_merge(array_filter($filters), ['sort' => $col, 'dir' => $nextDir]));
+
+                return '<a href="'.$url.'" class="hover:text-stone-800 '.($sort === $col ? 'text-stone-800 font-bold' : '').'">'.$label.$arrow.'</a>';
+            };
+        @endphp
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
-                <th class="text-left px-4 py-2">Username</th><th class="text-right">Followers</th>
-                <th class="text-left px-3">Level</th><th class="text-left">Kategori</th>
-                <th class="text-left">Status</th><th class="text-left">Verdict Terakhir</th>
+                <th class="text-left px-4 py-2">{!! $sortLink('username', 'Username') !!}</th>
+                <th class="text-right">{!! $sortLink('followers', 'Followers') !!}</th>
+                <th class="text-left px-3">{!! $sortLink('level', 'Level') !!}</th>
+                <th class="text-left">{!! $sortLink('kategori', 'Kategori') !!}</th>
+                <th class="text-left">{!! $sortLink('status', 'Status') !!}</th>
+                <th class="text-left" title="Urut berdasarkan CPM median — termurah dulu">{!! $sortLink('verdict', 'Verdict Terakhir') !!}</th>
             </tr>
         </thead>
         <tbody>

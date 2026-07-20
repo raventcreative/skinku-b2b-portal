@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolScreening;
 use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,7 +13,12 @@ class KolController extends Controller
 {
     public function index(Request $request)
     {
-        $filters = $request->only(['level', 'kategori', 'status']);
+        $filters = $request->only(['level', 'kategori', 'status', 'verdict']);
+
+        // Arah & kolom sort divalidasi ke daftar putih — nilai ngawur jatuh ke default.
+        $sort = in_array($request->query('sort'), ['username', 'followers', 'level', 'kategori', 'status', 'verdict'], true)
+            ? $request->query('sort') : 'username';
+        $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
 
         $kols = Kol::query()
             ->with('latestScreening')
@@ -21,18 +27,59 @@ class KolController extends Controller
             ->orderBy('tiktok_username')
             ->get();
 
-        // Level = accessor (turunan followers), bukan kolom — jadi filter level
-        // dijalankan di koleksi, bukan SQL. Skala data KOL (ratusan) aman.
+        // Level & verdict = turunan (accessor), bukan kolom — filter & sort-nya
+        // di koleksi, bukan SQL. Skala data KOL (ratusan) aman.
         if ($filters['level'] ?? null) {
-            $kols = $kols->filter(fn (Kol $k) => $k->level === $filters['level'])->values();
+            $kols = $kols->filter(fn (Kol $k) => $k->level === $filters['level']);
         }
+
+        if ($filters['verdict'] ?? null) {
+            $kols = $kols->filter(fn (Kol $k) => $this->verdictKey($k) === $filters['verdict']);
+        }
+
+        $kols = $this->sorted($kols, $sort, $dir)->values();
 
         return view('kols.index', [
             'kols' => $kols,
             'filters' => $filters,
+            'sort' => $sort,
+            'dir' => $dir,
             'levels' => ['Nano', 'Mikro', 'Middle', 'Makro', 'Mega', 'Super Mega'],
             'kategoriList' => config('kol.kategori'),
         ]);
+    }
+
+    /** worth / mahal / belum — kunci filter verdict dari screening terakhir. */
+    private function verdictKey(Kol $k): string
+    {
+        if (! $k->latestScreening) {
+            return 'belum';
+        }
+
+        return $k->latestScreening->verdict_median === KolScreening::VERDICT_WORTH ? 'worth' : 'mahal';
+    }
+
+    private function sorted($kols, string $sort, string $dir)
+    {
+        // Verdict diurutkan pakai CPM median (angka di balik verdict-nya):
+        // asc = paling murah dulu. Yang belum discreening SELALU di bawah,
+        // apa pun arahnya — "tak ada data" bukan murah ataupun mahal.
+        if ($sort === 'verdict') {
+            $belum = $kols->filter(fn (Kol $k) => $k->latestScreening?->cpm_median === null);
+            $ada = $kols->filter(fn (Kol $k) => $k->latestScreening?->cpm_median !== null)
+                ->sortBy(fn (Kol $k) => $k->latestScreening->cpm_median, SORT_REGULAR, $dir === 'desc');
+
+            return $ada->concat($belum);
+        }
+
+        $key = match ($sort) {
+            'followers', 'level' => fn (Kol $k) => (int) $k->followers,   // level = turunan followers, urutannya sama
+            'kategori' => fn (Kol $k) => mb_strtolower($k->kategori ?? ''),
+            'status' => fn (Kol $k) => $k->status,
+            default => fn (Kol $k) => mb_strtolower($k->tiktok_username),
+        };
+
+        return $kols->sortBy($key, SORT_REGULAR, $dir === 'desc');
     }
 
     public function store(Request $request): RedirectResponse
