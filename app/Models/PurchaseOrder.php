@@ -79,6 +79,7 @@ class PurchaseOrder extends Model
 
     protected $fillable = [
         'po_number', 'created_by', 'user_id', 'company_name', 'user_role', 'order_date',
+        'is_tempo', 'tempo_due_date', 'tempo_notes',
         'status', 'subtotal', 'discount', 'shipping_cost', 'total_amount',
         'payment_status', 'payment_note', 'paid_at', 'payment_verified_by',
         'shipping_address', 'notes', 'revision_notes', 'completed_at', 'stock_skipped', 'deleted_by',
@@ -95,6 +96,10 @@ class PurchaseOrder extends Model
             'paid_at' => 'datetime',
             'order_date' => 'date',
             'stock_skipped' => 'boolean',
+            // tempo_due_date wajib di-cast: view memanggil ->isPast()/->format(),
+            // tanpa cast ia string mentah dan halaman detail 500.
+            'tempo_due_date' => 'date',
+            'is_tempo' => 'boolean',
         ];
     }
 
@@ -132,6 +137,23 @@ class PurchaseOrder extends Model
     public function isPaid(): bool
     {
         return $this->payment_status === self::PAYMENT_PAID;
+    }
+
+    /** Cicilan-cicilan yang sudah masuk (PO tempo). */
+    public function payments()
+    {
+        return $this->hasMany(PoPayment::class)->orderBy('paid_at')->orderBy('id');
+    }
+
+    public function paidTotal(): float
+    {
+        return (float) $this->payments()->sum('amount');
+    }
+
+    /** Sisa tagihan — tak pernah negatif. */
+    public function remaining(): float
+    {
+        return max(0.0, (float) $this->total_amount - $this->paidTotal());
     }
 
     /** Recompute total = subtotal - discount + shipping. */

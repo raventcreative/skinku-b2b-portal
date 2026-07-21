@@ -19,12 +19,20 @@ class PurchaseOrderController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filters = $request->only(['status', 'q']);
+        $filters = $request->only(['status', 'q', 'bayar']);
 
         $orders = PurchaseOrder::query()
             ->with('user')
             ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
+            // bayar=belum -> semua yang belum lunas (termasuk tempo berjalan);
+            // bayar=lunas -> yang sudah. Basisnya payment_status — satu sumber
+            // kebenaran "siapa belum lunas" untuk super admin.
+            ->when(($filters['bayar'] ?? null) === 'belum',
+                fn ($q) => $q->where('payment_status', '!=', PurchaseOrder::PAYMENT_PAID)
+                    ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DRAFT]))
+            ->when(($filters['bayar'] ?? null) === 'lunas',
+                fn ($q) => $q->where('payment_status', PurchaseOrder::PAYMENT_PAID))
             ->when($filters['q'] ?? null, function ($q, $term) {
                 $q->where(function ($sub) use ($term) {
                     $sub->where('po_number', 'like', "%{$term}%")
@@ -35,10 +43,24 @@ class PurchaseOrderController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        // Total piutang saat memfilter "belum lunas" — sisa tagihan sesungguhnya
+        // (tagihan dikurangi cicilan yang sudah masuk), bukan sekadar jumlah PO.
+        $piutang = null;
+        if (($filters['bayar'] ?? null) === 'belum') {
+            $piutang = PurchaseOrder::query()
+                ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
+                ->where('payment_status', '!=', PurchaseOrder::PAYMENT_PAID)
+                ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DRAFT])
+                ->withSum('payments', 'amount')
+                ->get()
+                ->sum(fn ($po) => max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0)));
+        }
+
         return view('purchase_orders.index', [
             'orders' => $orders,
             'filters' => $filters,
             'statuses' => PurchaseOrder::STATUSES,
+            'piutang' => $piutang,
         ]);
     }
 
@@ -234,5 +256,49 @@ class PurchaseOrderController extends Controller
             : 'Pembayaran ditolak. Mitra perlu mengunggah ulang bukti.';
 
         return back()->with('status', $msg);
+    }
+
+    /** Tandai/cabut TEMPO — kesepakatan bayar belakangan/cicil. */
+    public function setTempo(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $data = $request->validate([
+            'tempo' => ['required', 'boolean'],
+            'tempo_notes' => ['nullable', 'string', 'max:500'],
+            'tempo_due_date' => ['nullable', 'date'],
+        ]);
+
+        $this->service->setTempo(
+            $purchaseOrder,
+            (bool) $data['tempo'],
+            $data['tempo_notes'] ?? null,
+            $data['tempo_due_date'] ?? null,
+        );
+
+        return back()->with('status', $data['tempo']
+            ? 'PO ditandai TEMPO — boleh diproses walau belum lunas. Cicilan dicatat di panel Pembayaran.'
+            : 'Status tempo dicabut — gerbang pembayaran berlaku normal lagi.');
+    }
+
+    /** Catat cicilan/pembayaran parsial. */
+    public function storePayment(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:1'],
+            'paid_at' => ['required', 'date', 'before_or_equal:today'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $po = $this->service->recordPayment(
+                $purchaseOrder, (float) $data['amount'], $data['paid_at'],
+                $data['notes'] ?? null, $request->user()->id,
+            );
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['amount' => $e->getMessage()]);
+        }
+
+        return back()->with('status', $po->isPaid()
+            ? '✓ Cicilan dicatat — PO kini LUNAS.'
+            : 'Cicilan dicatat. Sisa tagihan: Rp '.number_format($po->remaining(), 0, ',', '.'));
     }
 }

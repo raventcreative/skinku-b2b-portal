@@ -4,16 +4,30 @@
 
 @section('content')
 @php $u = auth()->user(); @endphp
-<div class="flex justify-between items-center mb-4">
+<div class="flex flex-wrap justify-between items-center mb-4 gap-y-2">
     <form method="GET" class="flex flex-wrap gap-2">
         <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari no PO / perusahaan…" class="px-3 py-2 text-sm border border-stone-300 rounded-lg w-60">
         <select name="status" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
             <option value="">Semua Status</option>
             @foreach($statuses as $s)<option value="{{ $s }}" @selected(($filters['status'] ?? '')===$s)>{{ $s }}</option>@endforeach
         </select>
+        <select name="bayar" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
+            <option value="">Semua Pembayaran</option>
+            <option value="belum" @selected(($filters['bayar'] ?? '')==='belum')>Belum Lunas</option>
+            <option value="lunas" @selected(($filters['bayar'] ?? '')==='lunas')>Lunas</option>
+        </select>
         <button class="px-4 py-2 text-sm bg-stone-200 rounded-lg hover:bg-stone-300">Filter</button>
         <a href="{{ route('purchase-orders.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Export Excel</a>
     </form>
+    @if(!is_null($piutang ?? null))
+        {{-- Total piutang sesungguhnya: tagihan − cicilan masuk. Super admin
+             tinggal filter "Belum Lunas" untuk melihat siapa saja & totalnya. --}}
+        <span class="basis-full mt-1 px-4 py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-sm">
+            <span class="text-rose-800 font-semibold">Total piutang (belum lunas):</span>
+            <span class="text-rose-700 font-bold">Rp {{ number_format($piutang, 0, ',', '.') }}</span>
+            <span class="text-[11px] text-rose-500">— tagihan dikurangi cicilan masuk; PO batal/draft tak dihitung</span>
+        </span>
+    @endif
     @if($u->isPartner())
         <a href="{{ route('purchase-orders.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Buat PO</a>
     @endif

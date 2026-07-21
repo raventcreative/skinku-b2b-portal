@@ -130,10 +130,12 @@ class PurchaseOrderService
             throw new RuntimeException("Transisi status dari '{$po->status}' ke '{$next}' tidak diizinkan.");
         }
 
-        // Payment gate: barang baru boleh diproses/dikirim setelah pembayaran lunas (terverifikasi).
+        // Payment gate: barang baru boleh diproses/dikirim setelah lunas —
+        // KECUALI PO ditandai TEMPO oleh admin (kesepakatan cicil/bayar
+        // belakangan). Gerbang untuk PO biasa tetap terkunci rapat.
         $fulfilment = [PurchaseOrder::STATUS_PROCESSING, PurchaseOrder::STATUS_SHIPPED, PurchaseOrder::STATUS_COMPLETED];
-        if (in_array($next, $fulfilment, true) && ! $po->isPaid()) {
-            throw new RuntimeException('PO belum lunas. Verifikasi bukti pembayaran (TF) dulu sebelum memproses/mengirim barang.');
+        if (in_array($next, $fulfilment, true) && ! $po->isPaid() && ! $po->is_tempo) {
+            throw new RuntimeException('PO belum lunas. Verifikasi bukti pembayaran (TF) dulu, atau tandai PO ini sebagai TEMPO bila memang kesepakatannya bayar belakangan.');
         }
 
         if ($next === PurchaseOrder::STATUS_COMPLETED) {
@@ -392,6 +394,77 @@ class PurchaseOrderService
         );
 
         return $po;
+    }
+
+    /**
+     * Tandai / cabut status TEMPO — pintu terkontrol melewati gerbang
+     * pembayaran. Hanya lewat sini (tercatat siapa & kenapa), bukan dengan
+     * melonggarkan gerbangnya untuk semua PO.
+     */
+    public function setTempo(PurchaseOrder $po, bool $on, ?string $notes, ?string $dueDate): PurchaseOrder
+    {
+        $po->update([
+            'is_tempo' => $on,
+            'tempo_notes' => $on ? $notes : null,
+            'tempo_due_date' => $on ? $dueDate : null,
+        ]);
+
+        AuditService::log(
+            action: $on ? 'set_po_tempo' : 'unset_po_tempo',
+            targetType: 'purchase_order',
+            targetId: $po->id,
+            after: ['po' => $po->po_number, 'catatan' => $notes, 'jatuh_tempo' => $dueDate],
+        );
+
+        return $po;
+    }
+
+    /**
+     * Catat satu cicilan. Melebihi sisa tagihan DITOLAK — kelebihan bayar
+     * hampir pasti salah ketik, dan diam-diam menerimanya mengacaukan piutang.
+     * Lunas otomatis saat sisa mencapai nol (payment_status -> paid), jadi
+     * "siapa belum lunas" tetap satu sumber kebenaran: payment_status.
+     */
+    public function recordPayment(PurchaseOrder $po, float $amount, string $paidAt, ?string $notes, int $userId): PurchaseOrder
+    {
+        return DB::transaction(function () use ($po, $amount, $paidAt, $notes, $userId) {
+            $po = PurchaseOrder::lockForUpdate()->findOrFail($po->id);
+
+            if ($amount <= 0) {
+                throw new RuntimeException('Jumlah cicilan harus lebih dari nol.');
+            }
+
+            $sisa = $po->remaining();
+            if ($amount > $sisa + 0.01) {
+                throw new RuntimeException(
+                    'Jumlah melebihi sisa tagihan (Rp '.number_format($sisa, 0, ',', '.').'). Periksa lagi angkanya.'
+                );
+            }
+
+            $po->payments()->create([
+                'amount' => $amount,
+                'paid_at' => $paidAt,
+                'notes' => $notes,
+                'created_by' => $userId,
+            ]);
+
+            $lunas = $po->remaining() <= 0.01;
+            if ($lunas) {
+                $po->update(['payment_status' => PurchaseOrder::PAYMENT_PAID]);
+            }
+
+            AuditService::log(
+                action: 'record_po_payment',
+                targetType: 'purchase_order',
+                targetId: $po->id,
+                after: [
+                    'po' => $po->po_number, 'jumlah' => $amount, 'tanggal' => $paidAt,
+                    'sisa' => $po->remaining(), 'lunas' => $lunas,
+                ],
+            );
+
+            return $po->fresh();
+        });
     }
 
     private function generatePoNumber(): string

@@ -112,8 +112,88 @@
 
             <div class="flex justify-between items-center mb-3">
                 <span class="text-xs text-stone-500">Status</span>
-                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold {{ $payBadge[1] }}">{{ $payBadge[0] }}</span>
+                <span class="flex items-center gap-1.5">
+                    @if($po->is_tempo && ! $po->isPaid())
+                        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-violet-100 text-violet-700">TEMPO</span>
+                    @endif
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold {{ $payBadge[1] }}">{{ $payBadge[0] }}</span>
+                </span>
             </div>
+
+            @if($po->is_tempo || $po->payments->count())
+                {{-- Panel cicilan: sisa tagihan SELALU terlihat. "Belum Lunas"
+                     tak boleh tersamarkan hanya karena barangnya boleh jalan. --}}
+                <div class="mb-3 rounded-xl border {{ $po->isPaid() ? 'border-emerald-200 bg-emerald-50/40' : 'border-violet-200 bg-violet-50/40' }} p-3">
+                    @if($po->is_tempo && ! $po->isPaid())
+                        <p class="text-[11px] text-violet-800 font-semibold">Kesepakatan tempo/cicil — barang boleh diproses, tagihan tetap berjalan.</p>
+                        @if($po->tempo_notes)<p class="text-[11px] text-stone-500 mt-0.5">{{ $po->tempo_notes }}</p>@endif
+                        @if($po->tempo_due_date)
+                            <p class="text-[11px] mt-0.5 {{ $po->tempo_due_date->isPast() ? 'text-rose-600 font-bold' : 'text-stone-500' }}">
+                                Jatuh tempo: {{ $po->tempo_due_date->format('d M Y') }}{{ $po->tempo_due_date->isPast() ? ' — LEWAT!' : '' }}
+                            </p>
+                        @endif
+                    @endif
+
+                    @if($po->payments->count())
+                        <table class="w-full text-[11px] mt-2">
+                            <thead><tr class="text-stone-400 uppercase text-[9px]">
+                                <th class="text-left">Tanggal</th><th class="text-right">Jumlah</th><th class="text-left pl-2">Catatan</th></tr></thead>
+                            <tbody>
+                                @foreach($po->payments as $pay)
+                                    <tr class="border-t border-stone-100">
+                                        <td class="py-1 text-stone-600">{{ $pay->paid_at->format('d M Y') }}</td>
+                                        <td class="text-right font-semibold text-stone-800">Rp {{ number_format($pay->amount, 0, ',', '.') }}</td>
+                                        <td class="pl-2 text-stone-500">{{ $pay->notes ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+
+                    <div class="flex justify-between mt-2 pt-2 border-t border-stone-200 text-xs">
+                        <span class="text-stone-500">Terbayar: <b class="text-stone-800">Rp {{ number_format($po->paidTotal(), 0, ',', '.') }}</b></span>
+                        <span class="{{ $po->isPaid() ? 'text-emerald-700' : 'text-rose-600' }} font-bold">
+                            {{ $po->isPaid() ? 'LUNAS' : 'Sisa: Rp '.number_format($po->remaining(), 0, ',', '.') }}
+                        </span>
+                    </div>
+                </div>
+            @endif
+
+            @if($u->canDo('update_po_status') && $po->is_tempo && ! $po->isPaid())
+                {{-- Catat cicilan saat uang masuk. Melebihi sisa ditolak server. --}}
+                <form method="POST" action="{{ route('purchase-orders.payments', $po) }}" class="mb-3 space-y-2">
+                    @csrf
+                    <p class="text-[11px] font-semibold text-stone-500">Catat Cicilan Masuk</p>
+                    <div class="flex gap-2">
+                        <input type="number" name="amount" min="1" step="1" required placeholder="jumlah (Rp)"
+                            class="flex-1 px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                        <input type="date" name="paid_at" value="{{ now()->format('Y-m-d') }}" required
+                            class="px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                    </div>
+                    <input type="text" name="notes" maxlength="500" placeholder="catatan (mis. cicilan ke-2 via BCA)"
+                        class="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                    <button class="w-full py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-xl">+ Catat Cicilan</button>
+                </form>
+            @endif
+
+            @if($u->canDo('update_po_status') && ! $po->isPaid())
+                {{-- Saklar tempo — kesepakatan bayar belakangan. Tercatat di Audit Log. --}}
+                <form method="POST" action="{{ route('purchase-orders.tempo', $po) }}" class="mb-3 pb-3 border-b border-stone-100 space-y-2">
+                    @csrf
+                    <input type="hidden" name="tempo" value="{{ $po->is_tempo ? 0 : 1 }}">
+                    @unless($po->is_tempo)
+                        <input type="text" name="tempo_notes" maxlength="500" placeholder="catatan kesepakatan (mis. cicil 3x)"
+                            class="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                        <input type="date" name="tempo_due_date" title="jatuh tempo (opsional)"
+                            class="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                        <button class="w-full py-2 border border-violet-300 text-violet-700 text-xs font-semibold rounded-xl hover:bg-violet-50"
+                            onclick="return confirm('Izinkan PO ini TEMPO? Barang boleh diproses walau belum lunas — tercatat di Audit Log.')">Izinkan Tempo / Cicil</button>
+                    @else
+                        <button class="w-full py-2 border border-stone-300 text-stone-600 text-xs font-semibold rounded-xl hover:bg-stone-50"
+                            onclick="return confirm('Cabut status tempo? Gerbang pembayaran berlaku normal lagi.')">Cabut Status Tempo</button>
+                    @endunless
+                </form>
+            @endif
 
             @if($po->paymentProofUrl())
                 <a href="{{ $po->paymentProofUrl() }}" target="_blank" class="block mb-3">

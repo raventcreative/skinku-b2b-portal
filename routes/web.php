@@ -84,6 +84,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/purchase-orders/{purchaseOrder}/status', [PurchaseOrderController::class, 'updateStatus'])->name('purchase-orders.status');
         Route::post('/purchase-orders/{purchaseOrder}/shipping', [PurchaseOrderController::class, 'setShipping'])->name('purchase-orders.shipping');
         Route::post('/purchase-orders/{purchaseOrder}/verify-payment', [PurchaseOrderController::class, 'verifyPayment'])->name('purchase-orders.verify-payment');
+        Route::post('/purchase-orders/{purchaseOrder}/tempo', [PurchaseOrderController::class, 'setTempo'])->name('purchase-orders.tempo');
+        Route::post('/purchase-orders/{purchaseOrder}/payments', [PurchaseOrderController::class, 'storePayment'])->name('purchase-orders.payments');
     });
 
     Route::middleware('permission:delete_po')->group(function () {
