@@ -289,7 +289,7 @@ class KanbanTest extends TestCase
         $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
 
         $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
-            'image' => UploadedFile::fake()->image('mockup.png', 2400, 1600),
+            'images' => [UploadedFile::fake()->image('mockup.png', 2400, 1600)],
         ])->assertRedirect();
 
         $this->assertSame(1, $card->files()->where('collection', BoardCard::ATTACHMENT)->count());
@@ -304,6 +304,25 @@ class KanbanTest extends TestCase
         $this->assertStringContainsString('🖼️ 1', $html);
     }
 
+    /** Beberapa gambar sekaligus dalam satu unggahan. */
+    public function test_unggah_banyak_lampiran_sekaligus(): void
+    {
+        Storage::fake('public');
+        $admin = $this->user(User::ROLE_ADMIN, 'kbattmulti');
+        $board = $this->board($admin);
+        $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
+
+        $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
+            'images' => [
+                UploadedFile::fake()->image('a.jpg'),
+                UploadedFile::fake()->image('b.png'),
+                UploadedFile::fake()->image('c.webp'),
+            ],
+        ])->assertRedirect();
+
+        $this->assertSame(3, $card->files()->where('collection', BoardCard::ATTACHMENT)->count());
+    }
+
     public function test_hapus_lampiran_kartu(): void
     {
         Storage::fake('public');
@@ -311,7 +330,7 @@ class KanbanTest extends TestCase
         $board = $this->board($admin);
         $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
         $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
-            'image' => UploadedFile::fake()->image('x.jpg'),
+            'images' => [UploadedFile::fake()->image('x.jpg')],
         ]);
         $file = $card->files()->first();
 
@@ -321,15 +340,16 @@ class KanbanTest extends TestCase
         Storage::disk('public')->assertMissing($file->path);                       // berkas fisik ikut hilang
     }
 
-    public function test_batas_delapan_lampiran(): void
+    public function test_batas_delapan_lampiran_kelebihan_dilewati(): void
     {
         Storage::fake('public');
         $admin = $this->user(User::ROLE_ADMIN, 'kbatt3');
         $board = $this->board($admin);
         $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
 
-        // Isi 8 slot langsung (tanpa 8x resize), lalu ke-9 lewat HTTP harus ditolak.
-        for ($i = 0; $i < 8; $i++) {
+        // Sudah ada 6 slot (tanpa resize berulang). Unggah 4 sekaligus → hanya 2
+        // yang muat, 2 sisanya DILEWATI (bukan tolak semua).
+        for ($i = 0; $i < 6; $i++) {
             $card->files()->create([
                 'collection' => BoardCard::ATTACHMENT, 'disk' => 'public',
                 'path' => "card_attachment/x{$i}.jpg", 'sort_order' => $i,
@@ -337,9 +357,17 @@ class KanbanTest extends TestCase
         }
 
         $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
-            'image' => UploadedFile::fake()->image('lebih.jpg'),
-        ])->assertSessionHasErrors('image');
+            'images' => [
+                UploadedFile::fake()->image('a.jpg'), UploadedFile::fake()->image('b.jpg'),
+                UploadedFile::fake()->image('c.jpg'), UploadedFile::fake()->image('d.jpg'),
+            ],
+        ])->assertRedirect();
+        $this->assertSame(8, $card->files()->count());   // 6 + 2, bukan 10
 
+        // Kartu penuh → unggahan berikutnya ditolak dengan pesan jelas.
+        $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
+            'images' => [UploadedFile::fake()->image('lebih.jpg')],
+        ])->assertSessionHasErrors('images');
         $this->assertSame(8, $card->files()->count());
     }
 
@@ -352,8 +380,8 @@ class KanbanTest extends TestCase
         $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
 
         $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
-            'image' => UploadedFile::fake()->create('dokumen.pdf', 100, 'application/pdf'),
-        ])->assertSessionHasErrors('image');
+            'images' => [UploadedFile::fake()->create('dokumen.pdf', 100, 'application/pdf')],
+        ])->assertSessionHasErrors('images.0');
 
         $this->assertSame(0, $card->files()->count());
     }
@@ -388,7 +416,7 @@ class KanbanTest extends TestCase
         $mitra = $this->user(User::ROLE_DISTRIBUTOR, 'kbattmitra');
 
         $this->actingAs($mitra)->post(route('kanban.cards.attachments.store', $card), [
-            'image' => UploadedFile::fake()->image('x.jpg'),
+            'images' => [UploadedFile::fake()->image('x.jpg')],
         ])->assertForbidden();
 
         $this->assertSame(0, $card->files()->count());

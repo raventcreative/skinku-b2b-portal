@@ -135,10 +135,10 @@
                                 @if($atts->count() < 8)
                                     <form method="POST" action="{{ route('kanban.cards.attachments.store', $card) }}" enctype="multipart/form-data" class="flex items-center gap-2">
                                         @csrf
-                                        <input type="file" name="image" accept="image/*" required class="flex-1 text-xs">
+                                        <input type="file" name="images[]" accept="image/*" multiple required class="flex-1 text-xs">
                                         <button class="px-3 py-2 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800 whitespace-nowrap">Unggah</button>
                                     </form>
-                                    <p class="text-[10px] text-stone-400 mt-1">jpg/png/webp/gif · otomatis diperkecil (maks 1280px) agar hemat storage</p>
+                                    <p class="text-[10px] text-stone-400 mt-1">bisa pilih beberapa sekaligus · jpg/png/webp/gif · otomatis diperkecil (maks 1280px) · sisa {{ 8 - $atts->count() }} slot</p>
                                 @else
                                     <p class="text-[10px] text-stone-400">Batas 8 lampiran tercapai — hapus salah satu untuk menambah.</p>
                                 @endif

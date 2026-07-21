@@ -235,16 +235,35 @@ class KanbanController extends Controller
     public function storeAttachment(Request $request, BoardCard $card): RedirectResponse
     {
         $request->validate([
-            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:12288'],
+            'images' => ['required', 'array', 'min:1'],
+            'images.*' => ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:12288'],
         ]);
 
-        if ($card->files()->where('collection', BoardCard::ATTACHMENT)->count() >= self::MAX_ATTACHMENTS) {
-            return back()->withErrors(['image' => 'Lampiran kartu sudah mencapai batas '.self::MAX_ATTACHMENTS.' gambar — hapus salah satu dulu.']);
+        $sisa = self::MAX_ATTACHMENTS - $card->files()->where('collection', BoardCard::ATTACHMENT)->count();
+        if ($sisa <= 0) {
+            return back()->withErrors(['images' => 'Lampiran kartu sudah penuh (maks '.self::MAX_ATTACHMENTS.' gambar) — hapus salah satu dulu.']);
         }
 
-        $this->images->attach($card, $request->file('image'), BoardCard::ATTACHMENT);
+        // Bisa unggah beberapa sekaligus. Hanya sebanyak slot tersisa yang
+        // diambil; selebihnya DILEWATI (bukan tolak semua) supaya tak perlu
+        // pilih ulang. Tiap gambar diperkecil ImageService sebelum disimpan.
+        $files = $request->file('images');
+        $ditambah = 0;
+        foreach ($files as $img) {
+            if ($ditambah >= $sisa) {
+                break;
+            }
+            $this->images->attach($card, $img, BoardCard::ATTACHMENT);
+            $ditambah++;
+        }
 
-        return back()->with('status', 'Lampiran ditambahkan.');
+        $dilewati = count($files) - $ditambah;
+        $msg = $ditambah.' lampiran ditambahkan.';
+        if ($dilewati > 0) {
+            $msg .= " {$dilewati} dilewati — batas ".self::MAX_ATTACHMENTS.' gambar/kartu.';
+        }
+
+        return back()->with('status', $msg);
     }
 
     /**
