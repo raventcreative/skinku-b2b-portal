@@ -429,10 +429,13 @@ class KolModuleTest extends TestCase
     }
 
     /**
-     * Halaman "Listing KOL" = replika sheet Excel: satu baris per screening,
-     * kolom persis. Divalidasi pakai BARIS NYATA pertama spreadsheet.
+     * Database KOL kini memuat kolom kaya ala sheet Listing: indikator Mean &
+     * Median, Agency, rata-rata views. Halaman Listing terpisah sudah dilebur ke
+     * sini (formatnya tetap tersedia lewat tombol Export "Riwayat per-bulan").
+     * Divalidasi pakai BARIS NYATA Excel: median 6.627, mean 37.044, verdict mean
+     * "Sangat Bagus" + median "Worth It", GMV 3.021.912.
      */
-    public function test_halaman_listing_replika_excel_dengan_baris_nyata(): void
+    public function test_daftar_kol_menampilkan_indikator_mean_median_dan_agency(): void
     {
         $spec = $this->user('kol_specialist', 'specx');
         $kol = Kol::create(['tiktok_username' => 'dummyxx', 'followers' => 6_956, 'agency' => 'OUR GOOD MEDIA']);
@@ -442,14 +445,15 @@ class KolModuleTest extends TestCase
             'views_5' => 2_874, 'views_6' => 1_040, 'views_7' => 11_000,
         ]);
 
-        $html = $this->actingAs($spec)->get(route('kols.listing'))->assertOk()->getContent();
+        $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
 
-        $this->assertStringContainsString('Views 7 Video Terakhir Tiktok', $html);
-        $this->assertStringContainsString('CPM AVG (Mean)', $html);
-        $this->assertStringContainsString('Rata-Rata [Median] CPM Indicator', $html);
-        $this->assertStringContainsString('GMV + Viral + Fake Detector', $html);
-        // Angka baris Excel: total 259.306, mean 37.044, CPM mean 1.485 ->
-        // Sangat Bagus; CPM median 8.299 -> Worth It; GMV 3.021.912; agency tampil.
+        // Kolom baru hasil peleburan.
+        $this->assertStringContainsString('Ind. Mean', $html);
+        $this->assertStringContainsString('Ind. Median', $html);
+        $this->assertStringContainsString('Agency', $html);
+        $this->assertStringContainsString('CPM Mean', $html);
+        // Angka baris Excel: total 259.306, mean 37.044, verdict mean Sangat Bagus,
+        // verdict median Worth It, GMV 3.021.912, agency tampil.
         $this->assertStringContainsString('259.306', $html);
         $this->assertStringContainsString('37.044', $html);
         $this->assertStringContainsString('Sangat Bagus', $html);
@@ -492,15 +496,13 @@ class KolModuleTest extends TestCase
         $this->screen($c, 2_000_000, 100_000);   // CPM mean 20rb  -> rank 2 (kembar)
         $this->screen($d, 3_000_000, 100_000);   // CPM mean 30rb  -> rank 4 (melompat, bukan 3)
 
-        $html = $this->actingAs($spec)->get(route('kols.listing'))->assertOk()->getContent();
+        // Rank tampil di Database KOL (rank milik screening terakhir tiap KOL).
+        $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
 
         $this->assertStringContainsString('#1', $html);
         $this->assertStringContainsString('#2', $html);
         $this->assertStringContainsString('#4', $html);
         $this->assertStringNotContainsString('#3', $html);   // dilompati karena kembar di rank 2
-
-        // Rank juga tampil di Database KOL (rank milik screening terakhir).
-        $this->actingAs($spec)->get(route('kols.index'))->assertOk()->assertSee('#4');
     }
 
     /** CPV = CPM / 1000 — biaya per satu view. */
@@ -542,16 +544,16 @@ class KolModuleTest extends TestCase
         $this->assertLessThan(15_000, $s->cpm_rata);        // mean-nya memang "murah" palsu
         $this->assertSame(5_000_000.0, $s->cpm_median);     // median jujur: 5jt
 
-        $html = $this->actingAs($spec)->get(route('kols.listing'))->assertOk()->getContent();
+        $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
 
         // Rank ikut median: sehat #1, meledak #2 (terakhir) — bukan sebaliknya.
         $posSehat = strpos($html, 'sehatkol');
         $posMeledak = strpos($html, 'meledakkol');
         $this->assertNotFalse($posSehat);
         $this->assertNotFalse($posMeledak);
-        // Cek rank di dekat masing-masing baris.
-        $rowSehat = substr($html, $posSehat, 3000);
-        $rowMeledak = substr($html, $posMeledak, 3000);
+        // Cek rank di dekat masing-masing baris (jendela lebar — baris kini banyak kolom).
+        $rowSehat = substr($html, $posSehat, 4000);
+        $rowMeledak = substr($html, $posMeledak, 4000);
         $this->assertStringContainsString('#1', $rowSehat);
         $this->assertStringContainsString('#2', $rowMeledak);
     }
@@ -633,9 +635,8 @@ class KolModuleTest extends TestCase
         $this->assertGreaterThan(0, $s->gmv_estimate);
         $this->assertSame('🟢Safe', $s->fake_label);
 
-        // Daftar & listing tak meledak; ratecard tampil "—", rank tak memuatnya.
+        // Daftar tak meledak; ratecard tampil "—" (verdict ⚪ Belum Ada Ratecard).
         $this->actingAs($spec)->get(route('kols.index'))->assertOk()->assertSee('Belum Ada Ratecard');
-        $this->actingAs($spec)->get(route('kols.listing'))->assertOk();
     }
 
     public function test_ratecard_bisa_diisi_belakangan_dan_verdict_langsung_hidup(): void

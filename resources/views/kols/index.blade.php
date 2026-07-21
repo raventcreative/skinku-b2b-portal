@@ -11,6 +11,15 @@
         'Middle' => 'bg-indigo-100 text-indigo-700', 'Makro' => 'bg-violet-100 text-violet-700',
         'Mega' => 'bg-amber-100 text-amber-700', 'Super Mega' => 'bg-rose-100 text-rose-700',
     ];
+    // Warna verdict ikut emoji tingkatannya (median 3 tingkat & mean 5 tingkat).
+    $vColor = fn (string $v) => match (true) {
+        str_starts_with($v, '🟢') => 'text-emerald-700',
+        str_starts_with($v, '🟡') => 'text-amber-600',
+        str_starts_with($v, '🟠') => 'text-orange-600',
+        str_starts_with($v, '🔴') => 'text-rose-700',
+        str_starts_with($v, '⚪') => 'text-stone-400',
+        default => 'text-stone-800',
+    };
 @endphp
 
 <div class="flex flex-wrap items-center gap-3 mb-4">
@@ -48,8 +57,8 @@
             <a href="{{ route('kol-deals.index') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">Daftar Deal</a>
         @endif
         @if($u->canDo('kol.screening.manage'))
-            <a href="{{ route('kols.listing') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">Listing KOL (format Excel)</a>
-        <a href="{{ route('kols.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Export Excel</a>
+            <a href="{{ route('kols.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800" title="Isi tabel ini (satu baris per KOL)">⬇ Export Excel</a>
+            <a href="{{ route('kols.listing.export') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50" title="Semua screening, satu baris per bulan — format sheet Listing KOL">⬇ Riwayat per-bulan</a>
         <a href="{{ route('kol-screenings.create') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">+ Screening</a>
             <button onclick="document.getElementById('addKol').classList.toggle('hidden')"
                 class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah KOL</button>
@@ -107,17 +116,21 @@
                 <th rowspan="2" class="text-left px-3 align-bottom">{!! $sortLink('level', 'Level') !!}</th>
                 <th rowspan="2" class="text-left align-bottom">{!! $sortLink('kategori', 'Kategori') !!}</th>
                 <th rowspan="2" class="text-left align-bottom">{!! $sortLink('status', 'Status') !!}</th>
+                <th rowspan="2" class="text-left align-bottom" title="Agency / Non-Agency">{!! $sortLink('agency', 'Agency') !!}</th>
                 {{-- SEMUA kolom angka bisa diurutkan, seperti Excel. Yang belum
                      discreening selalu tenggelam ke bawah apa pun arahnya. --}}
                 <th rowspan="2" class="text-right align-bottom" title="Harga kerjasama yang diminta (screening terakhir)">{!! $sortLink('ratecard', 'Ratecard') !!}</th>
                 <th colspan="7" class="text-center py-1.5 border-b border-stone-200">Views 7 Video Terakhir</th>
                 <th rowspan="2" class="text-right align-bottom">{!! $sortLink('total', 'Total') !!}</th>
+                <th rowspan="2" class="text-right align-bottom" title="Rata-rata views per video (mean)">{!! $sortLink('avg', 'Avg') !!}</th>
                 <th rowspan="2" class="text-right align-bottom">{!! $sortLink('median', 'Median') !!}</th>
                 <th rowspan="2" class="text-right align-bottom" title="Median views ÷ followers">{!! $sortLink('ratio', 'Ratio') !!}</th>
-                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ median views × 1000 — biaya per 1000 views">{!! $sortLink('cpm', 'CPM') !!}</th>
+                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ rata-rata views × 1000 (mean)">{!! $sortLink('cpm_mean', 'CPM Mean') !!}</th>
+                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ median views × 1000 — biaya per 1000 views">{!! $sortLink('cpm', 'CPM Med') !!}</th>
                 <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ median views — biaya per satu view">{!! $sortLink('cpv', 'CPV') !!}</th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="Peringkat CPM Median termurah di seluruh screening">{!! $sortLink('rank', 'Rank') !!}</th>
-                <th rowspan="2" class="text-left px-3 align-bottom" title="Urut berdasarkan CPM median — termurah dulu">{!! $sortLink('verdict', 'Verdict Terakhir') !!}</th>
+                <th rowspan="2" class="text-left px-3 align-bottom" title="Indikator berbasis rata-rata (mean) — 5 tingkat">{!! $sortLink('verdict_mean', 'Ind. Mean') !!}</th>
+                <th rowspan="2" class="text-left px-3 align-bottom" title="Indikator berbasis median — 3 tingkat (Worth It/Masih Oke/Kemahalan)">{!! $sortLink('verdict', 'Ind. Median') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Urut berdasarkan estimasi GMV">{!! $sortLink('gmv', 'GMV · Viral · Fake') !!}</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
             </tr>
@@ -138,6 +151,7 @@
                     <td class="px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $levelBadge[$kol->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $kol->level }}</span></td>
                     <td class="text-stone-600">{{ $kol->kategori ?: '—' }}</td>
                     <td class="text-stone-600">{{ $kol->status }}</td>
+                    <td class="text-stone-600">{{ $kol->agency ?: '—' }}</td>
                     @php $ls = $kol->latestScreening; @endphp
                     @if($ls)
                         <td class="text-right text-stone-700">{{ $ls->ratecard !== null ? $rp($ls->ratecard) : '—' }}</td>
@@ -146,29 +160,30 @@
                             <td class="text-right px-2 text-stone-600">{{ number_format($v, 0, ',', '.') }}</td>
                         @endforeach
                         <td class="text-right text-stone-500">{{ number_format($ls->total_views, 0, ',', '.') }}</td>
+                        <td class="text-right text-stone-500">{{ number_format($ls->rata_views, 0, ',', '.') }}</td>
                         <td class="text-right font-semibold text-stone-800">{{ number_format($ls->median_views, 0, ',', '.') }}</td>
                         <td class="text-right text-stone-600">{{ $ls->ratio !== null ? number_format($ls->ratio, 1, ',', '.').'%' : '—' }}</td>
-                        {{-- CPM & CPV kolom sendiri (basis median) — angka sejajar
-                             rapi ke bawah, bukan sub-teks kecil di bawah verdict. --}}
+                        {{-- CPM Mean & Median kolom sendiri — angka sejajar rapi ke bawah. --}}
+                        <td class="text-right px-2 text-stone-600">{{ $ls->cpm_rata !== null ? number_format($ls->cpm_rata, 0, ',', '.') : '—' }}</td>
                         <td class="text-right px-2 text-stone-700">{{ $ls->cpm_median !== null ? number_format($ls->cpm_median, 0, ',', '.') : '—' }}</td>
                         <td class="text-right px-2 text-stone-600">{{ $ls->cpv_median !== null ? number_format($ls->cpv_median, $ls->cpv_median < 100 ? 1 : 0, ',', '.') : '—' }}</td>
                         <td class="text-right px-2 font-bold text-stone-700">{{ isset($ranks[$ls->id]) ? '#'.$ranks[$ls->id] : '—' }}</td>
-                        <td class="px-3 font-semibold whitespace-nowrap {{ str_starts_with($ls->verdict_median, '🟢') ? 'text-emerald-700' : (str_starts_with($ls->verdict_median, '🟡') ? 'text-amber-600' : (str_starts_with($ls->verdict_median, '⚪') ? 'text-stone-400' : 'text-rose-700')) }}">
-                            {{ $ls->verdict_median }}
-                        </td>
+                        {{-- Dua indikator seperti Excel: mean (5 tingkat) & median (3 tingkat). --}}
+                        <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($ls->verdict_rata) }}">{{ $ls->verdict_rata }}</td>
+                        <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($ls->verdict_median) }}">{{ $ls->verdict_median }}</td>
                         <td class="whitespace-nowrap">
                             <span class="font-semibold text-stone-800">🪙 {{ $rp($ls->gmv_estimate) }}</span>
                             <span class="block text-[10px] text-stone-500">🚀 {{ $ls->viral_label }} · 👤 {{ $ls->fake_label ?? '—' }}</span>
                         </td>
                     @else
-                        <td colspan="15" class="px-3 text-stone-300">belum discreening</td>
+                        <td colspan="19" class="px-3 text-stone-300">belum discreening</td>
                     @endif
                     <td class="text-right px-4">
                         <a href="{{ route('kols.show', $kol) }}" class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap">detail →</a>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="22" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="26" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>

@@ -16,8 +16,9 @@ class KolController extends Controller
         $filters = $request->only(['level', 'kategori', 'status', 'verdict']);
 
         // Arah & kolom sort divalidasi ke daftar putih — nilai ngawur jatuh ke default.
-        $sortable = ['username', 'followers', 'level', 'kategori', 'status',
-            'ratecard', 'total', 'median', 'ratio', 'cpm', 'cpv', 'rank', 'verdict', 'gmv'];
+        $sortable = ['username', 'followers', 'level', 'kategori', 'status', 'agency',
+            'ratecard', 'total', 'avg', 'median', 'ratio', 'cpm_mean', 'cpm', 'cpv', 'rank',
+            'verdict_mean', 'verdict', 'gmv'];
         $sort = in_array($request->query('sort'), $sortable, true)
             ? $request->query('sort') : 'username';
         $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
@@ -70,23 +71,6 @@ class KolController extends Controller
     }
 
     /**
-     * Replika sheet "Listing KOL": satu baris per screening (bukan per KOL),
-     * urutan & isi kolom persis Excel — Bulan/Tanggal Listing, Username, Link,
-     * Followers, Ratecard, Views 1-7, Total, Avg, Median, CPM Mean/Median,
-     * dua indikator, GMV+Viral+Fake, Agency.
-     */
-    public function listing()
-    {
-        $rows = KolScreening::query()
-            ->with('kol')
-            ->orderByDesc('tanggal_listing')
-            ->orderByDesc('id')
-            ->paginate(50);
-
-        return view('kols.listing', ['rows' => $rows, 'ranks' => $this->ranks()]);
-    }
-
-    /**
      * Peringkat screening. Rank 1 = CPM MEDIAN termurah, atas SEMUA screening;
      * nilai kembar berbagi rank dan rank berikutnya melompat (perilaku RANK()).
      *
@@ -130,9 +114,12 @@ class KolController extends Controller
         $screeningVal = match ($sort) {
             'ratecard' => fn (Kol $k) => $k->latestScreening?->ratecard,
             'total' => fn (Kol $k) => $k->latestScreening?->total_views,
+            'avg' => fn (Kol $k) => $k->latestScreening?->rata_views,
             'median' => fn (Kol $k) => $k->latestScreening?->median_views,
             'ratio' => fn (Kol $k) => $k->latestScreening?->ratio,
             'gmv' => fn (Kol $k) => $k->latestScreening?->gmv_estimate,
+            // Indikator/CPM Mean pakai CPM rata sebagai nilai sort-nya.
+            'cpm_mean', 'verdict_mean' => fn (Kol $k) => $k->latestScreening?->cpm_rata,
             'cpm', 'cpv', 'rank', 'verdict' => fn (Kol $k) => $k->latestScreening?->cpm_median,
             default => null,
         };
@@ -148,6 +135,7 @@ class KolController extends Controller
         $key = match ($sort) {
             'followers', 'level' => fn (Kol $k) => (int) $k->followers,   // level = turunan followers, urutannya sama
             'kategori' => fn (Kol $k) => mb_strtolower($k->kategori ?? ''),
+            'agency' => fn (Kol $k) => mb_strtolower($k->agency ?? ''),
             'status' => fn (Kol $k) => $k->status,
             default => fn (Kol $k) => mb_strtolower($k->tiktok_username),
         };
