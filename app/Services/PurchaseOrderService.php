@@ -291,7 +291,15 @@ class PurchaseOrderService
 
         $po = $this->createForPartner($buyer, $lines, null, $notes, $prices);
 
-        $attrs = ['order_date' => $orderDate->toDateString(), 'created_by' => $creatorId];
+        $attrs = [
+            'order_date' => $orderDate->toDateString(),
+            'created_by' => $creatorId,
+            // Penjualan back-date = transaksi lampau yang UANGNYA SUDAH masuk;
+            // tanpa ini ia jatuh ke default 'unpaid' dan tampil sebagai piutang
+            // palsu. paid_at diset ke tanggal transaksinya, bukan sekarang.
+            'payment_status' => PurchaseOrder::PAYMENT_PAID,
+            'paid_at' => $orderDate,
+        ];
         // Pembeli sekali-beli (mis. "Vani") tak perlu dibuatkan akun — namanya
         // disimpan di PO. company_name memang field snapshot, bukan relasi.
         if ($buyerName) {

@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\AppSetting;
 use App\Models\AuditLog;
+use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Services\PurchaseOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -204,5 +207,51 @@ class TempoPaymentTest extends TestCase
         $this->assertStringContainsString('🟢 Lunas', $html);
         $this->assertStringContainsString('🔴 Belum Lunas', $html);
         $this->assertStringContainsString('Pembayaran', $html);                  // kolom baru
+    }
+
+    /** Penjualan back-date otomatis LUNAS — bukan piutang palsu. */
+    public function test_penjualan_backdate_langsung_lunas(): void
+    {
+        $svc = app(PurchaseOrderService::class);
+        $admin = $this->admin();
+        $buyer = User::create([
+            'name' => 'B', 'fullname' => 'Erna', 'username' => 'bderna', 'email' => 'bderna@skinku.test',
+            'password' => Hash::make('secret123'), 'role' => User::ROLE_RESELLER, 'status' => User::STATUS_ACTIVE,
+            'company_name' => 'Erna',
+        ]);
+        $p = Product::create([
+            'name' => 'BD Prod', 'sku' => 'BDP-1', 'hq_stock' => 100, 'status' => 'active',
+            'cogs' => 1000, 'price_distributor' => 5000, 'price_reseller' => 5000,
+        ]);
+        AppSetting::put(AppSetting::PO_DEDUCT_FROM, '2026-07-15');
+
+        $po = $svc->recordBackdatedSale($buyer, [['product_id' => $p->id, 'qty' => 10]],
+            Carbon::parse('2026-06-08'), 'dari Excel', $admin->id);
+
+        $this->assertSame(PurchaseOrder::PAYMENT_PAID, $po->fresh()->payment_status);
+        $this->assertNotNull($po->fresh()->paid_at);
+        // Badge di daftar: LUNAS, bukan Belum Lunas.
+        $html = $this->actingAs($admin)->get(route('purchase-orders.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('🟢 Lunas', $html);
+    }
+
+    /** Migrasi 000053: back-date lama 'unpaid' jadi lunas; tempo & normal TAK tersentuh. */
+    public function test_migrasi_menandai_backdate_lama_lunas_tanpa_menyentuh_tempo(): void
+    {
+        $backdate = $this->po(500_000);
+        $backdate->update(['order_date' => '2026-06-01', 'payment_status' => PurchaseOrder::PAYMENT_UNPAID, 'status' => PurchaseOrder::STATUS_COMPLETED]);
+
+        $tempo = $this->po(2_980_000);   // recent, order_date NULL, tempo
+        $tempo->update(['is_tempo' => true, 'payment_status' => PurchaseOrder::PAYMENT_UNPAID]);
+
+        $normalBelum = $this->po(300_000);   // recent unpaid biasa, order_date NULL
+
+        // Migrasi anonim: require mengembalikan instance-nya, panggil up().
+        $migration = require database_path('migrations/2026_01_01_000053_mark_backdated_pos_paid.php');
+        $migration->up();
+
+        $this->assertSame(PurchaseOrder::PAYMENT_PAID, $backdate->fresh()->payment_status);   // disentuh
+        $this->assertSame(PurchaseOrder::PAYMENT_UNPAID, $tempo->fresh()->payment_status);    // tempo aman
+        $this->assertSame(PurchaseOrder::PAYMENT_UNPAID, $normalBelum->fresh()->payment_status); // normal aman
     }
 }
