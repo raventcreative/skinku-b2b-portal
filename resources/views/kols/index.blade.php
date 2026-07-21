@@ -92,6 +92,13 @@
 </div>
 @endif
 
+<p class="text-[11px] text-stone-500 mb-2 leading-relaxed">
+    💡 Ada dua kolom penilaian layak/tidaknya harga KOL:
+    <b class="text-emerald-700">Penilaian Median ⭐</b> = dari views tengah, <b>acuan utama</b> (tak mempan diakali 1 video viral) ·
+    <b class="text-stone-600">Penilaian Rata-rata</b> = pembanding, bisa terangkat 1 video viral.
+    Kalau keduanya beda jauh, artinya ada video yang meledak sendiri — percayai yang <b>Median ⭐</b>.
+</p>
+
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
     <div class="overflow-x-auto">
     <table class="w-full text-xs whitespace-nowrap">
@@ -122,15 +129,15 @@
                 <th rowspan="2" class="text-right align-bottom" title="Harga kerjasama yang diminta (screening terakhir)">{!! $sortLink('ratecard', 'Ratecard') !!}</th>
                 <th colspan="7" class="text-center py-1.5 border-b border-stone-200">Views 7 Video Terakhir</th>
                 <th rowspan="2" class="text-right align-bottom">{!! $sortLink('total', 'Total') !!}</th>
-                <th rowspan="2" class="text-right align-bottom" title="Rata-rata views per video (mean)">{!! $sortLink('avg', 'Avg') !!}</th>
-                <th rowspan="2" class="text-right align-bottom">{!! $sortLink('median', 'Median') !!}</th>
-                <th rowspan="2" class="text-right align-bottom" title="Median views ÷ followers">{!! $sortLink('ratio', 'Ratio') !!}</th>
-                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ rata-rata views × 1000 (mean)">{!! $sortLink('cpm_mean', 'CPM Mean') !!}</th>
-                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ median views × 1000 — biaya per 1000 views">{!! $sortLink('cpm', 'CPM Med') !!}</th>
-                <th rowspan="2" class="text-right align-bottom px-2" title="Ratecard ÷ median views — biaya per satu view">{!! $sortLink('cpv', 'CPV') !!}</th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="Peringkat CPM Median termurah di seluruh screening">{!! $sortLink('rank', 'Rank') !!}</th>
-                <th rowspan="2" class="text-left px-3 align-bottom" title="Indikator berbasis rata-rata (mean) — 5 tingkat">{!! $sortLink('verdict_mean', 'Ind. Mean') !!}</th>
-                <th rowspan="2" class="text-left px-3 align-bottom" title="Indikator berbasis median — 3 tingkat (Worth It/Masih Oke/Kemahalan)">{!! $sortLink('verdict', 'Ind. Median') !!}</th>
+                <th rowspan="2" class="text-right align-bottom" title="Rata-rata views per video">{!! $sortLink('avg', 'Rata-rata') !!}</th>
+                <th rowspan="2" class="text-right align-bottom" title="Views tengah (median) — nilai yang paling wajar, tahan dari 1 video viral">{!! $sortLink('median', 'Median') !!}</th>
+                <th rowspan="2" class="text-right align-bottom" title="Views tengah ÷ followers">{!! $sortLink('ratio', 'Ratio') !!}</th>
+                <th rowspan="2" class="text-right align-bottom px-2" title="Biaya per 1000 views — versi rata-rata">{!! $sortLink('cpm_mean', 'CPM Rata-rata') !!}</th>
+                <th rowspan="2" class="text-right align-bottom px-2" title="Biaya per 1000 views — versi median (acuan utama)">{!! $sortLink('cpm', 'CPM Median') !!}</th>
+                <th rowspan="2" class="text-right align-bottom px-2" title="Biaya per satu view">{!! $sortLink('cpv', 'CPV') !!}</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="Peringkat termurah (dari CPM median) di seluruh screening">{!! $sortLink('rank', 'Rank') !!}</th>
+                <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari RATA-RATA views — bisa terangkat 1 video viral, jadi pembanding saja">{!! $sortLink('verdict_mean', 'Penilaian Rata-rata') !!}</th>
+                <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari views MEDIAN (tengah) — ACUAN UTAMA, tahan dari 1 video viral">{!! $sortLink('verdict', 'Penilaian Median ⭐') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Urut berdasarkan estimasi GMV">{!! $sortLink('gmv', 'GMV · Viral · Fake') !!}</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
             </tr>

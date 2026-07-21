@@ -341,8 +341,8 @@ class KolModuleTest extends TestCase
         $this->assertStringContainsString('105.200', $html);   // views mentah tampil
         $this->assertStringContainsString('131.400', $html);
         $this->assertStringContainsString('259.306', $html);   // total views
-        $this->assertStringContainsString('Verdict (Median)', $html);
-        $this->assertStringContainsString('Verdict (Mean)', $html);
+        $this->assertStringContainsString('Penilaian Median', $html);
+        $this->assertStringContainsString('Penilaian Rata-rata', $html);
     }
 
     /**
@@ -447,11 +447,11 @@ class KolModuleTest extends TestCase
 
         $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
 
-        // Kolom baru hasil peleburan.
-        $this->assertStringContainsString('Ind. Mean', $html);
-        $this->assertStringContainsString('Ind. Median', $html);
+        // Kolom baru hasil peleburan — label bahasa awam (bukan "Ind. Mean/Median").
+        $this->assertStringContainsString('Penilaian Rata-rata', $html);
+        $this->assertStringContainsString('Penilaian Median', $html);
         $this->assertStringContainsString('Agency', $html);
-        $this->assertStringContainsString('CPM Mean', $html);
+        $this->assertStringContainsString('CPM Rata-rata', $html);
         // Angka baris Excel: total 259.306, mean 37.044, verdict mean Sangat Bagus,
         // verdict median Worth It, GMV 3.021.912, agency tampil.
         $this->assertStringContainsString('259.306', $html);

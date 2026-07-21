@@ -86,8 +86,8 @@
                 <th rowspan="2" class="text-right align-bottom">Total</th>
                 <th rowspan="2" class="text-right align-bottom">Median</th><th rowspan="2" class="text-right align-bottom">Rata</th>
                 <th rowspan="2" class="text-right align-bottom">Ratio</th>
-                <th rowspan="2" class="text-left px-3 align-bottom" title="basis median views">Verdict (Median)</th>
-                <th rowspan="2" class="text-left px-4 align-bottom" title="basis rata-rata views — pembanding, seperti kolom Mean di Excel">Verdict (Mean)</th>
+                <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian dari views MEDIAN (tengah) — acuan utama, tahan dari 1 video viral">Penilaian Median ⭐</th>
+                <th rowspan="2" class="text-left px-4 align-bottom" title="Penilaian dari RATA-RATA views — pembanding, bisa terangkat 1 video viral">Penilaian Rata-rata</th>
                 <th rowspan="2" class="text-left px-4 align-bottom" title="Estimasi GMV + deteksi viral & followers palsu">GMV · Viral · Fake</th></tr>
             <tr>
                 @for($i = 1; $i <= 7; $i++)<th class="text-right px-2 py-1">{{ $i }}</th>@endfor
