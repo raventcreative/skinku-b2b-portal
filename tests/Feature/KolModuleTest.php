@@ -674,4 +674,86 @@ class KolModuleTest extends TestCase
         $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'tanpa_harga']))->assertOk()
             ->assertSee('tanpaharga2')->assertDontSee('adaharga');
     }
+
+    /* ---------------- Platform sosial media + tautan profil ---------------- */
+
+    /** URL profil dirakit dari platform + handle; link manual menang; '@' dibersihkan. */
+    public function test_profile_url_dirakit_dari_platform_dan_handle(): void
+    {
+        $tt = Kol::create(['tiktok_username' => 'hiitslauren_', 'platform' => 'tiktok', 'followers' => 100_000]);
+        $this->assertSame('https://www.tiktok.com/@hiitslauren_', $tt->profileUrl());
+
+        $ig = Kol::create(['tiktok_username' => 'lisaduga7', 'platform' => 'instagram', 'followers' => 100_000]);
+        $this->assertSame('https://www.instagram.com/lisaduga7', $ig->profileUrl());
+
+        $yt = Kol::create(['tiktok_username' => 'creatoryt', 'platform' => 'youtube', 'followers' => 100_000]);
+        $this->assertSame('https://www.youtube.com/@creatoryt', $yt->profileUrl());
+
+        // Link manual menang atas rakitan otomatis.
+        $manual = Kol::create(['tiktok_username' => 'xmanual', 'platform' => 'tiktok', 'tiktok_link' => 'https://vt.tiktok.com/ABC', 'followers' => 1]);
+        $this->assertSame('https://vt.tiktok.com/ABC', $manual->profileUrl());
+
+        // Platform tanpa templat & tanpa link manual → null (username tak jadi tautan luar).
+        $lain = Kol::create(['tiktok_username' => 'ylain', 'platform' => 'lainnya', 'followers' => 1]);
+        $this->assertNull($lain->profileUrl());
+
+        // '@' di depan handle dibersihkan sebelum dirakit.
+        $at = Kol::create(['tiktok_username' => '@withat', 'platform' => 'tiktok', 'followers' => 1]);
+        $this->assertSame('https://www.tiktok.com/@withat', $at->profileUrl());
+    }
+
+    /** KOL baru default TikTok — username di daftar menaut ke profil TikTok. */
+    public function test_username_default_tiktok_menautkan_ke_profil(): void
+    {
+        $spec = $this->user('kol_specialist', 'specpt');
+        Kol::create(['tiktok_username' => 'hiitslauren_', 'followers' => 100_700]);   // platform default 'tiktok'
+
+        $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('https://www.tiktok.com/@hiitslauren_', $html);
+    }
+
+    public function test_tambah_kol_dengan_platform_instagram_menyimpan_dan_menautkan(): void
+    {
+        $spec = $this->user('kol_specialist', 'specpf');
+
+        $this->actingAs($spec)->post(route('kols.store'), [
+            'tiktok_username' => 'igqueen', 'platform' => 'instagram', 'followers' => 150_000,
+        ])->assertRedirect();
+
+        $this->assertSame('instagram', Kol::where('tiktok_username', 'igqueen')->value('platform'));
+
+        $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('https://www.instagram.com/igqueen', $html);
+        $this->assertStringContainsString('Instagram', $html);
+    }
+
+    /** Form screening menyetel platform KOL baru sekaligus. */
+    public function test_screening_menyetel_platform_kol_baru(): void
+    {
+        $spec = $this->user('kol_specialist', 'specpy');
+
+        $payload = [
+            'tiktok_username' => 'ytcreator', 'platform' => 'youtube', 'followers' => 300_000,
+            'tanggal_listing' => '2026-07-10', 'ratecard' => 1_000_000,
+        ];
+        foreach (range(1, 7) as $i) {
+            $payload["views_{$i}"] = 40_000;
+        }
+
+        $this->actingAs($spec)->post(route('kol-screenings.store'), $payload)->assertRedirect();
+
+        $this->assertSame('youtube', Kol::where('tiktok_username', 'ytcreator')->value('platform'));
+    }
+
+    /** Platform di luar daftar ditolak — tak bisa nyelipkan nilai ngawur. */
+    public function test_platform_ngawur_ditolak(): void
+    {
+        $spec = $this->user('kol_specialist', 'specpx');
+
+        $this->actingAs($spec)->post(route('kols.store'), [
+            'tiktok_username' => 'badplat', 'platform' => 'myspace', 'followers' => 1,
+        ])->assertSessionHasErrors('platform');
+
+        $this->assertNull(Kol::where('tiktok_username', 'badplat')->first());
+    }
 }

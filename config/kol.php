@@ -32,6 +32,19 @@ return [
     'kategori' => ['Skinfluencer', 'Makeup', 'Lifestyle', 'Lainnya'],
 
     /*
+     * Platform sosial media + templat URL profil (%s = handle tanpa @). Dipakai
+     * agar klik username langsung membuka profilnya. 'lainnya' tanpa templat —
+     * untuk platform lain, andalkan Link profil manual. Urutan = urutan dropdown.
+     */
+    'platforms' => [
+        'tiktok' => ['label' => 'TikTok', 'url' => 'https://www.tiktok.com/@%s'],
+        'instagram' => ['label' => 'Instagram', 'url' => 'https://www.instagram.com/%s'],
+        'youtube' => ['label' => 'YouTube', 'url' => 'https://www.youtube.com/@%s'],
+        'shopee' => ['label' => 'Shopee', 'url' => 'https://shopee.co.id/%s'],
+        'lainnya' => ['label' => 'Lainnya', 'url' => null],
+    ],
+
+    /*
      * GMV + Viral + Fake Detector — angka-angka ini DARI RUMUS EXCEL kolom W
      * (terbaca langsung di formula bar), bukan tebakan:
      *   =IF(F5="","","GMV "&TEXT(ROUND(R5*0.012*38000,0),...)

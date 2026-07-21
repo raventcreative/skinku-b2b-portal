@@ -8,6 +8,7 @@ use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class KolScreeningController extends Controller
 {
@@ -17,7 +18,7 @@ class KolScreeningController extends Controller
         // diketik ulang salah eja (yang bikin duplikat).
         return view('kols.screening_form', [
             'kols' => Kol::orderBy('tiktok_username')
-                ->get(['id', 'tiktok_username', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency']),
+                ->get(['id', 'tiktok_username', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency']),
             'kategoriList' => config('kol.kategori'),
             // ?kol= pra-isi dari halaman detail KOL.
             'selectedKol' => $request->query('kol') ? Kol::find($request->query('kol')) : null,
@@ -38,6 +39,7 @@ class KolScreeningController extends Controller
     {
         $rules = [
             'tiktok_username' => ['required', 'string', 'max:100'],
+            'platform' => ['nullable', Rule::in(array_keys(config('kol.platforms')))],
             'tiktok_link' => ['nullable', 'url', 'max:255'],
             'followers' => ['required', 'integer', 'min:0'],
             'kategori' => ['nullable', 'string', 'max:100'],
@@ -59,6 +61,7 @@ class KolScreeningController extends Controller
             if (! $kol) {
                 $kol = Kol::create([
                     'tiktok_username' => $username,
+                    'platform' => $data['platform'] ?? 'tiktok',
                     'tiktok_link' => $data['tiktok_link'] ?? null,
                     'followers' => $data['followers'],
                     'kategori' => $data['kategori'] ?? null,
@@ -76,6 +79,7 @@ class KolScreeningController extends Controller
                 // Isi hanya yang dikirim; jangan menimpa kategori/link lama dengan kosong.
                 $kol->update(array_filter([
                     'followers' => $data['followers'],
+                    'platform' => $data['platform'] ?? null,
                     'tiktok_link' => $data['tiktok_link'] ?? null,
                     'kategori' => $data['kategori'] ?? null,
                     'provinsi' => $data['provinsi'] ?? null,

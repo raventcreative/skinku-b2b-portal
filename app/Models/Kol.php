@@ -20,12 +20,40 @@ class Kol extends Model
     public const STATUSES = [self::STATUS_PROSPEK, self::STATUS_AKTIF, self::STATUS_HOLD, self::STATUS_NON_AKTIF];
 
     protected $fillable = [
-        'tiktok_username', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency', 'status', 'catatan',
+        'tiktok_username', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency', 'status', 'catatan',
     ];
 
     protected function casts(): array
     {
         return ['followers' => 'integer'];
+    }
+
+    /** Handle bersih tanpa '@' — dasar merakit URL profil. */
+    public function handle(): string
+    {
+        return ltrim((string) $this->tiktok_username, '@');
+    }
+
+    /** Nama platform yang enak dibaca (TikTok, Instagram, …). */
+    public function platformLabel(): string
+    {
+        return config("kol.platforms.{$this->platform}.label", ucfirst((string) $this->platform));
+    }
+
+    /**
+     * URL profil untuk klik username. Link manual (bila diisi) menang — bisa jadi
+     * halaman spesifik yang sengaja dipilih; kalau kosong, dirakit dari platform +
+     * handle. null bila platform tak punya templat DAN tak ada link manual.
+     */
+    public function profileUrl(): ?string
+    {
+        if (filled($this->tiktok_link)) {
+            return $this->tiktok_link;
+        }
+
+        $tpl = config("kol.platforms.{$this->platform}.url");
+
+        return $tpl ? sprintf($tpl, rawurlencode($this->handle())) : null;
     }
 
     /**

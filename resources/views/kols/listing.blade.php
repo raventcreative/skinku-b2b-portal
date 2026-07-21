@@ -57,7 +57,8 @@
                     <td class="text-stone-600">{{ $s->tanggal_listing->format('d M y') }}</td>
                     <td>
                         <a href="{{ $k ? route('kols.show', $k) : '#' }}" class="font-bold text-red-700 hover:underline">{{ '@'.($k->tiktok_username ?? '?') }}</a>
-                        @if($k?->tiktok_link)<a href="{{ $k->tiktok_link }}" target="_blank" rel="noopener" class="ml-1 text-stone-400 hover:text-stone-700">↗</a>@endif
+                        @php $prof = $k?->profileUrl(); @endphp
+                        @if($prof)<a href="{{ $prof }}" target="_blank" rel="noopener" class="ml-1 text-stone-400 hover:text-stone-700" title="Buka profil {{ $k->platformLabel() }}">↗</a>@endif
                     </td>
                     <td class="text-right text-stone-700">{{ number_format((int) ($k->followers ?? 0), 0, ',', '.') }}</td>
                     <td class="text-right px-2 text-stone-700">{{ $s->ratecard !== null ? $rp($s->ratecard) : '—' }}</td>

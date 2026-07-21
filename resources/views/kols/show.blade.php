@@ -22,8 +22,14 @@
 <div class="bg-white rounded-2xl border border-stone-200 p-5 mt-3 mb-5">
     <div class="flex flex-wrap items-start gap-4">
         <div class="flex-1 min-w-[16rem]">
-            <h2 class="text-xl font-bold text-stone-900">{{ '@'.$kol->tiktok_username }}
-                @if($kol->tiktok_link)<a href="{{ $kol->tiktok_link }}" target="_blank" rel="noopener" class="text-sm text-stone-400 hover:text-stone-700">↗</a>@endif
+            @php $prof = $kol->profileUrl(); @endphp
+            <h2 class="text-xl font-bold text-stone-900">
+                @if($prof)
+                    <a href="{{ $prof }}" target="_blank" rel="noopener" class="hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
+                @else
+                    {{ '@'.$kol->tiktok_username }}
+                @endif
+                <span class="text-[11px] uppercase tracking-wide text-stone-400 align-middle ml-1">{{ $kol->platformLabel() }}</span>
             </h2>
             <p class="text-xs text-stone-500 mt-1">
                 {{ number_format($kol->followers, 0, ',', '.') }} followers · <b>{{ $kol->level }}</b>
@@ -46,7 +52,10 @@
             <summary class="text-xs font-semibold text-stone-500 cursor-pointer select-none">Edit profil KOL</summary>
             <form method="POST" action="{{ route('kols.update', $kol) }}" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm mt-3">
                 @csrf @method('PUT')
-                <input name="tiktok_link" type="url" maxlength="255" placeholder="link profil" value="{{ old('tiktok_link', $kol->tiktok_link) }}" class="px-3 py-2 border border-stone-300 rounded-lg">
+                <select name="platform" class="px-3 py-2 border border-stone-300 rounded-lg">
+                    @foreach(config('kol.platforms') as $key => $p)<option value="{{ $key }}" @selected(old('platform', $kol->platform) === $key)>{{ $p['label'] }}</option>@endforeach
+                </select>
+                <input name="tiktok_link" type="url" maxlength="255" placeholder="link profil (opsional, override otomatis)" value="{{ old('tiktok_link', $kol->tiktok_link) }}" class="px-3 py-2 border border-stone-300 rounded-lg">
                 <input name="followers" type="number" required min="0" value="{{ old('followers', $kol->followers) }}" class="px-3 py-2 border border-stone-300 rounded-lg">
                 <select name="kategori" class="px-3 py-2 border border-stone-300 rounded-lg">
                     <option value="">— kategori —</option>

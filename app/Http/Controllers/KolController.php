@@ -159,6 +159,7 @@ class KolController extends Controller
     {
         $data = $request->validate([
             'tiktok_username' => ['required', 'string', 'max:100', 'unique:kols,tiktok_username'],
+            'platform' => ['nullable', Rule::in(array_keys(config('kol.platforms')))],
             'tiktok_link' => ['nullable', 'url', 'max:255'],
             'followers' => ['required', 'integer', 'min:0'],
             'kategori' => ['nullable', 'string', 'max:100'],
@@ -193,6 +194,7 @@ class KolController extends Controller
     public function update(Request $request, Kol $kol): RedirectResponse
     {
         $data = $request->validate([
+            'platform' => ['nullable', Rule::in(array_keys(config('kol.platforms')))],
             'tiktok_link' => ['nullable', 'url', 'max:255'],
             'followers' => ['required', 'integer', 'min:0'],
             'kategori' => ['nullable', 'string', 'max:100'],

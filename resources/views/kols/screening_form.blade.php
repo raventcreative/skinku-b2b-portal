@@ -15,7 +15,7 @@
 
         <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-400 mb-2">Data KOL</p>
         <div class="grid sm:grid-cols-3 gap-3 mb-4 text-sm">
-            <label class="text-[11px] font-semibold text-stone-500">Username TikTok
+            <label class="text-[11px] font-semibold text-stone-500">Username
                 <input name="tiktok_username" id="usernameInput" required maxlength="100" list="kolList"
                     autocomplete="off" placeholder="tanpa @" value="{{ old('tiktok_username', $selectedKol?->tiktok_username) }}"
                     class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
@@ -24,8 +24,13 @@
                 </datalist>
                 <span id="kolHint" class="block mt-1 text-[10px] text-stone-400"></span>
             </label>
-            <label class="text-[11px] font-semibold text-stone-500">Link TikTok
-                <input name="tiktok_link" id="linkInput" type="url" maxlength="255" placeholder="https://tiktok.com/@…"
+            <label class="text-[11px] font-semibold text-stone-500">Platform
+                <select name="platform" id="platformInput" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    @foreach(config('kol.platforms') as $key => $p)<option value="{{ $key }}" @selected(old('platform', $selectedKol?->platform ?? 'tiktok') === $key)>{{ $p['label'] }}</option>@endforeach
+                </select>
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Link profil (opsional)
+                <input name="tiktok_link" id="linkInput" type="url" maxlength="255" placeholder="kosongkan = otomatis dari username"
                     value="{{ old('tiktok_link', $selectedKol?->tiktok_link) }}"
                     class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
             </label>
@@ -96,7 +101,7 @@ inp.addEventListener('input', () => {
     const k = KOLS.find(x => x.tiktok_username.toLowerCase() === name.toLowerCase());
     if (k) {
         hint.textContent = '✓ sudah terdaftar — screening ditambahkan ke KOL ini';
-        for (const [id, val] of [['linkInput', k.tiktok_link], ['followersInput', k.followers], ['kategoriInput', k.kategori], ['provinsiInput', k.provinsi], ['agencyInput', k.agency]]) {
+        for (const [id, val] of [['platformInput', k.platform], ['linkInput', k.tiktok_link], ['followersInput', k.followers], ['kategoriInput', k.kategori], ['provinsiInput', k.provinsi], ['agencyInput', k.agency]]) {
             const el = document.getElementById(id);
             if (el && val !== null && val !== '') el.value = val;
         }

@@ -62,8 +62,11 @@
     <p class="text-sm font-bold text-stone-800 mb-3">Tambah KOL</p>
     <form method="POST" action="{{ route('kols.store') }}" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
         @csrf
-        <input name="tiktok_username" required maxlength="100" placeholder="username TikTok (tanpa @)" value="{{ old('tiktok_username') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
-        <input name="tiktok_link" type="url" maxlength="255" placeholder="link profil (opsional)" value="{{ old('tiktok_link') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
+        <input name="tiktok_username" required maxlength="100" placeholder="username (tanpa @)" value="{{ old('tiktok_username') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
+        <select name="platform" class="px-3 py-2 border border-stone-300 rounded-lg">
+            @foreach(config('kol.platforms') as $key => $p)<option value="{{ $key }}" @selected(old('platform', 'tiktok') === $key)>{{ $p['label'] }}</option>@endforeach
+        </select>
+        <input name="tiktok_link" type="url" maxlength="255" placeholder="link profil (opsional, override otomatis)" value="{{ old('tiktok_link') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
         <input name="followers" type="number" required min="0" placeholder="followers" value="{{ old('followers') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
         <select name="kategori" class="px-3 py-2 border border-stone-300 rounded-lg">
             <option value="">— kategori —</option>
@@ -126,10 +129,10 @@
             @forelse($kols as $kol)
                 <tr class="border-t border-stone-100 hover:bg-stone-50">
                     <td class="px-4 py-2.5">
-                        <a href="{{ route('kols.show', $kol) }}" class="font-bold text-red-700 hover:underline">{{ '@'.$kol->tiktok_username }}</a>
-                        @if($kol->tiktok_link)
-                            <a href="{{ $kol->tiktok_link }}" target="_blank" rel="noopener" class="ml-1 text-stone-400 hover:text-stone-700" title="Buka TikTok">↗</a>
-                        @endif
+                        @php $prof = $kol->profileUrl(); @endphp
+                        <a href="{{ $prof ?? route('kols.show', $kol) }}" @if($prof) target="_blank" rel="noopener" @endif
+                            class="font-bold text-red-700 hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
+                        <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $kol->platformLabel() }}</span>
                     </td>
                     <td class="text-right text-stone-700">{{ number_format($kol->followers, 0, ',', '.') }}</td>
                     <td class="px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $levelBadge[$kol->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $kol->level }}</span></td>
