@@ -35,18 +35,30 @@
 
     // Angka BERBASIS PERIODE ikut filter bulan; angka SAAT INI tidak —
     // memfilter "stok sekarang" per bulan tak punya arti.
+    // Elemen ke-6 = tautan tujuan: tiap kartu bisa diklik menuju halaman yang
+    // angkanya berasal dari sana. PO Pending -> daftar PO terfilter pending, dst.
+    // Null = kartu diam (pengguna tak punya akses ke halamannya).
+    $bln = $bulan->format('Y-m');
     $cards = [
-        ['Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), 'emerald', $per, $salesBreakdown],
-        ['PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per, null],
-        ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), 'amber', $per, null],
-        ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), 'blue', $per, null],
+        ['Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), 'emerald', $per, $salesBreakdown,
+            $user->canDo('view_reports') ? route('reports.index', ['bulan' => $bln]) : null],
+        ['PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per, null,
+            route('purchase-orders.index')],
+        ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), 'amber', $per, null,
+            route('purchase-orders.index', ['status' => 'pending'])],
+        ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), 'blue', $per, null,
+            route('purchase-orders.index', ['status' => 'completed'])],
     ];
     if ($user->isStaff()) {
-        $cards[] = ['Mitra Aktif', number_format($summary['total_partners'], 0, ',', '.'), 'purple', 'saat ini', null];
-        $cards[] = ['Produk Aktif', number_format($summary['total_products'], 0, ',', '.'), 'rose', 'saat ini', null];
-        $cards[] = ['Stok Pusat (unit)', number_format($summary['hq_stock_units'], 0, ',', '.'), 'cyan', 'saat ini', null];
+        $cards[] = ['Mitra Aktif', number_format($summary['total_partners'], 0, ',', '.'), 'purple', 'saat ini', null,
+            $user->canDo('manage_users') ? route('users.index') : null];
+        $cards[] = ['Produk Aktif', number_format($summary['total_products'], 0, ',', '.'), 'rose', 'saat ini', null,
+            $user->canDo('manage_products') ? route('products.index') : null];
+        $cards[] = ['Stok Pusat (unit)', number_format($summary['hq_stock_units'], 0, ',', '.'), 'cyan', 'saat ini', null,
+            route('inventory.index')];
     } else {
-        $cards[] = ['Stok Saya (unit)', number_format($summary['partner_stock_units'], 0, ',', '.'), 'cyan', 'saat ini', null];
+        $cards[] = ['Stok Saya (unit)', number_format($summary['partner_stock_units'], 0, ',', '.'), 'cyan', 'saat ini', null,
+            route('inventory.index')];
     }
 @endphp
 
@@ -64,8 +76,11 @@
 </div>
 
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    @foreach($cards as [$label, $value, $color, $note, $breakdown])
-        <div class="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col">
+    @foreach($cards as [$label, $value, $color, $note, $breakdown, $link])
+        {{-- Kartu ber-tautan = <a> utuh (seluruh kartu bisa diklik), bukan cuma
+             teks kecil tersembunyi. Hover memberi tanda bisa diklik. --}}
+        <{{ $link ? 'a' : 'div' }} @if($link) href="{{ $link }}" @endif
+            class="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col {{ $link ? 'hover:border-stone-400 hover:shadow-sm transition cursor-pointer' : '' }}">
             <div class="flex items-baseline justify-between gap-1">
                 <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">{{ $label }}</p>
                 <span class="text-[9px] text-stone-300 shrink-0">{{ $note }}</span>
@@ -90,7 +105,7 @@
             @endif
 
             <span class="inline-block mt-3 w-8 h-1 rounded bg-{{ $color }}-500"></span>
-        </div>
+        </{{ $link ? 'a' : 'div' }}>
     @endforeach
 </div>
 

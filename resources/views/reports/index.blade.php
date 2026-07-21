@@ -113,7 +113,8 @@
 <div class="grid lg:grid-cols-2 gap-6">
     <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">{{ $isPartner ? 'Tren Pembelian Saya' : 'Tren Penjualan' }}</h3><canvas id="trendChart" height="140"></canvas></div>
     <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">{{ $isPartner ? 'Produk Paling Sering Saya Beli' : 'Top 10 Produk' }}</h3><canvas id="productChart" height="140"></canvas></div>
-    <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">{{ $isPartner ? 'Status PO Saya' : 'Distribusi Status PO' }}</h3><canvas id="statusChart" height="140"></canvas></div>
+    <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">{{ $isPartner ? 'Status PO Saya' : 'Distribusi Status PO' }}</h3>{{-- Tinggi wadah mengunci ukuran pie: tanpa ini canvas melebar sekolom
+        penuh dan pie-nya ikut membesar setinggi lebarnya. --}}<div style="height:260px"><canvas id="statusChart"></canvas></div></div>
     @unless($isPartner)
     <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">Stok HQ vs Mitra</h3><canvas id="inventoryChart" height="140"></canvas></div>
     @endunless
@@ -207,7 +208,7 @@
     const trendLabel = @json($isPartner ? 'Pembelian' : 'Penjualan');
     new Chart(document.getElementById('trendChart'), { type:'line', data:{ labels:D.trend.map(r=>r.label), datasets:[{label:trendLabel,data:D.trend.map(r=>r.total),borderColor:'#0f4c3a',backgroundColor:'rgba(15,76,58,.1)',fill:true,tension:.3}]}, options:{plugins:{legend:{display:false}}}});
     new Chart(document.getElementById('productChart'), { type:'bar', data:{ labels:D.product.map(r=>r.label), datasets:[{label:'Nilai',data:D.product.map(r=>r.revenue),backgroundColor:'#c8a96a'}]}, options:{indexAxis:'y',plugins:{legend:{display:false}}}});
-    new Chart(document.getElementById('statusChart'), { type:'pie', data:{ labels:D.status.map(r=>r.label), datasets:[{data:D.status.map(r=>r.total),backgroundColor:palette}]}, options:{plugins:{legend:{position:'right',labels:{font:{size:10}}}}}});
+    new Chart(document.getElementById('statusChart'), { type:'pie', data:{ labels:D.status.map(r=>r.label), datasets:[{data:D.status.map(r=>r.total),backgroundColor:palette}]}, options:{maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10}}}}}});
     @unless($isPartner)
     new Chart(document.getElementById('inventoryChart'), { type:'bar', data:{ labels:D.inventory.map(r=>r.label), datasets:[{label:'HQ',data:D.inventory.map(r=>r.hq_stock),backgroundColor:'#1c1917'},{label:'Mitra',data:D.inventory.map(r=>r.partner_stock),backgroundColor:'#c8a96a'}]}, options:{scales:{x:{stacked:false}}}});
     @endunless

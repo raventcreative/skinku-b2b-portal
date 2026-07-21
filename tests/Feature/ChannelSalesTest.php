@@ -320,4 +320,30 @@ class ChannelSalesTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    /**
+     * Kartu dashboard = hyperlink ke halaman asal angkanya: PO Pending menuju
+     * daftar PO terfilter pending, dst. Kartu tanpa akses tetap div diam.
+     */
+    public function test_kartu_dashboard_bertautan_ke_halaman_terkait(): void
+    {
+        $admin = User::create([
+            'name' => 'L', 'fullname' => 'L', 'username' => 'chlink', 'email' => 'chl@skinku.test',
+            'password' => Hash::make('secret123'),
+            'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $html = $this->actingAs($admin)->get('/dashboard')->assertOk()->getContent();
+
+        $this->assertStringContainsString('purchase-orders?status=pending', $html);
+        $this->assertStringContainsString('purchase-orders?status=completed', $html);
+        $this->assertStringContainsString(route('inventory.index'), $html);
+        $this->assertStringContainsString(route('users.index'), $html);      // admin punya manage_users
+
+        // Pie status PO di Laporan Penjualan dikekang tingginya — tidak lagi
+        // membesar sekolom penuh.
+        $html = $this->actingAs($admin)->get('/reports')->assertOk()->getContent();
+        $this->assertStringContainsString('height:260px', $html);
+        $this->assertStringContainsString('maintainAspectRatio:false', $html);
+    }
 }
