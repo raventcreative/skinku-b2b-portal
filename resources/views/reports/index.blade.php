@@ -120,7 +120,7 @@
     @endunless
     @if(isset($salesByDistributor))
         <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">Penjualan per Distributor</h3><canvas id="distChart" height="140"></canvas></div>
-        <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">Penjualan per Region</h3><canvas id="regionChart" height="140"></canvas></div>
+        <div class="bg-white rounded-2xl border border-stone-200 p-5"><h3 class="text-sm font-bold text-stone-800 mb-3">Penjualan per Region</h3><div style="height:260px"><canvas id="regionChart"></canvas></div></div>
     @endif
 </div>
 
@@ -214,7 +214,7 @@
     @endunless
     @if(isset($salesByDistributor))
     new Chart(document.getElementById('distChart'), { type:'bar', data:{ labels:D.dist.map(r=>r.label), datasets:[{label:'Revenue',data:D.dist.map(r=>r.revenue),backgroundColor:'#3b82f6'}]}, options:{plugins:{legend:{display:false}}}});
-    new Chart(document.getElementById('regionChart'), { type:'doughnut', data:{ labels:D.region.map(r=>r.label), datasets:[{data:D.region.map(r=>r.revenue),backgroundColor:palette}]}, options:{plugins:{legend:{position:'right',labels:{font:{size:10}}}}}});
+    new Chart(document.getElementById('regionChart'), { type:'doughnut', data:{ labels:D.region.map(r=>r.label), datasets:[{data:D.region.map(r=>r.revenue),backgroundColor:palette}]}, options:{maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10}}}}}});
     @endif
 </script>
 @endpush

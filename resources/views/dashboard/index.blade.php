@@ -116,7 +116,7 @@
     </div>
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <h3 class="text-sm font-bold text-stone-800 mb-3">Distribusi Status PO — {{ $bulan->translatedFormat('M Y') }}</h3>
-        <canvas id="poStatusChart" height="200"></canvas>
+        <div style="height:260px"><canvas id="poStatusChart"></canvas></div>
     </div>
 </div>
 
@@ -345,7 +345,7 @@
             labels: poStatus.map(r => r.label),
             datasets: [{ data: poStatus.map(r => r.total), backgroundColor: ['#a8a29e','#f59e0b','#3b82f6','#8b5cf6','#06b6d4','#10b981','#ef4444','#1c1917'] }]
         },
-        options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+        options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
     });
 
     @if(($channelSales ?? null))

@@ -343,7 +343,8 @@ class ChannelSalesTest extends TestCase
         // Pie status PO di Laporan Penjualan dikekang tingginya — tidak lagi
         // membesar sekolom penuh.
         $html = $this->actingAs($admin)->get('/reports')->assertOk()->getContent();
-        $this->assertStringContainsString('height:260px', $html);
-        $this->assertStringContainsString('maintainAspectRatio:false', $html);
+        // Status PO DAN Region — dua-duanya donat/pie yang pernah membesar liar.
+        $this->assertSame(2, substr_count($html, 'height:260px'));
+        $this->assertSame(2, substr_count($html, 'maintainAspectRatio:false'));
     }
 }
