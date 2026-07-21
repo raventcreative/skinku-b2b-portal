@@ -133,12 +133,29 @@
                                     </div>
                                 @endif
                                 @if($atts->count() < 8)
-                                    <form method="POST" action="{{ route('kanban.cards.attachments.store', $card) }}" enctype="multipart/form-data" class="flex items-center gap-2">
+                                    {{-- Pilih & pratinjau dulu (tile "Tambah Foto" ala galeri), lalu
+                                         unggah sekaligus. File dimasukkan ke input via JS (DataTransfer)
+                                         sebelum form submit normal — server tetap terima images[]. --}}
+                                    <form method="POST" action="{{ route('kanban.cards.attachments.store', $card) }}"
+                                        enctype="multipart/form-data" data-attach-form data-remaining="{{ 8 - $atts->count() }}">
                                         @csrf
-                                        <input type="file" name="images[]" accept="image/*" multiple required class="flex-1 text-xs">
-                                        <button class="px-3 py-2 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800 whitespace-nowrap">Unggah</button>
+                                        <input type="file" name="images[]" accept="image/*" multiple class="hidden" data-attach-input>
+                                        <div class="grid grid-cols-3 gap-2" data-attach-preview>
+                                            {{-- Pratinjau file terpilih disisipkan JS sebelum tile ini. --}}
+                                            <button type="button" data-attach-add
+                                                class="flex flex-col items-center justify-center h-24 rounded-lg border-2 border-dashed border-stone-300 text-stone-400 hover:border-stone-400 hover:text-stone-600">
+                                                <span class="text-2xl leading-none">+</span>
+                                                <span class="text-[10px] mt-1">Tambah Foto</span>
+                                            </button>
+                                        </div>
+                                        <div class="flex items-center gap-2 mt-2">
+                                            <button data-attach-submit disabled
+                                                class="px-3 py-2 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
+                                                Unggah <span data-attach-count></span>
+                                            </button>
+                                            <span class="text-[10px] text-stone-400">sisa {{ 8 - $atts->count() }} slot · jpg/png/webp/gif · auto-perkecil 1280px</span>
+                                        </div>
                                     </form>
-                                    <p class="text-[10px] text-stone-400 mt-1">bisa pilih beberapa sekaligus · jpg/png/webp/gif · otomatis diperkecil (maks 1280px) · sisa {{ 8 - $atts->count() }} slot</p>
                                 @else
                                     <p class="text-[10px] text-stone-400">Batas 8 lampiran tercapai — hapus salah satu untuk menambah.</p>
                                 @endif
@@ -246,6 +263,64 @@ new Sortable(document.getElementById('boardColumns'), {
         const ids = [...document.querySelectorAll('[data-column]')].map(c => c.dataset.column);
         post(`{{ route('kanban.columns.reorder', $board) }}`, { ordered_ids: ids });
     },
+});
+
+// Lampiran ala "Tambah Foto": klik tile -> pilih file -> pratinjau (bisa ✕
+// buang) -> "Unggah" sekali untuk semua. File dimasukkan ke input lewat
+// DataTransfer sebelum form submit normal, jadi server tetap terima images[].
+document.querySelectorAll('[data-attach-form]').forEach(form => {
+    const input   = form.querySelector('[data-attach-input]');
+    const grid    = form.querySelector('[data-attach-preview]');
+    const addTile = form.querySelector('[data-attach-add]');
+    const submit  = form.querySelector('[data-attach-submit]');
+    const countEl = form.querySelector('[data-attach-count]');
+    const remaining = parseInt(form.dataset.remaining) || 0;
+    let pending = [];   // File[] yang menunggu diunggah
+
+    const render = () => {
+        grid.querySelectorAll('[data-preview-tile]').forEach(t => {
+            URL.revokeObjectURL(t.querySelector('img').src);
+            t.remove();
+        });
+        pending.forEach((file, i) => {
+            const tile = document.createElement('div');
+            tile.dataset.previewTile = '';
+            tile.className = 'relative h-24 rounded-lg border border-stone-200 overflow-hidden';
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            img.className = 'w-full h-full object-cover';
+            const x = document.createElement('button');
+            x.type = 'button';
+            x.textContent = '✕';
+            x.title = 'Buang';
+            x.className = 'absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs leading-none hover:bg-rose-600';
+            x.addEventListener('click', () => { pending.splice(i, 1); render(); });
+            tile.append(img, x);
+            grid.insertBefore(tile, addTile);
+        });
+        addTile.style.display = pending.length >= remaining ? 'none' : '';
+        countEl.textContent = pending.length ? `${pending.length} foto` : '';
+        submit.disabled = pending.length === 0;
+    };
+
+    addTile.addEventListener('click', () => input.click());
+
+    input.addEventListener('change', () => {
+        for (const file of input.files) {
+            if (!file.type.startsWith('image/')) { alert(`"${file.name}" bukan gambar — dilewati.`); continue; }
+            if (pending.length >= remaining) { alert(`Maksimal ${remaining} foto lagi untuk kartu ini.`); break; }
+            pending.push(file);
+        }
+        input.value = '';   // reset agar file sama bisa dipilih lagi; kita kontrol via DataTransfer
+        render();
+    });
+
+    form.addEventListener('submit', (e) => {
+        if (pending.length === 0) { e.preventDefault(); return; }
+        const dt = new DataTransfer();
+        pending.forEach(f => dt.items.add(f));
+        input.files = dt.files;   // isi input dengan file pending sebelum submit
+    });
 });
 </script>
 @endsection
