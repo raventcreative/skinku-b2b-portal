@@ -19,6 +19,7 @@
 <div class="flex flex-wrap items-center gap-3 mb-4">
     <a href="{{ route('kols.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Database KOL</a>
     <p class="text-xs text-stone-400">Satu baris = satu screening/listing, persis sheet <b>Listing KOL</b>. Data baru masuk lewat tombol + Screening di Database KOL.</p>
+    <a href="{{ route('kols.listing.export') }}" class="ml-auto px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Export Excel</a>
 </div>
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">

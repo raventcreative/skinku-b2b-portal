@@ -72,6 +72,8 @@
                     <a href="{{ route('partner-sales.index') }}" class="text-[11px] text-indigo-600 hover:underline">semua</a>
                 @endif
             </form>
+            <a href="{{ route('partner-sales.export', array_filter(['bulan' => $bulan?->format('Y-m')])) }}"
+                class="px-3 py-1.5 text-xs bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Excel</a>
         </div>
 
         <div class="px-4 py-2.5 bg-stone-50 border-b border-stone-100 flex flex-wrap items-baseline gap-2 text-xs">

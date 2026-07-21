@@ -25,6 +25,8 @@
              sehingga memilih bulan dari mode ini malah terkirim sebagai "all". --}}
         <span class="text-xs text-stone-400">menampilkan semua periode — pilih bulan untuk mempersempit</span>
     @endif
+    <a href="{{ route('reports.export', array_filter(['bulan' => request('bulan')])) }}"
+        class="ml-auto px-3 py-1.5 text-xs bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Export Excel</a>
 </form>
 
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

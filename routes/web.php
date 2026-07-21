@@ -7,6 +7,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackdatedSaleController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\InventoryController;
@@ -71,6 +72,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
     });
 
+    // Export SEBELUM {purchaseOrder}: tanpa ini, "export" tertelan model binding.
+    Route::get('/purchase-orders/export', [ExportController::class, 'purchaseOrders'])->name('purchase-orders.export');
     Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
     Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
 
@@ -99,6 +102,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     // Penjualan mitra ke customer akhir (barang keluar bentuk nota). Di bawah
     // menu Stok, bukan menu sidebar baru.
     Route::get('/inventory/sales', [PartnerSaleController::class, 'index'])->name('partner-sales.index');
+    Route::get('/inventory/sales/export', [ExportController::class, 'partnerSales'])->name('partner-sales.export');
     Route::post('/inventory/sales', [PartnerSaleController::class, 'store'])->name('partner-sales.store');
     Route::post('/inventory/minimum', [InventoryController::class, 'setMinimum'])->name('inventory.minimum');
 
@@ -110,6 +114,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/stok-opname', [StockOpnameController::class, 'index'])->name('stok-opname.index');
         Route::post('/stok-opname', [StockOpnameController::class, 'store'])->name('stok-opname.store');
         Route::get('/laporan-stok-hq', [HqStockReportController::class, 'index'])->name('hq-stock.report');
+        Route::get('/laporan-stok-hq/export', [ExportController::class, 'stokHq'])->name('hq-stock.export');
 
         // Catat penjualan distributor yang sudah terjadi (back-date, dari Excel)
         Route::get('/penjualan-backdate', [BackdatedSaleController::class, 'index'])->name('backdated-sales.index');
@@ -155,6 +160,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     /* ---------------- Reports ---------------- */
     Route::middleware('permission:view_reports')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/export', [ExportController::class, 'penjualan'])->name('reports.export');
         Route::get('/reports/chart-data', [ReportController::class, 'chartData'])->name('reports.chart-data');
     });
 
@@ -209,6 +215,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/kols', [KolController::class, 'index'])->name('kols.index');
         // Replika sheet "Listing KOL" — satu baris per screening, kolom persis Excel.
         Route::get('/kols/listing', [KolController::class, 'listing'])->name('kols.listing');
+        Route::get('/kols/listing/export', [ExportController::class, 'listingKol'])->name('kols.listing.export');
+        Route::get('/kols/export', [ExportController::class, 'databaseKol'])->name('kols.export');
         Route::get('/kols/{kol}', [KolController::class, 'show'])->whereNumber('kol')->name('kols.show');
 
         Route::middleware('permission:kol.screening.manage')->group(function () {

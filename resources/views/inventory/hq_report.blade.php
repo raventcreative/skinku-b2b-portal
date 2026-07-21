@@ -40,6 +40,8 @@
     <div class="flex items-center gap-1">
         <a href="{{ route('hq-stock.report', ['mode' => $mode, 'date' => $prev]) }}" class="px-3 py-2 border border-stone-300 rounded-lg text-sm hover:bg-stone-50">←</a>
         <a href="{{ route('hq-stock.report', ['mode' => $mode, 'date' => $next]) }}" class="px-3 py-2 border border-stone-300 rounded-lg text-sm hover:bg-stone-50">→</a>
+        <a href="{{ route('hq-stock.export', ['mode' => $mode, 'date' => $anchor]) }}"
+            class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Export Excel</a>
     </div>
     <div class="flex-1 min-w-[140px] text-right">
         <span class="text-lg font-bold text-stone-800">{{ $label }}</span>
