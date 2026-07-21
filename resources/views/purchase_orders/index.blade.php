@@ -43,6 +43,7 @@
                 <th class="text-left">Tanggal</th>
                 <th class="text-right">Total</th>
                 <th class="text-left">Status</th>
+                <th class="text-left">Pembayaran</th>
                 <th class="text-right px-4">Aksi</th>
             </tr>
         </thead>
@@ -54,6 +55,30 @@
                     <td class="text-stone-500">{{ $po->created_at?->format('d M Y H:i') }}</td>
                     <td class="text-right">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</td>
                     <td><span class="px-2 py-0.5 rounded-full text-[10px] bg-stone-100 text-stone-700">{{ $po->status }}</span></td>
+                    <td class="whitespace-nowrap">
+                        @php
+                            // Sisa dari withSum (tanpa query per baris). Badge bayar
+                            // terpisah dari status order: PO 'completed' pun bisa
+                            // belum lunas kalau kesepakatannya tempo.
+                            $lunas = $po->payment_status === \App\Models\PurchaseOrder::PAYMENT_PAID;
+                            $batal = in_array($po->status, [\App\Models\PurchaseOrder::STATUS_CANCELLED, \App\Models\PurchaseOrder::STATUS_DRAFT], true);
+                            $sisa = max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0));
+                        @endphp
+                        @if($batal)
+                            <span class="text-stone-300 text-[10px]">—</span>
+                        @elseif($lunas)
+                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-semibold">🟢 Lunas</span>
+                        @elseif($po->is_tempo)
+                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-violet-100 text-violet-700 font-semibold" title="Tempo/cicilan{{ $po->tempo_due_date ? ' · jatuh tempo '.$po->tempo_due_date->format('d M Y') : '' }}">
+                                🟣 Tempo · sisa Rp {{ number_format($sisa, 0, ',', '.') }}
+                            </span>
+                            @if($po->tempo_due_date && $po->tempo_due_date->isPast())
+                                <span class="block text-[9px] text-rose-600 font-bold mt-0.5">jatuh tempo lewat!</span>
+                            @endif
+                        @else
+                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-rose-100 text-rose-700 font-semibold">🔴 Belum Lunas</span>
+                        @endif
+                    </td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
                         <a href="{{ route('purchase-orders.show', $po) }}" class="text-stone-600 hover:text-red-600 font-semibold">Detail</a>
                         @if($u->isStaff() && $u->canDo('delete_po'))
@@ -65,7 +90,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="px-4 py-6 text-center text-stone-400">Belum ada PO.</td></tr>
+                <tr><td colspan="7" class="px-4 py-6 text-center text-stone-400">Belum ada PO.</td></tr>
             @endforelse
         </tbody>
     </table>

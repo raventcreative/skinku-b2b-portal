@@ -174,4 +174,35 @@ class TempoPaymentTest extends TestCase
         $this->assertFalse((bool) $po->fresh()->is_tempo);
         $this->assertSame(0, $po->payments()->count());
     }
+
+    /**
+     * DAFTAR PO menampilkan badge pembayaran per baris — bukan cuma status
+     * order. PO 'completed' yang tempo & belum lunas harus tetap kelihatan
+     * belum lunasnya di daftar (keluhan nyata: tak ada tandanya di list).
+     */
+    public function test_daftar_po_menampilkan_badge_pembayaran(): void
+    {
+        $svc = app(PurchaseOrderService::class);
+        $admin = $this->admin();
+
+        // Tempo completed, dicicil sebagian → badge Tempo + sisa.
+        $tempo = $this->po(2_980_000);
+        $svc->setTempo($tempo, true, null, '2026-08-31');
+        $svc->recordPayment($tempo->fresh(), 1_000_000, '2026-07-21', null, $admin->id);
+        $tempo->update(['status' => PurchaseOrder::STATUS_COMPLETED]);
+
+        // Lunas penuh.
+        $lunas = $this->po(500_000);
+        $lunas->update(['payment_status' => PurchaseOrder::PAYMENT_PAID]);
+
+        // Belum lunas, bukan tempo.
+        $belum = $this->po(300_000);
+
+        $html = $this->actingAs($admin)->get(route('purchase-orders.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Tempo · sisa Rp 1.980.000', $html);   // completed pun tetap ketahuan belum lunas
+        $this->assertStringContainsString('🟢 Lunas', $html);
+        $this->assertStringContainsString('🔴 Belum Lunas', $html);
+        $this->assertStringContainsString('Pembayaran', $html);                  // kolom baru
+    }
 }

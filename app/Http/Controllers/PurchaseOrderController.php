@@ -23,6 +23,9 @@ class PurchaseOrderController extends Controller
 
         $orders = PurchaseOrder::query()
             ->with('user')
+            // Jumlah cicilan per PO sekaligus — badge "Sisa" di daftar tak boleh
+            // memicu satu query per baris (N+1 di 15 baris per halaman).
+            ->withSum('payments', 'amount')
             ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             // bayar=belum -> semua yang belum lunas (termasuk tempo berjalan);
