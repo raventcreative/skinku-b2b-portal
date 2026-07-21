@@ -4,12 +4,16 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\Board;
+use App\Models\BoardCard;
 use App\Models\BoardColumn;
+use App\Models\PurchaseOrder;
 use App\Models\RolePermission;
 use App\Models\User;
 use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class KanbanTest extends TestCase
@@ -272,5 +276,121 @@ class KanbanTest extends TestCase
         $html = $this->actingAs($admin)->get(route('kanban.show', $board))->assertOk()->getContent();
         $this->assertStringContainsString('catatan penting dari mantan staf', $html);
         $this->assertStringContainsString('(akun terhapus)', $html);
+    }
+
+    /* ---------------- Lampiran gambar kartu ---------------- */
+
+    /** Lampiran diunggah, diperkecil (maks 1280px, jadi .jpg), tersimpan sbagai File. */
+    public function test_unggah_lampiran_gambar_diperkecil_dan_tersimpan(): void
+    {
+        Storage::fake('public');
+        $admin = $this->user(User::ROLE_ADMIN, 'kbatt1');
+        $board = $this->board($admin);
+        $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
+
+        $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
+            'image' => UploadedFile::fake()->image('mockup.png', 2400, 1600),
+        ])->assertRedirect();
+
+        $this->assertSame(1, $card->files()->where('collection', BoardCard::ATTACHMENT)->count());
+        $file = $card->files()->first();
+        Storage::disk('public')->assertExists($file->path);
+        $this->assertStringEndsWith('.jpg', $file->path);                          // lewat jalur resize
+        [$w, $h] = getimagesize(Storage::disk('public')->path($file->path));
+        $this->assertLessThanOrEqual(1280, max($w, $h));                           // benar-benar diperkecil
+
+        // Muncul di modal kartu + badge lampiran di muka kartu.
+        $html = $this->actingAs($admin)->get(route('kanban.show', $board))->getContent();
+        $this->assertStringContainsString('🖼️ 1', $html);
+    }
+
+    public function test_hapus_lampiran_kartu(): void
+    {
+        Storage::fake('public');
+        $admin = $this->user(User::ROLE_ADMIN, 'kbatt2');
+        $board = $this->board($admin);
+        $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
+        $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
+            'image' => UploadedFile::fake()->image('x.jpg'),
+        ]);
+        $file = $card->files()->first();
+
+        $this->actingAs($admin)->delete(route('kanban.attachments.destroy', $file))->assertRedirect();
+
+        $this->assertDatabaseMissing('files', ['id' => $file->id]);
+        Storage::disk('public')->assertMissing($file->path);                       // berkas fisik ikut hilang
+    }
+
+    public function test_batas_delapan_lampiran(): void
+    {
+        Storage::fake('public');
+        $admin = $this->user(User::ROLE_ADMIN, 'kbatt3');
+        $board = $this->board($admin);
+        $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
+
+        // Isi 8 slot langsung (tanpa 8x resize), lalu ke-9 lewat HTTP harus ditolak.
+        for ($i = 0; $i < 8; $i++) {
+            $card->files()->create([
+                'collection' => BoardCard::ATTACHMENT, 'disk' => 'public',
+                'path' => "card_attachment/x{$i}.jpg", 'sort_order' => $i,
+            ]);
+        }
+
+        $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
+            'image' => UploadedFile::fake()->image('lebih.jpg'),
+        ])->assertSessionHasErrors('image');
+
+        $this->assertSame(8, $card->files()->count());
+    }
+
+    /** Non-gambar (mis. PDF) ditolak — kolomnya khusus lampiran gambar. */
+    public function test_lampiran_bukan_gambar_ditolak(): void
+    {
+        Storage::fake('public');
+        $admin = $this->user(User::ROLE_ADMIN, 'kbatt4');
+        $board = $this->board($admin);
+        $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
+
+        $this->actingAs($admin)->post(route('kanban.cards.attachments.store', $card), [
+            'image' => UploadedFile::fake()->create('dokumen.pdf', 100, 'application/pdf'),
+        ])->assertSessionHasErrors('image');
+
+        $this->assertSame(0, $card->files()->count());
+    }
+
+    /**
+     * Route hapus lampiran TAK boleh jadi pintu menghapus File modul lain (bukti
+     * bayar / foto produk) hanya dengan menebak id — tabel File dipakai bersama.
+     */
+    public function test_hapus_lampiran_tak_bisa_menyentuh_file_modul_lain(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN, 'kbatt5');
+        $po = PurchaseOrder::create([
+            'po_number' => 'PO-ATT', 'created_by' => $admin->id, 'user_id' => $admin->id,
+            'user_role' => 'admin', 'company_name' => 'X CO', 'status' => 'completed', 'total_amount' => 1,
+        ]);
+        $foreign = $po->files()->create([
+            'collection' => PurchaseOrder::PAYMENT_PROOF, 'disk' => 'public',
+            'path' => 'payment_proof/keep.jpg', 'sort_order' => 0,
+        ]);
+
+        $this->actingAs($admin)->delete(route('kanban.attachments.destroy', $foreign))->assertNotFound();
+        $this->assertDatabaseHas('files', ['id' => $foreign->id]);                 // aman, tak terhapus
+    }
+
+    /** Mitra (internal-only) tak boleh mengunggah lampiran. */
+    public function test_mitra_tak_bisa_unggah_lampiran(): void
+    {
+        Storage::fake('public');
+        $admin = $this->user(User::ROLE_ADMIN, 'kbatt6');
+        $board = $this->board($admin);
+        $card = $board->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
+        $mitra = $this->user(User::ROLE_DISTRIBUTOR, 'kbattmitra');
+
+        $this->actingAs($mitra)->post(route('kanban.cards.attachments.store', $card), [
+            'image' => UploadedFile::fake()->image('x.jpg'),
+        ])->assertForbidden();
+
+        $this->assertSame(0, $card->files()->count());
     }
 }

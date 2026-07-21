@@ -6,8 +6,10 @@ use App\Models\Board;
 use App\Models\BoardCard;
 use App\Models\BoardCardComment;
 use App\Models\BoardColumn;
+use App\Models\File;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\ImageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +23,11 @@ use Illuminate\Support\Facades\DB;
  */
 class KanbanController extends Controller
 {
+    /** Batas lampiran per kartu — cukup untuk mockup/referensi, bukan galeri. */
+    private const MAX_ATTACHMENTS = 8;
+
+    public function __construct(private ImageService $images) {}
+
     public function index()
     {
         $boards = Board::query()
@@ -60,7 +67,7 @@ class KanbanController extends Controller
 
     public function show(Board $board)
     {
-        $board->load(['columns.cards.assignee', 'columns.cards.comments.author']);
+        $board->load(['columns.cards.assignee', 'columns.cards.comments.author', 'columns.cards.files']);
 
         // Kandidat penanggung jawab: pengguna internal aktif — mitra tak ikut
         // (mereka tak punya akses kanban sama sekali).
@@ -215,6 +222,46 @@ class KanbanController extends Controller
         $comment->delete();
 
         return back()->with('status', 'Komentar dihapus.');
+    }
+
+    /* ---------------- Lampiran gambar kartu ---------------- */
+
+    /**
+     * Unggah lampiran gambar ke kartu. ImageService memperkecil (maks 1280px,
+     * JPEG q80) sebelum menyimpan — foto HP 4MB jadi ratusan KB, hemat storage
+     * server. Disimpan di disk publik + baris File (bukan blob DB), sama seperti
+     * foto produk & bukti bayar.
+     */
+    public function storeAttachment(Request $request, BoardCard $card): RedirectResponse
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:12288'],
+        ]);
+
+        if ($card->files()->where('collection', BoardCard::ATTACHMENT)->count() >= self::MAX_ATTACHMENTS) {
+            return back()->withErrors(['image' => 'Lampiran kartu sudah mencapai batas '.self::MAX_ATTACHMENTS.' gambar — hapus salah satu dulu.']);
+        }
+
+        $this->images->attach($card, $request->file('image'), BoardCard::ATTACHMENT);
+
+        return back()->with('status', 'Lampiran ditambahkan.');
+    }
+
+    /**
+     * Hapus satu lampiran. Route ini HANYA untuk lampiran kartu — dijaga ketat
+     * supaya tak bisa dipakai menghapus bukti bayar / foto produk (tabel File
+     * dipakai banyak modul) hanya dengan menebak id.
+     */
+    public function destroyAttachment(File $file): RedirectResponse
+    {
+        abort_unless(
+            $file->fileable_type === BoardCard::class && $file->collection === BoardCard::ATTACHMENT,
+            404,
+        );
+
+        $file->delete(); // hook model File menghapus berkas fisiknya juga
+
+        return back()->with('status', 'Lampiran dihapus.');
     }
 
     /**

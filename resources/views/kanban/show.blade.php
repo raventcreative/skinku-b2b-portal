@@ -53,7 +53,10 @@
 
             <div class="px-2 pb-2 space-y-2 min-h-[2.5rem]" data-cards data-column-id="{{ $column->id }}">
                 @foreach($column->cards as $card)
-                    @php $overdue = $card->due_date && $card->due_date->isPast(); @endphp
+                    @php
+                        $overdue = $card->due_date && $card->due_date->isPast();
+                        $atts = $card->attachments();
+                    @endphp
                     {{-- Muka kartu ala Trello: judul + badge. Klik → modal detail. --}}
                     <div class="bg-white rounded-xl border border-stone-200 shadow-sm p-3 cursor-grab hover:border-stone-300"
                         data-card="{{ $card->id }}" data-opens="cardModal-{{ $card->id }}">
@@ -64,6 +67,7 @@
                             @endif
                             @if($card->description)<span class="text-stone-400" title="ada deskripsi">≡</span>@endif
                             @if($card->comments->count())<span class="text-stone-500">💬 {{ $card->comments->count() }}</span>@endif
+                            @if($atts->count())<span class="text-stone-500" title="ada lampiran">🖼️ {{ $atts->count() }}</span>@endif
                             @if($card->assignee)
                                 <span class="ml-auto px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">{{ $card->assignee->fullname }}</span>
                             @endif
@@ -105,6 +109,40 @@
                                 </div>
                                 <button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700">Simpan Kartu</button>
                             </form>
+
+                            {{-- Lampiran gambar — mockup, tangkapan layar, referensi. Form
+                                 terpisah dari form kartu di atas (input file butuh multipart &
+                                 route sendiri; HTML tak boleh form bersarang). --}}
+                            <div class="mt-5 pt-4 border-t border-stone-100">
+                                <p class="text-[11px] font-semibold text-stone-500 mb-2">🖼️ Lampiran ({{ $atts->count() }}/8)</p>
+                                @if($atts->count())
+                                    <div class="grid grid-cols-3 gap-2 mb-3">
+                                        @foreach($atts as $att)
+                                            <div class="relative group">
+                                                <a href="{{ $att->url() }}" target="_blank" rel="noopener">
+                                                    <img src="{{ $att->url() }}" alt="{{ $att->original_name }}" loading="lazy"
+                                                        class="w-full h-24 object-cover rounded-lg border border-stone-200">
+                                                </a>
+                                                <form method="POST" action="{{ route('kanban.attachments.destroy', $att) }}"
+                                                    onsubmit="return confirm('Hapus lampiran ini?')" class="absolute top-1 right-1">
+                                                    @csrf @method('DELETE')
+                                                    <button class="w-6 h-6 rounded-full bg-black/60 text-white text-xs leading-none hover:bg-rose-600" title="Hapus lampiran">✕</button>
+                                                </form>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                                @if($atts->count() < 8)
+                                    <form method="POST" action="{{ route('kanban.cards.attachments.store', $card) }}" enctype="multipart/form-data" class="flex items-center gap-2">
+                                        @csrf
+                                        <input type="file" name="image" accept="image/*" required class="flex-1 text-xs">
+                                        <button class="px-3 py-2 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800 whitespace-nowrap">Unggah</button>
+                                    </form>
+                                    <p class="text-[10px] text-stone-400 mt-1">jpg/png/webp/gif · otomatis diperkecil (maks 1280px) agar hemat storage</p>
+                                @else
+                                    <p class="text-[10px] text-stone-400">Batas 8 lampiran tercapai — hapus salah satu untuk menambah.</p>
+                                @endif
+                            </div>
 
                             {{-- Thread komentar — kronologis, seperti Trello. --}}
                             <div class="mt-5 pt-4 border-t border-stone-100">
