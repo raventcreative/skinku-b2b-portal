@@ -40,6 +40,7 @@ class KolService
                     'kategori' => $data['kategori'] ?? null,
                     'provinsi' => $data['provinsi'] ?? null,
                     'agency' => $data['agency'] ?? null,
+                    'phone' => $data['phone'] ?? null,
                 ]);
                 $created = true;
             } else {
@@ -51,6 +52,7 @@ class KolService
                     'kategori' => $data['kategori'] ?? null,
                     'provinsi' => $data['provinsi'] ?? null,
                     'agency' => $data['agency'] ?? null,
+                    'phone' => $data['phone'] ?? null,
                 ], fn ($v) => $v !== null && $v !== ''));
             }
 

@@ -35,6 +35,9 @@
                 {{ number_format($kol->followers, 0, ',', '.') }} followers · <b>{{ $kol->level }}</b>
                 · {{ $kol->kategori ?: 'tanpa kategori' }} · {{ $kol->provinsi ?: '—' }} · {{ $kol->agency ?: 'Non-Agency' }} · status <b>{{ $kol->status }}</b>
             </p>
+            @if($kol->phone)
+                <p class="text-xs text-stone-500 mt-1">📱 <a href="{{ $kol->whatsappUrl() }}" target="_blank" rel="noopener" class="text-emerald-700 hover:underline font-semibold">{{ $kol->phone }}</a> <span class="text-stone-400">— chat WhatsApp</span></p>
+            @endif
             @if($kol->catatan)<p class="text-xs text-stone-500 mt-2">{{ $kol->catatan }}</p>@endif
         </div>
         <div class="flex gap-2">
@@ -63,6 +66,7 @@
                 </select>
                 <input name="provinsi" maxlength="100" placeholder="provinsi" value="{{ old('provinsi', $kol->provinsi) }}" class="px-3 py-2 border border-stone-300 rounded-lg">
                 <input name="agency" maxlength="150" placeholder="agency (kosong = non-agency)" value="{{ old('agency', $kol->agency) }}" class="px-3 py-2 border border-stone-300 rounded-lg">
+                <input name="phone" maxlength="30" placeholder="No. HP" value="{{ old('phone', $kol->phone) }}" class="px-3 py-2 border border-stone-300 rounded-lg">
                 <select name="status" class="px-3 py-2 border border-stone-300 rounded-lg">
                     @foreach(\App\Models\Kol::STATUSES as $st)<option value="{{ $st }}" @selected(old('status', $kol->status) === $st)>{{ $st }}</option>@endforeach
                 </select>

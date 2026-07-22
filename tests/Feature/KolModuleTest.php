@@ -757,4 +757,22 @@ class KolModuleTest extends TestCase
 
         $this->assertNull(Kol::where('tiktok_username', 'badplat')->first());
     }
+
+    /** No. HP tersimpan lewat form, tampil di daftar dengan link WhatsApp (08→62). */
+    public function test_no_hp_tersimpan_dan_link_whatsapp(): void
+    {
+        $spec = $this->user('kol_specialist', 'specph');
+
+        $this->actingAs($spec)->post(route('kols.store'), [
+            'tiktok_username' => 'hpkol', 'followers' => 100_000, 'phone' => '0812-3456-7890',
+        ])->assertRedirect();
+
+        $kol = Kol::where('tiktok_username', 'hpkol')->first();
+        $this->assertSame('0812-3456-7890', $kol->phone);
+        $this->assertSame('https://wa.me/6281234567890', $kol->whatsappUrl());   // non-digit dibuang, 08→62
+
+        $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('0812-3456-7890', $html);
+        $this->assertStringContainsString('wa.me/6281234567890', $html);
+    }
 }

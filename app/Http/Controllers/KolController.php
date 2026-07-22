@@ -153,6 +153,7 @@ class KolController extends Controller
             'kategori' => ['nullable', 'string', 'max:100'],
             'provinsi' => ['nullable', 'string', 'max:100'],
             'agency' => ['nullable', 'string', 'max:150'],
+            'phone' => ['nullable', 'string', 'max:30'],
             'catatan' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -188,6 +189,7 @@ class KolController extends Controller
             'kategori' => ['nullable', 'string', 'max:100'],
             'provinsi' => ['nullable', 'string', 'max:100'],
             'agency' => ['nullable', 'string', 'max:150'],
+            'phone' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(Kol::STATUSES)],
             'catatan' => ['nullable', 'string', 'max:2000'],
         ]);

@@ -205,6 +205,18 @@ class KolImportTest extends TestCase
         $this->assertEquals(40000, $s->views_1);
     }
 
+    public function test_impor_menyimpan_no_hp(): void
+    {
+        $spec = $this->user('impph');
+        $path = $this->makeXlsx([
+            $this->row(['username' => 'hpimport', 'followers' => 100000, 'views_1' => 10000, 'phone' => '081298765432']),
+        ]);
+        $this->svc()->commit($path, 'xlsx', '2026-07-22', $spec->id);
+        @unlink($path);
+
+        $this->assertSame('081298765432', Kol::where('tiktok_username', 'hpimport')->value('phone'));
+    }
+
     /** Preview tak menyentuh DB. */
     public function test_preview_tidak_menulis_apa_pun(): void
     {

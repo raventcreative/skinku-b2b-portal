@@ -83,6 +83,7 @@
         </select>
         <input name="provinsi" maxlength="100" placeholder="provinsi (opsional)" value="{{ old('provinsi') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
         <input name="agency" maxlength="150" placeholder="agency (kosongkan bila non-agency)" value="{{ old('agency') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
+        <input name="phone" maxlength="30" placeholder="No. HP (mis. 0812…)" value="{{ old('phone') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
         <input name="catatan" maxlength="2000" placeholder="catatan (opsional)" value="{{ old('catatan') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
         <div><button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Simpan</button></div>
     </form>
@@ -153,6 +154,9 @@
                         <a href="{{ $prof ?? route('kols.show', $kol) }}" @if($prof) target="_blank" rel="noopener" @endif
                             class="font-bold text-red-700 hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
                         <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $kol->platformLabel() }}</span>
+                        @if($kol->phone)
+                            <span class="block text-[10px] text-stone-400">📱 <a href="{{ $kol->whatsappUrl() }}" target="_blank" rel="noopener" class="hover:text-emerald-600">{{ $kol->phone }}</a></span>
+                        @endif
                     </td>
                     <td class="text-right text-stone-700">{{ number_format($kol->followers, 0, ',', '.') }}</td>
                     <td class="px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $levelBadge[$kol->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $kol->level }}</span></td>

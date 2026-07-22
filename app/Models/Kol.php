@@ -20,7 +20,7 @@ class Kol extends Model
     public const STATUSES = [self::STATUS_PROSPEK, self::STATUS_AKTIF, self::STATUS_HOLD, self::STATUS_NON_AKTIF];
 
     protected $fillable = [
-        'tiktok_username', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency', 'status', 'catatan',
+        'tiktok_username', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency', 'phone', 'status', 'catatan',
     ];
 
     protected function casts(): array
@@ -38,6 +38,20 @@ class Kol extends Model
     public function platformLabel(): string
     {
         return config("kol.platforms.{$this->platform}.label", ucfirst((string) $this->platform));
+    }
+
+    /** Link WhatsApp klik-untuk-chat dari No. HP. Normalkan 08xx → 62xx. null bila kosong. */
+    public function whatsappUrl(): ?string
+    {
+        $d = preg_replace('/\D/', '', (string) $this->phone);
+        if ($d === '') {
+            return null;
+        }
+        if (str_starts_with($d, '0')) {
+            $d = '62'.substr($d, 1);
+        }
+
+        return 'https://wa.me/'.$d;
     }
 
     /**

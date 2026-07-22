@@ -22,7 +22,7 @@ class KolImportService
     public const COLUMNS = [
         'username', 'platform', 'followers', 'ratecard',
         'views_1', 'views_2', 'views_3', 'views_4', 'views_5', 'views_6', 'views_7',
-        'tanggal_listing', 'agency', 'kategori',
+        'tanggal_listing', 'agency', 'kategori', 'phone',
     ];
 
     public function __construct(private KolService $kol) {}
@@ -43,6 +43,7 @@ class KolImportService
                     ['tanggal_listing', 'opsional', 'YYYY-MM-DD. Kosong = pakai Tanggal default di form upload'],
                     ['agency', 'opsional', 'Nama agency, kosongkan bila non-agency'],
                     ['kategori', 'opsional', 'Skinfluencer / Makeup / Lifestyle / dll'],
+                    ['phone', 'opsional', 'No. HP KOL (mis. 08xxxxxxxxxx) — untuk kontak dealing'],
                     ['—', '—', 'Isi mulai baris ke-2. Jangan hapus baris header.'],
                 ],
             ],
@@ -250,6 +251,7 @@ class KolImportService
                 'kategori' => trim((string) ($r['kategori'] ?? '')) ?: null,
                 'provinsi' => null,
                 'agency' => trim((string) ($r['agency'] ?? '')) ?: null,
+                'phone' => trim((string) ($r['phone'] ?? '')) ?: null,
                 'tanggal_listing' => $tanggal,
                 'ratecard' => $ratecard,
                 'views' => $views,
@@ -282,6 +284,7 @@ class KolImportService
             'user' => 'username', 'user_name' => 'username', 'username_tiktok' => 'username',
             'follower' => 'followers', 'rate' => 'ratecard', 'rate_card' => 'ratecard',
             'tanggal' => 'tanggal_listing', 'date' => 'tanggal_listing', 'kategori_kol' => 'kategori',
+            'no_hp' => 'phone', 'nohp' => 'phone', 'hp' => 'phone', 'whatsapp' => 'phone', 'wa' => 'phone', 'telp' => 'phone',
         ];
         $n = $alias[$n] ?? $n;
 

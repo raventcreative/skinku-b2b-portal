@@ -20,7 +20,7 @@ class KolScreeningController extends Controller
         // diketik ulang salah eja (yang bikin duplikat).
         return view('kols.screening_form', [
             'kols' => Kol::orderBy('tiktok_username')
-                ->get(['id', 'tiktok_username', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency']),
+                ->get(['id', 'tiktok_username', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency', 'phone']),
             'kategoriList' => config('kol.kategori'),
             // ?kol= pra-isi dari halaman detail KOL.
             'selectedKol' => $request->query('kol') ? Kol::find($request->query('kol')) : null,
@@ -47,6 +47,7 @@ class KolScreeningController extends Controller
             'kategori' => ['nullable', 'string', 'max:100'],
             'provinsi' => ['nullable', 'string', 'max:100'],
             'agency' => ['nullable', 'string', 'max:150'],
+            'phone' => ['nullable', 'string', 'max:30'],
             'tanggal_listing' => ['required', 'date', 'before_or_equal:today'],
             'ratecard' => ['nullable', 'integer', 'min:0'],   // opsional: harga sering baru ada setelah nego
         ];
@@ -65,6 +66,7 @@ class KolScreeningController extends Controller
             'kategori' => $data['kategori'] ?? null,
             'provinsi' => $data['provinsi'] ?? null,
             'agency' => $data['agency'] ?? null,
+            'phone' => $data['phone'] ?? null,
             'tanggal_listing' => $data['tanggal_listing'],
             'ratecard' => $data['ratecard'] ?? null,
             'views' => collect(range(1, 7))->map(fn ($i) => $data["views_{$i}"])->all(),
