@@ -151,6 +151,25 @@ class KolImportTest extends TestCase
         $this->assertSame(0, $res['summary']['baru'] + $res['summary']['lama']);
     }
 
+    /** Nama sama + tanggal BEDA = 2 entri histori (kurasi ulang), bukan dilewati. */
+    public function test_kol_sama_tanggal_beda_jadi_dua_histori(): void
+    {
+        $spec = $this->user('imphist');
+        $path = $this->makeXlsx([
+            $this->row(['username' => 'histkol', 'followers' => 100000, 'views_1' => 30000, 'tanggal_listing' => '2026-06-22']),
+            $this->row(['username' => 'histkol', 'followers' => 120000, 'views_1' => 90000, 'tanggal_listing' => '2026-07-22']),
+        ]);
+        $res = $this->svc()->commit($path, 'xlsx', '2026-07-22', $spec->id);
+        @unlink($path);
+
+        $this->assertSame(1, Kol::count());                  // satu KOL
+        $kol = Kol::where('tiktok_username', 'histkol')->first();
+        $this->assertSame(2, $kol->screenings()->count());   // DUA screening = histori kurasi
+        $tanggals = $kol->screenings()->pluck('tanggal_listing')->map->toDateString()->sort()->values()->all();
+        $this->assertSame(['2026-06-22', '2026-07-22'], $tanggals);
+        $this->assertSame(0, $res['summary']['skip']);
+    }
+
     public function test_baris_error_dilewati_yang_valid_tetap_masuk(): void
     {
         $spec = $this->user('imp5');
