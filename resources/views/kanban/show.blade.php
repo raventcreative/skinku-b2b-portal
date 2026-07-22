@@ -88,7 +88,7 @@
                                     class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold">
                                 <div>
                                     <label class="block text-[11px] font-semibold text-stone-500 mb-1">≡ Deskripsi</label>
-                                    <textarea name="description" rows="3" maxlength="5000" placeholder="rincian tugas…"
+                                    <textarea name="description" rows="3" maxlength="5000" placeholder="rincian tugas…" data-autogrow
                                         class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ $card->description }}</textarea>
                                 </div>
                                 <div class="grid grid-cols-2 gap-3">
@@ -225,12 +225,26 @@ const post = (url, body) => fetch(url, {
     body: JSON.stringify(body),
 }).then(r => { if (!r.ok) { alert('Gagal menyimpan perpindahan — muat ulang halaman.'); location.reload(); } });
 
+// Deskripsi tumbuh mengikuti isi, mentok ~3x tinggi awal lalu scroll.
+function growTextarea(ta) {
+    const max = 220;   // ± 3x tinggi 3-baris; lebih dari ini → scroll
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, max) + 'px';
+    ta.style.overflowY = ta.scrollHeight > max ? 'auto' : 'hidden';
+}
+document.querySelectorAll('textarea[data-autogrow]').forEach(ta => {
+    ta.addEventListener('input', () => growTextarea(ta));
+});
+
 // Klik kartu buka modal — tapi JANGAN saat kartu baru saja di-drag.
 let justDragged = false;
 document.querySelectorAll('[data-opens]').forEach(el => {
     el.addEventListener('click', () => {
         if (justDragged) return;
-        document.getElementById(el.dataset.opens).showModal();
+        const dlg = document.getElementById(el.dataset.opens);
+        dlg.showModal();
+        // Set tinggi awal setelah modal tampil (dialog tertutup tak punya dimensi).
+        dlg.querySelectorAll('textarea[data-autogrow]').forEach(growTextarea);
     });
 });
 

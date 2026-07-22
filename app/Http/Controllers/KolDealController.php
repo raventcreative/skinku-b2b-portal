@@ -36,12 +36,16 @@ class KolDealController extends Controller
      */
     private function formData(KolDeal $deal, int $selectedKolId): array
     {
-        $kols = Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']);
+        $kols = Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username', 'phone']);
 
         return [
             'deal' => $deal,
             'kols' => $kols,
-            'kolMap' => $kols->mapWithKeys(fn ($k) => ['@'.$k->tiktok_username => $k->id])->all(),
+            // Peta "@username" -> {id, phone, wa} — JS pakai id untuk kol_id &
+            // menampilkan No. HP KOL terpilih (kontak dealing).
+            'kolMap' => $kols->mapWithKeys(fn ($k) => ['@'.$k->tiktok_username => [
+                'id' => $k->id, 'phone' => $k->phone, 'wa' => $k->whatsappUrl(),
+            ]])->all(),
             'pics' => User::whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, 'kol_specialist'])
                 ->where('status', User::STATUS_ACTIVE)->orderBy('fullname')->get(['id', 'fullname']),
             'selectedKolId' => $selectedKolId,

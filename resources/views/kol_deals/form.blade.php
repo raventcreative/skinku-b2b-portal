@@ -24,6 +24,7 @@
                 </datalist>
                 <input type="hidden" name="kol_id" id="kolId" value="{{ old('kol_id', $selectedKolId ?: '') }}">
                 <span id="kolMiss" class="block mt-1 text-[10px] text-rose-500 hidden">KOL tak ditemukan — pilih dari daftar.</span>
+                <span id="kolContact" class="block mt-1 text-[10px] hidden"></span>
             </label>
             <label class="text-[11px] font-semibold text-stone-500">Jenis
                 <select name="jenis" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
@@ -116,25 +117,47 @@
 
 <script>
 (function () {
-    // Peta "@username" -> kol_id (dibangun di controller, bukan array-literal di
-    // Blade). Js::from = cara aman & konsisten menyuntik data PHP ke JS.
+    // Peta "@username" -> {id, phone, wa}. Js::from = cara aman & konsisten
+    // menyuntik data PHP ke JS (bukan array-literal di Blade echo yang 500).
     const MAP = {{ \Illuminate\Support\Js::from($kolMap) }};
     const search = document.getElementById('kolSearch');
     const hidden = document.getElementById('kolId');
     const miss = document.getElementById('kolMiss');
+    const contact = document.getElementById('kolContact');
 
-    // Prefill saat edit / ?kol=: tampilkan @username dari id terpilih.
-    if (hidden.value) {
-        const name = Object.keys(MAP).find(u => String(MAP[u]) === String(hidden.value));
-        if (name) search.value = name;
-    }
+    const showContact = (k) => {
+        if (!k) { contact.classList.add('hidden'); contact.textContent = ''; return; }
+        contact.textContent = '';
+        contact.append('📱 ');
+        if (k.phone) {
+            const a = document.createElement('a');
+            a.href = k.wa; a.target = '_blank'; a.rel = 'noopener';
+            a.className = 'text-emerald-700 hover:underline font-semibold';
+            a.textContent = k.phone;
+            contact.append(a, ' — chat WhatsApp');
+        } else {
+            const s = document.createElement('span');
+            s.className = 'text-stone-400';
+            s.textContent = 'belum ada No. HP untuk KOL ini';
+            contact.append(s);
+        }
+        contact.classList.remove('hidden');
+    };
 
     const resolve = () => {
-        const id = MAP[search.value.trim()];
-        hidden.value = id || '';
-        miss.classList.toggle('hidden', !!id || search.value.trim() === '');
-        return !!id;
+        const k = MAP[search.value.trim()];
+        hidden.value = k ? k.id : '';
+        miss.classList.toggle('hidden', !!k || search.value.trim() === '');
+        showContact(k);
+        return !!k;
     };
+
+    // Prefill saat edit / ?kol=: tampilkan @username + kontak dari id terpilih.
+    if (hidden.value) {
+        const name = Object.keys(MAP).find(u => String(MAP[u].id) === String(hidden.value));
+        if (name) { search.value = name; showContact(MAP[name]); }
+    }
+
     search.addEventListener('input', resolve);
     search.addEventListener('change', resolve);
     search.closest('form').addEventListener('submit', (e) => {

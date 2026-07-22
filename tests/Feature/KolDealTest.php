@@ -200,4 +200,15 @@ class KolDealTest extends TestCase
         $deal = KolDeal::create(['kode' => KolDeal::generateKode(), 'kol_id' => $this->kol()->id, 'jenis' => 'vt']);
         $this->actingAs($spec)->get(route('kol-deals.edit', $deal))->assertOk();
     }
+
+    /** No. HP tiap KOL ikut ke form deal — JS menampilkannya saat KOL dipilih (kontak). */
+    public function test_form_deal_memuat_no_hp_kol_untuk_kontak(): void
+    {
+        $spec = $this->specialist('rendhp', finance: true);
+        Kol::create(['tiktok_username' => 'dealphone', 'followers' => 50_000, 'phone' => '081200001111']);
+
+        $html = $this->actingAs($spec)->get(route('kol-deals.create'))->assertOk()->getContent();
+        $this->assertStringContainsString('081200001111', $html);    // No. HP ada di peta JS
+        $this->assertStringContainsString('6281200001111', $html);   // nomor WA ternormalkan (08→62)
+    }
 }
