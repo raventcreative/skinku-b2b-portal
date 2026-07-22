@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Announcement;
 use App\Models\Inventory;
 use App\Models\PurchaseOrder;
 use App\Services\ReportService;
@@ -16,10 +17,24 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
+        // Pengumuman untuk role user: box catatan (nempel) + popup banner. Banner
+        // muncul SEKALI per sesi login (pilihan "tiap kali login") — ditandai di
+        // session agar tak nongol lagi saat pindah halaman dalam sesi yang sama.
+        $announcement = Announcement::where('role', $user->role)->first();
+        $showBanner = false;
+        if ($announcement && $announcement->bannerVisible()) {
+            $seenKey = 'ann_banner_seen_'.$user->role;
+            if (! $request->session()->get($seenKey)) {
+                $showBanner = true;
+                $request->session()->put($seenKey, true);
+            }
+        }
+        $announce = ['announcement' => $announcement, 'showBanner' => $showBanner];
+
         // Limited roles (not staff, not partner — e.g. affiliator) get a minimal
         // dashboard with no sales/stock data, just shortcuts to what they can access.
         if (! $user->isStaff() && ! $user->isPartner()) {
-            return view('dashboard.index', ['user' => $user, 'limited' => true]);
+            return view('dashboard.index', ['user' => $user, 'limited' => true] + $announce);
         }
 
         // ?bulan=YYYY-MM berlaku untuk SELURUH dashboard; default bulan berjalan.
@@ -48,7 +63,7 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'bulan', 'recentPo', 'lowStock') + ['limited' => false]);
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'bulan', 'recentPo', 'lowStock') + ['limited' => false] + $announce);
     }
 
     /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */

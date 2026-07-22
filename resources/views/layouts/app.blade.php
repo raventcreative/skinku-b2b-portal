@@ -175,6 +175,9 @@
             @if($u->canDo('system_settings'))
                 {!! navItem('settings.index', 'Pengaturan Sistem', 'settings.index') !!}
             @endif
+            @if($u->canDo('manage_announcements'))
+                {!! navItem('announcements.manage', 'Pengumuman', 'announcements.manage') !!}
+            @endif
 
             @if($u->canDo('manage_permissions'))
                 {!! navItem('permissions.index', 'Manajemen Hak Akses', 'permissions.index') !!}

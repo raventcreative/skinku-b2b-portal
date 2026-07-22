@@ -3,6 +3,31 @@
 @section('heading', 'Dashboard Utama')
 
 @section('content')
+{{-- Pengumuman dari super admin (per role): box catatan nempel + popup banner. --}}
+@if(isset($announcement) && $announcement->noteVisible())
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
+        @if($announcement->note_title)<p class="text-sm font-bold text-amber-900 mb-0.5">📢 {{ $announcement->note_title }}</p>@endif
+        <p class="text-sm text-amber-800 whitespace-pre-line">{{ $announcement->note_body }}</p>
+    </div>
+@endif
+
+@if(! empty($showBanner) && isset($announcement) && $announcement->bannerVisible())
+    <div id="annBanner" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onclick="if (event.target === this) this.remove()">
+        <div class="relative max-w-lg w-full">
+            <button type="button" onclick="document.getElementById('annBanner').remove()"
+                class="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-stone-700 shadow flex items-center justify-center hover:bg-stone-100">✕</button>
+            @if($announcement->banner_link)
+                <a href="{{ $announcement->banner_link }}" target="_blank" rel="noopener">
+                    <img src="{{ $announcement->bannerUrl() }}" alt="Pengumuman" class="w-full rounded-2xl shadow-2xl">
+                </a>
+            @else
+                <img src="{{ $announcement->bannerUrl() }}" alt="Pengumuman" class="w-full rounded-2xl shadow-2xl">
+            @endif
+        </div>
+    </div>
+@endif
+
 @if($limited ?? false)
     <div class="bg-white rounded-2xl border border-stone-200 p-8 max-w-2xl">
         <h3 class="text-lg font-bold text-stone-900">Selamat datang, {{ $user->displayName() }} 👋</h3>

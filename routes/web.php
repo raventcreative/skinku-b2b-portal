@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccAccountController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AccTemplateController;
+use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackdatedSaleController;
@@ -345,6 +346,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         // Backup DB: jalankan manual + unduh (simpan di LUAR server).
         Route::post('/settings/backup', [SettingController::class, 'backupNow'])->name('settings.backup');
         Route::get('/settings/backup/{file}', [SettingController::class, 'backupDownload'])->name('settings.backup.download');
+    });
+
+    // Pengumuman dashboard per role (box catatan + popup banner).
+    Route::middleware('permission:manage_announcements')->group(function () {
+        Route::get('/pengumuman', [AnnouncementController::class, 'manage'])->name('announcements.manage');
+        Route::post('/pengumuman', [AnnouncementController::class, 'save'])->name('announcements.save');
     });
 
     /* ---------------- Learning / LMS ---------------- */
