@@ -14,12 +14,16 @@
 
         <div class="grid sm:grid-cols-2 gap-3 text-sm mb-4">
             <label class="text-[11px] font-semibold text-stone-500">KOL
-                <select name="kol_id" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
-                    <option value="">— pilih KOL —</option>
-                    @foreach($kols as $k)
-                        <option value="{{ $k->id }}" @selected(old('kol_id', $selectedKolId) == $k->id)>{{ '@'.$k->tiktok_username }}</option>
-                    @endforeach
-                </select>
+                {{-- Ketik untuk cari — 100+ KOL tak nyaman di select biasa. Teks
+                     dipetakan ke kol_id (hidden) via JS; server tetap validasi id. --}}
+                <input type="text" id="kolSearch" list="kolDatalist" autocomplete="off" required
+                    placeholder="ketik untuk cari @username…"
+                    class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                <datalist id="kolDatalist">
+                    @foreach($kols as $k)<option value="{{ '@'.$k->tiktok_username }}">@endforeach
+                </datalist>
+                <input type="hidden" name="kol_id" id="kolId" value="{{ old('kol_id', $selectedKolId ?: '') }}">
+                <span id="kolMiss" class="block mt-1 text-[10px] text-rose-500 hidden">KOL tak ditemukan — pilih dari daftar.</span>
             </label>
             <label class="text-[11px] font-semibold text-stone-500">Jenis
                 <select name="jenis" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
@@ -109,4 +113,32 @@
         </button>
     </form>
 </div>
+
+<script>
+(function () {
+    // Peta "@username" -> kol_id (dibangun di controller, bukan array-literal di Blade).
+    const MAP = {!! json_encode($kolMap) !!};
+    const search = document.getElementById('kolSearch');
+    const hidden = document.getElementById('kolId');
+    const miss = document.getElementById('kolMiss');
+
+    // Prefill saat edit / ?kol=: tampilkan @username dari id terpilih.
+    if (hidden.value) {
+        const name = Object.keys(MAP).find(u => String(MAP[u]) === String(hidden.value));
+        if (name) search.value = name;
+    }
+
+    const resolve = () => {
+        const id = MAP[search.value.trim()];
+        hidden.value = id || '';
+        miss.classList.toggle('hidden', !!id || search.value.trim() === '');
+        return !!id;
+    };
+    search.addEventListener('input', resolve);
+    search.addEventListener('change', resolve);
+    search.closest('form').addEventListener('submit', (e) => {
+        if (!resolve()) { e.preventDefault(); miss.classList.remove('hidden'); search.focus(); }
+    });
+})();
+</script>
 @endsection

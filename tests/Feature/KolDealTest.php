@@ -182,4 +182,22 @@ class KolDealTest extends TestCase
         $this->actingAs($spec)->delete(route('kol-deals.destroy', $deal));
         $this->assertNotNull(AuditLog::where('action', 'delete_kol_deal')->where('target_id', $deal->id)->first());
     }
+
+    /**
+     * Form deal ter-render dengan pencarian KOL (ketik-untuk-cari). Peta KOL
+     * dibangun via json_encode — jaga jangan sampai balik ke @json array-literal
+     * yang bikin 500. Create & edit dua-duanya diuji.
+     */
+    public function test_form_deal_render_dengan_pencarian_kol(): void
+    {
+        $spec = $this->specialist('rend', finance: true);
+        $this->kol();
+
+        $res = $this->actingAs($spec)->get(route('kol-deals.create'))->assertOk();
+        $res->assertSee('kolDatalist', false);
+        $res->assertSee('ketik untuk cari', false);
+
+        $deal = KolDeal::create(['kode' => KolDeal::generateKode(), 'kol_id' => $this->kol()->id, 'jenis' => 'vt']);
+        $this->actingAs($spec)->get(route('kol-deals.edit', $deal))->assertOk();
+    }
 }

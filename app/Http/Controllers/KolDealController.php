@@ -26,13 +26,26 @@ class KolDealController extends Controller
 
     public function create(Request $request)
     {
-        return view('kol_deals.form', [
-            'deal' => new KolDeal,
-            'kols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']),
+        return view('kol_deals.form', $this->formData(new KolDeal, (int) $request->query('kol', 0)));
+    }
+
+    /**
+     * Data form (create & edit). kolMap dibangun DI SINI (PHP), bukan lewat
+     * array-literal di Blade echo — literal [...] di dalam {!! !!} bikin compile
+     * error/500. Dipakai JS untuk memetakan "@username" ke kol_id.
+     */
+    private function formData(KolDeal $deal, int $selectedKolId): array
+    {
+        $kols = Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']);
+
+        return [
+            'deal' => $deal,
+            'kols' => $kols,
+            'kolMap' => $kols->mapWithKeys(fn ($k) => ['@'.$k->tiktok_username => $k->id])->all(),
             'pics' => User::whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, 'kol_specialist'])
                 ->where('status', User::STATUS_ACTIVE)->orderBy('fullname')->get(['id', 'fullname']),
-            'selectedKolId' => (int) $request->query('kol', 0),
-        ]);
+            'selectedKolId' => $selectedKolId,
+        ];
     }
 
     public function store(Request $request): RedirectResponse
@@ -54,13 +67,7 @@ class KolDealController extends Controller
 
     public function edit(KolDeal $deal)
     {
-        return view('kol_deals.form', [
-            'deal' => $deal,
-            'kols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']),
-            'pics' => User::whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, 'kol_specialist'])
-                ->where('status', User::STATUS_ACTIVE)->orderBy('fullname')->get(['id', 'fullname']),
-            'selectedKolId' => $deal->kol_id,
-        ]);
+        return view('kol_deals.form', $this->formData($deal, $deal->kol_id));
     }
 
     public function update(Request $request, KolDeal $deal): RedirectResponse
