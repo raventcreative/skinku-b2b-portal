@@ -145,6 +145,15 @@ class KolDealController extends Controller
             }
         }
 
+        // Kolom NOT NULL berdefault: input kosong jadi null (ConvertEmptyStringsToNull),
+        // dan mengirim NULL ke kolom NOT NULL = 500. Pakai default kolomnya.
+        if (array_key_exists('total_biaya', $data)) {
+            $data['total_biaya'] ??= 0;
+        }
+        if (array_key_exists('status_bayar', $data)) {
+            $data['status_bayar'] ??= 'belum';
+        }
+
         return $data;
     }
 }

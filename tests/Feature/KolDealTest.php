@@ -115,6 +115,27 @@ class KolDealTest extends TestCase
         $this->actingAs($spec)->get(route('kol-deals.index'))->assertOk()->assertSee('6.000.000');
     }
 
+    /**
+     * Regresi 500: form finansial dengan "Total biaya" DIKOSONGKAN (super admin
+     * pun). Input kosong → null oleh ConvertEmptyStringsToNull → dulu masuk ke
+     * kolom NOT NULL total_biaya → SQL error. Harusnya jatuh ke default 0.
+     */
+    public function test_total_biaya_kosong_tidak_error(): void
+    {
+        $spec = $this->specialist('finblank', finance: true);
+        $kol = $this->kol();
+
+        // Persis form: seluruh field finansial ADA, tapi total_biaya kosong.
+        $this->actingAs($spec)->post(route('kol-deals.store'), $this->payload($kol, [
+            'total_biaya' => '', 'status_bayar' => 'belum',
+            'no_rekening' => '', 'bank' => '', 'atas_nama' => '',
+        ]))->assertRedirect();
+
+        $deal = KolDeal::first();
+        $this->assertNotNull($deal);
+        $this->assertSame(0, (int) $deal->total_biaya);   // kosong → default 0, bukan 500
+    }
+
     public function test_pemilik_deal_manage_bisa_hapus_tanpa_permission_tidak(): void
     {
         $spec = $this->specialist('del1');
