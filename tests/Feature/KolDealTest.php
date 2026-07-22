@@ -196,6 +196,7 @@ class KolDealTest extends TestCase
         $res = $this->actingAs($spec)->get(route('kol-deals.create'))->assertOk();
         $res->assertSee('kolDatalist', false);
         $res->assertSee('ketik untuk cari', false);
+        $res->assertSee('name="kol_phone"', false);   // input No. HP KOL ada
 
         $deal = KolDeal::create(['kode' => KolDeal::generateKode(), 'kol_id' => $this->kol()->id, 'jenis' => 'vt']);
         $this->actingAs($spec)->get(route('kol-deals.edit', $deal))->assertOk();
@@ -210,5 +211,32 @@ class KolDealTest extends TestCase
         $html = $this->actingAs($spec)->get(route('kol-deals.create'))->assertOk()->getContent();
         $this->assertStringContainsString('081200001111', $html);    // No. HP ada di peta JS
         $this->assertStringContainsString('6281200001111', $html);   // nomor WA ternormalkan (08→62)
+    }
+
+    /** No. HP diisi/diubah dari form deal ikut tersimpan ke data KOL. */
+    public function test_no_hp_dari_form_deal_tersimpan_ke_kol(): void
+    {
+        $spec = $this->specialist('dphone', finance: true);
+        $kol = $this->kol();
+        $this->assertNull($kol->phone);
+
+        $this->actingAs($spec)->post(route('kol-deals.store'), $this->payload($kol, [
+            'kol_phone' => '0813-9999-8888',
+        ]))->assertRedirect();
+
+        $this->assertSame('0813-9999-8888', $kol->fresh()->phone);   // tersimpan ke KOL
+    }
+
+    /** No. HP kosong di form deal TIDAK menghapus nomor lama KOL. */
+    public function test_kol_phone_kosong_tak_menghapus_nomor_lama(): void
+    {
+        $spec = $this->specialist('dphone2', finance: true);
+        $kol = Kol::create(['tiktok_username' => 'punyahp', 'followers' => 1000, 'phone' => '08110002222']);
+
+        $this->actingAs($spec)->post(route('kol-deals.store'), $this->payload($kol, [
+            'kol_phone' => '',
+        ]))->assertRedirect();
+
+        $this->assertSame('08110002222', $kol->fresh()->phone);   // tetap, tak terwipe
     }
 }

@@ -55,9 +55,12 @@ class KolDealController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request);
+        $kolPhone = $data['kol_phone'] ?? null;
+        unset($data['kol_phone']);   // bukan kolom deal
         $data['kode'] = KolDeal::generateKode();
 
         $deal = KolDeal::create($data);
+        $this->syncKolPhone($deal->kol_id, $kolPhone);
 
         AuditService::log(
             action: 'create_kol_deal',
@@ -77,9 +80,12 @@ class KolDealController extends Controller
     public function update(Request $request, KolDeal $deal): RedirectResponse
     {
         $data = $this->validated($request);
+        $kolPhone = $data['kol_phone'] ?? null;
+        unset($data['kol_phone']);
 
         $before = $deal->only(array_keys($data));
         $deal->update($data);
+        $this->syncKolPhone($deal->kol_id, $kolPhone);
 
         // Nilai finansial TIDAK ditulis ke log — nomor rekening tak boleh mengendap
         // di audit trail. Cukup nama field yang berubah + penanda "rekening diubah".
@@ -125,6 +131,18 @@ class KolDealController extends Controller
     }
 
     /**
+     * Simpan No. HP yang diisi di form deal ke data KOL (satu sumber kebenaran).
+     * Hanya bila diisi — kosong TIDAK menghapus nomor lama (hindari terwipe tak
+     * sengaja; penghapusan lewat Edit profil KOL).
+     */
+    private function syncKolPhone(int $kolId, ?string $phone): void
+    {
+        if (filled($phone)) {
+            Kol::whereKey($kolId)->update(['phone' => $phone]);
+        }
+    }
+
+    /**
      * Validasi + gerbang finansial. Tanpa kol.deal.finance, field finansial
      * DIBUANG dari input tervalidasi — bukan disabled di form saja. Form bisa
      * dilewati dengan POST langsung; menyembunyikan input di HTML bukan
@@ -148,6 +166,9 @@ class KolDealController extends Controller
             'no_rekening' => ['nullable', 'string', 'max:50'],
             'bank' => ['nullable', 'string', 'max:100'],
             'atas_nama' => ['nullable', 'string', 'max:150'],
+            // Bukan kolom deal — No. HP KOL yang diisi di form deal, disimpan balik
+            // ke data KOL (bukan finansial, jadi tak ikut gerbang finance).
+            'kol_phone' => ['nullable', 'string', 'max:30'],
         ]);
 
         if (! $request->user()->canDo('kol.deal.finance')) {

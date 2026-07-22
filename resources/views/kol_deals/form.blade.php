@@ -13,19 +13,32 @@
         @if($deal->exists) @method('PUT') @endif
 
         <div class="grid sm:grid-cols-2 gap-3 text-sm mb-4">
-            <label class="text-[11px] font-semibold text-stone-500">KOL
+            <div class="text-[11px] font-semibold text-stone-500">KOL
                 {{-- Ketik untuk cari — 100+ KOL tak nyaman di select biasa. Teks
                      dipetakan ke kol_id (hidden) via JS; server tetap validasi id. --}}
                 <input type="text" id="kolSearch" list="kolDatalist" autocomplete="off" required
                     placeholder="ketik untuk cari @username…"
-                    class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-normal">
                 <datalist id="kolDatalist">
                     @foreach($kols as $k)<option value="{{ '@'.$k->tiktok_username }}">@endforeach
                 </datalist>
                 <input type="hidden" name="kol_id" id="kolId" value="{{ old('kol_id', $selectedKolId ?: '') }}">
                 <span id="kolMiss" class="block mt-1 text-[10px] text-rose-500 hidden">KOL tak ditemukan — pilih dari daftar.</span>
-                <span id="kolContact" class="block mt-1 text-[10px] hidden"></span>
-            </label>
+
+                {{-- No. HP KOL: boleh diisi/ubah di sini (sering nomornya baru dikasih
+                     saat dealing). Ter-prefill dari data KOL bila ada, dan TERSIMPAN
+                     balik ke data KOL saat deal disimpan (satu sumber, tak dobel). --}}
+                <div class="mt-2">
+                    <span class="block text-[10px] text-stone-400">No. HP KOL — boleh diisi/ubah di sini, ikut tersimpan ke data KOL</span>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <input type="text" name="kol_phone" id="kolPhone" maxlength="30" placeholder="mis. 0812…"
+                            value="{{ old('kol_phone') }}"
+                            class="flex-1 px-3 py-1.5 border border-stone-300 rounded-lg text-sm font-normal">
+                        <a id="kolWa" href="#" target="_blank" rel="noopener"
+                            class="hidden text-[11px] text-emerald-700 hover:underline font-normal whitespace-nowrap">📱 WA</a>
+                    </div>
+                </div>
+            </div>
             <label class="text-[11px] font-semibold text-stone-500">Jenis
                 <select name="jenis" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     @foreach(\App\Models\KolDeal::JENIS as $j)
@@ -123,45 +136,42 @@
     const search = document.getElementById('kolSearch');
     const hidden = document.getElementById('kolId');
     const miss = document.getElementById('kolMiss');
-    const contact = document.getElementById('kolContact');
+    const phone = document.getElementById('kolPhone');
+    const wa = document.getElementById('kolWa');
 
-    const showContact = (k) => {
-        if (!k) { contact.classList.add('hidden'); contact.textContent = ''; return; }
-        contact.textContent = '';
-        contact.append('📱 ');
-        if (k.phone) {
-            const a = document.createElement('a');
-            a.href = k.wa; a.target = '_blank'; a.rel = 'noopener';
-            a.className = 'text-emerald-700 hover:underline font-semibold';
-            a.textContent = k.phone;
-            contact.append(a, ' — chat WhatsApp');
-        } else {
-            const s = document.createElement('span');
-            s.className = 'text-stone-400';
-            s.textContent = 'belum ada No. HP untuk KOL ini';
-            contact.append(s);
-        }
-        contact.classList.remove('hidden');
+    // Link WhatsApp mengikuti isi No. HP (08xx → 62xx), update saat diketik.
+    const waUrl = (p) => {
+        let d = (p || '').replace(/\D/g, '');
+        if (!d) return null;
+        if (d[0] === '0') d = '62' + d.slice(1);
+        return 'https://wa.me/' + d;
+    };
+    const refreshWa = () => {
+        const u = waUrl(phone.value);
+        if (u) { wa.href = u; wa.classList.remove('hidden'); } else wa.classList.add('hidden');
     };
 
-    const resolve = () => {
+    const resolve = (fromUser) => {
         const k = MAP[search.value.trim()];
         hidden.value = k ? k.id : '';
         miss.classList.toggle('hidden', !!k || search.value.trim() === '');
-        showContact(k);
+        // Pilih KOL → tampilkan nomornya (masih bisa diubah). Tak menimpa saat load.
+        if (k && fromUser) { phone.value = k.phone || ''; refreshWa(); }
         return !!k;
     };
 
-    // Prefill saat edit / ?kol=: tampilkan @username + kontak dari id terpilih.
+    // Prefill saat edit / ?kol=: @username + nomor (tanpa menimpa old() dari error validasi).
     if (hidden.value) {
         const name = Object.keys(MAP).find(u => String(MAP[u].id) === String(hidden.value));
-        if (name) { search.value = name; showContact(MAP[name]); }
+        if (name) { search.value = name; if (!phone.value) phone.value = MAP[name].phone || ''; }
     }
+    refreshWa();
 
-    search.addEventListener('input', resolve);
-    search.addEventListener('change', resolve);
+    search.addEventListener('input', () => resolve(true));
+    search.addEventListener('change', () => resolve(true));
+    phone.addEventListener('input', refreshWa);
     search.closest('form').addEventListener('submit', (e) => {
-        if (!resolve()) { e.preventDefault(); miss.classList.remove('hidden'); search.focus(); }
+        if (!resolve(false)) { e.preventDefault(); miss.classList.remove('hidden'); search.focus(); }
     });
 })();
 </script>
