@@ -217,7 +217,9 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::middleware('permission:kol.view')->group(function () {
         Route::get('/kols', [KolController::class, 'index'])->name('kols.index');
         // Ekspor "Listing KOL" (satu baris per screening, format Excel) — arsip
-        // riwayat per-bulan; halaman on-screen-nya dilebur ke Database KOL.
+        // riwayat per-bulan. DIPARKIR: tombolnya dilepas dari Database KOL (redundan
+        // saat tiap KOL baru 1 screening); endpoint dipertahankan agar mudah
+        // dihidupkan lagi bila kelak butuh ekspor histori bulanan lintas-KOL.
         Route::get('/kols/listing/export', [ExportController::class, 'listingKol'])->name('kols.listing.export');
         Route::get('/kols/export', [ExportController::class, 'databaseKol'])->name('kols.export');
         Route::get('/kols/{kol}', [KolController::class, 'show'])->whereNumber('kol')->name('kols.show');
