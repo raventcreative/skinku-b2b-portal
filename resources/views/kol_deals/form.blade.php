@@ -116,8 +116,9 @@
 
 <script>
 (function () {
-    // Peta "@username" -> kol_id (dibangun di controller, bukan array-literal di Blade).
-    const MAP = {!! json_encode($kolMap) !!};
+    // Peta "@username" -> kol_id (dibangun di controller, bukan array-literal di
+    // Blade). Js::from = cara aman & konsisten menyuntik data PHP ke JS.
+    const MAP = {{ \Illuminate\Support\Js::from($kolMap) }};
     const search = document.getElementById('kolSearch');
     const hidden = document.getElementById('kolId');
     const miss = document.getElementById('kolMiss');
