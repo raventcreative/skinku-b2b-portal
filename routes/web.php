@@ -14,6 +14,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\KanbanController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDealController;
+use App\Http\Controllers\KolImportController;
 use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
@@ -227,6 +228,12 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::get('/kol-screenings/create', [KolScreeningController::class, 'create'])->name('kol-screenings.create');
             Route::post('/kol-screenings', [KolScreeningController::class, 'store'])->name('kol-screenings.store');
             Route::patch('/kol-screenings/{screening}/ratecard', [KolScreeningController::class, 'updateRatecard'])->name('kol-screenings.ratecard');
+
+            // Impor massal KOL dari template (.xlsx/.csv) — dua tahap preview→commit.
+            Route::get('/kols-import', [KolImportController::class, 'form'])->name('kols.import');
+            Route::get('/kols-import/template', [KolImportController::class, 'template'])->name('kols.import.template');
+            Route::post('/kols-import/preview', [KolImportController::class, 'preview'])->name('kols.import.preview');
+            Route::post('/kols-import/commit', [KolImportController::class, 'commit'])->name('kols.import.commit');
         });
 
         Route::middleware('permission:kol.deal.manage')->group(function () {

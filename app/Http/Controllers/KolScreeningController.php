@@ -5,13 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\Kol;
 use App\Models\KolScreening;
 use App\Services\AuditService;
+use App\Services\KolService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class KolScreeningController extends Controller
 {
+    public function __construct(private KolService $kol) {}
+
     public function create(Request $request)
     {
         // Daftar KOL existing untuk autocomplete — supaya username lama tak
@@ -53,55 +55,39 @@ class KolScreeningController extends Controller
         }
 
         $data = $request->validate($rules);
-        $username = ltrim(trim($data['tiktok_username']), '@');   // "@nama" dan "nama" = orang yang sama
 
-        $screening = DB::transaction(function () use ($data, $username, $request) {
-            $kol = Kol::where('tiktok_username', $username)->first();
+        // Tulis lewat KolService — logika yang sama dipakai impor massal.
+        $result = $this->kol->upsertScreening([
+            'username' => $data['tiktok_username'],
+            'platform' => $data['platform'] ?? null,
+            'tiktok_link' => $data['tiktok_link'] ?? null,
+            'followers' => $data['followers'],
+            'kategori' => $data['kategori'] ?? null,
+            'provinsi' => $data['provinsi'] ?? null,
+            'agency' => $data['agency'] ?? null,
+            'tanggal_listing' => $data['tanggal_listing'],
+            'ratecard' => $data['ratecard'] ?? null,
+            'views' => collect(range(1, 7))->map(fn ($i) => $data["views_{$i}"])->all(),
+        ], $request->user()->id);
 
-            if (! $kol) {
-                $kol = Kol::create([
-                    'tiktok_username' => $username,
-                    'platform' => $data['platform'] ?? 'tiktok',
-                    'tiktok_link' => $data['tiktok_link'] ?? null,
-                    'followers' => $data['followers'],
-                    'kategori' => $data['kategori'] ?? null,
-                    'provinsi' => $data['provinsi'] ?? null,
-                    'agency' => $data['agency'] ?? null,
-                ]);
+        $kol = $result['kol'];
+        $screening = $result['screening'];
 
-                AuditService::log(
-                    action: 'create_kol',
-                    targetType: 'kol',
-                    targetId: $kol->id,
-                    after: ['username' => $kol->tiktok_username, 'followers' => $kol->followers, 'via' => 'screening'],
-                );
-            } else {
-                // Isi hanya yang dikirim; jangan menimpa kategori/link lama dengan kosong.
-                $kol->update(array_filter([
-                    'followers' => $data['followers'],
-                    'platform' => $data['platform'] ?? null,
-                    'tiktok_link' => $data['tiktok_link'] ?? null,
-                    'kategori' => $data['kategori'] ?? null,
-                    'provinsi' => $data['provinsi'] ?? null,
-                    'agency' => $data['agency'] ?? null,
-                ], fn ($v) => $v !== null && $v !== ''));
-            }
-
-            return KolScreening::create([
-                'kol_id' => $kol->id,
-                'tanggal_listing' => $data['tanggal_listing'],
-                'ratecard' => $data['ratecard'] ?? null,
-                ...collect(range(1, 7))->mapWithKeys(fn ($i) => ["views_{$i}" => $data["views_{$i}"]])->all(),
-                'created_by' => $request->user()->id,
-            ]);
-        });
+        if ($result['created']) {
+            AuditService::log(
+                action: 'create_kol',
+                targetType: 'kol',
+                targetId: $kol->id,
+                after: ['username' => $kol->tiktok_username, 'followers' => $kol->followers, 'via' => 'screening'],
+            );
+        }
 
         AuditService::log(
             action: 'create_kol_screening',
             targetType: 'kol_screening',
             targetId: $screening->id,
             after: [
-                'kol' => $screening->kol->tiktok_username,
+                'kol' => $kol->tiktok_username,
                 'ratecard' => $screening->ratecard,
                 'median_views' => $screening->median_views,
                 'cpm_median' => $screening->cpm_median,
