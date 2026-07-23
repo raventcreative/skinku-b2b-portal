@@ -57,4 +57,22 @@ return [
         'api_base' => env('SHOPEE_API_BASE', 'https://partner.shopeemobile.com'),
     ],
 
+    // Asisten AI (provider-agnostic). Key WAJIB di .env server — jangan commit.
+    // Provider & model aktif dipilih di Pengaturan (AppSetting), fallback ke sini.
+    // Lihat AI_ASSISTANT_SPEC.md.
+    'ai' => [
+        'provider' => env('AI_PROVIDER', 'openai'),
+        'default_model' => env('AI_MODEL', 'gpt-4o-mini'),
+        'max_iterations' => (int) env('AI_MAX_ITERATIONS', 5),
+        'max_output_tokens' => (int) env('AI_MAX_OUTPUT_TOKENS', 1500),
+        'openai' => [
+            'key' => env('OPENAI_API_KEY'),
+            'base' => env('OPENAI_API_BASE', 'https://api.openai.com/v1'),
+        ],
+        'anthropic' => [
+            'key' => env('ANTHROPIC_API_KEY'),
+            'base' => env('ANTHROPIC_API_BASE', 'https://api.anthropic.com/v1'),
+        ],
+    ],
+
 ];

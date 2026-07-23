@@ -177,11 +177,10 @@ selain super_admin (tinggal beri izin `use_ai_assistant`).
 
 ---
 
-## 10. KEPUTUSAN TERBUKA (butuh jawaban Freddie)
+## 10. KEPUTUSAN (terkunci — Freddie, 23 Jul 2026)
 
-1. **Model default** — `gpt-4o-mini` oke sebagai awal (murah), atau mau model lain?
-   (bisa diganti kapan pun di Pengaturan)
-2. **Reset percakapan** — cukup tombol "mulai baru" + auto-hapus saat logout, atau
-   perlu riwayat tersimpan sejak v1? (rekomendasi: sementara dulu)
-3. **Resolusi ambigu** saat bikin kartu — kalau nama papan/kolom/penerima nggak
-   pasti, AI **tanya balik** (rekomendasi) atau tolak langsung?
+1. **Model default** = `gpt-4o-mini` (murah/cepat). Bisa diganti kapan pun di Pengaturan.
+2. **Riwayat** = **sementara** (sesi login) + tombol "mulai baru"; hilang saat logout.
+   Belum ada tabel riwayat.
+3. **Resolusi ambigu** saat bikin kartu = **AI tanya balik dulu** (konfirmasi papan/
+   kolom/penerima yang benar) sebelum mengusulkan kartu; tidak menebak diam-diam.
