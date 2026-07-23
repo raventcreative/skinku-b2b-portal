@@ -3,34 +3,36 @@
 @section('heading', 'Dashboard Utama')
 
 @section('content')
-{{-- Pengumuman dari super admin (per role): box catatan nempel + popup banner. --}}
-@if(isset($announcement) && $announcement->noteVisible())
-    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
-        @if($announcement->note_title)<p class="text-sm font-bold text-amber-900 mb-0.5">📢 {{ $announcement->note_title }}</p>@endif
-        @if(filled($announcement->note_body))
+{{-- Pengumuman dari super admin (per role): box catatan nempel (bisa >1) + popup banner. --}}
+@foreach(($boxes ?? []) as $box)
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-3">
+        @if($box->note_title)<p class="text-sm font-bold text-amber-900 mb-0.5">📢 {{ $box->note_title }}</p>@endif
+        @if(filled($box->note_body))
             {{-- noteBodyHtml(): sudah di-escape + URL jadi tautan + newline jadi <br>. --}}
-            <p class="text-sm text-amber-800">{!! $announcement->noteBodyHtml() !!}</p>
+            <p class="text-sm text-amber-800">{!! $box->noteBodyHtml() !!}</p>
         @endif
-        @if($announcement->note_link)
-            <a href="{{ $announcement->note_link }}" target="_blank" rel="noopener"
-                class="inline-block mt-2 px-4 py-1.5 text-xs font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700">{{ $announcement->noteLinkLabel() }} →</a>
+        @if($box->note_link)
+            <a href="{{ $box->note_link }}" target="_blank" rel="noopener"
+                class="inline-block mt-2 px-4 py-1.5 text-xs font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700">{{ $box->noteLinkLabel() }} →</a>
         @endif
     </div>
-@endif
+@endforeach
 
-@if(! empty($showBanner) && isset($announcement) && $announcement->bannerVisible())
-    <div id="annBanner" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+@if(! empty($showPopups) && isset($popups) && $popups->isNotEmpty())
+    <div id="annBanner" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto"
         onclick="if (event.target === this) this.remove()">
-        <div class="relative max-w-lg w-full">
+        <div class="relative max-w-lg w-full my-8">
             <button type="button" onclick="document.getElementById('annBanner').remove()"
-                class="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-stone-700 shadow flex items-center justify-center hover:bg-stone-100">✕</button>
-            @if($announcement->banner_link)
-                <a href="{{ $announcement->banner_link }}" target="_blank" rel="noopener">
-                    <img src="{{ $announcement->bannerUrl() }}" alt="Pengumuman" class="w-full rounded-2xl shadow-2xl">
-                </a>
-            @else
-                <img src="{{ $announcement->bannerUrl() }}" alt="Pengumuman" class="w-full rounded-2xl shadow-2xl">
-            @endif
+                class="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-stone-700 shadow flex items-center justify-center hover:bg-stone-100 z-10">✕</button>
+            <div class="space-y-3">
+                @foreach($popups as $p)
+                    @if($p->banner_link)
+                        <a href="{{ $p->banner_link }}" target="_blank" rel="noopener"><img src="{{ $p->bannerUrl() }}" alt="Pengumuman" class="w-full rounded-2xl shadow-2xl"></a>
+                    @else
+                        <img src="{{ $p->bannerUrl() }}" alt="Pengumuman" class="w-full rounded-2xl shadow-2xl">
+                    @endif
+                @endforeach
+            </div>
         </div>
     </div>
 @endif

@@ -17,19 +17,21 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        // Pengumuman untuk role user: box catatan (nempel) + popup banner. Banner
-        // muncul SEKALI per sesi login (pilihan "tiap kali login") — ditandai di
-        // session agar tak nongol lagi saat pindah halaman dalam sesi yang sama.
-        $announcement = Announcement::where('role', $user->role)->first();
-        $showBanner = false;
-        if ($announcement && $announcement->bannerVisible()) {
-            $seenKey = 'ann_banner_seen_'.$user->role;
+        // SEMUA pengumuman aktif untuk role user: box catatan (nempel, bisa lebih
+        // dari satu) + popup banner. Popup muncul SEKALI per sesi login — ditandai
+        // di session agar tak nongol lagi saat pindah halaman dalam sesi yang sama.
+        $anns = Announcement::where('role', $user->role)->orderBy('sort_order')->orderBy('id')->get();
+        $boxes = $anns->filter(fn ($a) => $a->noteVisible())->values();
+        $popups = $anns->filter(fn ($a) => $a->bannerVisible())->values();
+        $showPopups = false;
+        if ($popups->isNotEmpty()) {
+            $seenKey = 'ann_popups_seen_'.$user->role;
             if (! $request->session()->get($seenKey)) {
-                $showBanner = true;
+                $showPopups = true;
                 $request->session()->put($seenKey, true);
             }
         }
-        $announce = ['announcement' => $announcement, 'showBanner' => $showBanner];
+        $announce = ['boxes' => $boxes, 'popups' => $popups, 'showPopups' => $showPopups];
 
         // Limited roles (not staff, not partner — e.g. affiliator) get a minimal
         // dashboard with no sales/stock data, just shortcuts to what they can access.

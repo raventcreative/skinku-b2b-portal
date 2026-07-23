@@ -17,7 +17,7 @@ class Announcement extends Model
     public const BANNER = 'banner';
 
     protected $fillable = [
-        'role', 'note_enabled', 'note_title', 'note_body', 'note_link', 'note_link_label',
+        'role', 'sort_order', 'note_enabled', 'note_title', 'note_body', 'note_link', 'note_link_label',
         'banner_enabled', 'banner_link',
     ];
 
@@ -26,7 +26,15 @@ class Announcement extends Model
         return [
             'note_enabled' => 'boolean',
             'banner_enabled' => 'boolean',
+            'sort_order' => 'integer',
         ];
+    }
+
+    /** Label ringkas untuk daftar pengelolaan. */
+    public function label(): string
+    {
+        return $this->note_title
+            ?: ($this->note_enabled ? 'Catatan tanpa judul' : ($this->banner_enabled ? 'Banner' : 'Pengumuman kosong'));
     }
 
     public function bannerUrl(): ?string

@@ -12,8 +12,9 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * Kelola Pengumuman dashboard PER ROLE. Di balik permission manage_announcements
- * (default super admin; bisa diberikan ke role lain lewat Manajemen Hak Akses).
+ * Kelola Pengumuman dashboard. Satu layar: daftar SEMUA pengumuman (bisa
+ * difilter per role) + form tambah/edit. Banyak pengumuman per role diizinkan.
+ * Di balik permission manage_announcements.
  */
 class AnnouncementController extends Controller
 {
@@ -28,29 +29,31 @@ class AnnouncementController extends Controller
     public function manage(Request $request)
     {
         $roles = $this->roles();
-        $role = $request->query('role');
-        if (! in_array($role, $roles, true)) {
-            $role = $roles[0] ?? null;
-        }
+        $filter = in_array($request->query('role'), $roles, true) ? $request->query('role') : null;
 
-        // Role mana yang sudah punya pengumuman aktif — biar jelas ini PER ROLE
-        // (bukan satu global), tinggal ganti dropdown untuk role lain.
-        $active = Announcement::query()
-            ->where(fn ($q) => $q->where('note_enabled', true)->orWhere('banner_enabled', true))
-            ->get(['role', 'note_enabled', 'banner_enabled']);
+        $items = Announcement::query()
+            ->when($filter, fn ($q, $r) => $q->where('role', $r))
+            ->orderBy('role')->orderBy('sort_order')->orderBy('id')
+            ->get();
+
+        // Item yang sedang diedit (?item=id), atau form kosong untuk tambah baru.
+        $editing = $request->query('item') ? Announcement::find($request->query('item')) : null;
+        $editing ??= new Announcement(['role' => $filter ?: ($roles[0] ?? null)]);
 
         return view('announcements.manage', [
             'roles' => $roles,
-            'role' => $role,
-            'announcement' => $role ? Announcement::firstOrNew(['role' => $role]) : new Announcement,
-            'active' => $active,
+            'filter' => $filter,
+            'items' => $items,
+            'editing' => $editing,
         ]);
     }
 
     public function save(Request $request): RedirectResponse
     {
         $data = $request->validate([
+            'id' => ['nullable', 'integer', 'exists:announcements,id'],
             'role' => ['required', Rule::in($this->roles())],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'note_title' => ['nullable', 'string', 'max:150'],
             'note_body' => ['nullable', 'string', 'max:5000'],
             'note_link' => ['nullable', 'url', 'max:255'],
@@ -59,8 +62,10 @@ class AnnouncementController extends Controller
             'banner' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:12288'],
         ]);
 
-        $announcement = Announcement::firstOrNew(['role' => $data['role']]);
+        $announcement = ! empty($data['id']) ? Announcement::findOrFail($data['id']) : new Announcement;
         $announcement->fill([
+            'role' => $data['role'],
+            'sort_order' => $data['sort_order'] ?? 0,
             'note_enabled' => $request->boolean('note_enabled'),
             'note_title' => $data['note_title'] ?? null,
             'note_body' => $data['note_body'] ?? null,
@@ -71,7 +76,6 @@ class AnnouncementController extends Controller
         ]);
         $announcement->save();
 
-        // Hapus banner lama bila diminta ATAU akan diganti gambar baru.
         if ($request->boolean('remove_banner') || $request->hasFile('banner')) {
             $announcement->filesIn(Announcement::BANNER)->get()->each->delete();
         }
@@ -80,17 +84,25 @@ class AnnouncementController extends Controller
         }
 
         AuditService::log(
-            action: 'update_announcement',
+            action: 'save_announcement',
             targetType: 'announcement',
             targetId: $announcement->id,
-            after: [
-                'role' => $announcement->role,
-                'note' => $announcement->note_enabled,
-                'banner' => $announcement->banner_enabled,
-            ],
+            after: ['role' => $announcement->role, 'note' => $announcement->note_enabled, 'banner' => $announcement->banner_enabled],
         );
 
-        return redirect()->route('announcements.manage', ['role' => $announcement->role])
-            ->with('status', "Pengumuman untuk role \"{$announcement->role}\" disimpan.");
+        return redirect()->route('announcements.manage', array_filter(['role' => $announcement->role]))
+            ->with('status', 'Pengumuman disimpan.');
+    }
+
+    public function destroy(Announcement $announcement): RedirectResponse
+    {
+        $role = $announcement->role;
+        $id = $announcement->id;
+        $announcement->files()->get()->each->delete();   // hapus berkas banner juga
+        $announcement->delete();
+
+        AuditService::log(action: 'delete_announcement', targetType: 'announcement', targetId: $id, after: ['role' => $role]);
+
+        return redirect()->route('announcements.manage', ['role' => $role])->with('status', 'Pengumuman dihapus.');
     }
 }
