@@ -71,78 +71,63 @@ class KanbanKpiTest extends TestCase
         $this->assertSame($ts, $card->fresh()->completed_at?->timestamp);
     }
 
-    private function agatha(): User
+    public function test_kpi_dikelompokkan_per_nama_kolom(): void
     {
-        return User::create([
-            'name' => 'agatha', 'fullname' => 'Agatha', 'username' => 'agatha', 'email' => 'agatha@skinku.test',
-            'password' => Hash::make('secret123'), 'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
-        ]);
-    }
+        [$sa, $board, $todo, $done] = $this->board();   // "To Do List Agatha" + "Done Agatha"
 
-    public function test_kpi_hitung_per_assignee(): void
-    {
-        [$sa, $board, $todo, $done] = $this->board();
-        $agatha = $this->agatha();
+        // Agatha (murni dari NAMA KOLOM, tanpa assignee): 3 kartu.
+        $c1 = $todo->cards()->create(['title' => 'a', 'position' => 0, 'created_by' => $sa->id, 'due_date' => now()->addDay()->toDateString()]);
+        $c1->update(['column_id' => $done->id]);   // selesai tepat (due besok)
+        $done->cards()->create(['title' => 'b', 'position' => 1, 'created_by' => $sa->id, 'due_date' => now()->subDays(2)->toDateString()]);   // selesai telat
+        $todo->cards()->create(['title' => 'c', 'position' => 1, 'created_by' => $sa->id, 'due_date' => now()->subDay()->toDateString()]);       // berjalan overdue
 
-        // Selesai tepat waktu (due besok, selesai hari ini).
-        $c1 = $todo->cards()->create(['title' => 'a', 'position' => 0, 'created_by' => $sa->id, 'assignee_user_id' => $agatha->id, 'due_date' => now()->addDay()->toDateString()]);
-        $c1->update(['column_id' => $done->id]);
-        // Selesai TELAT (due 2 hari lalu, selesai hari ini).
-        $c2 = $todo->cards()->create(['title' => 'b', 'position' => 1, 'created_by' => $sa->id, 'assignee_user_id' => $agatha->id, 'due_date' => now()->subDays(2)->toDateString()]);
-        $c2->update(['column_id' => $done->id]);
-        // Berjalan & overdue (due kemarin, belum selesai).
-        $todo->cards()->create(['title' => 'c', 'position' => 2, 'created_by' => $sa->id, 'assignee_user_id' => $agatha->id, 'due_date' => now()->subDay()->toDateString()]);
-        // Tanpa assignee → tak dihitung.
-        $todo->cards()->create(['title' => 'd', 'position' => 3, 'created_by' => $sa->id]);
+        // Orang kedua: Billy (kolom sendiri) — 1 kartu selesai.
+        $billyDone = BoardColumn::create(['board_id' => $board->id, 'name' => 'Done Billy', 'position' => 2]);
+        $billyDone->cards()->create(['title' => 'x', 'position' => 0, 'created_by' => $sa->id]);
 
-        $board->load(['columns.cards.assignee']);
+        $board->load('columns.cards');
         $kpi = (new KanbanKpiService)->forBoard($board);
 
-        $this->assertCount(1, $kpi['rows']);
-        $row = $kpi['rows'][0];
-        $this->assertSame('Agatha', $row['nama']);
-        $this->assertSame(3, $row['total']);
-        $this->assertSame(2, $row['selesai']);
-        $this->assertSame(1, $row['berjalan']);
-        $this->assertSame(2, $row['telat']);   // 1 selesai-telat + 1 overdue-belum
-        $this->assertSame(1, $row['tepat']);
-        $this->assertSame(67, $row['skor']);   // 2/3
-        $this->assertSame(1, $kpi['unassigned']);
+        $names = array_column($kpi['rows'], 'nama');
+        $this->assertContains('Agatha', $names);   // gabungan "To Do List Agatha" + "Done Agatha"
+        $this->assertContains('Billy', $names);
+        $this->assertSame(0, $kpi['unassigned']);
+
+        $agatha = collect($kpi['rows'])->firstWhere('nama', 'Agatha');
+        $this->assertSame(3, $agatha['total']);
+        $this->assertSame(2, $agatha['selesai']);
+        $this->assertSame(1, $agatha['berjalan']);
+        $this->assertSame(2, $agatha['telat']);   // b selesai-telat + c overdue
+        $this->assertSame(1, $agatha['tepat']);   // a
+        $this->assertSame(67, $agatha['skor']);   // 2/3
     }
 
     public function test_kartu_lama_di_done_tanpa_completed_at_tetap_selesai(): void
     {
         [$sa, $board, , $done] = $this->board();
-        $agatha = $this->agatha();
-        $card = $done->cards()->create(['title' => 'lama', 'position' => 0, 'created_by' => $sa->id, 'assignee_user_id' => $agatha->id]);
+        $card = $done->cards()->create(['title' => 'lama', 'position' => 0, 'created_by' => $sa->id]);
         $card->completed_at = null;
-        $card->saveQuietly();   // simulasikan kartu lama: di Done tapi belum tercatat waktunya
+        $card->saveQuietly();   // kartu lama: di Done tapi waktu selesai belum tercatat
 
-        $board->load(['columns.cards.assignee']);
-        $kpi = (new KanbanKpiService)->forBoard($board);
-
-        $this->assertSame(1, $kpi['rows'][0]['selesai']);   // tetap dihitung selesai (via kolom Done)
-        $this->assertSame(0, $kpi['rows'][0]['berjalan']);
+        $board->load('columns.cards');
+        $row = (new KanbanKpiService)->forBoard($board)['rows'][0];
+        $this->assertSame(1, $row['selesai']);   // tetap selesai (via kolom Done)
+        $this->assertSame(0, $row['berjalan']);
     }
 
     public function test_jatuh_tempo_hari_ini_dihitung_telat(): void
     {
         [$sa, $board, $todo] = $this->board();
-        $agatha = $this->agatha();
-        $todo->cards()->create(['title' => 'due hari ini', 'position' => 0, 'created_by' => $sa->id, 'assignee_user_id' => $agatha->id, 'due_date' => now()->toDateString()]);
+        $todo->cards()->create(['title' => 'due hari ini', 'position' => 0, 'created_by' => $sa->id, 'due_date' => now()->toDateString()]);
 
-        $board->load(['columns.cards.assignee']);
-        $kpi = (new KanbanKpiService)->forBoard($board);
-
-        $this->assertSame(1, $kpi['rows'][0]['telat']);   // selaras badge "lewat!"
+        $board->load('columns.cards');
+        $this->assertSame(1, (new KanbanKpiService)->forBoard($board)['rows'][0]['telat']);   // selaras badge "lewat!"
     }
 
     public function test_papan_render_kpi(): void
     {
-        [$sa, $board, $todo, $done] = $this->board();
-        $agatha = $this->agatha();
-        $c = $todo->cards()->create(['title' => 'a', 'position' => 0, 'created_by' => $sa->id, 'assignee_user_id' => $agatha->id]);
-        $c->update(['column_id' => $done->id]);
+        [$sa, $board, , $done] = $this->board();
+        $done->cards()->create(['title' => 'a', 'position' => 0, 'created_by' => $sa->id]);
 
         $this->actingAs($sa)->get(route('kanban.show', $board))->assertOk()
             ->assertSee('Statistik / KPI Anggota')->assertSee('Agatha')->assertSee('kpiChart', false);

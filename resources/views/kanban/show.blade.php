@@ -263,12 +263,10 @@
             <div class="h-56"><canvas id="kpiChart"></canvas></div>
         </div>
     @else
-        <p class="text-xs text-stone-400 py-4 text-center">Belum ada kartu yang di-assign ke anggota. Assign kartu ke penanggung jawab (manual atau lewat Asisten AI) biar KPI-nya muncul.</p>
+        <p class="text-xs text-stone-400 py-4 text-center">Belum ada kartu. KPI dikelompokkan dari nama kolom (mis. "To Do List Budi" / "Done Budi" → Budi).</p>
     @endif
 
-    @if($kpi['unassigned'] > 0)
-        <p class="text-[11px] text-stone-400 mt-3">{{ $kpi['unassigned'] }} kartu belum punya penanggung jawab — belum masuk hitungan KPI (kartu kolom-based tanpa assignee).</p>
-    @endif
+    <p class="text-[11px] text-stone-400 mt-3">Dihitung per <b>nama kolom</b> ("To Do List X" / "Done X" → X). Selesai = kartu di kolom Done orang itu.</p>
 </div>
 
 @if(count($kpi['rows']))

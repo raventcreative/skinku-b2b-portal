@@ -5,13 +5,15 @@ namespace App\Services;
 use App\Models\Board;
 
 /**
- * KPI Kanban per anggota (penanggung jawab/assignee) untuk satu papan. Ukur
- * beban & performa: total, selesai, berjalan, telat, tepat waktu, skor %.
+ * KPI Kanban per ORANG berdasarkan NAMA KOLOM untuk satu papan. Papan disusun
+ * kolom-per-orang ("To Do List X" / "Done X"), jadi orang diambil dari nama
+ * kolom (buang kata status di depan) — bukan assignee. Semua orang muncul tanpa
+ * perlu akun user / assign kartu.
  *
- * "Selesai" = kartu punya completed_at (masuk kolom Done). "Telat":
- *  - kartu selesai tapi tanggal selesai > deadline, ATAU
- *  - kartu belum selesai & deadline sudah lewat.
- * Kartu tanpa assignee tak masuk hitungan (dilaporkan terpisah).
+ * Metrik: total, selesai (kartu di kolom Done/Selesai orang itu), berjalan,
+ * telat, tepat waktu, skor % (selesai/total). "Telat":
+ *  - berjalan & deadline sudah lewat (isPast, sama seperti badge "lewat!"), ATAU
+ *  - selesai tapi tanggal selesai > deadline.
  */
 class KanbanKpiService
 {
@@ -20,41 +22,29 @@ class KanbanKpiService
      */
     public function forBoard(Board $board): array
     {
-        $byUser = [];
-        $unassigned = 0;
+        $groups = [];
         $totalCards = 0;
 
-        // "Selesai" ditentukan KOLOM saat ini (Done/Selesai) — akurat untuk kartu
-        // lama sekalipun. completed_at (kalau ada) hanya dipakai menilai telat;
-        // kartu Done lama tanpa completed_at dianggap tepat waktu (tak bisa dinilai).
         foreach ($board->columns as $column) {
+            $person = $this->personOf($column->name);
+            $key = mb_strtolower($person);
             $columnDone = $column->isDone();
+
             foreach ($column->cards as $card) {
                 $totalCards++;
-                if (! $card->assignee_user_id) {
-                    $unassigned++;
-
-                    continue;
+                if (! isset($groups[$key])) {
+                    $groups[$key] = ['nama' => $person, 'total' => 0, 'selesai' => 0, 'berjalan' => 0, 'telat' => 0, 'tepat' => 0];
                 }
-                $uid = $card->assignee_user_id;
-                if (! isset($byUser[$uid])) {
-                    $byUser[$uid] = [
-                        'nama' => $card->assignee?->fullname ?? ('User #'.$uid),
-                        'user_id' => $uid, 'total' => 0, 'selesai' => 0, 'berjalan' => 0, 'telat' => 0, 'tepat' => 0,
-                    ];
-                }
-                $byUser[$uid]['total']++;
+                $groups[$key]['total']++;
 
                 if ($columnDone) {
-                    $byUser[$uid]['selesai']++;
+                    $groups[$key]['selesai']++;
                     $late = $card->completed_at && $card->due_date && $card->completed_at->toDateString() > $card->due_date->toDateString();
-                    $byUser[$uid][$late ? 'telat' : 'tepat']++;
+                    $groups[$key][$late ? 'telat' : 'tepat']++;
                 } else {
-                    $byUser[$uid]['berjalan']++;
-                    // Sama seperti badge "lewat!" di kartu (isPast): jatuh tempo
-                    // hari ini pun dihitung telat kalau belum selesai.
+                    $groups[$key]['berjalan']++;
                     if ($card->due_date && $card->due_date->isPast()) {
-                        $byUser[$uid]['telat']++;
+                        $groups[$key]['telat']++;
                     }
                 }
             }
@@ -64,10 +54,23 @@ class KanbanKpiService
             $s['skor'] = $s['total'] > 0 ? (int) round($s['selesai'] / $s['total'] * 100) : 0;
 
             return $s;
-        }, array_values($byUser));
+        }, array_values($groups));
 
         usort($rows, fn ($a, $b) => ($b['skor'] <=> $a['skor']) ?: ($b['total'] <=> $a['total']));
 
-        return ['rows' => $rows, 'unassigned' => $unassigned, 'total_cards' => $totalCards];
+        return ['rows' => $rows, 'unassigned' => 0, 'total_cards' => $totalCards];
+    }
+
+    /** Nama orang dari nama kolom: buang kata status di depan ("To Do List Tiar" → "Tiar"). */
+    private function personOf(string $columnName): string
+    {
+        $stripped = preg_replace(
+            '/^\s*(to\s*do\s*list|to\s*do|todo|done|selesai|proses|in\s*progress|backlog)\s+/i',
+            '',
+            trim($columnName),
+        );
+        $stripped = trim((string) $stripped);
+
+        return $stripped !== '' ? $stripped : trim($columnName);   // fallback: nama kolom apa adanya
     }
 }
