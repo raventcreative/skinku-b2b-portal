@@ -7,7 +7,14 @@
 @if(isset($announcement) && $announcement->noteVisible())
     <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
         @if($announcement->note_title)<p class="text-sm font-bold text-amber-900 mb-0.5">📢 {{ $announcement->note_title }}</p>@endif
-        <p class="text-sm text-amber-800 whitespace-pre-line">{{ $announcement->note_body }}</p>
+        @if(filled($announcement->note_body))
+            {{-- noteBodyHtml(): sudah di-escape + URL jadi tautan + newline jadi <br>. --}}
+            <p class="text-sm text-amber-800">{!! $announcement->noteBodyHtml() !!}</p>
+        @endif
+        @if($announcement->note_link)
+            <a href="{{ $announcement->note_link }}" target="_blank" rel="noopener"
+                class="inline-block mt-2 px-4 py-1.5 text-xs font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700">{{ $announcement->noteLinkLabel() }} →</a>
+        @endif
     </div>
 @endif
 

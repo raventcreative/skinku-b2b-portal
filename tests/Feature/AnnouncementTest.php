@@ -46,6 +46,39 @@ class AnnouncementTest extends TestCase
             ->assertDontSee('Promo Juli');
     }
 
+    /** URL di isi catatan otomatis jadi tautan; tombol link tampil bila diisi. */
+    public function test_catatan_url_jadi_tautan_dan_tombol_link(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'annlink');
+        $this->actingAs($super)->post(route('announcements.save'), [
+            'role' => User::ROLE_DISTRIBUTOR, 'note_enabled' => '1',
+            'note_body' => 'Aset: https://drive.google.com/drive/folders/ABC',
+            'note_link' => 'https://drive.google.com/folder', 'note_link_label' => 'Buka Drive',
+        ])->assertRedirect();
+
+        $html = $this->actingAs($this->user(User::ROLE_DISTRIBUTOR, 'annlinkd'))
+            ->get(route('dashboard'))->assertOk()->getContent();
+
+        // URL di dalam isi jadi <a href> (auto-hyperlink).
+        $this->assertStringContainsString('href="https://drive.google.com/drive/folders/ABC"', $html);
+        // Tombol link terpisah + label kustom.
+        $this->assertStringContainsString('https://drive.google.com/folder', $html);
+        $this->assertStringContainsString('Buka Drive', $html);
+    }
+
+    /** Catatan boleh tampil dengan HANYA tombol link (tanpa isi teks). */
+    public function test_catatan_hanya_tombol_link_tetap_tampil(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'annlink2');
+        $this->actingAs($super)->post(route('announcements.save'), [
+            'role' => User::ROLE_RESELLER, 'note_enabled' => '1', 'note_title' => 'Katalog',
+            'note_link' => 'https://skinku.id/katalog',
+        ])->assertRedirect();
+
+        $this->actingAs($this->user(User::ROLE_RESELLER, 'annlink2d'))->get(route('dashboard'))->assertOk()
+            ->assertSee('Katalog')->assertSee('Klik di sini', false);   // label default
+    }
+
     public function test_catatan_nonaktif_atau_kosong_tak_tampil(): void
     {
         Announcement::create(['role' => User::ROLE_DISTRIBUTOR, 'note_enabled' => false, 'note_body' => 'rahasia']);

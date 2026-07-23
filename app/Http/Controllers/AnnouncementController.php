@@ -53,6 +53,8 @@ class AnnouncementController extends Controller
             'role' => ['required', Rule::in($this->roles())],
             'note_title' => ['nullable', 'string', 'max:150'],
             'note_body' => ['nullable', 'string', 'max:5000'],
+            'note_link' => ['nullable', 'url', 'max:255'],
+            'note_link_label' => ['nullable', 'string', 'max:60'],
             'banner_link' => ['nullable', 'url', 'max:500'],
             'banner' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:12288'],
         ]);
@@ -62,6 +64,8 @@ class AnnouncementController extends Controller
             'note_enabled' => $request->boolean('note_enabled'),
             'note_title' => $data['note_title'] ?? null,
             'note_body' => $data['note_body'] ?? null,
+            'note_link' => $data['note_link'] ?? null,
+            'note_link_label' => $data['note_link_label'] ?? null,
             'banner_enabled' => $request->boolean('banner_enabled'),
             'banner_link' => $data['banner_link'] ?? null,
         ]);

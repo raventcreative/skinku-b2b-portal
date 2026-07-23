@@ -46,6 +46,17 @@
                 class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm mb-2">
             <textarea name="note_body" rows="3" maxlength="5000" placeholder="Isi catatan…"
                 class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ old('note_body', $announcement->note_body) }}</textarea>
+            <p class="text-[10px] text-stone-400 mt-1">URL yang ditulis di isi otomatis jadi tautan yang bisa diklik.</p>
+
+            <div class="grid sm:grid-cols-2 gap-2 mt-2">
+                <input name="note_link" type="url" maxlength="255" placeholder="Link tombol (opsional — mis. https://…)"
+                    value="{{ old('note_link', $announcement->note_link) }}"
+                    class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                <input name="note_link_label" maxlength="60" placeholder="Teks tombol (mis. Klik di sini)"
+                    value="{{ old('note_link_label', $announcement->note_link_label) }}"
+                    class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </div>
+            <p class="text-[10px] text-stone-400 mt-1">Isi "Link tombol" kalau mau tombol klik terpisah — isi catatan jadi bersih tanpa URL panjang.</p>
         </div>
 
         {{-- Popup banner (gambar, muncul sekali tiap login) --}}
