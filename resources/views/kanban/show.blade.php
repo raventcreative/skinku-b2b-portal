@@ -153,7 +153,7 @@
                                                 class="px-3 py-2 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
                                                 Unggah <span data-attach-count></span>
                                             </button>
-                                            <span class="text-[10px] text-stone-400">sisa {{ 8 - $atts->count() }} slot · jpg/png/webp/gif · auto-perkecil 1280px</span>
+                                            <span class="text-[10px] text-stone-400">sisa {{ 8 - $atts->count() }} slot · jpg/png/webp/gif · auto-perkecil 1280px · atau tempel <b>Ctrl+V</b> screenshot</span>
                                         </div>
                                     </form>
                                 @else
@@ -317,13 +317,22 @@ document.querySelectorAll('[data-attach-form]').forEach(form => {
         submit.disabled = pending.length === 0;
     };
 
+    // Tambah 1 gambar ke antrean (dipakai input file & tempel/paste clipboard).
+    const addFile = (file) => {
+        if (!file || !file.type.startsWith('image/')) return false;
+        if (pending.length >= remaining) { alert(`Maksimal ${remaining} foto lagi untuk kartu ini.`); return false; }
+        pending.push(file);
+        return true;
+    };
+    // Dipakai handler paste: tambah gambar dari clipboard lalu refresh pratinjau.
+    form.addPastedImage = (file) => { const ok = addFile(file); if (ok) render(); return ok; };
+
     addTile.addEventListener('click', () => input.click());
 
     input.addEventListener('change', () => {
         for (const file of input.files) {
             if (!file.type.startsWith('image/')) { alert(`"${file.name}" bukan gambar — dilewati.`); continue; }
-            if (pending.length >= remaining) { alert(`Maksimal ${remaining} foto lagi untuk kartu ini.`); break; }
-            pending.push(file);
+            if (!addFile(file)) break;
         }
         input.value = '';   // reset agar file sama bisa dipilih lagi; kita kontrol via DataTransfer
         render();
@@ -335,6 +344,24 @@ document.querySelectorAll('[data-attach-form]').forEach(form => {
         pending.forEach(f => dt.items.add(f));
         input.files = dt.files;   // isi input dengan file pending sebelum submit
     });
+});
+
+// Tempel (Ctrl+V) screenshot langsung jadi Lampiran kartu yang sedang dibuka.
+// Cukup ambil gambar dari clipboard; paste teks (mis. ke kolom komentar) lewat
+// begitu saja karena tak ada item gambar.
+document.addEventListener('paste', (e) => {
+    const dlg = document.querySelector('dialog[open]');
+    if (!dlg) return;
+    const form = dlg.querySelector('[data-attach-form]');
+    if (!form || !form.addPastedImage) return;   // kartu penuh 8/8 → form tak ada
+    let added = false;
+    for (const it of (e.clipboardData && e.clipboardData.items) || []) {
+        if (it.kind === 'file' && it.type.startsWith('image/')) {
+            const file = it.getAsFile();
+            if (file && form.addPastedImage(file)) added = true;
+        }
+    }
+    if (added) e.preventDefault();   // jangan biarkan gambar coba masuk ke textarea
 });
 </script>
 @endsection
