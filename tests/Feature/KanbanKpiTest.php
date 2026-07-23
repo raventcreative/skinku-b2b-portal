@@ -110,6 +110,21 @@ class KanbanKpiTest extends TestCase
         $this->assertSame(1, $kpi['unassigned']);
     }
 
+    public function test_kartu_lama_di_done_tanpa_completed_at_tetap_selesai(): void
+    {
+        [$sa, $board, , $done] = $this->board();
+        $agatha = $this->agatha();
+        $card = $done->cards()->create(['title' => 'lama', 'position' => 0, 'created_by' => $sa->id, 'assignee_user_id' => $agatha->id]);
+        $card->completed_at = null;
+        $card->saveQuietly();   // simulasikan kartu lama: di Done tapi belum tercatat waktunya
+
+        $board->load(['columns.cards.assignee']);
+        $kpi = (new KanbanKpiService)->forBoard($board);
+
+        $this->assertSame(1, $kpi['rows'][0]['selesai']);   // tetap dihitung selesai (via kolom Done)
+        $this->assertSame(0, $kpi['rows'][0]['berjalan']);
+    }
+
     public function test_papan_render_kpi(): void
     {
         [$sa, $board, $todo, $done] = $this->board();
