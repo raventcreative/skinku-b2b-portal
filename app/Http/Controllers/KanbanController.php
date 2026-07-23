@@ -10,6 +10,7 @@ use App\Models\File;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\ImageService;
+use App\Services\KanbanKpiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -77,7 +78,16 @@ class KanbanController extends Controller
             ->orderBy('fullname')
             ->get(['id', 'fullname']);
 
-        return view('kanban.show', ['board' => $board, 'assignees' => $assignees]);
+        // KPI per anggota (pakai data papan yang sudah di-load).
+        $kpi = (new KanbanKpiService)->forBoard($board);
+        $kpiChart = [
+            'labels' => array_column($kpi['rows'], 'nama'),
+            'selesai' => array_column($kpi['rows'], 'selesai'),
+            'berjalan' => array_column($kpi['rows'], 'berjalan'),
+            'telat' => array_column($kpi['rows'], 'telat'),
+        ];
+
+        return view('kanban.show', compact('board', 'assignees', 'kpi', 'kpiChart'));
     }
 
     public function update(Request $request, Board $board): RedirectResponse

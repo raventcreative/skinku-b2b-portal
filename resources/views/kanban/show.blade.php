@@ -220,6 +220,83 @@
     </form>
 </div>
 
+{{-- KPI per anggota (di bawah papan) --}}
+<div class="mt-8 bg-white rounded-2xl border border-stone-200 p-5">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+        <h3 class="text-sm font-bold text-stone-900">Statistik / KPI Anggota</h3>
+        <span class="text-[11px] text-stone-400">Selesai = kartu masuk kolom Done · Telat = lewat deadline</span>
+    </div>
+
+    @if(count($kpi['rows']))
+        <div class="grid lg:grid-cols-2 gap-5 items-start">
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs whitespace-nowrap">
+                    <thead class="text-stone-500 uppercase text-[10px] border-b border-stone-100">
+                        <tr>
+                            <th class="text-left py-2">Anggota</th>
+                            <th class="text-right px-2">Total</th>
+                            <th class="text-right px-2">Selesai</th>
+                            <th class="text-right px-2">Berjalan</th>
+                            <th class="text-right px-2">Telat</th>
+                            <th class="text-left px-2 w-28">Skor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($kpi['rows'] as $r)
+                            <tr class="border-b border-stone-50">
+                                <td class="py-2 font-semibold text-stone-700">{{ $r['nama'] }}</td>
+                                <td class="text-right px-2 text-stone-600">{{ $r['total'] }}</td>
+                                <td class="text-right px-2 text-emerald-700 font-semibold">{{ $r['selesai'] }}</td>
+                                <td class="text-right px-2 text-amber-700">{{ $r['berjalan'] }}</td>
+                                <td class="text-right px-2 {{ $r['telat'] ? 'text-rose-700 font-bold' : 'text-stone-400' }}">{{ $r['telat'] }}</td>
+                                <td class="px-2">
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden"><div class="h-full bg-emerald-500" style="width: {{ $r['skor'] }}%"></div></div>
+                                        <span class="text-[10px] font-bold text-stone-600 w-8 text-right">{{ $r['skor'] }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="h-56"><canvas id="kpiChart"></canvas></div>
+        </div>
+    @else
+        <p class="text-xs text-stone-400 py-4 text-center">Belum ada kartu yang di-assign ke anggota. Assign kartu ke penanggung jawab (manual atau lewat Asisten AI) biar KPI-nya muncul.</p>
+    @endif
+
+    @if($kpi['unassigned'] > 0)
+        <p class="text-[11px] text-stone-400 mt-3">{{ $kpi['unassigned'] }} kartu belum punya penanggung jawab — belum masuk hitungan KPI (kartu kolom-based tanpa assignee).</p>
+    @endif
+</div>
+
+@if(count($kpi['rows']))
+<script>
+(function () {
+    const el = document.getElementById('kpiChart');
+    if (!el || !window.Chart) return;
+    const KPI = {{ \Illuminate\Support\Js::from($kpiChart) }};
+    new Chart(el, {
+        type: 'bar',
+        data: {
+            labels: KPI.labels,
+            datasets: [
+                { label: 'Selesai', data: KPI.selesai, backgroundColor: '#10b981' },
+                { label: 'Berjalan', data: KPI.berjalan, backgroundColor: '#f59e0b' },
+                { label: 'Telat', data: KPI.telat, backgroundColor: '#ef4444' },
+            ],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } },
+        },
+    });
+})();
+</script>
+@endif
+
 <script>
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 const post = (url, body) => fetch(url, {

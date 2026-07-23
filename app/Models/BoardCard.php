@@ -20,13 +20,38 @@ class BoardCard extends Model
 
     protected function casts(): array
     {
-        return ['due_date' => 'date'];
+        return ['due_date' => 'date', 'completed_at' => 'datetime'];
+    }
+
+    /**
+     * Sinkron completed_at tiap kolom kartu berubah: masuk kolom Done → catat
+     * waktu selesai (sekali); keluar Done → dibuka lagi (null). Terpicu di SEMUA
+     * jalur (buat manual, dari AI, geser drag) karena lewat event model.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (BoardCard $card) {
+            if ($card->exists && ! $card->isDirty('column_id')) {
+                return;   // kolom tak berubah → jangan sentuh completed_at
+            }
+            $column = $card->column_id ? BoardColumn::find($card->column_id) : null;
+            if ($column && $column->isDone()) {
+                $card->completed_at ??= now();
+            } else {
+                $card->completed_at = null;
+            }
+        });
     }
 
     /** Kartu ini dibuat oleh Asisten AI (bukan manual). */
     public function fromAi(): bool
     {
         return $this->created_via === 'ai';
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this->completed_at !== null;
     }
 
     public function column()
