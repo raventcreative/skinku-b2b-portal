@@ -125,6 +125,18 @@ class KanbanKpiTest extends TestCase
         $this->assertSame(0, $kpi['rows'][0]['berjalan']);
     }
 
+    public function test_jatuh_tempo_hari_ini_dihitung_telat(): void
+    {
+        [$sa, $board, $todo] = $this->board();
+        $agatha = $this->agatha();
+        $todo->cards()->create(['title' => 'due hari ini', 'position' => 0, 'created_by' => $sa->id, 'assignee_user_id' => $agatha->id, 'due_date' => now()->toDateString()]);
+
+        $board->load(['columns.cards.assignee']);
+        $kpi = (new KanbanKpiService)->forBoard($board);
+
+        $this->assertSame(1, $kpi['rows'][0]['telat']);   // selaras badge "lewat!"
+    }
+
     public function test_papan_render_kpi(): void
     {
         [$sa, $board, $todo, $done] = $this->board();

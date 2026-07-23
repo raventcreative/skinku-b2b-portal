@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Board;
-use Illuminate\Support\Carbon;
 
 /**
  * KPI Kanban per anggota (penanggung jawab/assignee) untuk satu papan. Ukur
@@ -21,7 +20,6 @@ class KanbanKpiService
      */
     public function forBoard(Board $board): array
     {
-        $today = Carbon::now()->toDateString();
         $byUser = [];
         $unassigned = 0;
         $totalCards = 0;
@@ -53,7 +51,9 @@ class KanbanKpiService
                     $byUser[$uid][$late ? 'telat' : 'tepat']++;
                 } else {
                     $byUser[$uid]['berjalan']++;
-                    if ($card->due_date && $card->due_date->toDateString() < $today) {
+                    // Sama seperti badge "lewat!" di kartu (isPast): jatuh tempo
+                    // hari ini pun dihitung telat kalau belum selesai.
+                    if ($card->due_date && $card->due_date->isPast()) {
                         $byUser[$uid]['telat']++;
                     }
                 }
