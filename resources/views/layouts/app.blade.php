@@ -184,6 +184,10 @@
                 {!! navItem('permissions.index', 'Manajemen Hak Akses', 'permissions.index') !!}
             @endif
 
+            @if($u->canDo('use_ai_assistant'))
+                {!! navItem('ai.knowledge', 'Pengetahuan AI', 'ai.knowledge') !!}
+            @endif
+
             {{-- Pengaturan Sistem sengaja di paling bawah nav (dekat Ubah Password):
                  jarang dibuka, jadi tak menuh-menuhi menu atas. --}}
             @if($u->canDo('system_settings'))
