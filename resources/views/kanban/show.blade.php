@@ -27,11 +27,11 @@
 @endif
 
 {{-- Papan: kolom berdampingan, scroll horizontal seperti Trello. --}}
-<div id="boardColumns" class="flex gap-2.5 items-start overflow-x-auto pb-4">
+<div id="boardColumns" class="flex gap-4 items-start overflow-x-auto pb-4">
     @foreach($board->columns as $column)
-        <div class="w-64 shrink-0 bg-stone-100 rounded-2xl border border-stone-200" data-column="{{ $column->id }}">
-            <div class="px-3 py-2.5 flex items-center gap-2 cursor-grab" data-col-handle>
-                <p class="font-bold text-stone-800 text-[15px] flex-1">{{ $column->name }}
+        <div class="w-72 shrink-0 bg-stone-100 rounded-2xl border border-stone-200" data-column="{{ $column->id }}">
+            <div class="px-4 py-3 flex items-center gap-2 cursor-grab" data-col-handle>
+                <p class="font-bold text-stone-800 text-sm flex-1">{{ $column->name }}
                     <span class="font-normal text-stone-400">({{ $column->cards->count() }})</span>
                 </p>
                 <details class="relative">
@@ -60,8 +60,8 @@
                     {{-- Muka kartu ala Trello: judul + badge. Klik → modal detail. --}}
                     <div class="bg-white rounded-xl border border-stone-200 shadow-sm p-3 cursor-grab hover:border-stone-300"
                         data-card="{{ $card->id }}" data-opens="cardModal-{{ $card->id }}">
-                        <p class="text-[15px] leading-snug font-semibold text-stone-800">{{ $card->title }}</p>
-                        <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[11px]">
+                        <p class="text-sm font-semibold text-stone-800">{{ $card->title }}</p>
+                        <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
                             @if($card->fromAi())
                                 <span class="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-bold" title="Kartu ini dibuat oleh Asisten AI">✨ AI</span>
                             @endif
@@ -223,36 +223,36 @@
 {{-- KPI per anggota (di bawah papan) --}}
 <div class="mt-8 bg-white rounded-2xl border border-stone-200 p-5">
     <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-        <h3 class="text-sm font-bold text-stone-900">Statistik / KPI Anggota</h3>
-        <span class="text-[11px] text-stone-400">Selesai = kartu masuk kolom Done · Telat = lewat deadline</span>
+        <h3 class="text-base font-bold text-stone-900">Statistik / KPI Anggota</h3>
+        <span class="text-xs text-stone-400">Selesai = kartu masuk kolom Done · Telat = lewat deadline</span>
     </div>
 
     @if(count($kpi['rows']))
-        <div class="grid lg:grid-cols-2 gap-5 items-start">
+        <div class="grid lg:grid-cols-[auto_1fr] gap-6 items-start">
             <div class="overflow-x-auto">
-                <table class="w-full text-xs whitespace-nowrap">
-                    <thead class="text-stone-500 uppercase text-[10px] border-b border-stone-100">
+                <table class="text-sm whitespace-nowrap">
+                    <thead class="text-stone-500 uppercase text-xs border-b border-stone-100">
                         <tr>
-                            <th class="text-left py-2">Anggota</th>
-                            <th class="text-right px-2">Total</th>
-                            <th class="text-right px-2">Selesai</th>
-                            <th class="text-right px-2">Berjalan</th>
-                            <th class="text-right px-2">Telat</th>
-                            <th class="text-left px-2 w-28">Skor</th>
+                            <th class="text-left py-2 pr-4">Anggota</th>
+                            <th class="text-right px-3">Total</th>
+                            <th class="text-right px-3">Selesai</th>
+                            <th class="text-right px-3">Berjalan</th>
+                            <th class="text-right px-3">Telat</th>
+                            <th class="text-left px-3 w-32">Skor</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($kpi['rows'] as $r)
                             <tr class="border-b border-stone-50">
-                                <td class="py-2 font-semibold text-stone-700">{{ $r['nama'] }}</td>
-                                <td class="text-right px-2 text-stone-600">{{ $r['total'] }}</td>
-                                <td class="text-right px-2 text-emerald-700 font-semibold">{{ $r['selesai'] }}</td>
-                                <td class="text-right px-2 text-amber-700">{{ $r['berjalan'] }}</td>
-                                <td class="text-right px-2 {{ $r['telat'] ? 'text-rose-700 font-bold' : 'text-stone-400' }}">{{ $r['telat'] }}</td>
-                                <td class="px-2">
-                                    <div class="flex items-center gap-1.5">
-                                        <div class="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden"><div class="h-full bg-emerald-500" style="width: {{ $r['skor'] }}%"></div></div>
-                                        <span class="text-[10px] font-bold text-stone-600 w-8 text-right">{{ $r['skor'] }}%</span>
+                                <td class="py-2 pr-4 font-semibold text-stone-700">{{ $r['nama'] }}</td>
+                                <td class="text-right px-3 text-stone-600">{{ $r['total'] }}</td>
+                                <td class="text-right px-3 text-emerald-700 font-semibold">{{ $r['selesai'] }}</td>
+                                <td class="text-right px-3 text-amber-700">{{ $r['berjalan'] }}</td>
+                                <td class="text-right px-3 {{ $r['telat'] ? 'text-rose-700 font-bold' : 'text-stone-400' }}">{{ $r['telat'] }}</td>
+                                <td class="px-3">
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex-1 h-2 bg-stone-100 rounded-full overflow-hidden"><div class="h-full bg-emerald-500" style="width: {{ $r['skor'] }}%"></div></div>
+                                        <span class="text-[11px] font-bold text-stone-600 w-10 text-right">{{ $r['skor'] }}%</span>
                                     </div>
                                 </td>
                             </tr>
@@ -287,8 +287,8 @@
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-            plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0, font: { size: 12 } } }, x: { ticks: { font: { size: 12 } } } },
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } },
         },
     });
 })();
