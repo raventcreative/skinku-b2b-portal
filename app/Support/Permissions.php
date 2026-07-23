@@ -45,6 +45,7 @@ class Permissions
         'kol.deal.finance' => 'Finansial Deal KOL (biaya, status bayar, rekening)',
         'kol.report.view' => 'Laporan KOL (fase berikutnya)',
         'kanban.view' => 'Papan Kanban (tugas tim ala Trello)',
+        'use_ai_assistant' => 'Asisten AI',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -83,6 +84,9 @@ class Permissions
         // kol_specialist dapat default; role dinamis lain via matriks. Mitra
         // diblokir KERAS oleh middleware 'internal' apa pun kata matriks.
         'kanban.view' => [User::ROLE_ADMIN, User::ROLE_GUDANG, 'kol_specialist'],
+        // v1 asisten AI: super_admin dulu (selalu punya semua izin). Role lain
+        // tinggal dicentang di matriks hak akses saat mau dibuka.
+        'use_ai_assistant' => [],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */

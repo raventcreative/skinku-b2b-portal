@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccAccountController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AccTemplateController;
+use App\Http\Controllers\AiAssistantController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
@@ -355,6 +356,14 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::delete('/pengumuman/{announcement}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
         // Komunitas WA per role (panel di halaman Pengumuman yang sama).
         Route::post('/pengumuman/komunitas', [AnnouncementController::class, 'saveCommunity'])->name('announcements.community.save');
+    });
+
+    // Asisten AI (chat + konfirmasi aksi tulis). Lihat AI_ASSISTANT_SPEC.md.
+    Route::middleware('permission:use_ai_assistant')->group(function () {
+        Route::get('/asisten', [AiAssistantController::class, 'index'])->name('ai.index');
+        Route::post('/asisten/kirim', [AiAssistantController::class, 'send'])->name('ai.send');
+        Route::post('/asisten/konfirmasi', [AiAssistantController::class, 'confirm'])->name('ai.confirm');
+        Route::post('/asisten/reset', [AiAssistantController::class, 'reset'])->name('ai.reset');
     });
 
     /* ---------------- Learning / LMS ---------------- */
