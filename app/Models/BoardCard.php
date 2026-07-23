@@ -15,12 +15,18 @@ class BoardCard extends Model
     public const ATTACHMENT = 'card_attachment';
 
     protected $fillable = [
-        'column_id', 'title', 'description', 'assignee_user_id', 'due_date', 'position', 'created_by',
+        'column_id', 'title', 'description', 'assignee_user_id', 'due_date', 'position', 'created_by', 'created_via',
     ];
 
     protected function casts(): array
     {
         return ['due_date' => 'date'];
+    }
+
+    /** Kartu ini dibuat oleh Asisten AI (bukan manual). */
+    public function fromAi(): bool
+    {
+        return $this->created_via === 'ai';
     }
 
     public function column()

@@ -95,6 +95,7 @@ class BuatKartuKanbanTool extends BaseTool
             'due_date' => ! empty($args['tenggat']) ? $args['tenggat'] : null,
             'position' => ((int) $column->cards()->max('position')) + 1,
             'created_by' => $user->id,
+            'created_via' => 'ai',   // buat lencana "AI" di kartu
         ]);
 
         AuditService::log(

@@ -62,6 +62,9 @@
                         data-card="{{ $card->id }}" data-opens="cardModal-{{ $card->id }}">
                         <p class="text-sm font-semibold text-stone-800">{{ $card->title }}</p>
                         <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
+                            @if($card->fromAi())
+                                <span class="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-bold" title="Kartu ini dibuat oleh Asisten AI">✨ AI</span>
+                            @endif
                             @if($card->due_date)
                                 <span class="px-1.5 py-0.5 rounded {{ $overdue ? 'bg-rose-100 text-rose-700 font-bold' : 'bg-stone-100 text-stone-500' }}">📅 {{ $card->due_date->format('d M') }}{{ $overdue ? ' — lewat!' : '' }}</span>
                             @endif

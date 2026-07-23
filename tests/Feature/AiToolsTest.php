@@ -122,4 +122,28 @@ class AiToolsTest extends TestCase
         $this->assertNotNull($tool->validate(['papan' => 'Papan', 'kolom' => 'Kolom Hantu', 'judul' => 'X'], $sa));
         $this->assertNotNull($tool->validate(['papan' => 'Papan Hantu', 'kolom' => 'To Do', 'judul' => 'X'], $sa));
     }
+
+    public function test_kartu_dari_ai_ditandai(): void
+    {
+        $sa = $this->super();
+        $board = Board::create(['name' => 'Papan', 'created_by' => $sa->id]);
+        BoardColumn::create(['board_id' => $board->id, 'name' => 'To Do', 'position' => 0]);
+        (new BuatKartuKanbanTool)->run(['papan' => 'Papan', 'kolom' => 'To Do', 'judul' => 'Dari AI'], $sa);
+
+        $card = BoardCard::first();
+        $this->assertSame('ai', $card->created_via);
+        $this->assertTrue($card->fromAi());
+    }
+
+    public function test_lencana_ai_tampil_di_papan(): void
+    {
+        $sa = $this->super();
+        $board = Board::create(['name' => 'Papan', 'created_by' => $sa->id]);
+        $col = BoardColumn::create(['board_id' => $board->id, 'name' => 'To Do', 'position' => 0]);
+        (new BuatKartuKanbanTool)->run(['papan' => 'Papan', 'kolom' => 'To Do', 'judul' => 'Kartu AI'], $sa);
+        $col->cards()->create(['title' => 'Kartu Manual', 'position' => 2, 'created_by' => $sa->id]);   // manual → tanpa lencana
+
+        $this->actingAs($sa)->get(route('kanban.show', $board))->assertOk()
+            ->assertSee('✨ AI', false)->assertSee('Kartu AI')->assertSee('Kartu Manual');
+    }
 }
