@@ -27,11 +27,11 @@
 @endif
 
 {{-- Papan: kolom berdampingan, scroll horizontal seperti Trello. --}}
-<div id="boardColumns" class="flex gap-4 items-start overflow-x-auto pb-4">
+<div id="boardColumns" class="flex gap-2.5 items-start overflow-x-auto pb-4">
     @foreach($board->columns as $column)
-        <div class="w-72 shrink-0 bg-stone-100 rounded-2xl border border-stone-200" data-column="{{ $column->id }}">
-            <div class="px-4 py-3 flex items-center gap-2 cursor-grab" data-col-handle>
-                <p class="font-bold text-stone-800 text-sm flex-1">{{ $column->name }}
+        <div class="w-64 shrink-0 bg-stone-100 rounded-2xl border border-stone-200" data-column="{{ $column->id }}">
+            <div class="px-3 py-2.5 flex items-center gap-2 cursor-grab" data-col-handle>
+                <p class="font-bold text-stone-800 text-[15px] flex-1">{{ $column->name }}
                     <span class="font-normal text-stone-400">({{ $column->cards->count() }})</span>
                 </p>
                 <details class="relative">
@@ -60,8 +60,8 @@
                     {{-- Muka kartu ala Trello: judul + badge. Klik → modal detail. --}}
                     <div class="bg-white rounded-xl border border-stone-200 shadow-sm p-3 cursor-grab hover:border-stone-300"
                         data-card="{{ $card->id }}" data-opens="cardModal-{{ $card->id }}">
-                        <p class="text-sm font-semibold text-stone-800">{{ $card->title }}</p>
-                        <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
+                        <p class="text-[15px] leading-snug font-semibold text-stone-800">{{ $card->title }}</p>
+                        <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[11px]">
                             @if($card->fromAi())
                                 <span class="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-bold" title="Kartu ini dibuat oleh Asisten AI">✨ AI</span>
                             @endif
