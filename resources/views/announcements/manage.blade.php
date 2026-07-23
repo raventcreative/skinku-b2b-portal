@@ -4,22 +4,30 @@
 
 @section('content')
 <div class="max-w-3xl">
-    @if(session('status'))
-        <p class="mb-4 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">{{ session('status') }}</p>
-    @endif
+    {{-- Pesan sukses "disimpan" sudah dirender global oleh layout — tak diulang di sini. --}}
     @if($errors->any())
         <p class="mb-4 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">{{ $errors->first() }}</p>
     @endif
 
     {{-- Pilih role — tiap role diatur terpisah, isinya boleh beda. --}}
-    <form method="GET" class="flex items-end gap-2 mb-4">
+    <form method="GET" class="flex items-end gap-2 mb-2">
         <label class="text-[11px] font-semibold text-stone-500">Atur pengumuman untuk role
             <select name="role" onchange="this.form.submit()" class="mt-1 block px-3 py-2 border border-stone-300 rounded-lg text-sm">
                 @foreach($roles as $r)<option value="{{ $r }}" @selected($role === $r)>{{ $r }}</option>@endforeach
             </select>
         </label>
-        <span class="text-[10px] text-stone-400 pb-2">tiap role bisa beda isinya</span>
+        <span class="text-[10px] text-stone-400 pb-2">tiap role diatur & disimpan sendiri-sendiri</span>
     </form>
+
+    {{-- Penanda role yang sudah punya pengumuman AKTIF — biar jelas ini per role. --}}
+    <p class="text-[11px] text-stone-500 mb-4">
+        Sudah aktif:
+        @forelse($active as $a)
+            <span class="inline-block px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 mr-1 mb-1">{{ $a->role }}{{ $a->note_enabled ? ' · catatan' : '' }}{{ $a->banner_enabled ? ' · banner' : '' }}</span>
+        @empty
+            <span class="text-stone-400">belum ada role yang aktif — centang "Aktifkan" di bawah lalu Simpan.</span>
+        @endforelse
+    </p>
 
     @if($role)
     <form method="POST" action="{{ route('announcements.save') }}" enctype="multipart/form-data"

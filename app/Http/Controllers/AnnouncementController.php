@@ -33,10 +33,17 @@ class AnnouncementController extends Controller
             $role = $roles[0] ?? null;
         }
 
+        // Role mana yang sudah punya pengumuman aktif — biar jelas ini PER ROLE
+        // (bukan satu global), tinggal ganti dropdown untuk role lain.
+        $active = Announcement::query()
+            ->where(fn ($q) => $q->where('note_enabled', true)->orWhere('banner_enabled', true))
+            ->get(['role', 'note_enabled', 'banner_enabled']);
+
         return view('announcements.manage', [
             'roles' => $roles,
             'role' => $role,
             'announcement' => $role ? Announcement::firstOrNew(['role' => $role]) : new Announcement,
+            'active' => $active,
         ]);
     }
 
