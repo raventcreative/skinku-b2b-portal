@@ -7,14 +7,15 @@ use App\Services\Ai\AiException;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\Tools\ToolRegistry;
 use App\Services\AuditService;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Halaman "Asisten AI" (di balik permission use_ai_assistant). Chat
- * server-rendered: percakapan disimpan di session (sementara, hilang saat
- * logout). Aksi tulis lewat konfirmasi 2 langkah (send -> confirm). Lihat
- * AI_ASSISTANT_SPEC.md.
+ * Asisten AI (di balik permission use_ai_assistant). Dipakai dua cara dengan
+ * backend sama: widget mengambang (fetch → JSON) & halaman penuh /asisten
+ * (form → redirect). Percakapan disimpan di session (sementara, hilang saat
+ * logout). Aksi tulis lewat konfirmasi 2 langkah. Lihat AI_ASSISTANT_SPEC.md.
  */
 class AiAssistantController extends Controller
 {
@@ -32,7 +33,13 @@ class AiAssistantController extends Controller
         ]);
     }
 
-    public function send(Request $request): RedirectResponse
+    /** Keadaan percakapan terkini — dipakai widget saat pertama dibuka. */
+    public function state(Request $request): JsonResponse
+    {
+        return response()->json($this->snapshot($request));
+    }
+
+    public function send(Request $request): Response
     {
         $data = $request->validate(['message' => ['required', 'string', 'max:2000']]);
         $user = $request->user();
@@ -49,7 +56,7 @@ class AiAssistantController extends Controller
                 ['role' => 'assistant', 'content' => '⚠️ '.$e->getMessage()],
             ]));
 
-            return redirect()->route('ai.index');
+            return $this->respond($request);
         }
 
         $request->session()->put(self::THREAD, $out['history']);
@@ -59,17 +66,17 @@ class AiAssistantController extends Controller
 
         AuditService::log(action: 'ai_message', targetType: 'ai_assistant', after: ['type' => $out['result']->type]);
 
-        return redirect()->route('ai.index');
+        return $this->respond($request);
     }
 
-    public function confirm(Request $request): RedirectResponse
+    public function confirm(Request $request): Response
     {
         $pending = $request->session()->pull(self::PENDING);   // ambil & hapus
         $user = $request->user();
         $thread = $request->session()->get(self::THREAD, []);
 
         if (! $pending) {
-            return redirect()->route('ai.index');
+            return $this->respond($request);
         }
 
         // Batal.
@@ -77,7 +84,7 @@ class AiAssistantController extends Controller
             $thread[] = ['role' => 'assistant', 'content' => 'Oke, dibatalkan. 👍'];
             $request->session()->put(self::THREAD, $thread);
 
-            return redirect()->route('ai.index');
+            return $this->respond($request);
         }
 
         $tool = $this->tools->find($pending['tool'], $user);
@@ -85,7 +92,7 @@ class AiAssistantController extends Controller
             $thread[] = ['role' => 'assistant', 'content' => '⚠️ Aksi tak bisa dijalankan (alat tidak tersedia).'];
             $request->session()->put(self::THREAD, $thread);
 
-            return redirect()->route('ai.index');
+            return $this->respond($request);
         }
 
         try {
@@ -104,13 +111,32 @@ class AiAssistantController extends Controller
 
         AuditService::log(action: 'ai_confirm', targetType: 'ai_assistant', after: ['tool' => $pending['tool']]);
 
-        return redirect()->route('ai.index');
+        return $this->respond($request);
     }
 
-    public function reset(Request $request): RedirectResponse
+    public function reset(Request $request): Response
     {
         $request->session()->forget([self::THREAD, self::PENDING]);
 
-        return redirect()->route('ai.index');
+        return $this->respond($request);
+    }
+
+    /** Ringkasan percakapan buat frontend (thread + preview konfirmasi bila ada). */
+    private function snapshot(Request $request): array
+    {
+        $pending = $request->session()->get(self::PENDING);
+
+        return [
+            'thread' => array_values($request->session()->get(self::THREAD, [])),
+            'pending' => $pending ? ['preview' => $pending['preview']] : null,
+        ];
+    }
+
+    /** Widget (fetch) dapat JSON; halaman penuh (form) di-redirect. */
+    private function respond(Request $request): Response
+    {
+        return $request->wantsJson()
+            ? response()->json($this->snapshot($request))
+            : redirect()->route('ai.index');
     }
 }

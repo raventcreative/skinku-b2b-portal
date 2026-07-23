@@ -362,6 +362,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     // Asisten AI (chat + konfirmasi aksi tulis). Lihat AI_ASSISTANT_SPEC.md.
     Route::middleware('permission:use_ai_assistant')->group(function () {
         Route::get('/asisten', [AiAssistantController::class, 'index'])->name('ai.index');
+        Route::get('/asisten/state', [AiAssistantController::class, 'state'])->name('ai.state');
         Route::post('/asisten/kirim', [AiAssistantController::class, 'send'])->name('ai.send');
         Route::post('/asisten/konfirmasi', [AiAssistantController::class, 'confirm'])->name('ai.confirm');
         Route::post('/asisten/reset', [AiAssistantController::class, 'reset'])->name('ai.reset');

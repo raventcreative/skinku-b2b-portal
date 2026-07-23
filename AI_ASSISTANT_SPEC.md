@@ -65,6 +65,11 @@ Semua di `app/Services/Ai/`.
   render kartu konfirmasi saat `type=confirm`.
 - Percakapan **di session** (`ai_chat`, dibatasi ~20 pesan terakhir); hilang saat
   logout / tombol reset. **Belum ada tabel riwayat** (lihat §8).
+- **Widget mengambang** (`partials/ai-widget.blade.php`, disisipkan di layout,
+  izin `use_ai_assistant`): launcher bulat pojok kanan-bawah + nudge → panel chat
+  via `fetch`. Endpoint `state`/`send`/`confirm`/`reset` balas **JSON** saat
+  `wantsJson`, redirect saat form biasa — jadi widget & halaman penuh `/asisten`
+  pakai backend yang sama. Menu sidebar dihapus (diganti widget).
 
 **e. Config & izin**
 - `config/services.php` blok `ai` (§5).
@@ -170,8 +175,8 @@ Tiap fase: Pint + test lulus + commit. Deploy v1: `git pull` + `config:clear`
 
 ## 9. YANG **TIDAK** DI v1 (YAGNI — gampang nyusul)
 
-Streaming jawaban · riwayat chat tersimpan (tabel) · widget mengambang di semua
-halaman · provider Anthropic (interface sudah disiapin) · alat lain (KOL,
+Streaming jawaban · riwayat chat tersimpan (tabel) · provider Anthropic
+(interface sudah disiapin) · alat lain (KOL,
 penjualan, stok, ubah/hapus data) · multi-usul-tulis sekaligus · akses buat role
 selain super_admin (tinggal beri izin `use_ai_assistant`).
 

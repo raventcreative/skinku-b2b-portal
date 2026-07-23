@@ -124,8 +124,11 @@ class AiAssistantTest extends TestCase
         ]);
 
         $this->actingAs($sa)->post(route('ai.send'), ['message' => 'buat kartu'])->assertRedirect();
-        $this->actingAs($sa)->get(route('ai.index'))->assertOk()
-            ->assertSee('Mau di papan mana?')->assertDontSee('Ya, jalankan');
+        // Lewat state JSON (bukan HTML) supaya tak bentrok teks widget: tak ada
+        // konfirmasi tertunda, dan AI menjawab minta-klarifikasi.
+        $state = $this->actingAs($sa)->getJson(route('ai.state'))->assertOk()
+            ->assertJsonPath('pending', null)->json();
+        $this->assertStringContainsString('papan mana', $state['thread'][1]['content']);
         $this->assertSame(0, BoardCard::count());
     }
 
@@ -152,5 +155,42 @@ class AiAssistantTest extends TestCase
         $this->actingAs($sa)->post(route('ai.send'), ['message' => 'ingatan lama'])->assertRedirect();
         $this->actingAs($sa)->post(route('ai.reset'))->assertRedirect();
         $this->actingAs($sa)->get(route('ai.index'))->assertOk()->assertDontSee('ingatan lama')->assertSee('Aku bisa bantu apa');
+    }
+
+    public function test_widget_muncul_di_semua_halaman_untuk_pemegang_izin(): void
+    {
+        $this->actingAs($this->super())->get(route('dashboard'))->assertOk()
+            ->assertSee('id="aiWidget"', false)->assertSee('Buka Asisten AI');
+        // Non-pemegang izin tak melihat widget.
+        $this->actingAs($this->user(User::ROLE_DISTRIBUTOR, 'dst'))->get(route('dashboard'))->assertOk()
+            ->assertDontSee('id="aiWidget"', false);
+    }
+
+    public function test_endpoint_json_untuk_widget(): void
+    {
+        $this->fakeBrain([new AiTurn(text: 'Halo dari widget!')]);
+        $sa = $this->super();
+
+        $this->actingAs($sa)->getJson(route('ai.state'))->assertOk()->assertExactJson(['thread' => [], 'pending' => null]);
+
+        $this->actingAs($sa)->postJson(route('ai.send'), ['message' => 'hai'])->assertOk()
+            ->assertJsonPath('thread.0.content', 'hai')
+            ->assertJsonPath('thread.1.content', 'Halo dari widget!');
+    }
+
+    public function test_widget_json_konfirmasi_kartu(): void
+    {
+        $sa = $this->super();
+        $board = Board::create(['name' => 'Papan Tim', 'created_by' => $sa->id]);
+        BoardColumn::create(['board_id' => $board->id, 'name' => 'To Do', 'position' => 0]);
+        $this->fakeBrain([new AiTurn(toolCalls: [['id' => 'c1', 'name' => 'buat_kartu_kanban', 'arguments' => [
+            'papan' => 'Papan Tim', 'kolom' => 'To Do', 'judul' => 'Via widget',
+        ]]])]);
+
+        $res = $this->actingAs($sa)->postJson(route('ai.send'), ['message' => 'buat kartu'])->assertOk();
+        $this->assertStringContainsString('Via widget', $res->json('pending.preview'));
+
+        $this->actingAs($sa)->postJson(route('ai.confirm'), ['setuju' => 'ya'])->assertOk();
+        $this->assertSame(1, BoardCard::count());
     }
 }

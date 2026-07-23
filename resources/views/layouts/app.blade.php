@@ -160,10 +160,6 @@
                 {!! navItem('kanban.index', 'Kanban', 'kanban.*') !!}
             @endif
 
-            @if($u->canDo('use_ai_assistant'))
-                {!! navItem('ai.index', 'Asisten AI', 'ai.*') !!}
-            @endif
-
             @if($u->canDo('manage_users'))
                 {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
             @endif
@@ -262,6 +258,12 @@
         </footer>
     </div>
 </div>
+
+@auth
+    @if(auth()->user()->canDo('use_ai_assistant'))
+        @include('partials.ai-widget')
+    @endif
+@endauth
 
 <script>
     // Attach CSRF token to fetch requests by default.
