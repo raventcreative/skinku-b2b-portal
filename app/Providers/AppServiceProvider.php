@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\CommunityLink;
 use App\Services\ImpersonationService;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +30,12 @@ class AppServiceProvider extends ServiceProvider
             $request = request();
 
             $view->with('impersonator', $request ? $svc->impersonator($request) : null);
+
+            // Tombol "Gabung Komunitas WA" di sidebar: link komunitas untuk role
+            // user yang sedang login (null bila tak ada / nonaktif / super_admin).
+            $user = $request?->user();
+            $community = $user ? CommunityLink::where('role', $user->role)->first() : null;
+            $view->with('sidebarCommunity', $community && $community->visible() ? $community : null);
         });
     }
 }

@@ -132,5 +132,46 @@
             </div>
         </form>
     </div>
+
+    {{-- Komunitas WA per role: tombol hijau di sidebar tiap role. Satu per role. --}}
+    <div id="komunitas" class="bg-white rounded-2xl border border-stone-200 p-5 mt-6">
+        <p class="text-sm font-bold text-stone-800">Komunitas WA per Role</p>
+        <p class="text-[11px] text-stone-500 mb-4">Kalau aktif, tombol hijau <b>“Gabung Komunitas WA”</b> muncul di sidebar role tersebut. QR opsional (tinggal unduh QR grup dari WhatsApp) — kalau ada, klik tombolnya buka popup QR; kalau tidak, langsung ke link.</p>
+
+        <div class="space-y-3">
+            @foreach($roles as $r)
+                @php($c = $communities->get($r) ?? new \App\Models\CommunityLink(['role' => $r]))
+                <form method="POST" action="{{ route('announcements.community.save') }}" enctype="multipart/form-data"
+                    class="border border-stone-200 rounded-xl p-3">
+                    @csrf
+                    <input type="hidden" name="role" value="{{ $r }}">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-bold text-stone-700">{{ $r }}</span>
+                            <label class="flex items-center gap-1.5 text-[11px] font-semibold text-stone-600">
+                                <input type="checkbox" name="enabled" value="1" @checked($c->enabled)> aktifkan
+                            </label>
+                        </div>
+                        <button class="px-3 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">Simpan</button>
+                    </div>
+                    <div class="grid sm:grid-cols-2 gap-2">
+                        <input name="label" maxlength="60" placeholder="Teks tombol (default: Gabung Komunitas WA)" value="{{ $c->label }}"
+                            class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                        <input name="link" type="url" maxlength="500" placeholder="https://chat.whatsapp.com/…" value="{{ $c->link }}"
+                            class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 mt-2">
+                        @if($c->qrUrl())
+                            <img src="{{ $c->qrUrl() }}" alt="QR {{ $r }}" class="w-14 h-14 object-contain rounded border border-stone-200">
+                            <label class="flex items-center gap-1 text-[11px] text-rose-600"><input type="checkbox" name="remove_qr" value="1"> hapus QR</label>
+                        @endif
+                        <label class="text-[11px] text-stone-500">QR (opsional)
+                            <input type="file" name="qr" accept="image/*" class="block text-xs mt-0.5">
+                        </label>
+                    </div>
+                </form>
+            @endforeach
+        </div>
+    </div>
 </div>
 @endsection

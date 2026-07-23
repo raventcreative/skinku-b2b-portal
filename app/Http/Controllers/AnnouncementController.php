@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Announcement;
+use App\Models\CommunityLink;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\ImageService;
@@ -40,11 +41,15 @@ class AnnouncementController extends Controller
         $editing = $request->query('item') ? Announcement::find($request->query('item')) : null;
         $editing ??= new Announcement(['role' => $filter ?: ($roles[0] ?? null)]);
 
+        // Komunitas WA per role (satu baris per role) — panel di halaman yang sama.
+        $communities = CommunityLink::all()->keyBy('role');
+
         return view('announcements.manage', [
             'roles' => $roles,
             'filter' => $filter,
             'items' => $items,
             'editing' => $editing,
+            'communities' => $communities,
         ]);
     }
 
@@ -104,5 +109,47 @@ class AnnouncementController extends Controller
         AuditService::log(action: 'delete_announcement', targetType: 'announcement', targetId: $id, after: ['role' => $role]);
 
         return redirect()->route('announcements.manage', ['role' => $role])->with('status', 'Pengumuman dihapus.');
+    }
+
+    /**
+     * Simpan link Komunitas WA untuk satu role (upsert per role). Link wajib bila
+     * diaktifkan; gambar QR opsional (di-resize via ImageService). Tanpa "hapus
+     * baris" — cukup nonaktifkan bila tak dipakai.
+     */
+    public function saveCommunity(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'role' => ['required', Rule::in($this->roles())],
+            'label' => ['nullable', 'string', 'max:60'],
+            'link' => ['nullable', 'url', 'max:500', 'required_if:enabled,1'],
+            'qr' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:8192'],
+        ], [
+            'link.required_if' => 'Link grup WA wajib diisi bila komunitas diaktifkan.',
+        ]);
+
+        $community = CommunityLink::firstOrNew(['role' => $data['role']]);
+        $community->fill([
+            'enabled' => $request->boolean('enabled'),
+            'label' => $data['label'] ?? null,
+            'link' => $data['link'] ?? null,
+        ]);
+        $community->save();
+
+        if ($request->boolean('remove_qr') || $request->hasFile('qr')) {
+            $community->filesIn(CommunityLink::QR)->get()->each->delete();
+        }
+        if ($request->hasFile('qr')) {
+            $this->images->attach($community, $request->file('qr'), CommunityLink::QR, 800);
+        }
+
+        AuditService::log(
+            action: 'save_community_link',
+            targetType: 'community_link',
+            targetId: $community->id,
+            after: ['role' => $community->role, 'enabled' => $community->enabled],
+        );
+
+        return redirect()->route('announcements.manage')->withFragment('komunitas')
+            ->with('status', 'Komunitas WA disimpan.');
     }
 }

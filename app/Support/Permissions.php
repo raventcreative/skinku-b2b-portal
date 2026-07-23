@@ -34,7 +34,7 @@ class Permissions
         'delete_accounting' => 'Hapus Jurnal / Data Akuntansi (BAHAYA)',
         'view_audit_log' => 'Lihat Audit Log',
         'system_settings' => 'Pengaturan Sistem',
-        'manage_announcements' => 'Kelola Pengumuman Dashboard',
+        'manage_announcements' => 'Kelola Pengumuman & Komunitas',
         'manage_permissions' => 'Manajemen Hak Akses',
         'view_learning' => 'Akses SKINKU Academy',
         'manage_learning' => 'Kelola Materi SKINKU Academy',

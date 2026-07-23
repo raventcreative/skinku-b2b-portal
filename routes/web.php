@@ -353,6 +353,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/pengumuman', [AnnouncementController::class, 'manage'])->name('announcements.manage');
         Route::post('/pengumuman', [AnnouncementController::class, 'save'])->name('announcements.save');
         Route::delete('/pengumuman/{announcement}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
+        // Komunitas WA per role (panel di halaman Pengumuman yang sama).
+        Route::post('/pengumuman/komunitas', [AnnouncementController::class, 'saveCommunity'])->name('announcements.community.save');
     });
 
     /* ---------------- Learning / LMS ---------------- */

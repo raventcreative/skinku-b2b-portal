@@ -188,6 +188,32 @@
         </nav>
 
         <div class="p-3 border-t border-red-900/50 space-y-1">
+            {{-- Tombol Komunitas WA (khusus role user; QR -> popup, tanpa QR -> link langsung). --}}
+            @if(!empty($sidebarCommunity))
+                @if($sidebarCommunity->qrUrl())
+                    <button type="button" onclick="document.getElementById('communityQr').showModal()"
+                        class="w-full flex items-center gap-2 px-4 py-2 mb-1 text-[11px] font-bold text-white bg-green-600 hover:bg-green-500 rounded-lg">
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 shrink-0"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.49 0 1.47 1.07 2.89 1.22 3.09.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35zM12.05 21.5a9.4 9.4 0 01-4.79-1.31l-.34-.2-3.56.93.95-3.47-.22-.36a9.38 9.38 0 01-1.44-5.01c0-5.18 4.22-9.4 9.41-9.4 2.51 0 4.87.98 6.64 2.76a9.34 9.34 0 012.75 6.65c0 5.18-4.22 9.41-9.4 9.41zm5.5-14.91A7.9 7.9 0 0012.05 4.3c-4.35 0-7.89 3.54-7.9 7.89 0 1.49.42 2.94 1.2 4.19l.19.3-.8 2.9 2.98-.78.29.17a7.86 7.86 0 004 1.1c4.35 0 7.89-3.54 7.9-7.89a7.85 7.85 0 00-2.32-5.58z"/></svg>
+                        {{ $sidebarCommunity->buttonLabel() }}
+                    </button>
+                    <dialog id="communityQr" class="rounded-2xl p-0 backdrop:bg-black/50 w-[20rem] max-w-[90vw]">
+                        <div class="p-5 text-center">
+                            <p class="text-sm font-bold text-stone-800 mb-3">{{ $sidebarCommunity->buttonLabel() }}</p>
+                            <img src="{{ $sidebarCommunity->qrUrl() }}" alt="QR Komunitas" class="w-56 h-56 object-contain mx-auto rounded-lg border border-stone-200">
+                            <p class="text-[11px] text-stone-500 mt-3">Scan QR di atas pakai HP, atau:</p>
+                            <a href="{{ $sidebarCommunity->link }}" target="_blank" rel="noopener"
+                                class="mt-2 inline-block w-full px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg">Buka WhatsApp</a>
+                            <form method="dialog" class="mt-2"><button class="text-xs text-stone-400 hover:text-stone-600">Tutup</button></form>
+                        </div>
+                    </dialog>
+                @else
+                    <a href="{{ $sidebarCommunity->link }}" target="_blank" rel="noopener"
+                        class="w-full flex items-center gap-2 px-4 py-2 mb-1 text-[11px] font-bold text-white bg-green-600 hover:bg-green-500 rounded-lg">
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 shrink-0"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.49 0 1.47 1.07 2.89 1.22 3.09.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35zM12.05 21.5a9.4 9.4 0 01-4.79-1.31l-.34-.2-3.56.93.95-3.47-.22-.36a9.38 9.38 0 01-1.44-5.01c0-5.18 4.22-9.4 9.41-9.4 2.51 0 4.87.98 6.64 2.76a9.34 9.34 0 012.75 6.65c0 5.18-4.22 9.41-9.4 9.41zm5.5-14.91A7.9 7.9 0 0012.05 4.3c-4.35 0-7.89 3.54-7.9 7.89 0 1.49.42 2.94 1.2 4.19l.19.3-.8 2.9 2.98-.78.29.17a7.86 7.86 0 004 1.1c4.35 0 7.89-3.54 7.9-7.89a7.85 7.85 0 00-2.32-5.58z"/></svg>
+                        {{ $sidebarCommunity->buttonLabel() }}
+                    </a>
+                @endif
+            @endif
             <a href="{{ route('account.password') }}" class="block px-4 py-2 text-[11px] text-red-100 hover:text-white rounded-lg hover:bg-red-900/50">Ubah Password</a>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
