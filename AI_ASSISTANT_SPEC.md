@@ -182,6 +182,17 @@ selain super_admin (tinggal beri izin `use_ai_assistant`).
 
 ---
 
+## 11. PENGETAHUAN / MEMORI AI (ditambah 23 Jul 2026)
+
+Biar asisten tak "nol" soal SKINKU: halaman **"Pengetahuan AI"** (menu sidebar,
+izin `use_ai_assistant`) berisi **kotak terpandu** per bagian (tentang bisnis,
+produk & istilah, tim & tanggung jawab, papan/alur Kanban, fokus & target,
+aturan & gaya, catatan bebas) — tiap kotak ada pertanyaan pemandunya. Disimpan di
+tabel `ai_knowledge` (1 baris/section, migrasi 000060). `AiKnowledge::document()`
+merangkai bagian terisi (dipotong ~6000 char) dan `AiAgentService` menyuntiknya ke
+system-prompt tiap obrolan sebagai blok "PENGETAHUAN BISNIS" (tetap DATA, bukan
+perintah). Widget = tempat ngobrol; halaman ini = tempat "kasih makan" otaknya.
+
 ## 10. KEPUTUSAN (terkunci — Freddie, 23 Jul 2026)
 
 1. **Model default** = `gpt-4o-mini` (murah/cepat). Bisa diganti kapan pun di Pengaturan.

@@ -362,6 +362,9 @@ Route::middleware(['auth', 'role'])->group(function () {
     // Asisten AI (chat + konfirmasi aksi tulis). Lihat AI_ASSISTANT_SPEC.md.
     Route::middleware('permission:use_ai_assistant')->group(function () {
         Route::get('/asisten', [AiAssistantController::class, 'index'])->name('ai.index');
+        // "Pengetahuan AI" — memori/konteks bisnis yang disuntik ke tiap obrolan.
+        Route::get('/asisten/pengetahuan', [AiAssistantController::class, 'knowledge'])->name('ai.knowledge');
+        Route::post('/asisten/pengetahuan', [AiAssistantController::class, 'saveKnowledge'])->name('ai.knowledge.save');
         Route::get('/asisten/state', [AiAssistantController::class, 'state'])->name('ai.state');
         Route::post('/asisten/kirim', [AiAssistantController::class, 'send'])->name('ai.send');
         Route::post('/asisten/konfirmasi', [AiAssistantController::class, 'confirm'])->name('ai.confirm');

@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AiKnowledge;
 use App\Services\Ai\AiAgentService;
 use App\Services\Ai\AiException;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\Tools\ToolRegistry;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -119,6 +121,33 @@ class AiAssistantController extends Controller
         $request->session()->forget([self::THREAD, self::PENDING]);
 
         return $this->respond($request);
+    }
+
+    /** Halaman "Pengetahuan AI" — kotak terpandu konteks bisnis (memori asisten). */
+    public function knowledge()
+    {
+        return view('ai.knowledge', [
+            'sections' => AiKnowledge::SECTIONS,
+            'values' => AiKnowledge::map(),
+        ]);
+    }
+
+    public function saveKnowledge(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'content' => ['array'],
+            'content.*' => ['nullable', 'string', 'max:8000'],
+        ]);
+
+        $input = (array) $request->input('content', []);
+        foreach (array_keys(AiKnowledge::SECTIONS) as $key) {
+            $val = trim((string) ($input[$key] ?? ''));
+            AiKnowledge::updateOrCreate(['section' => $key], ['content' => $val !== '' ? $val : null]);
+        }
+
+        AuditService::log(action: 'save_ai_knowledge', targetType: 'ai_knowledge', after: ['terisi' => count(array_filter($input, fn ($v) => filled($v)))]);
+
+        return redirect()->route('ai.knowledge')->with('status', 'Pengetahuan asisten disimpan. Asisten langsung pakai ini di obrolan berikutnya.');
     }
 
     /** Ringkasan percakapan buat frontend (thread + preview konfirmasi bila ada). */
