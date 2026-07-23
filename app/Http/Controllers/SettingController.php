@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppSetting;
+use App\Services\Ai\AiProviderFactory;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SettingController extends Controller
@@ -28,7 +32,41 @@ class SettingController extends Controller
             'locale' => config('app.locale'),
         ];
 
-        return view('settings.index', ['info' => $info, 'backups' => $this->backupList()]);
+        $available = AiProviderFactory::available();
+
+        return view('settings.index', [
+            'info' => $info,
+            'backups' => $this->backupList(),
+            'ai' => [
+                'available' => $available,
+                'provider' => AppSetting::get('ai_provider', (string) config('services.ai.provider')),
+                'model' => AppSetting::get('ai_model', (string) config('services.ai.default_model')),
+            ],
+        ]);
+    }
+
+    /**
+     * Pilih otak Asisten AI: provider (hanya yang ada key-nya di .env) + model.
+     * Key tetap di .env — di sini cuma memilih, bukan menyimpan kredensial.
+     */
+    public function saveAi(Request $request): RedirectResponse
+    {
+        $available = array_keys(AiProviderFactory::available());
+        if ($available === []) {
+            return back()->with('error', 'Belum ada provider AI yang siap. Isi OPENAI_API_KEY (atau ANTHROPIC_API_KEY) di .env server dulu.');
+        }
+
+        $data = $request->validate([
+            'ai_provider' => ['required', Rule::in($available)],
+            'ai_model' => ['required', 'string', 'max:100'],
+        ]);
+
+        AppSetting::put('ai_provider', $data['ai_provider']);
+        AppSetting::put('ai_model', trim($data['ai_model']));
+
+        AuditService::log(action: 'save_ai_settings', targetType: 'app_setting', after: ['provider' => $data['ai_provider'], 'model' => $data['ai_model']]);
+
+        return back()->with('status', 'Pengaturan Asisten AI disimpan.');
     }
 
     /** Jalankan backup sekarang (selain jadwal harian 02:30). */

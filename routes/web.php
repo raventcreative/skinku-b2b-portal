@@ -344,6 +344,7 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     Route::middleware('permission:system_settings')->group(function () {
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
+        Route::post('/settings/ai', [SettingController::class, 'saveAi'])->name('settings.ai.save');
         // Backup DB: jalankan manual + unduh (simpan di LUAR server).
         Route::post('/settings/backup', [SettingController::class, 'backupNow'])->name('settings.backup');
         Route::get('/settings/backup/{file}', [SettingController::class, 'backupDownload'])->name('settings.backup.download');

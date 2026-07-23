@@ -17,6 +17,35 @@
         </dl>
     </div>
 
+    {{-- Asisten AI — pilih otak (provider + model). Key tetap di .env. --}}
+    <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
+        <h3 class="text-sm font-bold text-stone-900 mb-1">Asisten AI</h3>
+        <p class="text-xs text-stone-500 mb-4">Pilih "otak" yang dipakai asisten. API key tetap di <code class="bg-stone-100 px-1 rounded">.env</code> server — di sini cuma memilih.</p>
+
+        @if(empty($ai['available']))
+            <div class="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
+                ⚠️ Belum ada provider yang siap. Isi <b>OPENAI_API_KEY</b> (atau <b>ANTHROPIC_API_KEY</b>) di <code>.env</code> server, lalu <code>php artisan config:clear</code>.
+            </div>
+        @else
+            <form method="POST" action="{{ route('settings.ai.save') }}" class="grid sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                @csrf
+                <label class="text-[11px] font-semibold text-stone-500">Provider (otak)
+                    <select name="ai_provider" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                        @foreach($ai['available'] as $key => $label)
+                            <option value="{{ $key }}" @selected($ai['provider'] === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="text-[11px] font-semibold text-stone-500">Model
+                    <input name="ai_model" maxlength="100" value="{{ $ai['model'] }}" placeholder="mis. gpt-4o-mini"
+                        class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                </label>
+                <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Simpan</button>
+            </form>
+            <p class="text-[11px] text-stone-400 mt-2">Hanya provider yang key-nya sudah terisi di .env yang muncul. Nama model ikut lineup terbaru provider.</p>
+        @endif
+    </div>
+
     {{-- Backup DB — jaring pengaman terakhir --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
         <div class="flex flex-wrap items-center gap-3 mb-3">
