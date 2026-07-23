@@ -24,7 +24,8 @@ class BuatKartuKanbanTool extends BaseTool
     {
         return 'Buat kartu tugas baru di papan Kanban untuk mendelegasikan pekerjaan ke tim. '
             .'Wajib: papan, kolom, judul. Opsional: deskripsi, penerima (nama anggota), tenggat (YYYY-MM-DD). '
-            .'Kalau nama papan/kolom/penerima belum jelas, tanya user dulu — jangan menebak.';
+            .'Kalau papan/kolom belum jelas, tanya user dulu. Penerima OPSIONAL: kalau namanya tak cocok '
+            .'user portal (mis. cuma nama kolom), kartu tetap dibuat di kolomnya tanpa penanggung jawab.';
     }
 
     public function parameters(): array
@@ -68,6 +69,8 @@ class BuatKartuKanbanTool extends BaseTool
         $line = "Buat kartu \"{$args['judul']}\" di papan **{$r['board']->name} › {$r['column']->name}**";
         if ($r['assignee']) {
             $line .= " untuk **{$r['assignee']->fullname}**";
+        } elseif ($r['assignee_note']) {
+            $line .= ' (tanpa penanggung jawab)';
         }
         if (! empty($args['tenggat'])) {
             $line .= ", tenggat **{$args['tenggat']}**";
@@ -105,8 +108,12 @@ class BuatKartuKanbanTool extends BaseTool
         if ($r['assignee']) {
             $pesan .= " untuk {$r['assignee']->fullname}";
         }
+        $pesan .= '.';
+        if ($r['assignee_note']) {
+            $pesan .= ' Catatan: '.$r['assignee_note'].'.';
+        }
 
-        return ['ok' => true, 'pesan' => $pesan.'.'];
+        return ['ok' => true, 'pesan' => $pesan];
     }
 
     /**
@@ -117,7 +124,7 @@ class BuatKartuKanbanTool extends BaseTool
      */
     private function resolve(array $args): array
     {
-        $out = ['board' => null, 'column' => null, 'assignee' => null, 'error' => null];
+        $out = ['board' => null, 'column' => null, 'assignee' => null, 'assignee_note' => null, 'error' => null];
 
         foreach (['papan', 'kolom', 'judul'] as $req) {
             if (blank($args[$req] ?? null)) {
@@ -148,19 +155,16 @@ class BuatKartuKanbanTool extends BaseTool
         }
         $out['column'] = $columns->first();
 
+        // Penerima OPSIONAL & best-effort: nama kolom Kanban sering = nama orang
+        // yang belum jadi user portal. Jangan blokir kartu — kalau tak cocok,
+        // buat tanpa penanggung jawab + catatan.
         if (filled($args['penerima'] ?? null)) {
-            $n = $this->norm($args['penerima']);
-            $users = User::whereRaw('LOWER(fullname) = ?', [$n])
-                ->orWhereRaw('LOWER(name) = ?', [$n])
-                ->orWhereRaw('LOWER(username) = ?', [$n])->get();
-            if ($users->count() !== 1) {
-                $out['error'] = $users->isEmpty()
-                    ? "Anggota \"{$args['penerima']}\" tidak ketemu. Siapa penanggung jawabnya (atau kosongkan)?"
-                    : "Ada beberapa anggota bernama \"{$args['penerima']}\". Sebutkan nama lengkap/username-nya.";
-
-                return $out;
+            $match = $this->findUser($args['penerima']);
+            if ($match) {
+                $out['assignee'] = $match;
+            } else {
+                $out['assignee_note'] = "penanggung jawab \"{$args['penerima']}\" belum cocok dengan user portal, jadi kartu dibuat tanpa penanggung jawab";
             }
-            $out['assignee'] = $users->first();
         }
 
         if (filled($args['tenggat'] ?? null) && ! $this->validDate($args['tenggat'])) {
@@ -170,6 +174,29 @@ class BuatKartuKanbanTool extends BaseTool
         }
 
         return $out;
+    }
+
+    /** Cari user dari nama: cocok PERSIS dulu, lalu cocok SEBAGIAN. Null kalau tak jelas/ambigu. */
+    private function findUser(string $name): ?User
+    {
+        $n = $this->norm($name);
+
+        $exact = User::whereRaw('LOWER(fullname) = ?', [$n])
+            ->orWhereRaw('LOWER(name) = ?', [$n])
+            ->orWhereRaw('LOWER(username) = ?', [$n])->get();
+        if ($exact->count() === 1) {
+            return $exact->first();
+        }
+        if ($exact->count() > 1) {
+            return null;   // beberapa user sama persis → jangan nebak
+        }
+
+        $like = '%'.$n.'%';
+        $partial = User::whereRaw('LOWER(fullname) LIKE ?', [$like])
+            ->orWhereRaw('LOWER(name) LIKE ?', [$like])
+            ->orWhereRaw('LOWER(username) LIKE ?', [$like])->get();
+
+        return $partial->count() === 1 ? $partial->first() : null;
     }
 
     private function norm(string $s): string
