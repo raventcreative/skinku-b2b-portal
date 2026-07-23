@@ -18,17 +18,23 @@ class DashboardController extends Controller
         $user = $request->user();
 
         // SEMUA pengumuman aktif untuk role user: box catatan (nempel, bisa lebih
-        // dari satu) + popup banner. Popup muncul SEKALI per sesi login — ditandai
-        // di session agar tak nongol lagi saat pindah halaman dalam sesi yang sama.
+        // dari satu) + popup banner.
         $anns = Announcement::where('role', $user->role)->orderBy('sort_order')->orderBy('id')->get();
         $boxes = $anns->filter(fn ($a) => $a->noteVisible())->values();
         $popups = $anns->filter(fn ($a) => $a->bannerVisible())->values();
+
+        // Popup tampil lagi bila token berubah. Token = tanggal + sidik jari popup
+        // (id:updated_at). Jadi muncul (A) sekali per HARI, DAN (B) langsung lagi
+        // begitu ada popup baru/diedit — walau di sesi yang sama. Dalam hari yang
+        // sama & popup tak berubah, tak nongol ulang saat pindah halaman.
         $showPopups = false;
         if ($popups->isNotEmpty()) {
-            $seenKey = 'ann_popups_seen_'.$user->role;
-            if (! $request->session()->get($seenKey)) {
+            $signature = $popups->map(fn ($a) => $a->id.':'.($a->updated_at?->timestamp ?? 0))->implode(',');
+            $token = md5(now()->toDateString().'|'.$signature);
+            $seenKey = 'ann_popups_token_'.$user->role;
+            if ($request->session()->get($seenKey) !== $token) {
                 $showPopups = true;
-                $request->session()->put($seenKey, true);
+                $request->session()->put($seenKey, $token);
             }
         }
         $announce = ['boxes' => $boxes, 'popups' => $popups, 'showPopups' => $showPopups];

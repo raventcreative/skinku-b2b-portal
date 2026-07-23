@@ -130,6 +130,32 @@ class AnnouncementTest extends TestCase
         $this->get(route('dashboard'))->assertOk()->assertDontSee('annBanner', false);   // sesi sama → tak lagi
     }
 
+    /** A+B: popup muncul lagi begitu diedit, walau di sesi & hari yang sama. */
+    public function test_popup_muncul_lagi_saat_diedit(): void
+    {
+        Storage::fake('public');
+        $super = $this->super('s11');
+        $this->actingAs($super)->post(route('announcements.save'), [
+            'role' => User::ROLE_DISTRIBUTOR, 'banner_enabled' => '1', 'banner' => UploadedFile::fake()->image('b.jpg'),
+        ])->assertRedirect();
+        $ann = Announcement::first();
+
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, 'd11');
+        $this->actingAs($dist)->get(route('dashboard'))->assertOk()->assertSee('annBanner', false);
+        $this->get(route('dashboard'))->assertOk()->assertDontSee('annBanner', false);   // belum berubah → tak lagi
+
+        // Admin edit popup 5 menit kemudian dengan perubahan NYATA (tambah link) →
+        // updated_at berubah → sidik jari beda.
+        $this->travel(5)->minutes();
+        $this->actingAs($super)->post(route('announcements.save'), [
+            'id' => $ann->id, 'role' => User::ROLE_DISTRIBUTOR, 'banner_enabled' => '1', 'banner_link' => 'https://skinku.id/baru',
+        ])->assertRedirect();
+        $this->assertNotNull($ann->fresh()->banner_link);   // benar-benar berubah
+
+        $this->actingAs($dist)->get(route('dashboard'))->assertOk()->assertSee('annBanner', false);   // muncul lagi
+        $this->travelBack();
+    }
+
     public function test_hapus_banner_lewat_edit(): void
     {
         Storage::fake('public');
