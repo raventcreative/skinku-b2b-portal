@@ -89,10 +89,19 @@
                                 @csrf @method('PUT')
                                 <input name="title" value="{{ $card->title }}" required maxlength="255"
                                     class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold">
-                                <div>
-                                    <label class="block text-[11px] font-semibold text-stone-500 mb-1">≡ Deskripsi</label>
-                                    <textarea name="description" rows="3" maxlength="5000" placeholder="rincian tugas…" data-autogrow
-                                        class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ $card->description }}</textarea>
+                                <div data-desc>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="block text-[11px] font-semibold text-stone-500">≡ Deskripsi</label>
+                                        @if(filled($card->description))
+                                            <button type="button" data-desc-edit-btn class="text-[11px] text-indigo-600 hover:underline">✎ ubah</button>
+                                        @endif
+                                    </div>
+                                    {{-- Tampil baca: URL http(s) otomatis jadi tautan klik (aman XSS). Klik "ubah" → textarea. --}}
+                                    @if(filled($card->description))
+                                        <div data-desc-view class="px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-700 bg-stone-50 leading-relaxed break-words">{!! $card->descriptionHtml() !!}</div>
+                                    @endif
+                                    <textarea name="description" rows="3" maxlength="5000" placeholder="rincian tugas… (link http(s) otomatis bisa diklik)" data-autogrow data-desc-edit
+                                        class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm {{ filled($card->description) ? 'hidden' : '' }}">{{ $card->description }}</textarea>
                                 </div>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
@@ -312,6 +321,20 @@ function growTextarea(ta) {
 }
 document.querySelectorAll('textarea[data-autogrow]').forEach(ta => {
     ta.addEventListener('input', () => growTextarea(ta));
+});
+
+// Deskripsi: klik "ubah" → sembunyikan tampilan-baca (link bisa diklik), buka textarea.
+document.querySelectorAll('[data-desc-edit-btn]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const box = btn.closest('[data-desc]');
+        const view = box.querySelector('[data-desc-view]');
+        const edit = box.querySelector('[data-desc-edit]');
+        if (view) view.classList.add('hidden');
+        btn.classList.add('hidden');
+        edit.classList.remove('hidden');
+        edit.focus();
+        growTextarea(edit);
+    });
 });
 
 // Klik kartu buka modal — tapi JANGAN saat kartu baru saja di-drag.

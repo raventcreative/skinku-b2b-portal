@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasFiles;
+use App\Support\Text;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
@@ -47,6 +48,12 @@ class BoardCard extends Model
     public function fromAi(): bool
     {
         return $this->created_via === 'ai';
+    }
+
+    /** Deskripsi siap tampil: aman XSS + URL http(s) jadi tautan klik + newline jadi <br>. */
+    public function descriptionHtml(): string
+    {
+        return Text::linkify($this->description);
     }
 
     public function isCompleted(): bool

@@ -38,6 +38,29 @@ class KanbanTest extends TestCase
         return $board;
     }
 
+    public function test_deskripsi_url_jadi_tautan_dan_aman_xss(): void
+    {
+        $card = new BoardCard(['description' => 'Isi di https://forms.gle/ABC ya <b>x</b>']);
+        $html = $card->descriptionHtml();
+
+        $this->assertStringContainsString('href="https://forms.gle/ABC"', $html);
+        $this->assertStringContainsString('&lt;b&gt;', $html);        // HTML di-escape (anti XSS)
+        $this->assertStringNotContainsString('<b>x</b>', $html);
+    }
+
+    public function test_deskripsi_link_terrender_di_papan(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN, 'kbdesc');
+        $board = $this->board($admin);
+        $board->columns()->first()->cards()->create([
+            'title' => 'Tarik database', 'position' => 0, 'created_by' => $admin->id,
+            'description' => 'Form: https://forms.gle/XYZ789',
+        ]);
+
+        $this->actingAs($admin)->get(route('kanban.show', $board))->assertOk()
+            ->assertSee('href="https://forms.gle/XYZ789"', false);
+    }
+
     /** Mitra & role tanpa kanban.view tak melihat apa pun. */
     public function test_tanpa_kanban_view_semua_route_403(): void
     {
