@@ -190,7 +190,7 @@
                                                     </form>
                                                 @endif
                                             </div>
-                                            <p class="text-xs text-stone-600 whitespace-pre-line">{{ $comment->body }}</p>
+                                            <p class="text-xs text-stone-600 break-words">{!! $comment->bodyHtml() !!}</p>
                                         </div>
                                     @empty
                                         <p class="text-xs text-stone-300">Belum ada komentar.</p>

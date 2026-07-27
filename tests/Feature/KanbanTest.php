@@ -61,6 +61,17 @@ class KanbanTest extends TestCase
             ->assertSee('href="https://forms.gle/XYZ789"', false);
     }
 
+    public function test_komentar_link_terrender_di_papan(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN, 'kbcmt');
+        $board = $this->board($admin);
+        $card = $board->columns()->first()->cards()->create(['title' => 'X', 'position' => 0, 'created_by' => $admin->id]);
+        $card->comments()->create(['user_id' => $admin->id, 'body' => 'Form: https://forms.gle/CMT123']);
+
+        $this->actingAs($admin)->get(route('kanban.show', $board))->assertOk()
+            ->assertSee('href="https://forms.gle/CMT123"', false);
+    }
+
     /** Mitra & role tanpa kanban.view tak melihat apa pun. */
     public function test_tanpa_kanban_view_semua_route_403(): void
     {
