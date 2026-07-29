@@ -118,9 +118,11 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
   detail, dan progres tetap bisa dibuka jika key/provider sedang bermasalah.
 - Structured tool hanya menghasilkan data draf; tool tersebut tidak punya jalur
   untuk menulis kartu.
-- Spesialis wajib mengirim minimal dua fakta dengan `source_path` valid. AI
-  Orchestrator wajib mengirim minimal tiga bukti final; untuk arahan eksplisit
-  CMO+CFO+COO, bukti dan Objective harus mencakup ketiganya.
+- Fakta spesialis dinormalisasi server. Jika format `source_path` model meleset,
+  server melengkapi minimal dua bukti dari katalog fungsi yang sama; angka tetap
+  berasal dari query, bukan dari model. AI Orchestrator wajib mengirim minimal
+  tiga bukti final; untuk arahan eksplisit CMO+CFO+COO, bukti dan Objective
+  harus mencakup ketiganya.
 - Diagnosis kurang dari batas kualitas, source path palsu, baseline aktual tanpa
   sumber, atau OKR perusahaan tanpa konflik/trade-off ditolak sebelum draf
   disimpan.
@@ -192,7 +194,7 @@ pengaturan mapping jabatan terpisah.
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah quality gate analisis berbasis bukti: **510 test lulus, 2287 assertions**.
+Baseline setelah quality gate analisis berbasis bukti: **511 test lulus, 2292 assertions**.
 
 ---
 

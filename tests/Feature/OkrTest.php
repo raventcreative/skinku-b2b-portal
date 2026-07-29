@@ -45,8 +45,12 @@ class OkrTest extends TestCase
         return [$board, $todo, $done];
     }
 
-    private function fakeDraft(User $member, int $columnId, array $overrides = []): FakeAiProvider
-    {
+    private function fakeDraft(
+        User $member,
+        int $columnId,
+        array $overrides = [],
+        array $proposalOverrides = [],
+    ): FakeAiProvider {
         $args = array_replace_recursive([
             'name' => 'OKR Pertumbuhan Q3',
             'analysis_summary' => 'Data tiga fungsi menunjukkan pertumbuhan penjualan harus dijalankan bersama pengendalian margin dan kesiapan stok. Target tidak boleh langsung diterjemahkan menjadi campaign; tim perlu menutup gap omzet dengan prioritas channel yang terbukti, menjaga kas, dan memastikan produk tersedia sebelum skala dinaikkan.',
@@ -99,7 +103,7 @@ class OkrTest extends TestCase
             ]],
         ], $overrides);
 
-        $proposal = function (string $id, string $label) {
+        $proposal = function (string $id, string $label) use ($proposalOverrides) {
             $specialist = strtolower($label);
             $paths = match ($specialist) {
                 'cfo' => ['cfo.laba_rugi.penjualan_bersih', 'cfo.laba_rugi.hpp'],
@@ -107,36 +111,38 @@ class OkrTest extends TestCase
                 default => ['cmo.penjualan.total_sales', 'cmo.penjualan.total_po'],
             };
 
+            $arguments = array_replace_recursive([
+                'analysis' => "Analisis {$label} membandingkan kondisi aktual dengan sasaran periode, menguji akar gap, dan memilih intervensi dengan dampak paling masuk akal.",
+                'facts' => [
+                    [
+                        'source_path' => $paths[0],
+                        'finding' => 'Angka pertama menunjukkan kondisi aktual yang harus menjadi titik awal, bukan target buatan.',
+                    ],
+                    [
+                        'source_path' => $paths[1],
+                        'finding' => 'Angka kedua menunjukkan batas atau kapasitas yang perlu diperhitungkan sebelum memilih strategi.',
+                    ],
+                ],
+                'target_gap_analysis' => 'Gap target belum bisa ditutup hanya dengan menambah aktivitas; fungsi ini perlu memprioritaskan pengungkit terukur dan gate evaluasi.',
+                'data_gaps' => ['Produktivitas per aktivitas belum tersedia lengkap di sistem.'],
+                'tradeoffs' => ['Kecepatan eksekusi harus diseimbangkan dengan kualitas hasil dan kapasitas tim.'],
+                'risks' => ['Kapasitas tim'],
+                'objectives' => [[
+                    'title' => "Usulan {$label}",
+                    'rationale' => 'Berdasarkan data aktual.',
+                    'key_results' => [[
+                        'title' => 'Hasil terukur',
+                        'metric' => 'Persentase',
+                        'target' => '20%',
+                        'workstreams' => ['Eksekusi lintas fungsi'],
+                    ]],
+                ]],
+            ], $proposalOverrides[$specialist] ?? []);
+
             return new AiTurn(toolCalls: [[
                 'id' => $id,
                 'name' => 'usulkan_okr_spesialis',
-                'arguments' => [
-                    'analysis' => "Analisis {$label} membandingkan kondisi aktual dengan sasaran periode, menguji akar gap, dan memilih intervensi dengan dampak paling masuk akal.",
-                    'facts' => [
-                        [
-                            'source_path' => $paths[0],
-                            'finding' => 'Angka pertama menunjukkan kondisi aktual yang harus menjadi titik awal, bukan target buatan.',
-                        ],
-                        [
-                            'source_path' => $paths[1],
-                            'finding' => 'Angka kedua menunjukkan batas atau kapasitas yang perlu diperhitungkan sebelum memilih strategi.',
-                        ],
-                    ],
-                    'target_gap_analysis' => 'Gap target belum bisa ditutup hanya dengan menambah aktivitas; fungsi ini perlu memprioritaskan pengungkit terukur dan gate evaluasi.',
-                    'data_gaps' => ['Produktivitas per aktivitas belum tersedia lengkap di sistem.'],
-                    'tradeoffs' => ['Kecepatan eksekusi harus diseimbangkan dengan kualitas hasil dan kapasitas tim.'],
-                    'risks' => ['Kapasitas tim'],
-                    'objectives' => [[
-                        'title' => "Usulan {$label}",
-                        'rationale' => 'Berdasarkan data aktual.',
-                        'key_results' => [[
-                            'title' => 'Hasil terukur',
-                            'metric' => 'Persentase',
-                            'target' => '20%',
-                            'workstreams' => ['Eksekusi lintas fungsi'],
-                        ]],
-                    ]],
-                ],
+                'arguments' => $arguments,
             ]]);
         };
 
@@ -693,5 +699,33 @@ class OkrTest extends TestCase
             ->assertSessionHas('error');
 
         $this->assertSame(0, OkrCycle::count());
+    }
+
+    public function test_bukti_spesialis_yang_formatnya_meleset_dilengkapi_dari_server(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrgrounding');
+        $member = $this->user(User::ROLE_ADMIN, 'groundingpic');
+        [$board, $todo] = $this->board($super);
+        $fake = $this->fakeDraft($member, $todo->id, [], [
+            'cfo' => [
+                'analysis' => 'Analisis singkat.',
+                'facts' => [
+                    ['source_path' => 'laba_rugi.penjualan', 'finding' => 'Path model tidak persis sama dengan katalog server.'],
+                    ['source_path' => 'arus_kas.net', 'finding' => 'Path model tidak persis sama dengan katalog server.'],
+                ],
+                'target_gap_analysis' => 'Belum lengkap.',
+            ],
+        ]);
+        $this->app->instance(AiProvider::class, $fake);
+
+        $this->actingAs($super)
+            ->post(route('okr.generate'), $this->generatePayload($board->id))
+            ->assertRedirect();
+
+        $this->assertSame(1, OkrCycle::count());
+        $orchestratorPrompt = $fake->sent[3]['messages'][1]['content'];
+        $this->assertStringContainsString('Panel CFO harus menguji target', $orchestratorPrompt);
+        $this->assertStringContainsString('cfo.laba_rugi.penjualan_bersih', $orchestratorPrompt);
+        $this->assertStringContainsString('cfo.laba_rugi.hpp', $orchestratorPrompt);
     }
 }

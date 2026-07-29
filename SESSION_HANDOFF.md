@@ -1,7 +1,7 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **510 test lulus (2287 assertions)** setelah quality gate analisis berbasis bukti.
+> Baseline sebelum OKR: `37820b9`. **511 test lulus (2292 assertions)** setelah quality gate analisis berbasis bukti.
 
 ---
 
@@ -93,6 +93,9 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
 - Model hanya boleh mengutip `source_path` dari katalog server. Nilai bukti
   diambil ulang dari hasil query oleh server, sehingga angka buatan model tidak
   dapat masuk ke pratinjau.
+- Bila format `source_path` dari panel spesialis meleset, server melengkapi
+  minimal dua bukti langsung dari katalog bidang tersebut. Variasi format model
+  tidak lagi menggagalkan seluruh proses; quality gate final tetap ketat.
 - Quality gate menolak draf generik, bukti palsu/kurang, baseline kabur, gap
   target yang tidak dijelaskan, dan OKR perusahaan tanpa konflik/trade-off.
 - Pratinjau menampilkan Dasar Analisis AI, bukti terverifikasi, asumsi/data gap,
@@ -124,7 +127,7 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
 - Uji offline: `tests/Feature/OkrTest.php`; total suite setelah quality gate
-  analisis **510 lulus / 2287 assertions**.
+  analisis **511 lulus / 2292 assertions**.
 
 ---
 

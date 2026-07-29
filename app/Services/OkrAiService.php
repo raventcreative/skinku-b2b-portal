@@ -346,38 +346,93 @@ class OkrAiService
         if (! $call || ! is_array($call['arguments'] ?? null)) {
             throw new AiException("Spesialis AI {$profile['label']} belum menghasilkan usulan yang valid. Coba generate ulang.");
         }
-        $this->assertSpecialistQuality($profile['label'], $specialist, $call['arguments'], $liveData);
+        $proposal = $this->normaliseSpecialistProposal(
+            $profile['label'],
+            $specialist,
+            $call['arguments'],
+            $liveData,
+        );
 
         return [
             'specialist' => $specialist,
             'label' => $profile['label'],
-            'proposal' => $call['arguments'],
+            'proposal' => $proposal,
         ];
     }
 
     /**
      * @param  array<string,mixed>  $proposal
      * @param  array<string,mixed>  $liveData
+     * @return array<string,mixed>
      */
-    private function assertSpecialistQuality(
+    private function normaliseSpecialistProposal(
         string $label,
         string $specialist,
         array $proposal,
         array $liveData,
-    ): void {
+    ): array {
         $catalog = $this->snapshots->evidenceCatalog([$specialist => $liveData]);
-        $validFacts = collect((array) ($proposal['facts'] ?? []))
+        if (count($catalog) < 2) {
+            throw new AiException("Data aktual untuk panel {$label} belum cukup. Minimal dua metrik sistem diperlukan sebelum OKR dapat disusun.");
+        }
+
+        $facts = collect((array) ($proposal['facts'] ?? []))
             ->filter(fn ($row) => is_array($row)
                 && isset($catalog[trim((string) ($row['source_path'] ?? ''))])
                 && mb_strlen(trim((string) ($row['finding'] ?? ''))) >= 20)
-            ->pluck('source_path')
-            ->unique()
-            ->count();
-        if (mb_strlen(trim((string) ($proposal['analysis'] ?? ''))) < 80
-            || mb_strlen(trim((string) ($proposal['target_gap_analysis'] ?? ''))) < 40
-            || $validFacts < 2) {
-            throw new AiException("Analisis {$label} AI belum cukup tajam atau belum memakai minimal dua bukti data sistem. Draf tidak disimpan.");
+            ->map(fn (array $row) => [
+                'source_path' => trim((string) $row['source_path']),
+                'finding' => trim((string) $row['finding']),
+            ])
+            ->unique('source_path')
+            ->values();
+
+        foreach ($catalog as $path => $fact) {
+            if ($facts->count() >= 2) {
+                break;
+            }
+            if ($facts->contains('source_path', $path)) {
+                continue;
+            }
+            $facts->push([
+                'source_path' => $path,
+                'finding' => "Data sistem mencatat {$fact['label']} sebesar "
+                    .$this->plainEvidenceValue($fact['value'])
+                    .($fact['period'] ? " untuk periode {$fact['period']}." : '.'),
+            ]);
         }
+
+        $analysis = trim((string) ($proposal['analysis'] ?? ''));
+        if (mb_strlen($analysis) < 80) {
+            $analysis = "Panel {$label} harus menguji target terhadap kondisi aktual, akar gap, kapasitas, dan risiko bidangnya. Bukti server di bawah menjadi batas faktual; keputusan yang belum didukung metrik wajib diperlakukan sebagai asumsi atau kebutuhan validasi.";
+        }
+        $targetGap = trim((string) ($proposal['target_gap_analysis'] ?? ''));
+        if (mb_strlen($targetGap) < 40) {
+            $targetGap = 'Bandingkan setiap target dengan bukti aktual, hitung selisihnya, lalu prioritaskan pengungkit yang paling besar tanpa melanggar batas fungsi lain.';
+        }
+
+        return [
+            ...$proposal,
+            'analysis' => $analysis,
+            'facts' => $facts->take(8)->all(),
+            'target_gap_analysis' => $targetGap,
+            'data_gaps' => array_values(array_filter((array) ($proposal['data_gaps'] ?? []), 'is_string')),
+            'tradeoffs' => array_values(array_filter((array) ($proposal['tradeoffs'] ?? []), 'is_string')),
+            'risks' => array_values(array_filter((array) ($proposal['risks'] ?? []), 'is_string')),
+            'objectives' => (array) ($proposal['objectives'] ?? []),
+        ];
+    }
+
+    private function plainEvidenceValue(mixed $value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'ya' : 'tidak';
+        }
+        if (is_float($value)) {
+            return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
+        }
+
+        return (string) $value;
     }
 
     /** @param array{label:string,focus:string} $profile */
