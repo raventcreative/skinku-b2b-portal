@@ -733,4 +733,147 @@ class OkrTest extends TestCase
         $this->assertStringContainsString('cfo.laba_rugi.penjualan_bersih', $orchestratorPrompt);
         $this->assertStringContainsString('cfo.laba_rugi.hpp', $orchestratorPrompt);
     }
+
+    public function test_semua_output_terstruktur_ai_yang_kosong_dipulihkan_tanpa_error(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrmalformed');
+        $this->user(User::ROLE_ADMIN, 'malformedpic');
+        [$board] = $this->board($super);
+        $emptyTool = fn (string $id) => new AiTurn(toolCalls: [[
+            'id' => $id,
+            'name' => 'usulkan_okr_spesialis',
+            'arguments' => [],
+        ]]);
+        $fake = new FakeAiProvider([
+            new AiTurn(text: 'CMO tidak memanggil alat.'),
+            $emptyTool('cfo-empty'),
+            new AiTurn(toolCalls: [[
+                'id' => 'coo-wrong-tool',
+                'name' => 'alat_yang_salah',
+                'arguments' => [],
+            ]]),
+            new AiTurn(text: 'Orchestrator juga tidak memanggil alat.'),
+        ]);
+        $this->app->instance(AiProvider::class, $fake);
+
+        $this->actingAs($super)
+            ->post(route('okr.generate'), $this->generatePayload($board->id))
+            ->assertRedirect();
+
+        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
+        $this->assertSame(['cmo', 'cfo', 'coo'], $cycle->objectives->pluck('specialist')->all());
+        $this->assertTrue($cycle->objectives->every(fn ($objective) => filled($objective->rationale)));
+        $this->assertTrue($cycle->objectives->flatMap->keyResults->every(
+            fn ($kr) => filled($kr->metric)
+                && filled($kr->target)
+                && filled($kr->baseline)
+                && filled($kr->target_gap)
+                && $kr->tasks->isNotEmpty()
+        ));
+        $this->assertGreaterThanOrEqual(3, count($cycle->analysis_evidence));
+        $this->assertSame(0, BoardCard::count());
+
+        $taskTotal = $cycle->objectives->flatMap->keyResults->flatMap->tasks->count();
+        $this->actingAs($super)->post(route('okr.approve', $cycle))->assertRedirect();
+        $this->assertSame(OkrCycle::STATUS_ACTIVE, $cycle->fresh()->status);
+        $this->assertSame($taskTotal, BoardCard::count());
+        $this->assertTrue(BoardCard::query()->get()->every(fn (BoardCard $card) => $card->created_via === 'ai'));
+    }
+
+    public function test_objective_duplikat_kr_minim_dan_tugas_kosong_dinormalisasi_sekaligus(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrduplicate');
+        $member = $this->user(User::ROLE_ADMIN, 'duplicatepic');
+        [$board, $todo] = $this->board($super);
+        $fake = $this->fakeDraft($member, $todo->id, [
+            'objectives' => [
+                [
+                    'key_results' => [[
+                        'tasks' => [['title' => '']],
+                    ]],
+                ],
+                [
+                    'specialist' => 'cmo',
+                    'title' => 'Objective CMO duplikat',
+                    'description' => '',
+                    'rationale' => '',
+                    'owner_user_id' => 999999,
+                    'key_results' => [[
+                        'title' => 'KR tambahan tanpa kelengkapan',
+                        'metric' => '',
+                        'target' => '',
+                        'baseline_status' => 'actual',
+                        'baseline_source_path' => 'sumber.palsu',
+                        'baseline_interpretation' => '',
+                        'target_gap' => '',
+                        'owner_user_id' => 999999,
+                        'due_date' => '2020-01-01',
+                        'tasks' => [],
+                    ]],
+                ],
+            ],
+        ]);
+        $this->app->instance(AiProvider::class, $fake);
+        $payload = $this->generatePayload($board->id);
+        $payload['direction'] = 'CMO, CFO, dan COO wajib bekerja bersama.';
+
+        $this->actingAs($super)->post(route('okr.generate'), $payload)->assertRedirect();
+
+        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
+        $this->assertSame(['cmo', 'cfo', 'coo'], $cycle->objectives->pluck('specialist')->all());
+        $this->assertSame(2, $cycle->objectives->first()->keyResults->count());
+        $this->assertTrue($cycle->objectives->flatMap->keyResults->every(
+            fn ($kr) => filled($kr->metric)
+                && filled($kr->target)
+                && filled($kr->baseline)
+                && filled($kr->target_gap)
+                && $kr->due_date->betweenIncluded($cycle->start_date, $cycle->end_date)
+                && $kr->tasks->isNotEmpty()
+        ));
+    }
+
+    public function test_snapshot_tanpa_metrik_ditandai_untuk_validasi_dan_tidak_menggagalkan_okr(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrnodata');
+        $this->user(User::ROLE_ADMIN, 'nodatapic');
+        [$board] = $this->board($super);
+        $this->app->instance(OkrBusinessSnapshotService::class, new class extends OkrBusinessSnapshotService
+        {
+            public function __construct() {}
+
+            public function for(string $specialist, User $user, array $input): array
+            {
+                return [
+                    'periode_referensi' => '2026-07',
+                    'status_periode' => 'bulan berjalan',
+                    'catatan' => 'Belum ada metrik numerik yang dapat diakses.',
+                ];
+            }
+        });
+        $this->app->instance(AiProvider::class, new FakeAiProvider([
+            new AiTurn(text: 'CMO tanpa struktur.'),
+            new AiTurn(text: 'CFO tanpa struktur.'),
+            new AiTurn(text: 'COO tanpa struktur.'),
+            new AiTurn(text: 'Orchestrator tanpa struktur.'),
+        ]));
+
+        $this->actingAs($super)
+            ->post(route('okr.generate'), $this->generatePayload($board->id))
+            ->assertRedirect();
+
+        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
+        $this->assertSame([], $cycle->analysis_evidence);
+        $this->assertStringContainsString(
+            'baseline lain tidak boleh diasumsikan',
+            implode(' ', $cycle->analysis_assumptions),
+        );
+        $this->assertSame(['cmo', 'cfo', 'coo'], $cycle->objectives->pluck('specialist')->all());
+        $this->assertTrue($cycle->objectives->flatMap->keyResults->every(
+            fn ($kr) => $kr->baseline_status === 'needs_validation'
+                && $kr->tasks->isNotEmpty()
+        ));
+
+        $this->actingAs($super)->post(route('okr.approve', $cycle))->assertRedirect();
+        $this->assertSame(OkrCycle::STATUS_ACTIVE, $cycle->fresh()->status);
+    }
 }

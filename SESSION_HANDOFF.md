@@ -1,15 +1,15 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **512 test lulus (2300 assertions)** setelah panel paralel dan fallback analisis berbasis bukti.
+> Baseline sebelum OKR: `37820b9`. **515 test lulus (2322 assertions)** setelah panel paralel dan pemulihan output AI menyeluruh.
 
 ---
 
 ## 0. STATUS & DEPLOY
 
-- Fitur OKR sampai dukungan nama owner BOD sudah ada di `origin/main`; pemetaan
-  akun bersama, coverage delegasi, dan quality gate analisis berbasis bukti pada
-  sesi terakhir perlu di-push sebelum deploy.
+- Fitur OKR dasar sudah ada di `origin/main`. Perbaikan lokal terbaru menambah
+  penyeimbang Objective CMO/CFO/COO dan pemulihan menyeluruh untuk output AI
+  kosong/salah format; commit lokal terbaru masih perlu di-push sebelum deploy.
 - **Ada migrasi baru sampai 000066** → deploy WAJIB `migrate --force`.
 
 **Deploy penuh (server produksi):**
@@ -94,12 +94,16 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
   diambil ulang dari hasil query oleh server, sehingga angka buatan model tidak
   dapat masuk ke pratinjau.
 - Bila format `source_path` dari panel spesialis meleset, server melengkapi
-  minimal dua bukti langsung dari katalog bidang tersebut. Variasi format model
-  tidak lagi menggagalkan seluruh proses; quality gate final tetap ketat.
+  bukti langsung dari katalog bidang tersebut. Bila metrik aktual memang tidak
+  tersedia, server menandainya sebagai kebutuhan validasi tanpa mengarang angka
+  dan tanpa menggagalkan seluruh proses.
 - Jika ringkasan Orchestrator generik, bukti palsu/kurang, baseline kabur, atau
   konflik kosong, server memulihkannya dari hasil panel dan katalog data yang
-  sudah terverifikasi. Draf baru ditolak bila tiga panel memang tidak mempunyai
-  data/diagnosis atau struktur Objective/KR/tugas yang cukup.
+  sudah terverifikasi.
+- Jika panel/Orchestrator tidak memanggil structured tool, memakai nama tool
+  salah, mengirim argumen kosong, Objective duplikat, KR minim, atau tugas
+  kosong, server membentuk dan menormalkan pratinjau lengkap secara
+  deterministik. Pengujian adversarial juga mencakup approval hingga kartu AI.
 - Untuk arahan eksplisit CMO+CFO+COO, server menyeimbangkan hasil menjadi tepat
   satu Objective per fungsi: duplikat digabung/dideduplikasi dan fungsi yang
   hilang dibentuk dari proposal panelnya lengkap dengan KR serta tugas awal.
@@ -131,8 +135,8 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
 - Progres Objective/KR otomatis dari `BoardCard.completed_at`; masuk/keluar Done/Selesai langsung mengubah progres.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
-- Uji offline: `tests/Feature/OkrTest.php`; total suite setelah quality gate
-  analisis **512 lulus / 2300 assertions**.
+- Uji offline: `tests/Feature/OkrTest.php`; total suite setelah quality gate dan
+  pengujian adversarial **515 lulus / 2322 assertions**.
 
 ---
 

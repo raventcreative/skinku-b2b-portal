@@ -61,9 +61,11 @@
    memanggil structured tool `usulkan_okr_spesialis`.
 5. AI Orchestrator menerima ketiga usulan + konteks bersama, memanggil
    `susun_draf_okr`, dan menyimpan hasil sebagai draf.
-6. Server memulihkan ringkasan generik, bukti tidak valid, baseline/gap pendek,
-   atau konflik kosong dari hasil panel dan katalog data server. Draf hanya
-   ditolak jika diagnosis panel atau struktur kerja memang tidak cukup.
+6. Server memulihkan tool call yang hilang/salah, ringkasan generik, bukti
+   tidak valid, Objective/KR/tugas kosong, baseline/gap pendek, atau konflik
+   kosong dari hasil panel, katalog data server, dan fallback deterministik.
+   Data yang memang belum tersedia ditandai sebagai kebutuhan validasi; kondisi
+   tersebut tidak menggagalkan pratinjau dan tidak diisi dengan angka rekaan.
 7. User memeriksa dasar analisis, bukti, asumsi, konflik, ringkasan Objective,
    Key Result, detail pekerjaan, PIC, tenggat, serta kolom Kanban. Semua pilihan
    ini sudah diisi otomatis.
@@ -122,21 +124,26 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
 - Structured tool hanya menghasilkan data draf; tool tersebut tidak punya jalur
   untuk menulis kartu.
 - Fakta spesialis dinormalisasi server. Jika format `source_path` model meleset,
-  server melengkapi minimal dua bukti dari katalog fungsi yang sama; angka tetap
-  berasal dari query, bukan dari model. AI Orchestrator wajib mengirim minimal
-  tiga bukti final; untuk arahan eksplisit CMO+CFO+COO, bukti dan Objective
-  harus mencakup ketiganya.
+  server melengkapi bukti dari katalog fungsi yang sama; angka tetap berasal
+  dari query, bukan dari model. Jika katalog bidang tidak mempunyai cukup
+  metrik, kekurangan tersebut masuk ke asumsi/data gap dan baseline menjadi
+  `needs_validation`, bukan error atau angka rekaan.
 - Ringkasan kurang dari batas kualitas disusun ulang dari diagnosis CMO/CFO/COO.
   Source path palsu dibuang dan bukti valid panel dipakai; baseline/gap serta
-  konflik yang pendek dilengkapi secara defensif. Keluaran baru ditolak bila
-  panel tidak menyediakan diagnosis/data minimum atau struktur kerja kosong.
+  konflik yang pendek dilengkapi secara defensif.
+- Jika satu/semua panel atau Orchestrator tidak memanggil structured tool,
+  memanggil tool yang salah, atau mengirim argumen kosong, server membentuk
+  Objective, Key Result, tugas, owner, tenggat, dan kolom awal dari target,
+  proposal yang tersedia, Pengetahuan AI, serta data sistem.
 - Bila arahan menyebut CMO, CFO, dan COO sekaligus, server memastikan tepat satu
   Objective per fungsi. Objective duplikat digabung, KR dideduplikasi maksimal
   empat per fungsi, dan fungsi yang hilang dipulihkan dari proposal spesialis
   beserta workstream tugasnya.
 - Baseline `actual` hanya sah jika jalurnya ada pada katalog snapshot. Jika
   sumbernya tidak ada, status dipaksa menjadi asumsi/kebutuhan validasi.
-- Maksimum server: 6 Objective, 30 Key Result, dan 60 tugas per generasi.
+- Maksimum normal: 3 Objective, 4 Key Result per Objective, dan 3 tugas model
+  per Key Result. Hard ceiling tetap 60 tugas termasuk coverage dan approval,
+  agar satu fungsi tidak menghabiskan kapasitas fungsi lain.
 - Anggota partner tidak boleh menjadi penerima.
 - Tugas tidak boleh dimulai di kolom Done/Selesai.
 - Tenggat wajib berada di dalam periode OKR dan tidak boleh lebih awal dari hari
@@ -195,6 +202,9 @@ pengaturan mapping jabatan terpisah.
 - bukti angka diambil ulang dari snapshot server dan tampil di pratinjau;
 - ringkasan generik/bukti palsu dipulihkan dari panel dan katalog server;
 - Objective fungsi yang hilang/duplikat diseimbangkan dari proposal panel;
+- seluruh structured output kosong/salah tool tetap menghasilkan tiga Objective;
+- snapshot tanpa metrik tetap menghasilkan draf dengan baseline perlu validasi;
+- KR minim, tugas kosong, ID palsu, dan tanggal lampau dinormalisasi bersamaan;
 - akun bersama BOD tetap menghasilkan kartu approval di kolom nama BOD;
 - coverage Gracelyn untuk video/UGC dan peringatan Hida tanpa akun;
 - uraian kosong dan tenggat lampau dinormalisasi defensif;
@@ -203,8 +213,8 @@ pengaturan mapping jabatan terpisah.
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah panel paralel dan quality gate analisis berbasis bukti:
-**512 test lulus, 2300 assertions**.
+Baseline setelah panel paralel, pemulihan output AI, dan uji adversarial:
+**515 test lulus, 2322 assertions**.
 
 ---
 

@@ -39,7 +39,7 @@ class OkrAiService
         ],
     ];
 
-    private const MAX_OBJECTIVES = 6;
+    private const MAX_OBJECTIVES = 3;
 
     private const MAX_KEY_RESULTS = 30;
 
@@ -76,12 +76,22 @@ class OkrAiService
         ];
         $turn = $provider->chat($messages, [$this->draftSchema()]);
         $call = collect($turn->toolCalls)->firstWhere('name', 'susun_draf_okr');
-        if (! $call || ! is_array($call['arguments'] ?? null)) {
-            throw new AiException('AI Orchestrator belum menghasilkan struktur OKR yang valid. Coba perjelas arahannya lalu buat ulang.');
+        $draftArguments = is_array($call['arguments'] ?? null) ? $call['arguments'] : [];
+        if ($draftArguments === []) {
+            $draftArguments = [
+                'name' => 'OKR '.$input['period_label'],
+                'analysis_summary' => '',
+                'evidence' => [],
+                'assumptions' => [
+                    'Orchestrator tidak mengirim struktur final lengkap; server menyusun pratinjau dari proposal CMO, CFO, dan COO.',
+                ],
+                'conflicts' => [],
+                'objectives' => [],
+            ];
         }
 
         $draft = $this->normaliseDraft(
-            $call['arguments'],
+            $draftArguments,
             $input,
             $members,
             $boards,
@@ -239,7 +249,9 @@ class OkrAiService
         $keyResults = $objectives->flatMap->keyResults;
         $tasks = $cycle->objectives->flatMap->keyResults->flatMap->tasks;
         $issues = [];
-        if (blank($cycle->analysis_summary) || count($cycle->analysis_evidence ?? []) < 3) {
+        if (blank($cycle->analysis_summary)
+            || (count($cycle->analysis_evidence ?? []) < 3
+                && count($cycle->analysis_assumptions ?? []) < 1)) {
             $issues[] = 'Draf belum mempunyai dasar analisis data yang dapat diverifikasi.';
         }
         if ($cycle->scope_type === OkrCycle::SCOPE_COMPANY && count($cycle->analysis_conflicts ?? []) < 1) {
@@ -367,6 +379,7 @@ class OkrAiService
                 specialist: $key,
                 profile: $profile,
                 liveData: $liveData[$key],
+                input: $input,
             );
         }
 
@@ -376,22 +389,22 @@ class OkrAiService
     /**
      * @param  array{label:string,focus:string}  $profile
      * @param  array<string,mixed>  $liveData
+     * @param  array<string,mixed>  $input
      */
     private function specialistProposal(
         AiTurn $turn,
         string $specialist,
         array $profile,
         array $liveData,
+        array $input,
     ): array {
         $call = collect($turn->toolCalls)->firstWhere('name', 'usulkan_okr_spesialis');
-        if (! $call || ! is_array($call['arguments'] ?? null)) {
-            throw new AiException("Spesialis AI {$profile['label']} belum menghasilkan usulan yang valid. Coba generate ulang.");
-        }
         $proposal = $this->normaliseSpecialistProposal(
             $profile['label'],
             $specialist,
-            $call['arguments'],
+            is_array($call['arguments'] ?? null) ? $call['arguments'] : [],
             $liveData,
+            $input,
         );
 
         return [
@@ -404,6 +417,7 @@ class OkrAiService
     /**
      * @param  array<string,mixed>  $proposal
      * @param  array<string,mixed>  $liveData
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     private function normaliseSpecialistProposal(
@@ -411,11 +425,9 @@ class OkrAiService
         string $specialist,
         array $proposal,
         array $liveData,
+        array $input,
     ): array {
         $catalog = $this->snapshots->evidenceCatalog([$specialist => $liveData]);
-        if (count($catalog) < 2) {
-            throw new AiException("Data aktual untuk panel {$label} belum cukup. Minimal dua metrik sistem diperlukan sebelum OKR dapat disusun.");
-        }
 
         $facts = collect((array) ($proposal['facts'] ?? []))
             ->filter(fn ($row) => is_array($row)
@@ -451,16 +463,41 @@ class OkrAiService
         if (mb_strlen($targetGap) < 40) {
             $targetGap = 'Bandingkan setiap target dengan bukti aktual, hitung selisihnya, lalu prioritaskan pengungkit yang paling besar tanpa melanggar batas fungsi lain.';
         }
+        $fallbackObjectives = $this->fallbackPanelObjectives($specialist, $label, $input);
+        $dataGaps = collect((array) ($proposal['data_gaps'] ?? []))
+            ->filter(fn ($value) => is_string($value) && filled($value));
+        if (count($catalog) < 2) {
+            $dataGaps->push(
+                "Snapshot {$label} hanya menyediakan ".count($catalog)
+                .' metrik numerik yang dapat diverifikasi. Baseline fungsi ini wajib divalidasi sebelum eksekusi.',
+            );
+        }
+        $objectives = collect((array) ($proposal['objectives'] ?? []))
+            ->filter(fn ($objective) => is_array($objective) && filled($objective['title'] ?? null))
+            ->map(function (array $objective) use ($fallbackObjectives) {
+                if (collect((array) ($objective['key_results'] ?? []))
+                    ->contains(fn ($kr) => is_array($kr) && filled($kr['title'] ?? null))) {
+                    return $objective;
+                }
+                $objective['key_results'] = $fallbackObjectives[0]['key_results'];
+
+                return $objective;
+            })
+            ->take(2)
+            ->values();
+        if ($objectives->isEmpty()) {
+            $objectives = collect($fallbackObjectives);
+        }
 
         return [
             ...$proposal,
             'analysis' => $analysis,
             'facts' => $facts->take(8)->all(),
             'target_gap_analysis' => $targetGap,
-            'data_gaps' => array_values(array_filter((array) ($proposal['data_gaps'] ?? []), 'is_string')),
+            'data_gaps' => $dataGaps->unique()->values()->all(),
             'tradeoffs' => array_values(array_filter((array) ($proposal['tradeoffs'] ?? []), 'is_string')),
             'risks' => array_values(array_filter((array) ($proposal['risks'] ?? []), 'is_string')),
-            'objectives' => (array) ($proposal['objectives'] ?? []),
+            'objectives' => $objectives->all(),
         ];
     }
 
@@ -474,6 +511,103 @@ class OkrAiService
         }
 
         return (string) $value;
+    }
+
+    /**
+     * Struktur minimum bila model tidak mengirim proposal terstruktur. Ini hanya
+     * kerangka pemulihan; angka tetap berasal dari katalog dan target user.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<int,array<string,mixed>>
+     */
+    private function fallbackPanelObjectives(string $specialist, string $label, array $input): array
+    {
+        $period = (string) ($input['period_label'] ?? 'periode OKR');
+        $definitions = [
+            'cmo' => [
+                'title' => "Capai pertumbuhan komersial {$period} secara terukur",
+                'rationale' => 'CMO perlu menghubungkan target omzet dengan channel, produk, conversion, repeat order, KOL/affiliate, konten, dan live commerce.',
+                'key_results' => [
+                    [
+                        'title' => 'Tutup gap target penjualan melalui channel dan produk prioritas',
+                        'metric' => 'Omzet, conversion, dan kontribusi produk',
+                        'target' => 'Sesuai target komersial pada arahan awal',
+                        'workstreams' => [
+                            'Analisis performa channel, SKU, conversion, dan repeat order',
+                            'Susun campaign KOL dan affiliate dengan target aktivasi serta order',
+                        ],
+                    ],
+                    [
+                        'title' => 'Aktifkan mesin konten dan live commerce yang konsisten',
+                        'metric' => 'Konten tayang, sesi live, GMV, dan conversion',
+                        'target' => 'Milestone divalidasi CMO dari kapasitas tim',
+                        'workstreams' => [
+                            'Siapkan desain materi promosi dan kalender konten',
+                            'Produksi video UGC serta jalankan live commerce berdasarkan brief',
+                        ],
+                    ],
+                ],
+            ],
+            'cfo' => [
+                'title' => "Jaga target pertumbuhan {$period} tetap sehat secara margin dan kas",
+                'rationale' => 'CFO harus memastikan omzet tidak dibeli dengan diskon, biaya campaign, fee, HPP, atau modal kerja yang merusak laba dan cashflow.',
+                'key_results' => [
+                    [
+                        'title' => 'Tetapkan dan jaga guardrail margin setiap channel serta produk',
+                        'metric' => 'Margin kotor setelah HPP, diskon, fee, dan biaya campaign',
+                        'target' => 'Batas minimum divalidasi dan disetujui CFO',
+                        'workstreams' => [
+                            'Analisis HPP, margin, diskon, fee marketplace, dan biaya campaign',
+                            'Tetapkan approval harga serta batas promo yang tidak boleh dilanggar',
+                        ],
+                    ],
+                    [
+                        'title' => 'Pastikan kebutuhan modal kerja dan arus kas mampu mendanai target',
+                        'metric' => 'Kas tersedia, kebutuhan modal kerja, dan arus kas bersih',
+                        'target' => 'Pendanaan tersedia sebelum komitmen produksi dan campaign',
+                        'workstreams' => [
+                            'Susun proyeksi cashflow dan kebutuhan modal kerja per milestone',
+                            'Buat early warning kas, piutang, dan settlement untuk BOD',
+                        ],
+                    ],
+                ],
+            ],
+            'coo' => [
+                'title' => "Pastikan kapasitas operasional siap memenuhi target {$period}",
+                'rationale' => 'COO harus mengunci kesiapan produk, stok, produksi, supplier, gudang, dan fulfillment sebelum pertumbuhan dipercepat.',
+                'key_results' => [
+                    [
+                        'title' => 'Pastikan stok dan produksi siap mengikuti prioritas penjualan',
+                        'metric' => 'Ketersediaan unit, output produksi, dan risiko stockout',
+                        'target' => 'Kebutuhan unit tervalidasi sebelum scale-up',
+                        'workstreams' => [
+                            'Hitung kebutuhan stok per SKU dan buat rencana produksi bertahap',
+                            'Validasi supplier, bahan, gudang, dan kapasitas fulfillment',
+                        ],
+                    ],
+                    [
+                        'title' => 'Jalankan gate peluncuran produk dan operasional secara disiplin',
+                        'metric' => 'Tahapan produk lulus, ketepatan launch, dan service level',
+                        'target' => 'Setiap launch melewati gate validasi dan readiness',
+                        'workstreams' => [
+                            'Susun gate riset, costing, sampling, uji pasar, produksi, launch, dan evaluasi',
+                            'Buat early warning risiko stok mati, keterlambatan, dan mutu',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        return [$definitions[$specialist] ?? [
+            'title' => "Capai hasil fungsi {$label} untuk {$period}",
+            'rationale' => "Panel {$label} perlu mengubah arahan awal menjadi hasil terukur.",
+            'key_results' => [[
+                'title' => "Validasi dan capai target fungsi {$label}",
+                'metric' => 'Metrik hasil fungsi',
+                'target' => 'Sesuai arahan awal',
+                'workstreams' => ['Validasi baseline, tetapkan milestone, dan jalankan rencana fungsi'],
+            ]],
+        ]];
     }
 
     /** @param array{label:string,focus:string} $profile */
@@ -759,7 +893,8 @@ class OkrAiService
         $memberIds = array_column($members, 'id');
         $specialistOwners = $this->specialistOwners($members);
         $specialistOwnerNames = $this->specialistOwnerNames();
-        $sharedBodOwnerId = collect($members)->firstWhere('role', User::ROLE_SUPER_ADMIN)['id'] ?? null;
+        $sharedBodOwnerId = collect($members)->firstWhere('role', User::ROLE_SUPER_ADMIN)['id']
+            ?? ($members[0]['id'] ?? null);
         $delegationRules = $this->delegationRules($members);
         $columns = collect($boards)->flatMap(fn (array $board) => $board['columns']);
         $actionableColumns = $columns->filter(fn (array $column) => ! $column['done']);
@@ -798,12 +933,12 @@ class OkrAiService
                 ?? $this->memberName($ownerId, $members)
                 ?? $this->specialistLabel($specialist);
             $keyResults = [];
-            foreach ((array) ($objectiveData['key_results'] ?? []) as $krData) {
+            foreach (array_slice((array) ($objectiveData['key_results'] ?? []), 0, 4) as $krData) {
                 if ($krCount >= self::MAX_KEY_RESULTS || ! is_array($krData) || blank($krData['title'] ?? null)) {
                     continue;
                 }
                 $tasks = [];
-                foreach ((array) ($krData['tasks'] ?? []) as $taskData) {
+                foreach (array_slice((array) ($krData['tasks'] ?? []), 0, 3) as $taskData) {
                     if ($taskCount >= $generatedTaskLimit || ! is_array($taskData) || blank($taskData['title'] ?? null)) {
                         continue;
                     }
@@ -849,13 +984,30 @@ class OkrAiService
                     ];
                     $taskCount++;
                 }
+                if ($tasks === [] && $taskCount < $generatedTaskLimit && $ownerId) {
+                    $tasks[] = [
+                        'title' => Str::limit('Jalankan dan validasi: '.$krData['title'], 255, ''),
+                        'description' => 'Turunkan Key Result ini menjadi rencana kerja, milestone, dan deliverable yang dapat diperiksa. Dokumentasikan baseline, hasil aktual, risiko, serta keputusan atau approval yang masih diperlukan.',
+                        'assignee_user_id' => $ownerId,
+                        'assignee_name' => $ownerName,
+                        'board_column_id' => $this->columnForName(
+                            $ownerName,
+                            $actionableColumns->all(),
+                            (int) ($input['preferred_board_id'] ?? 0),
+                        ) ?? $defaultColumnId,
+                        'due_date' => $this->safeDate($krData['due_date'] ?? null, $input),
+                    ];
+                    $taskCount++;
+                }
                 if ($tasks === []) {
                     continue;
                 }
                 $keyResults[] = [
                     'title' => Str::limit(trim($krData['title']), 255, ''),
-                    'metric' => $this->nullableText($krData['metric'] ?? null, 255),
-                    'target' => $this->nullableText($krData['target'] ?? null, 255),
+                    'metric' => $this->nullableText($krData['metric'] ?? null, 255)
+                        ?? 'Metrik hasil '.$this->specialistLabel($specialist),
+                    'target' => $this->nullableText($krData['target'] ?? null, 255)
+                        ?? 'Perlu validasi sesuai arahan awal',
                     ...$this->normaliseBaseline(
                         $krData,
                         $catalog,
@@ -980,8 +1132,11 @@ class OkrAiService
         ?int $defaultColumnId,
     ): array {
         $validRows = collect($rows)->filter(fn ($row) => is_array($row) && filled($row['title'] ?? null));
-        if ($requiredSpecialists === []) {
+        if ($requiredSpecialists === [] && $validRows->isNotEmpty()) {
             return $validRows->values()->all();
+        }
+        if ($requiredSpecialists === []) {
+            $requiredSpecialists = array_keys(self::SPECIALISTS);
         }
 
         return collect($requiredSpecialists)->map(function (string $specialist) use (
@@ -1016,6 +1171,21 @@ class OkrAiService
                 ->take(4)
                 ->values()
                 ->all();
+            if ($base['key_results'] === []) {
+                $fallback = $this->objectiveFromPanel(
+                    $specialist,
+                    $proposals,
+                    $specialistOwners[$specialist] ?? $sharedBodOwnerId,
+                    $specialistOwnerNames[$specialist] ?? $this->specialistLabel($specialist),
+                    $input,
+                    $defaultColumnId,
+                );
+                $fallback['title'] = $base['title'];
+                $fallback['description'] = $base['description'] ?? $fallback['description'];
+                $fallback['rationale'] = $base['rationale'] ?? $fallback['rationale'];
+
+                return $fallback;
+            }
 
             return $base;
         })->values()->all();
@@ -1083,7 +1253,25 @@ class OkrAiService
             })->values()->all();
 
         if ($keyResults === []) {
-            throw new AiException("Panel {$this->specialistLabel($specialist)} belum menghasilkan Key Result yang dapat dipulihkan. Draf tidak disimpan.");
+            $keyResults[] = [
+                'title' => 'Validasi baseline dan capai target fungsi '.$this->specialistLabel($specialist),
+                'metric' => 'Metrik hasil fungsi '.$this->specialistLabel($specialist),
+                'target' => 'Sesuai target pada arahan awal',
+                'baseline_status' => 'needs_validation',
+                'baseline_source_path' => '',
+                'baseline_interpretation' => 'Baseline spesifik belum tersedia dan harus divalidasi sebelum pekerjaan dimulai.',
+                'target_gap' => 'Hitung gap baseline menuju target dan tetapkan milestone yang dapat diperiksa.',
+                'owner_user_id' => $ownerId,
+                'due_date' => (string) $input['end_date'],
+                'tasks' => [[
+                    'title' => 'Validasi baseline dan susun rencana kerja '.$this->specialistLabel($specialist),
+                    'description' => 'Validasi kondisi aktual terhadap data sistem, tetapkan milestone, lalu susun pekerjaan yang dapat diukur. Catat risiko, dependensi, dan approval yang diperlukan.',
+                    'assignee_user_id' => $ownerId,
+                    'assignee_name' => $ownerName,
+                    'board_column_id' => $defaultColumnId,
+                    'due_date' => (string) $input['end_date'],
+                ]],
+            ];
         }
 
         return [
@@ -1124,7 +1312,9 @@ class OkrAiService
             })->filter()->implode("\n\n");
         }
         if (mb_strlen($summary) < 120) {
-            throw new AiException('Tiga panel AI belum menghasilkan diagnosis yang cukup untuk menyusun ringkasan berbasis data. Draf tidak disimpan.');
+            $summary = 'Panel CMO, CFO, dan COO belum mengirim diagnosis terstruktur yang memadai. '
+                .'Server mempertahankan target dari arahan awal, membentuk rencana validasi per fungsi, '
+                .'dan menandai seluruh baseline yang belum didukung snapshot sebagai kebutuhan validasi sebelum eksekusi.';
         }
 
         $evidence = [];
@@ -1157,20 +1347,27 @@ class OkrAiService
                 }
             }
         }
-        if (count($evidence) < 3) {
-            throw new AiException('AI belum memakai cukup bukti data sistem. Draf ditolak agar rekomendasi generik atau angka tanpa sumber tidak masuk ke pratinjau.');
-        }
-
         $specialists = collect($evidence)->pluck('specialist')->unique();
         $minimumSpecialists = $this->requiredSpecialists($input) !== [] ? 3 : 2;
-        if (($input['scope_type'] ?? null) === OkrCycle::SCOPE_COMPANY && $specialists->count() < $minimumSpecialists) {
-            throw new AiException("Analisis perusahaan belum menghubungkan data dari minimal {$minimumSpecialists} fungsi. Draf ditolak agar keputusan tidak berat sebelah.");
-        }
 
         $panelDataGaps = collect($proposals)
             ->flatMap(fn (array $panel) => (array) data_get($panel, 'proposal.data_gaps', []));
+        $coverageGaps = collect();
+        if (count($evidence) < 3) {
+            $coverageGaps->push(
+                'Snapshot sistem hanya menyediakan '.count($evidence)
+                .' bukti numerik yang dapat diverifikasi; baseline lain tidak boleh diasumsikan dan wajib divalidasi.',
+            );
+        }
+        if (($input['scope_type'] ?? null) === OkrCycle::SCOPE_COMPANY
+            && $specialists->count() < $minimumSpecialists) {
+            $coverageGaps->push(
+                "Bukti numerik belum mencakup {$minimumSpecialists} fungsi; fungsi tanpa bukti tetap mempunyai Objective validasi, bukan baseline rekaan.",
+            );
+        }
         $assumptions = collect((array) ($draft['assumptions'] ?? []))
             ->merge($panelDataGaps)
+            ->merge($coverageGaps)
             ->filter(fn ($value) => is_string($value) && mb_strlen(trim($value)) >= 12)
             ->map(fn (string $value) => Str::limit(trim($value), 1000, ''))
             ->unique()
