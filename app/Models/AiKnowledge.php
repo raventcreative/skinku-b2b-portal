@@ -49,6 +49,11 @@ class AiKnowledge extends Model
             'Prioritas/target bulan atau kuartal ini yang perlu asisten tahu.',
             'Contoh: Q3 2026 fokus rekrut 50 reseller baru + naikin konten TikTok 3x/minggu…',
         ],
+        'okr_strategy' => [
+            'Strategi & aturan OKR',
+            'Arah tahunan, angka baseline, batas kapasitas tim, dan aturan pembagian target yang perlu dipakai AI saat menyusun OKR.',
+            'Contoh: Target tahunan omzet Rp10 M. Konten maksimal 5 video/minggu. Billy pegang community; keputusan diskon tetap perlu approval Freddie…',
+        ],
         'rules' => [
             'Aturan & gaya bicara',
             'Hal yang asisten HARUS patuhi atau hindari saat menjawab/bertindak.',

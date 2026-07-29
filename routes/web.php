@@ -20,6 +20,7 @@ use App\Http\Controllers\KolImportController;
 use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
+use App\Http\Controllers\OkrController;
 use App\Http\Controllers\PartnerSaleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
@@ -272,6 +273,20 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::delete('/kanban-comments/{comment}', [KanbanController::class, 'destroyComment'])->name('kanban.comments.destroy');
         Route::post('/kanban-cards/{card}/attachments', [KanbanController::class, 'storeAttachment'])->name('kanban.cards.attachments.store');
         Route::delete('/kanban-attachments/{file}', [KanbanController::class, 'destroyAttachment'])->name('kanban.attachments.destroy');
+    });
+
+    /* ---------------- OKR (draf AI -> persetujuan -> kartu Kanban) ---------------- */
+    Route::middleware(['permission:okr.view', 'internal'])->group(function () {
+        Route::get('/okr', [OkrController::class, 'index'])->name('okr.index');
+        Route::get('/okr/{okr}', [OkrController::class, 'show'])->name('okr.show');
+
+        Route::middleware('permission:okr.manage')->group(function () {
+            Route::get('/okr-baru', [OkrController::class, 'create'])->name('okr.create');
+            Route::post('/okr/generate', [OkrController::class, 'generate'])->name('okr.generate');
+            Route::put('/okr/{okr}', [OkrController::class, 'update'])->name('okr.update');
+            Route::post('/okr/{okr}/approve', [OkrController::class, 'approve'])->name('okr.approve');
+            Route::delete('/okr/{okr}', [OkrController::class, 'destroy'])->name('okr.destroy');
+        });
     });
 
     /* ---------------- Integrasi TikTok Shop ---------------- */

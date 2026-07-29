@@ -40,6 +40,7 @@ class AiKnowledgeTest extends TestCase
             ->assertSee('Pengetahuan AI')
             ->assertSee('Tentang bisnis')
             ->assertSee('Tim & tanggung jawab')
+            ->assertSee('Strategi & aturan OKR')
             ->assertSee('bikin asisten tahu mau delegasi tugas', false);   // pertanyaan pemandu
     }
 

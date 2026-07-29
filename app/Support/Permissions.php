@@ -45,6 +45,8 @@ class Permissions
         'kol.deal.finance' => 'Finansial Deal KOL (biaya, status bayar, rekening)',
         'kol.report.view' => 'Laporan KOL (fase berikutnya)',
         'kanban.view' => 'Papan Kanban (tugas tim ala Trello)',
+        'okr.view' => 'Lihat OKR & progres tim',
+        'okr.manage' => 'Susun dan setujui OKR dengan AI',
         'use_ai_assistant' => 'Asisten AI',
     ];
 
@@ -84,6 +86,10 @@ class Permissions
         // kol_specialist dapat default; role dinamis lain via matriks. Mitra
         // diblokir KERAS oleh middleware 'internal' apa pun kata matriks.
         'kanban.view' => [User::ROLE_ADMIN, User::ROLE_GUDANG, 'kol_specialist'],
+        // OKR transparan untuk tim internal; penyusunan/persetujuan awal hanya
+        // super_admin sampai haknya sengaja dibuka lewat matriks.
+        'okr.view' => [User::ROLE_ADMIN, User::ROLE_GUDANG, 'kol_specialist'],
+        'okr.manage' => [],
         // v1 asisten AI: super_admin dulu (selalu punya semua izin). Role lain
         // tinggal dicentang di matriks hak akses saat mau dibuka.
         'use_ai_assistant' => [],

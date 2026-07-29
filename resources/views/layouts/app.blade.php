@@ -160,6 +160,10 @@
                 {!! navItem('kanban.index', 'Kanban', 'kanban.*') !!}
             @endif
 
+            @if($u->canDo('okr.view'))
+                {!! navItem('okr.index', 'OKR', 'okr.*') !!}
+            @endif
+
             @if($u->canDo('use_ai_assistant'))
                 {!! navItem('ai.knowledge', 'Pengetahuan AI', 'ai.knowledge') !!}
             @endif

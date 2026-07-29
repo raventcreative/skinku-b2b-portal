@@ -1,14 +1,14 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
-> Ringkasan lengkap yang dikerjakan sesi ini. Semua **sudah di-commit & push ke `main`**.
-> Commit terakhir: `e04a19e`. **498 test lulus.**
+> Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
+> Baseline sebelum OKR: `37820b9`. **504 test lulus (2211 assertions)** setelah implementasi OKR.
 
 ---
 
 ## 0. STATUS & DEPLOY
 
-- Semua kode sudah di `origin/main`. Tinggal deploy ke produksi (`system.skinku.id`).
-- **Ada migrasi baru (000059–000062)** → deploy WAJIB `migrate --force`.
+- Baseline lama sudah di `origin/main`; fitur OKR sudah di-commit lokal dan perlu di-push sebelum deploy.
+- **Ada migrasi baru sampai 000063** → deploy WAJIB `migrate --force`.
 
 **Deploy penuh (server produksi):**
 ```bash
@@ -23,6 +23,7 @@ git pull
 - `000060_create_ai_knowledge` — memori/pengetahuan Asisten AI.
 - `000061_add_created_via_to_board_cards` — penanda kartu Kanban buatan AI.
 - `000062_add_completed_at_to_board_cards` — waktu selesai kartu (buat KPI).
+- `000063_create_okr_tables` — periode, Objective, Key Result, tugas, dan relasi kartu Kanban.
 
 ---
 
@@ -74,6 +75,18 @@ Spec: **`TIKTOK_INCOME_SPEC.md`**. **Migrasi n8n "Tiktok income" → SKINKU.**
 - **Auto-isi Seller SKU kosong** (`e04a19e`): order lama sering Seller SKU blank (kode diisi belakangan). Diisi dari SKU ID yang sama **HANYA kalau tak ambigu** (1 SKU ID = 1 kode). Ambigu (mis. `BBC-1`/`DC-1` share 1 SKU ID) → tak ditebak.
 - `TikTokIncomeController` (form/process/download/reset), hasil di **session** (stateless), unduh **Excel** (`XlsxWriter`, Order ID tetap teks, kolom item dinamis). Sub-halaman Integrasi TikTok "🧾 Laporan Income", route `tiktok.income.*`, izin `manage_tiktok`.
 
+### F. OKR berbasis AI
+Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
+
+- Alur minim setting: pilih bulanan/kuartalan + cakupan perusahaan/tim/individu + arahan; papan utama opsional.
+- AI membaca Pengetahuan AI + anggota/papan/kolom aktif, lalu membuat draf `Objective → Key Result → tugas per individu`.
+- Pratinjau dapat mengubah teks, owner, metrik/target, penerima, kolom, dan tenggat.
+- Persetujuan eksplisit membuat semua kartu Kanban secara atomik; kartu memakai `created_via=ai` dan tertaut ke tugas OKR.
+- Progres Objective/KR otomatis dari `BoardCard.completed_at`; masuk/keluar Done/Selesai langsung mengubah progres.
+- Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
+- Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
+- Uji offline: `tests/Feature/OkrTest.php`; total suite **504 lulus / 2211 assertions**.
+
 ---
 
 ## 3. YANG PERLU DILAKUKAN USER (setelah deploy)
@@ -81,6 +94,7 @@ Spec: **`TIKTOK_INCOME_SPEC.md`**. **Migrasi n8n "Tiktok income" → SKINKU.**
 1. **OpenAI:** set **spending cap** (Billing → Usage limits). Key sudah di `.env`.
 2. **Laporan Income TikTok:** upload file asli → cek (a) angka uang bener (kalau meleset, indeks kolom income `[5]/[6]/[14]` mungkin geser), (b) kolom item-besar rapi (dari `Product.category`), (c) "SKU tak dikenal" → lengkapi di **Peta SKU** (halaman Pesanan TikTok, sekarang tanpa reload).
 3. **Komunitas / Pengumuman:** cek fitur baru sesuai kebutuhan.
+4. **OKR:** isi bagian "Strategi & aturan OKR", generate satu draf kecil, periksa pembagian orang/kolom/tenggat, baru approve.
 
 ---
 
@@ -89,15 +103,17 @@ Spec: **`TIKTOK_INCOME_SPEC.md`**. **Migrasi n8n "Tiktok income" → SKINKU.**
 - **Laporan Income TikTok Fase 2 (OTOMATIS dari API, tanpa upload):** butuh sync **settlement per-order** (`TiktokSettlement` sekarang tersimpan per-BATCH/statement, `order_ids` array — belum per-order). Tarik `statement_transactions`. Bisa hybrid (upload income buat sisi uang).
 - **Asisten AI lanjutan:** streaming jawaban · riwayat chat tersimpan (tabel) · provider **Anthropic** (interface siap, tinggal 1 kelas `AnthropicProvider` + daftar di factory) · alat lain (KOL/penjualan/stok/edit-hapus) · akses role selain super_admin (tinggal beri izin `use_ai_assistant`).
 - **Notifikasi pengajuan dealing KOL** (badge deal draft) — pernah disinggung, BELUM dibangun; alur (draft vs approve, in-app vs email) belum diputuskan.
+- **OKR lanjutan (opsional):** tambah/hapus baris Objective/KR/tugas secara manual di pratinjau; metrik aktual berbasis data bisnis (sekarang progres sengaja berbasis kartu selesai).
 
 ---
 
 ## 5. FILE PENTING (peta cepat)
 
-- Spec: `AI_ASSISTANT_SPEC.md`, `TIKTOK_INCOME_SPEC.md`, `ACCOUNTING_SPEC.md`.
+- Spec: `AI_ASSISTANT_SPEC.md`, `TIKTOK_INCOME_SPEC.md`, `OKR_SPEC.md`, `ACCOUNTING_SPEC.md`.
 - AI: `app/Services/Ai/**`, `app/Http/Controllers/AiAssistantController.php`, `resources/views/ai/*`, `resources/views/partials/ai-widget.blade.php`, `app/Models/AiKnowledge.php`.
 - TikTok Income: `app/Services/TikTokIncomeReportService.php`, `app/Http/Controllers/TikTokIncomeController.php`, `resources/views/tiktok/income.blade.php`.
 - TikTok (existing, LENGKAP): `app/Services/TikTokOrderService.php` (`resolve/deduct/stockFunnel`), `TikTokController.php`, `TikTokSettlementService`, `TikTokAccountingService`.
 - Kanban: `app/Services/KanbanKpiService.php`, `app/Http/Controllers/KanbanController.php`, `resources/views/kanban/*`, `app/Models/BoardCard.php`.
+- OKR: `app/Services/OkrAiService.php`, `app/Http/Controllers/OkrController.php`, `app/Models/Okr*.php`, `resources/views/okr/*`.
 - Helper zero-dep: `app/Support/{SpreadsheetReader,XlsxWriter,Text,Permissions}.php`.
-- Izin: `app/Support/Permissions.php` (`use_ai_assistant`, `manage_tiktok`, `manage_announcements`, `kanban.view`, dll).
+- Izin: `app/Support/Permissions.php` (`use_ai_assistant`, `okr.view`, `okr.manage`, `manage_tiktok`, `manage_announcements`, `kanban.view`, dll).
