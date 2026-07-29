@@ -49,15 +49,43 @@ class OkrTest extends TestCase
     {
         $args = array_replace_recursive([
             'name' => 'OKR Pertumbuhan Q3',
+            'analysis_summary' => 'Data tiga fungsi menunjukkan pertumbuhan penjualan harus dijalankan bersama pengendalian margin dan kesiapan stok. Target tidak boleh langsung diterjemahkan menjadi campaign; tim perlu menutup gap omzet dengan prioritas channel yang terbukti, menjaga kas, dan memastikan produk tersedia sebelum skala dinaikkan.',
+            'evidence' => [
+                [
+                    'source_path' => 'cmo.penjualan.total_sales',
+                    'interpretation' => 'Nilai penjualan bulan referensi menjadi dasar untuk menghitung gap omzet menuju target periode.',
+                ],
+                [
+                    'source_path' => 'cfo.laba_rugi.penjualan_bersih',
+                    'interpretation' => 'Penjualan bersih akuntansi dipakai untuk menguji apakah pertumbuhan menghasilkan kualitas pendapatan yang sehat.',
+                ],
+                [
+                    'source_path' => 'coo.stok.total_hq',
+                    'interpretation' => 'Jumlah stok HQ membatasi kecepatan campaign dan harus dibandingkan dengan kebutuhan unit penjualan.',
+                ],
+            ],
+            'assumptions' => [
+                'Produktivitas affiliate per orang belum tersimpan dan harus divalidasi sebelum target aktivasi dibagi.',
+            ],
+            'conflicts' => [[
+                'issue' => 'Pertumbuhan omzet dapat mendorong diskon dan kebutuhan stok lebih cepat daripada kesiapan kas.',
+                'impact' => 'Margin, cashflow, dan service level berisiko turun jika campaign diluncurkan tanpa gate.',
+                'decision_required' => 'BOD menetapkan batas diskon, margin minimum, dan kesiapan stok sebelum scale-up.',
+            ]],
             'objectives' => [[
                 'specialist' => 'cmo',
                 'title' => 'Percepat pertumbuhan TikTok',
                 'description' => 'Pertumbuhan yang sehat dan terukur.',
+                'rationale' => 'Objective dipilih karena gap omzet harus ditutup lewat channel yang terukur tanpa mengabaikan batas margin dan kapasitas operasional.',
                 'owner_user_id' => $member->id,
                 'key_results' => [[
                     'title' => 'Naikkan omzet TikTok 30%',
                     'metric' => 'Pertumbuhan omzet',
                     'target' => '30%',
+                    'baseline_status' => 'actual',
+                    'baseline_source_path' => 'cmo.penjualan.total_sales',
+                    'baseline_interpretation' => 'Omzet semua channel pada bulan referensi dari laporan penjualan sistem.',
+                    'target_gap' => 'Selisih dari omzet bulan referensi menuju pertumbuhan 30% harus ditutup melalui conversion dan repeat order.',
                     'owner_user_id' => $member->id,
                     'due_date' => '2026-09-30',
                     'tasks' => [[
@@ -71,24 +99,46 @@ class OkrTest extends TestCase
             ]],
         ], $overrides);
 
-        $proposal = fn (string $id, string $label) => new AiTurn(toolCalls: [[
-            'id' => $id,
-            'name' => 'usulkan_okr_spesialis',
-            'arguments' => [
-                'analysis' => "Analisis {$label}",
-                'risks' => ['Kapasitas tim'],
-                'objectives' => [[
-                    'title' => "Usulan {$label}",
-                    'rationale' => 'Berdasarkan data aktual.',
-                    'key_results' => [[
-                        'title' => 'Hasil terukur',
-                        'metric' => 'Persentase',
-                        'target' => '20%',
-                        'workstreams' => ['Eksekusi lintas fungsi'],
+        $proposal = function (string $id, string $label) {
+            $specialist = strtolower($label);
+            $paths = match ($specialist) {
+                'cfo' => ['cfo.laba_rugi.penjualan_bersih', 'cfo.laba_rugi.hpp'],
+                'coo' => ['coo.stok.total_hq', 'coo.stok.total_partner'],
+                default => ['cmo.penjualan.total_sales', 'cmo.penjualan.total_po'],
+            };
+
+            return new AiTurn(toolCalls: [[
+                'id' => $id,
+                'name' => 'usulkan_okr_spesialis',
+                'arguments' => [
+                    'analysis' => "Analisis {$label} membandingkan kondisi aktual dengan sasaran periode, menguji akar gap, dan memilih intervensi dengan dampak paling masuk akal.",
+                    'facts' => [
+                        [
+                            'source_path' => $paths[0],
+                            'finding' => 'Angka pertama menunjukkan kondisi aktual yang harus menjadi titik awal, bukan target buatan.',
+                        ],
+                        [
+                            'source_path' => $paths[1],
+                            'finding' => 'Angka kedua menunjukkan batas atau kapasitas yang perlu diperhitungkan sebelum memilih strategi.',
+                        ],
+                    ],
+                    'target_gap_analysis' => 'Gap target belum bisa ditutup hanya dengan menambah aktivitas; fungsi ini perlu memprioritaskan pengungkit terukur dan gate evaluasi.',
+                    'data_gaps' => ['Produktivitas per aktivitas belum tersedia lengkap di sistem.'],
+                    'tradeoffs' => ['Kecepatan eksekusi harus diseimbangkan dengan kualitas hasil dan kapasitas tim.'],
+                    'risks' => ['Kapasitas tim'],
+                    'objectives' => [[
+                        'title' => "Usulan {$label}",
+                        'rationale' => 'Berdasarkan data aktual.',
+                        'key_results' => [[
+                            'title' => 'Hasil terukur',
+                            'metric' => 'Persentase',
+                            'target' => '20%',
+                            'workstreams' => ['Eksekusi lintas fungsi'],
+                        ]],
                     ]],
-                ]],
-            ],
-        ]]);
+                ],
+            ]]);
+        };
 
         return new FakeAiProvider([
             $proposal('panel-cmo', 'CMO'),
@@ -155,6 +205,9 @@ class OkrTest extends TestCase
             'board_card_id' => null,
         ]);
         $this->assertSame(0, BoardCard::count());
+        $this->assertCount(3, $cycle->analysis_evidence);
+        $this->assertSame(0.0, (float) $cycle->analysis_evidence[0]['value']);
+        $this->assertSame('cmo.penjualan.total_sales', $cycle->analysis_evidence[0]['source_path']);
 
         $this->assertCount(4, $fake->sent);
         $this->assertStringContainsString('spesialis CMO AI', $fake->sent[0]['messages'][0]['content']);
@@ -170,6 +223,9 @@ class OkrTest extends TestCase
         $this->actingAs($super)->get(route('okr.show', $cycle))->assertOk()
             ->assertSee('Pratinjau')
             ->assertSee('CMO AI')
+            ->assertSee('Dasar analisis AI')
+            ->assertSee('3 bukti terverifikasi')
+            ->assertSee('Gap ke target')
             ->assertSee('Percepat pertumbuhan TikTok')
             ->assertSee('Susun kalender konten TikTok')
             ->assertSee('Edit Objective')
@@ -230,6 +286,7 @@ class OkrTest extends TestCase
                     'specialist' => 'cmo',
                     'title' => 'Objective hasil koreksi',
                     'description' => $objective->description,
+                    'rationale' => $objective->rationale,
                     'owner_user_id' => $member->id,
                 ],
             ],
@@ -238,6 +295,10 @@ class OkrTest extends TestCase
                     'title' => 'KR hasil koreksi',
                     'metric' => 'Omzet',
                     'target' => '35%',
+                    'baseline_status' => $kr->baseline_status,
+                    'baseline' => $kr->baseline,
+                    'baseline_source' => $kr->baseline_source,
+                    'target_gap' => $kr->target_gap,
                     'owner_user_id' => $member->id,
                     'due_date' => '2026-09-30',
                 ],
@@ -405,6 +466,7 @@ class OkrTest extends TestCase
                     'specialist' => $objective->specialist,
                     'title' => $objective->title,
                     'description' => $objective->description,
+                    'rationale' => $objective->rationale,
                     'owner_user_id' => $objective->owner_user_id,
                 ],
             ],
@@ -413,6 +475,10 @@ class OkrTest extends TestCase
                     'title' => $kr->title,
                     'metric' => $kr->metric,
                     'target' => $kr->target,
+                    'baseline_status' => $kr->baseline_status,
+                    'baseline' => $kr->baseline,
+                    'baseline_source' => $kr->baseline_source,
+                    'target_gap' => $kr->target_gap,
                     'owner_user_id' => $kr->owner_user_id,
                     'due_date' => $kr->due_date->toDateString(),
                 ],
@@ -574,6 +640,8 @@ class OkrTest extends TestCase
 
         $this->assertStringContainsString('250000', $fake->sent[0]['messages'][1]['content']);
         $this->assertStringContainsString('Serum Snapshot', $fake->sent[2]['messages'][1]['content']);
+        $this->assertStringContainsString('tren_penjualan_3_bulan', $fake->sent[0]['messages'][1]['content']);
+        $this->assertStringContainsString('mencapai_100_juta', $fake->sent[0]['messages'][1]['content']);
 
         $gudang = $this->user(User::ROLE_GUDANG, 'snapshotgudang');
         $snapshot = app(OkrBusinessSnapshotService::class)->for('cfo', $gudang, [
@@ -582,5 +650,48 @@ class OkrTest extends TestCase
         ]);
         $this->assertSame('ditutup karena user tidak punya view_accounting', $snapshot['akuntansi']['akses']);
         $this->assertArrayNotHasKey('laba_rugi', $snapshot);
+    }
+
+    public function test_draf_generik_atau_bukti_palsu_ditolak_sebelum_disimpan(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrquality');
+        $member = $this->user(User::ROLE_ADMIN, 'qualitypic');
+        [$board, $todo] = $this->board($super);
+        $fake = $this->fakeDraft($member, $todo->id, [
+            'analysis_summary' => 'Target perlu dicapai dengan kerja sama tim.',
+            'evidence' => [
+                ['source_path' => 'cmo.angka_rekaan', 'interpretation' => 'Angka rekaan tidak boleh lolos validasi sumber server.'],
+                ['source_path' => 'cfo.angka_rekaan', 'interpretation' => 'Angka rekaan tidak boleh lolos validasi sumber server.'],
+                ['source_path' => 'coo.angka_rekaan', 'interpretation' => 'Angka rekaan tidak boleh lolos validasi sumber server.'],
+            ],
+        ]);
+        $this->app->instance(AiProvider::class, $fake);
+
+        $this->actingAs($super)
+            ->from(route('okr.create'))
+            ->post(route('okr.generate'), $this->generatePayload($board->id))
+            ->assertRedirect(route('okr.create'))
+            ->assertSessionHas('error');
+
+        $this->assertSame(0, OkrCycle::count());
+        $this->assertSame(0, BoardCard::count());
+    }
+
+    public function test_arahan_panel_lengkap_ditolak_jika_objective_hanya_mewakili_satu_fungsi(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrpanelgate');
+        $member = $this->user(User::ROLE_ADMIN, 'panelgatepic');
+        [$board, $todo] = $this->board($super);
+        $this->app->instance(AiProvider::class, $this->fakeDraft($member, $todo->id));
+        $payload = $this->generatePayload($board->id);
+        $payload['direction'] = 'Susun OKR perusahaan dengan CMO, CFO, dan COO bekerja bersama.';
+
+        $this->actingAs($super)
+            ->from(route('okr.create'))
+            ->post(route('okr.generate'), $payload)
+            ->assertRedirect(route('okr.create'))
+            ->assertSessionHas('error');
+
+        $this->assertSame(0, OkrCycle::count());
     }
 }

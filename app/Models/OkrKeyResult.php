@@ -8,6 +8,7 @@ class OkrKeyResult extends Model
 {
     protected $fillable = [
         'okr_objective_id', 'title', 'metric', 'target',
+        'baseline_status', 'baseline', 'baseline_source', 'target_gap',
         'owner_user_id', 'owner_name', 'due_date', 'position',
     ];
 

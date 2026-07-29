@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class OkrObjective extends Model
 {
     protected $fillable = [
-        'okr_cycle_id', 'specialist', 'title', 'description', 'owner_user_id', 'owner_name', 'position',
+        'okr_cycle_id', 'specialist', 'title', 'description', 'rationale',
+        'owner_user_id', 'owner_name', 'position',
     ];
 
     public const SPECIALISTS = [

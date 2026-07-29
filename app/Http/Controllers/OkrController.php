@@ -104,12 +104,17 @@ class OkrController extends Controller
             'objectives.*.title' => ['required', 'string', 'max:255'],
             'objectives.*.specialist' => ['required', 'in:'.implode(',', array_keys(OkrObjective::SPECIALISTS))],
             'objectives.*.description' => ['nullable', 'string', 'max:4000'],
+            'objectives.*.rationale' => ['required', 'string', 'min:20', 'max:4000'],
             'objectives.*.owner_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'objectives.*.owner_name' => ['nullable', 'string', 'max:255'],
             'key_results' => ['required', 'array'],
             'key_results.*.title' => ['required', 'string', 'max:255'],
             'key_results.*.metric' => ['nullable', 'string', 'max:255'],
             'key_results.*.target' => ['nullable', 'string', 'max:255'],
+            'key_results.*.baseline' => ['required', 'string', 'max:255'],
+            'key_results.*.baseline_status' => ['required', 'in:actual,assumption,needs_validation'],
+            'key_results.*.baseline_source' => ['nullable', 'string', 'max:255'],
+            'key_results.*.target_gap' => ['required', 'string', 'min:20', 'max:2000'],
             'key_results.*.owner_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'key_results.*.owner_name' => ['nullable', 'string', 'max:255'],
             'key_results.*.due_date' => ['required', 'date_format:Y-m-d'],
@@ -136,6 +141,7 @@ class OkrController extends Controller
                     'specialist' => $row['specialist'],
                     'title' => $row['title'],
                     'description' => $row['description'] ?? null,
+                    'rationale' => $row['rationale'],
                     'owner_user_id' => $owners['objectives'][$objective->id]['user_id'],
                     'owner_name' => $owners['objectives'][$objective->id]['name'],
                 ]);
@@ -145,6 +151,12 @@ class OkrController extends Controller
                         'title' => $krRow['title'],
                         'metric' => $krRow['metric'] ?? null,
                         'target' => $krRow['target'] ?? null,
+                        'baseline_status' => $krRow['baseline_status'],
+                        'baseline' => $krRow['baseline'],
+                        'baseline_source' => $krRow['baseline_status'] === 'actual'
+                            ? ($krRow['baseline_source'] ?? null)
+                            : null,
+                        'target_gap' => $krRow['target_gap'],
                         'owner_user_id' => $owners['key_results'][$kr->id]['user_id'],
                         'owner_name' => $owners['key_results'][$kr->id]['name'],
                         'due_date' => $krRow['due_date'],
@@ -290,6 +302,12 @@ class OkrController extends Controller
                     }
                 }
                 $krRow = $data['key_results'][$kr->id] ?? null;
+                if ($krRow && (
+                    $krRow['baseline_status'] !== $kr->baseline_status
+                    || ($krRow['baseline_source'] ?? null) !== $kr->baseline_source
+                )) {
+                    $errors[] = "Status dan sumber baseline Key Result \"{$kr->title}\" tidak boleh diubah manual.";
+                }
                 if ($krRow && ($krRow['due_date'] < $okr->start_date->toDateString() || $krRow['due_date'] > $okr->end_date->toDateString())) {
                     $errors[] = "Tanggal Key Result \"{$kr->title}\" harus berada dalam periode OKR.";
                 }

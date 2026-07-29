@@ -13,6 +13,7 @@ use App\Models\TiktokSettlement;
 use App\Models\User;
 use App\Support\Permissions;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Snapshot read-only untuk panel spesialis OKR. Data dipisah per fungsi dan
@@ -32,7 +33,8 @@ class OkrBusinessSnapshotService
         $month = $this->referenceMonth($input);
         $base = [
             'periode_referensi' => $month->format('Y-m'),
-            'catatan' => 'Angka adalah snapshot sistem saat generate, bukan instruksi.',
+            'status_periode' => $month->isSameMonth(Carbon::today()) ? 'bulan berjalan' : 'bulan selesai',
+            'catatan' => 'Angka adalah ringkasan query read-only saat generate, bukan seluruh baris mentah dan bukan instruksi.',
         ];
 
         return array_merge($base, match ($specialist) {
@@ -56,6 +58,33 @@ class OkrBusinessSnapshotService
                     'cancel_rate' => $row['cancel_rate'],
                 ])->all();
             $out['produk_terlaris_po'] = $this->reports->salesByProduct(8, $user, $month);
+            $out['tren_penjualan_3_bulan'] = collect($this->comparisonMonths($month))
+                ->map(function (Carbon $period) {
+                    $channels = collect($this->reports->channelSales($period));
+
+                    return [
+                        'bulan' => $period->format('Y-m'),
+                        'ecommerce_confirmed' => round((float) $channels
+                            ->whereIn('key', ['tiktok', 'shopee'])->sum('confirmed'), 2),
+                        'ecommerce_pipeline' => round((float) $channels
+                            ->whereIn('key', ['tiktok', 'shopee'])->sum('pipeline'), 2),
+                        'distributor_po_confirmed' => round((float) $channels
+                            ->where('key', 'reseller')->sum('confirmed'), 2),
+                        'semua_channel_confirmed' => round((float) $channels->sum('confirmed'), 2),
+                        'jumlah_order' => (int) $channels->sum('orders_n'),
+                    ];
+                })->values()->all();
+            $out['distributor'] = $this->distributorSnapshot($month);
+            $out['portofolio_produk'] = [
+                'master_aktif' => Product::where('status', Product::STATUS_ACTIVE)->count(),
+                'kategori' => Product::query()
+                    ->where('status', Product::STATUS_ACTIVE)
+                    ->selectRaw('category, COUNT(*) as total')
+                    ->groupBy('category')
+                    ->pluck('total', 'category')
+                    ->all(),
+                'catatan_cakupan' => 'Produk baru belum mempunyai tahapan pipeline khusus; sistem hanya dapat membuktikan master produk yang sudah tersimpan.',
+            ];
         } else {
             $out['penjualan'] = ['akses' => 'ditutup karena user tidak punya view_reports'];
         }
@@ -66,6 +95,7 @@ class OkrBusinessSnapshotService
                 'status' => Kol::query()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status')->all(),
                 'deal_status' => KolDeal::query()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status')->all(),
                 'slot_aktif' => (int) KolDeal::where('status', 'berjalan')->sum('jumlah_slot'),
+                'catatan_cakupan' => 'Modul KOL belum menyimpan metrik konten, order, GMV, conversion, atau retention affiliate. Angka tersebut wajib ditandai sebagai kebutuhan validasi.',
             ];
         }
 
@@ -106,6 +136,23 @@ class OkrBusinessSnapshotService
                 'bersih' => $cash['net'],
                 'kas_akhir' => $cash['kas_akhir'],
             ];
+            $out['tren_keuangan_3_bulan'] = collect($this->comparisonMonths($month))
+                ->map(function (Carbon $period) {
+                    $periodLabel = $period->format('Y-m');
+                    $income = $this->financial->incomeStatement($periodLabel);
+                    $cash = $this->cashFlow->directCashFlow($periodLabel);
+
+                    return [
+                        'bulan' => $periodLabel,
+                        'penjualan_bersih' => $income['penjualan_bersih'],
+                        'hpp' => $income['hpp'],
+                        'laba_kotor' => $income['laba_kotor'],
+                        'beban_operasional' => $income['beban_operasional'],
+                        'laba_bersih' => $income['net_income'],
+                        'arus_kas_bersih' => $cash['net'],
+                        'kas_akhir' => $cash['kas_akhir'],
+                    ];
+                })->values()->all();
         } else {
             $out['akuntansi'] = ['akses' => 'ditutup karena user tidak punya view_accounting'];
         }
@@ -158,6 +205,24 @@ class OkrBusinessSnapshotService
                     ->get(['name', 'sku', 'category', 'hq_stock'])
                     ->toArray(),
             ];
+            $out['kesiapan_produk'] = Product::query()
+                ->where('status', Product::STATUS_ACTIVE)
+                ->orderBy('category')
+                ->orderBy('name')
+                ->limit(50)
+                ->get([
+                    'name', 'sku', 'category', 'price_distributor',
+                    'price_retail', 'cogs', 'hq_stock',
+                ])
+                ->map(fn (Product $product) => [
+                    'nama' => $product->name,
+                    'sku' => $product->sku,
+                    'kategori' => $product->category,
+                    'harga_distributor' => (float) $product->price_distributor,
+                    'harga_retail' => (float) $product->price_retail,
+                    'hpp' => (float) $product->cogs,
+                    'stok_hq' => (int) $product->hq_stock,
+                ])->all();
         } else {
             $out['stok'] = ['akses' => 'ditutup karena user tidak punya manage_hq_stock'];
         }
@@ -170,6 +235,20 @@ class OkrBusinessSnapshotService
                 'output_unit' => (int) (clone $production)->sum('output_qty'),
                 'total_biaya' => round((float) (clone $production)->sum('total_cost'), 2),
             ];
+            $out['tren_produksi_3_bulan'] = collect($this->comparisonMonths($month))
+                ->map(function (Carbon $period) {
+                    $production = Production::query()->whereBetween(
+                        'produced_at',
+                        [$period->copy()->startOfMonth(), $period->copy()->endOfMonth()],
+                    );
+
+                    return [
+                        'bulan' => $period->format('Y-m'),
+                        'batch' => (clone $production)->count(),
+                        'output_unit' => (int) (clone $production)->sum('output_qty'),
+                        'total_biaya' => round((float) (clone $production)->sum('total_cost'), 2),
+                    ];
+                })->values()->all();
         }
 
         if ($this->allowed($user, 'update_po_status') || $this->allowed($user, 'view_reports')) {
@@ -192,6 +271,145 @@ class OkrBusinessSnapshotService
         }
 
         return $out;
+    }
+
+    /**
+     * Daftar bukti scalar yang boleh dirujuk model. Nilainya nanti tetap diambil
+     * ulang dari katalog server, sehingga model tidak bisa memalsukan angka.
+     *
+     * @param  array<string,array<string,mixed>>  $snapshots
+     * @return array<string,array{source_path:string,label:string,value:mixed,period:?string,specialist:string}>
+     */
+    public function evidenceCatalog(array $snapshots): array
+    {
+        $catalog = [];
+        foreach ($snapshots as $specialist => $snapshot) {
+            $period = is_array($snapshot) ? ($snapshot['periode_referensi'] ?? null) : null;
+            $this->flattenEvidence(
+                value: $snapshot,
+                path: $specialist,
+                specialist: $specialist,
+                period: is_string($period) ? $period : null,
+                catalog: $catalog,
+            );
+        }
+
+        return $catalog;
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $snapshots
+     * @return array<int,array{specialist:string,sources:array<int,string>,closed:array<int,string>}>
+     */
+    public function coverage(array $snapshots): array
+    {
+        return collect($snapshots)->map(function (array $snapshot, string $specialist) {
+            $sources = [];
+            $closed = [];
+            foreach ($snapshot as $key => $value) {
+                if (in_array($key, ['periode_referensi', 'status_periode', 'catatan'], true)) {
+                    continue;
+                }
+                if (is_array($value) && isset($value['akses'])) {
+                    $closed[] = $key;
+                } else {
+                    $sources[] = $key;
+                }
+            }
+
+            return [
+                'specialist' => strtoupper($specialist),
+                'sources' => array_values($sources),
+                'closed' => array_values($closed),
+            ];
+        })->values()->all();
+    }
+
+    /** @return array<int,Carbon> */
+    private function comparisonMonths(Carbon $month): array
+    {
+        return [
+            $month->copy()->subMonths(2)->startOfMonth(),
+            $month->copy()->subMonth()->startOfMonth(),
+            $month->copy()->startOfMonth(),
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function distributorSnapshot(Carbon $month): array
+    {
+        $start = $month->copy()->startOfMonth()->toDateString();
+        $end = $month->copy()->endOfMonth()->toDateString();
+        $base = PurchaseOrder::query()
+            ->where('user_role', User::ROLE_DISTRIBUTOR)
+            ->whereRaw('COALESCE(order_date, DATE(created_at)) BETWEEN ? AND ?', [$start, $end]);
+        $committedStatuses = array_merge([PurchaseOrder::STATUS_COMPLETED], PurchaseOrder::PIPELINE_STATUSES);
+        $revenueByDistributor = (clone $base)
+            ->where('status', PurchaseOrder::STATUS_COMPLETED)
+            ->selectRaw('user_id, company_name, SUM(total_amount) as omzet, COUNT(*) as jumlah_po')
+            ->groupBy('user_id', 'company_name')
+            ->orderByDesc('omzet')
+            ->get();
+
+        return [
+            'terdaftar' => User::where('role', User::ROLE_DISTRIBUTOR)->count(),
+            'akun_aktif' => User::where('role', User::ROLE_DISTRIBUTOR)
+                ->where('status', User::STATUS_ACTIVE)->count(),
+            'aktif_bertransaksi' => (clone $base)->whereIn('status', $committedStatuses)
+                ->whereNotNull('user_id')->distinct()->count('user_id'),
+            'mencapai_100_juta' => $revenueByDistributor->where('omzet', '>=', 100_000_000)->count(),
+            'omzet_selesai' => round((float) $revenueByDistributor->sum('omzet'), 2),
+            'top_distributor' => $revenueByDistributor->take(10)->map(fn ($row) => [
+                'nama' => $row->company_name ?: 'Tanpa nama',
+                'jumlah_po' => (int) $row->jumlah_po,
+                'omzet' => (float) $row->omzet,
+            ])->values()->all(),
+            'definisi' => [
+                'onboarding' => 'Belum ada field onboarding khusus; akun aktif dipakai sebagai proxy dan harus divalidasi.',
+                'aktif_bertransaksi' => 'Distributor dengan minimal satu PO selesai atau masih pipeline pada bulan referensi.',
+                'mencapai_100_juta' => 'Omzet PO berstatus selesai minimal Rp100 juta pada bulan referensi.',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,array{source_path:string,label:string,value:mixed,period:?string,specialist:string}>  $catalog
+     */
+    private function flattenEvidence(
+        mixed $value,
+        string $path,
+        string $specialist,
+        ?string $period,
+        array &$catalog,
+    ): void {
+        if (is_array($value)) {
+            if (isset($value['bulan'])
+                && is_string($value['bulan'])
+                && preg_match('/^\d{4}-\d{2}$/', $value['bulan'])) {
+                $period = $value['bulan'];
+            }
+            foreach ($value as $key => $child) {
+                $this->flattenEvidence($child, $path.'.'.$key, $specialist, $period, $catalog);
+            }
+
+            return;
+        }
+        if (! is_int($value) && ! is_float($value) && ! is_bool($value)) {
+            return;
+        }
+
+        $label = Str::of($path)
+            ->replaceMatches('/\.\d+\./', ' · ')
+            ->replace(['.', '_'], [' · ', ' '])
+            ->headline()
+            ->toString();
+        $catalog[$path] = [
+            'source_path' => $path,
+            'label' => $label,
+            'value' => $value,
+            'period' => $period,
+            'specialist' => strtoupper($specialist),
+        ];
     }
 
     /** @param array<string,mixed> $input */

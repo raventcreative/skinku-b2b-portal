@@ -15,9 +15,20 @@
         ? $today->toDateString()
         : $okr->start_date->toDateString();
     $showEditors = $errors->any();
+    $formatEvidence = function ($value) {
+        if (is_bool($value)) return $value ? 'Ya' : 'Tidak';
+        if (is_int($value) || is_float($value)) {
+            return number_format((float) $value, is_float($value) && floor($value) !== $value ? 2 : 0, ',', '.');
+        }
+        return (string) $value;
+    };
     $legacyDraft = $okr->isDraft() && (
-        $okr->objectives->contains(fn($objective) => blank($objective->ownerLabel()))
+        blank($okr->analysis_summary)
+        || count($okr->analysis_evidence ?? []) < 3
+        || $okr->objectives->contains(fn($objective) => blank($objective->ownerLabel()))
+        || $okr->objectives->contains(fn($objective) => blank($objective->rationale))
         || $okr->objectives->flatMap(fn($objective) => $objective->keyResults)->contains(fn($kr) => blank($kr->ownerLabel()))
+        || $okr->objectives->flatMap(fn($objective) => $objective->keyResults)->contains(fn($kr) => blank($kr->baseline) || blank($kr->target_gap))
         || $allTasks->contains(fn($task) => blank($task->description))
     );
 @endphp
@@ -63,6 +74,75 @@
                 @endforeach
             </ul>
         </div>
+    @endif
+
+    @if($okr->analysis_summary)
+        <section class="bg-white border border-stone-200 rounded-xl p-4 mb-4">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                    <p class="text-sm font-bold text-stone-900">Dasar analisis AI</p>
+                    <p class="text-[11px] text-stone-500 mt-0.5">Angka di bawah diambil ulang dari query sistem, bukan dipercaya dari jawaban model.</p>
+                </div>
+                <span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">{{ count($okr->analysis_evidence ?? []) }} bukti terverifikasi</span>
+            </div>
+            <p class="mt-3 text-xs leading-5 text-stone-700">{{ $okr->analysis_summary }}</p>
+
+            <div class="grid md:grid-cols-2 gap-2 mt-3">
+                @foreach($okr->analysis_evidence ?? [] as $evidence)
+                    <article class="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
+                        <div class="flex flex-wrap justify-between gap-2">
+                            <p class="text-[10px] font-bold text-emerald-800">{{ $evidence['specialist'] ?? 'DATA' }} · {{ $evidence['label'] ?? $evidence['source_path'] }}</p>
+                            <p class="text-xs font-bold text-stone-900">{{ $formatEvidence($evidence['value'] ?? null) }}</p>
+                        </div>
+                        <p class="text-[11px] leading-4 text-stone-600 mt-1">{{ $evidence['interpretation'] ?? '' }}</p>
+                        <p class="text-[9px] text-stone-400 mt-1">Sumber: {{ $evidence['source_path'] ?? '—' }}{{ filled($evidence['period'] ?? null) ? ' · Periode '.$evidence['period'] : '' }}</p>
+                    </article>
+                @endforeach
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-3 mt-3">
+                <div class="rounded-lg bg-amber-50 border border-amber-100 p-3">
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-amber-800">Asumsi / data yang belum tersedia</p>
+                    @if(($okr->analysis_assumptions ?? []) === [])
+                        <p class="text-[11px] text-amber-700 mt-1">AI tidak menandai asumsi tambahan.</p>
+                    @else
+                        <ul class="mt-1.5 space-y-1 text-[11px] text-amber-800 list-disc pl-4">
+                            @foreach($okr->analysis_assumptions as $assumption)<li>{{ $assumption }}</li>@endforeach
+                        </ul>
+                    @endif
+                </div>
+                <div class="rounded-lg bg-rose-50 border border-rose-100 p-3">
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-rose-800">Konflik dan keputusan BOD</p>
+                    <div class="mt-1.5 space-y-2">
+                        @forelse($okr->analysis_conflicts ?? [] as $conflict)
+                            <div class="text-[11px] text-rose-800">
+                                <p class="font-semibold">{{ $conflict['issue'] }}</p>
+                                <p>Dampak: {{ $conflict['impact'] }}</p>
+                                <p>Keputusan: {{ $conflict['decision_required'] }}</p>
+                            </div>
+                        @empty
+                            <p class="text-[11px] text-rose-700">Tidak ada konflik yang ditandai.</p>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+
+            <details class="mt-3 pt-3 border-t border-stone-100">
+                <summary class="text-[11px] font-semibold text-stone-500 cursor-pointer">Lihat cakupan data yang benar-benar dibaca</summary>
+                <div class="grid sm:grid-cols-3 gap-2 mt-2">
+                    @foreach($okr->data_coverage ?? [] as $coverage)
+                        <div class="rounded-lg border border-stone-200 p-2.5 text-[10px]">
+                            <p class="font-bold text-stone-800">{{ $coverage['specialist'] }}</p>
+                            <p class="text-stone-600 mt-1">Dibaca: {{ collect($coverage['sources'] ?? [])->map(fn($source) => str_replace('_', ' ', $source))->implode(', ') ?: 'tidak ada' }}</p>
+                            @if(($coverage['closed'] ?? []) !== [])
+                                <p class="text-rose-600 mt-1">Ditutup izin: {{ collect($coverage['closed'])->map(fn($source) => str_replace('_', ' ', $source))->implode(', ') }}</p>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+                <p class="text-[10px] text-stone-400 mt-2">AI membaca ringkasan analitis read-only, bukan menyalin seluruh baris transaksi mentah. Pendekatan ini menjaga prompt tetap fokus dan membuat angka sumber dapat diverifikasi.</p>
+            </details>
+        </section>
     @endif
 
     @if($okr->isDraft() && $canManage)
@@ -111,6 +191,7 @@
                             </div>
                             <h4 class="font-bold text-stone-900 mt-1">{{ $objective->title }}</h4>
                             @if($objective->description)<p class="text-xs text-stone-600 mt-1 max-w-3xl">{{ $objective->description }}</p>@endif
+                            @if($objective->rationale)<p class="text-[11px] text-indigo-700 mt-1.5 max-w-3xl"><b>Alasan dipilih:</b> {{ $objective->rationale }}</p>@endif
                         </div>
                         @if($okr->isDraft() && $canManage)
                             <button type="button" onclick="toggleInlineEditor('{{ $objectiveEditor }}')" class="self-start px-2.5 py-1 text-[10px] font-semibold text-stone-600 border border-stone-300 rounded-lg hover:bg-white">Edit Objective</button>
@@ -144,6 +225,10 @@
                                 <span class="text-[10px] font-bold text-stone-600 uppercase">Penjelasan Objective</span>
                                 <textarea name="objectives[{{ $objective->id }}][description]" rows="2" maxlength="4000" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs">{{ old('objectives.'.$objective->id.'.description', $objective->description) }}</textarea>
                             </label>
+                            <label class="md:col-span-3">
+                                <span class="text-[10px] font-bold text-stone-600 uppercase">Alasan strategis dipilih</span>
+                                <textarea name="objectives[{{ $objective->id }}][rationale]" required minlength="20" rows="2" maxlength="4000" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs">{{ old('objectives.'.$objective->id.'.rationale', $objective->rationale) }}</textarea>
+                            </label>
                             <button type="button" onclick="toggleInlineEditor('{{ $objectiveEditor }}')" class="md:col-span-3 justify-self-end text-[10px] text-stone-500 hover:text-stone-800">Selesai mengedit</button>
                         </div>
                     @endif
@@ -168,6 +253,16 @@
                                         <span>Penanggung jawab: <b class="{{ $kr->ownerLabel() ? 'text-stone-700' : 'text-rose-600' }}">{{ $kr->ownerLabel() ?: 'belum terisi' }}</b></span>
                                         <span>Tenggat: <b class="text-stone-700">{{ $kr->due_date?->format('d M Y') ?: 'belum terisi' }}</b></span>
                                     </div>
+                                    @if($kr->baseline)
+                                        <div class="mt-1.5 text-[11px] leading-4">
+                                            <p class="{{ $kr->baseline_status === 'actual' ? 'text-emerald-700' : 'text-amber-700' }}">
+                                                <b>{{ $kr->baseline_status === 'actual' ? 'Baseline aktual' : ($kr->baseline_status === 'assumption' ? 'Asumsi baseline' : 'Perlu validasi') }}:</b>
+                                                {{ $kr->baseline }}
+                                                @if($kr->baseline_source)<span class="text-stone-400">({{ $kr->baseline_source }})</span>@endif
+                                            </p>
+                                            <p class="text-stone-600"><b>Gap ke target:</b> {{ $kr->target_gap }}</p>
+                                        </div>
+                                    @endif
                                 </div>
                                 @if($okr->isDraft() && $canManage)
                                     <button type="button" onclick="toggleInlineEditor('{{ $krEditor }}')" class="self-start px-2 py-1 text-[10px] font-semibold text-stone-500 hover:text-indigo-700">Edit KR</button>
@@ -190,6 +285,12 @@
                                             <input name="key_results[{{ $kr->id }}][owner_name]" required maxlength="255" value="{{ old('key_results.'.$kr->id.'.owner_name', $kr->ownerLabel()) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs">
                                         </label>
                                         <label><span class="text-[10px] text-stone-500">Tenggat KR</span><input type="date" name="key_results[{{ $kr->id }}][due_date]" required min="{{ $minDue }}" max="{{ $okr->end_date->toDateString() }}" value="{{ old('key_results.'.$kr->id.'.due_date', $kr->due_date?->toDateString()) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs"></label>
+                                    </div>
+                                    <input type="hidden" name="key_results[{{ $kr->id }}][baseline_status]" value="{{ old('key_results.'.$kr->id.'.baseline_status', $kr->baseline_status) }}">
+                                    <input type="hidden" name="key_results[{{ $kr->id }}][baseline_source]" value="{{ old('key_results.'.$kr->id.'.baseline_source', $kr->baseline_source) }}">
+                                    <div class="grid md:grid-cols-2 gap-2 mt-2">
+                                        <label><span class="text-[10px] text-stone-500">Baseline / kebutuhan validasi</span><input name="key_results[{{ $kr->id }}][baseline]" required maxlength="255" value="{{ old('key_results.'.$kr->id.'.baseline', $kr->baseline) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs"></label>
+                                        <label><span class="text-[10px] text-stone-500">Gap menuju target</span><textarea name="key_results[{{ $kr->id }}][target_gap]" required minlength="20" rows="2" maxlength="2000" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs">{{ old('key_results.'.$kr->id.'.target_gap', $kr->target_gap) }}</textarea></label>
                                     </div>
                                     <button type="button" onclick="toggleInlineEditor('{{ $krEditor }}')" class="block ml-auto mt-2 text-[10px] text-stone-500 hover:text-stone-800">Selesai mengedit</button>
                                 </div>

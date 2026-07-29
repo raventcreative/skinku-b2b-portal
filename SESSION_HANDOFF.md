@@ -1,15 +1,16 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **508 test lulus (2270 assertions)** setelah pemetaan akun bersama dan coverage delegasi.
+> Baseline sebelum OKR: `37820b9`. **510 test lulus (2287 assertions)** setelah quality gate analisis berbasis bukti.
 
 ---
 
 ## 0. STATUS & DEPLOY
 
 - Fitur OKR sampai dukungan nama owner BOD sudah ada di `origin/main`; pemetaan
-  akun bersama dan coverage delegasi pada sesi terakhir perlu di-push sebelum deploy.
-- **Ada migrasi baru sampai 000065** → deploy WAJIB `migrate --force`.
+  akun bersama, coverage delegasi, dan quality gate analisis berbasis bukti pada
+  sesi terakhir perlu di-push sebelum deploy.
+- **Ada migrasi baru sampai 000066** → deploy WAJIB `migrate --force`.
 
 **Deploy penuh (server produksi):**
 ```bash
@@ -27,6 +28,7 @@ git pull
 - `000063_create_okr_tables` — periode, Objective, Key Result, tugas, dan relasi kartu Kanban.
 - `000064_add_owner_names_to_okr_tables` — nama owner BOD tanpa wajib akun portal + backfill draf lama.
 - `000065_add_assignee_name_to_okr_tasks` — nama PIC operasional terpisah dari akun teknis bersama.
+- `000066_add_analysis_basis_to_okr_tables` — bukti analisis, asumsi, konflik, rationale Objective, dan baseline/gap KR.
 
 ---
 
@@ -79,12 +81,23 @@ Spec: **`TIKTOK_INCOME_SPEC.md`**. **Migrasi n8n "Tiktok income" → SKINKU.**
 - `TikTokIncomeController` (form/process/download/reset), hasil di **session** (stateless), unduh **Excel** (`XlsxWriter`, Order ID tetap teks, kolom item dinamis). Sub-halaman Integrasi TikTok "🧾 Laporan Income", route `tiktok.income.*`, izin `manage_tiktok`.
 
 ### F. OKR berbasis AI
-Spec: **`OKR_SPEC.md`**. Migrasi `000063` + `000064` + `000065`.
+Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
 
 - Alur minim setting: pilih bulanan/kuartalan + cakupan perusahaan/tim/individu + arahan; papan utama opsional.
 - AI membaca Pengetahuan AI + anggota/papan/kolom aktif, lalu membuat draf `Objective → Key Result → tugas per individu`.
 - **Panel spesialis:** CMO AI + CFO AI + COO AI membuat usulan bidang masing-masing, lalu AI Orchestrator menyelaraskan hasil final. Total 4 giliran provider per generate.
 - **Data aktual per fungsi:** CMO baca penjualan/channel/KOL/TikTok; CFO baca laporan keuangan/margin/piutang/settlement; COO baca stok/produksi/PO/operasional. Semua disaring menurut izin user lewat `OkrBusinessSnapshotService`.
+- Snapshot analitis diperluas dengan tren tiga bulan, pemisahan omzet e-commerce
+  dan distributor, funnel distributor Rp100 juta, portofolio produk, tren
+  keuangan/produksi, serta keterbatasan data affiliate yang eksplisit.
+- Model hanya boleh mengutip `source_path` dari katalog server. Nilai bukti
+  diambil ulang dari hasil query oleh server, sehingga angka buatan model tidak
+  dapat masuk ke pratinjau.
+- Quality gate menolak draf generik, bukti palsu/kurang, baseline kabur, gap
+  target yang tidak dijelaskan, dan OKR perusahaan tanpa konflik/trade-off.
+- Pratinjau menampilkan Dasar Analisis AI, bukti terverifikasi, asumsi/data gap,
+  konflik dan keputusan BOD, cakupan sumber yang dibaca, rationale Objective,
+  serta baseline dan gap setiap Key Result.
 - CMO/CFO/COO hanya perspektif AI; BOD dan PIC manusia tetap diinferensikan dari Pengetahuan AI (tidak ada setting mapping jabatan baru).
 - Setiap Objective menyimpan label spesialis `cmo/cfo/coo`; label ikut terlihat di pratinjau, halaman aktif, dan deskripsi kartu.
 - Sidebar dirapikan: link **Pengetahuan AI** yang sebelumnya tampil dua kali sekarang hanya satu; menu **OKR** tampil setelah Kanban.
@@ -110,8 +123,8 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` + `000064` + `000065`.
 - Progres Objective/KR otomatis dari `BoardCard.completed_at`; masuk/keluar Done/Selesai langsung mengubah progres.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
-- Uji offline: `tests/Feature/OkrTest.php`; total suite setelah penyempurnaan UI
-  otomatis **508 lulus / 2270 assertions**.
+- Uji offline: `tests/Feature/OkrTest.php`; total suite setelah quality gate
+  analisis **510 lulus / 2287 assertions**.
 
 ---
 

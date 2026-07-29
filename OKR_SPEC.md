@@ -26,6 +26,13 @@
   - anggota internal aktif;
   - papan dan kolom Kanban aktif;
   - arahan awal, periode, cakupan, dan papan pilihan user (opsional).
+- Data bisnis dibaca sebagai **ringkasan analitis read-only**, bukan seluruh
+  baris transaksi mentah. Untuk menjaga analisis tetap tajam, snapshot mencakup
+  tren tiga bulan, channel, distributor, produk, keuangan, stok, produksi,
+  KOL/TikTok, dan metadata keterbatasan sumber.
+- Setiap angka yang dikutip AI wajib memakai `source_path` katalog server.
+  Server mengambil ulang nilai sebenarnya dari snapshot; angka keluaran model
+  tidak pernah dipercaya sebagai bukti.
 - AI mengisi penjelasan pekerjaan, owner Objective/KR, PIC, tenggat, dan kolom
   Kanban dari ID nyata. Server juga mencocokkan struktur BOD, aturan delegasi
   bertanda `→`, serta kolom To Do bernama PIC dari Pengetahuan AI.
@@ -54,13 +61,16 @@
    memanggil structured tool `usulkan_okr_spesialis`.
 5. AI Orchestrator menerima ketiga usulan + konteks bersama, memanggil
    `susun_draf_okr`, dan menyimpan hasil sebagai draf.
-6. User memeriksa ringkasan Objective, Key Result, detail pekerjaan, PIC, tenggat,
-   serta kolom Kanban. Semua pilihan ini sudah diisi otomatis.
-7. Jika perlu, user menekan **Edit** pada kartu terkait dan menyimpan koreksi.
-8. User menekan **Setujui & Buat N Kartu**.
-9. Server memvalidasi ulang seluruh penerima/kolom/tanggal, membuat kartu
+6. Server menolak keluaran yang generik, tidak punya bukti valid, tidak
+   menjelaskan baseline/gap, atau mengabaikan konflik lintas fungsi.
+7. User memeriksa dasar analisis, bukti, asumsi, konflik, ringkasan Objective,
+   Key Result, detail pekerjaan, PIC, tenggat, serta kolom Kanban. Semua pilihan
+   ini sudah diisi otomatis.
+8. Jika perlu, user menekan **Edit** pada kartu terkait dan menyimpan koreksi.
+9. User menekan **Setujui & Buat N Kartu**.
+10. Server memvalidasi ulang seluruh penerima/kolom/tanggal, membuat kartu
    `created_via=ai`, menghubungkan kartu ke tugas OKR, lalu mengaktifkan OKR.
-10. Halaman OKR menghitung progres Objective/KR dari kartu yang selesai.
+11. Halaman OKR menghitung progres Objective/KR dari kartu yang selesai.
 
 ---
 
@@ -83,6 +93,10 @@ Migrasi `2026_01_01_000065_add_assignee_name_to_okr_tasks.php` memisahkan nama
 PIC operasional dari akun teknis. Kartu Freddie/Billy/Devrina dapat memakai akun
 Super Admin tanpa mengubah nama PIC yang tampil.
 
+Migrasi `2026_01_01_000066_add_analysis_basis_to_okr_tables.php` menyimpan
+ringkasan analisis, bukti terverifikasi, asumsi, konflik lintas fungsi, cakupan
+data, rationale Objective, serta baseline dan gap Key Result.
+
 Jika kartu dihapus secara soft-delete, tugas OKR tetap tersimpan tetapi progresnya
 tidak dianggap selesai dan UI menandai kartu tidak tersedia.
 
@@ -104,6 +118,14 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
   detail, dan progres tetap bisa dibuka jika key/provider sedang bermasalah.
 - Structured tool hanya menghasilkan data draf; tool tersebut tidak punya jalur
   untuk menulis kartu.
+- Spesialis wajib mengirim minimal dua fakta dengan `source_path` valid. AI
+  Orchestrator wajib mengirim minimal tiga bukti final; untuk arahan eksplisit
+  CMO+CFO+COO, bukti dan Objective harus mencakup ketiganya.
+- Diagnosis kurang dari batas kualitas, source path palsu, baseline aktual tanpa
+  sumber, atau OKR perusahaan tanpa konflik/trade-off ditolak sebelum draf
+  disimpan.
+- Baseline `actual` hanya sah jika jalurnya ada pada katalog snapshot. Jika
+  sumbernya tidak ada, status dipaksa menjadi asumsi/kebutuhan validasi.
 - Maksimum server: 6 Objective, 30 Key Result, dan 60 tugas per generasi.
 - Anggota partner tidak boleh menjadi penerima.
 - Tugas tidak boleh dimulai di kolom Done/Selesai.
@@ -160,6 +182,8 @@ pengaturan mapping jabatan terpisah.
 - edit pratinjau;
 - auto-owner CMO/CFO/COO dari struktur BOD;
 - auto-PIC dan kolom bernama anggota dari aturan delegasi;
+- bukti angka diambil ulang dari snapshot server dan tampil di pratinjau;
+- draf generik/bukti palsu ditolak sebelum tersimpan;
 - akun bersama BOD tetap menghasilkan kartu approval di kolom nama BOD;
 - coverage Gracelyn untuk video/UGC dan peringatan Hida tanpa akun;
 - uraian kosong dan tenggat lampau dinormalisasi defensif;
@@ -168,7 +192,7 @@ pengaturan mapping jabatan terpisah.
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah pemetaan akun bersama dan coverage delegasi: **508 test lulus, 2270 assertions**.
+Baseline setelah quality gate analisis berbasis bukti: **510 test lulus, 2287 assertions**.
 
 ---
 

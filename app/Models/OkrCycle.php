@@ -23,6 +23,8 @@ class OkrCycle extends Model
     protected $fillable = [
         'name', 'period_type', 'period_label', 'start_date', 'end_date',
         'scope_type', 'scope_name', 'scope_owner_user_id', 'direction',
+        'analysis_summary', 'analysis_evidence', 'analysis_assumptions',
+        'analysis_conflicts', 'data_coverage',
         'status', 'created_by', 'approved_by', 'approved_at',
     ];
 
@@ -32,6 +34,10 @@ class OkrCycle extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'approved_at' => 'datetime',
+            'analysis_evidence' => 'array',
+            'analysis_assumptions' => 'array',
+            'analysis_conflicts' => 'array',
+            'data_coverage' => 'array',
         ];
     }
 
