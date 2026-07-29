@@ -1,7 +1,7 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **504 test lulus (2211 assertions)** setelah implementasi OKR.
+> Baseline sebelum OKR: `37820b9`. **505 test lulus (2224 assertions)** setelah implementasi panel OKR.
 
 ---
 
@@ -80,12 +80,16 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
 
 - Alur minim setting: pilih bulanan/kuartalan + cakupan perusahaan/tim/individu + arahan; papan utama opsional.
 - AI membaca Pengetahuan AI + anggota/papan/kolom aktif, lalu membuat draf `Objective → Key Result → tugas per individu`.
+- **Panel spesialis:** CMO AI + CFO AI + COO AI membuat usulan bidang masing-masing, lalu AI Orchestrator menyelaraskan hasil final. Total 4 giliran provider per generate.
+- **Data aktual per fungsi:** CMO baca penjualan/channel/KOL/TikTok; CFO baca laporan keuangan/margin/piutang/settlement; COO baca stok/produksi/PO/operasional. Semua disaring menurut izin user lewat `OkrBusinessSnapshotService`.
+- CMO/CFO/COO hanya perspektif AI; BOD dan PIC manusia tetap diinferensikan dari Pengetahuan AI (tidak ada setting mapping jabatan baru).
+- Setiap Objective menyimpan label spesialis `cmo/cfo/coo`; label ikut terlihat di pratinjau, halaman aktif, dan deskripsi kartu.
 - Pratinjau dapat mengubah teks, owner, metrik/target, penerima, kolom, dan tenggat.
 - Persetujuan eksplisit membuat semua kartu Kanban secara atomik; kartu memakai `created_via=ai` dan tertaut ke tugas OKR.
 - Progres Objective/KR otomatis dari `BoardCard.completed_at`; masuk/keluar Done/Selesai langsung mengubah progres.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
-- Uji offline: `tests/Feature/OkrTest.php`; total suite **504 lulus / 2211 assertions**.
+- Uji offline: `tests/Feature/OkrTest.php`; total suite **505 lulus / 2224 assertions**.
 
 ---
 
@@ -94,7 +98,7 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
 1. **OpenAI:** set **spending cap** (Billing → Usage limits). Key sudah di `.env`.
 2. **Laporan Income TikTok:** upload file asli → cek (a) angka uang bener (kalau meleset, indeks kolom income `[5]/[6]/[14]` mungkin geser), (b) kolom item-besar rapi (dari `Product.category`), (c) "SKU tak dikenal" → lengkapi di **Peta SKU** (halaman Pesanan TikTok, sekarang tanpa reload).
 3. **Komunitas / Pengumuman:** cek fitur baru sesuai kebutuhan.
-4. **OKR:** isi bagian "Strategi & aturan OKR", generate satu draf kecil, periksa pembagian orang/kolom/tenggat, baru approve.
+4. **OKR:** isi bagian "Strategi & aturan OKR", generate satu draf kecil, periksa label CMO/CFO/COO + pembagian orang/kolom/tenggat, baru approve. Satu generate = 4 panggilan AI.
 
 ---
 
@@ -114,6 +118,6 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
 - TikTok Income: `app/Services/TikTokIncomeReportService.php`, `app/Http/Controllers/TikTokIncomeController.php`, `resources/views/tiktok/income.blade.php`.
 - TikTok (existing, LENGKAP): `app/Services/TikTokOrderService.php` (`resolve/deduct/stockFunnel`), `TikTokController.php`, `TikTokSettlementService`, `TikTokAccountingService`.
 - Kanban: `app/Services/KanbanKpiService.php`, `app/Http/Controllers/KanbanController.php`, `resources/views/kanban/*`, `app/Models/BoardCard.php`.
-- OKR: `app/Services/OkrAiService.php`, `app/Http/Controllers/OkrController.php`, `app/Models/Okr*.php`, `resources/views/okr/*`.
+- OKR: `app/Services/{OkrAiService,OkrBusinessSnapshotService}.php`, `app/Http/Controllers/OkrController.php`, `app/Models/Okr*.php`, `resources/views/okr/*`.
 - Helper zero-dep: `app/Support/{SpreadsheetReader,XlsxWriter,Text,Permissions}.php`.
 - Izin: `app/Support/Permissions.php` (`use_ai_assistant`, `okr.view`, `okr.manage`, `manage_tiktok`, `manage_announcements`, `kanban.view`, dll).

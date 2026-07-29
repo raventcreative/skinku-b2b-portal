@@ -55,7 +55,14 @@
     @foreach($okr->objectives as $oi => $objective)
         <section class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
             <div class="p-5 bg-stone-50 border-b border-stone-200">
-                <p class="text-[10px] font-bold tracking-wider text-red-600 uppercase">Objective {{ $oi + 1 }}</p>
+                <div class="flex items-center justify-between gap-2">
+                    <p class="text-[10px] font-bold tracking-wider text-red-600 uppercase">Objective {{ $oi + 1 }}</p>
+                    <select name="objectives[{{ $objective->id }}][specialist]" class="px-2 py-1 border border-stone-300 rounded-lg text-[10px] font-bold">
+                        @foreach(\App\Models\OkrObjective::SPECIALISTS as $key => $label)
+                            <option value="{{ $key }}" @selected(old('objectives.'.$objective->id.'.specialist', $objective->specialist) === $key)>{{ $label }} AI</option>
+                        @endforeach
+                    </select>
+                </div>
                 <input name="objectives[{{ $objective->id }}][title]" required maxlength="255"
                     value="{{ old('objectives.'.$objective->id.'.title', $objective->title) }}"
                     class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-bold">
@@ -158,7 +165,10 @@
                 <div class="p-5 bg-stone-50 border-b border-stone-200">
                     <div class="flex flex-wrap justify-between gap-3">
                         <div>
-                            <p class="text-[10px] font-bold tracking-wider text-red-600 uppercase">Objective {{ $oi + 1 }}</p>
+                            <div class="flex items-center gap-2">
+                                <p class="text-[10px] font-bold tracking-wider text-red-600 uppercase">Objective {{ $oi + 1 }}</p>
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-100 text-indigo-700">{{ $objective->specialistLabel() }} AI</span>
+                            </div>
                             <h4 class="font-bold text-stone-900 mt-1">{{ $objective->title }}</h4>
                             @if($objective->description)<p class="text-xs text-stone-600 mt-1">{{ $objective->description }}</p>@endif
                             @if($objective->owner)<p class="text-[11px] text-stone-400 mt-2">Pemilik: {{ $objective->owner->displayName() }}</p>@endif

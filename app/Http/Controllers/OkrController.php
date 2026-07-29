@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\OkrCycle;
+use App\Models\OkrObjective;
 use App\Models\User;
 use App\Services\Ai\AiException;
 use App\Services\AuditService;
@@ -99,6 +100,7 @@ class OkrController extends Controller
             'direction' => ['required', 'string', 'max:5000'],
             'objectives' => ['required', 'array'],
             'objectives.*.title' => ['required', 'string', 'max:255'],
+            'objectives.*.specialist' => ['required', 'in:'.implode(',', array_keys(OkrObjective::SPECIALISTS))],
             'objectives.*.description' => ['nullable', 'string', 'max:4000'],
             'objectives.*.owner_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'key_results' => ['required', 'array'],
@@ -123,6 +125,7 @@ class OkrController extends Controller
             foreach ($okr->objectives as $objective) {
                 $row = $data['objectives'][$objective->id];
                 $objective->update([
+                    'specialist' => $row['specialist'],
                     'title' => $row['title'],
                     'description' => $row['description'] ?? null,
                     'owner_user_id' => $row['owner_user_id'] ?? null,

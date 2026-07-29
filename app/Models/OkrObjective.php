@@ -7,8 +7,19 @@ use Illuminate\Database\Eloquent\Model;
 class OkrObjective extends Model
 {
     protected $fillable = [
-        'okr_cycle_id', 'title', 'description', 'owner_user_id', 'position',
+        'okr_cycle_id', 'specialist', 'title', 'description', 'owner_user_id', 'position',
     ];
+
+    public const SPECIALISTS = [
+        'cmo' => 'CMO',
+        'cfo' => 'CFO',
+        'coo' => 'COO',
+    ];
+
+    public function specialistLabel(): string
+    {
+        return self::SPECIALISTS[$this->specialist] ?? 'Lintas Divisi';
+    }
 
     public function cycle()
     {

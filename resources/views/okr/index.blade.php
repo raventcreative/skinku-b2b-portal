@@ -49,6 +49,11 @@
             </div>
 
             <p class="text-[11px] text-stone-400 mt-4">{{ $cycle->objectives->count() }} Objective · {{ $cycle->start_date->format('d M') }}–{{ $cycle->end_date->format('d M Y') }}</p>
+            <div class="flex gap-1 mt-2">
+                @foreach($cycle->objectives->pluck('specialist')->filter()->unique() as $specialist)
+                    <span class="px-1.5 py-0.5 rounded bg-stone-100 text-[9px] font-bold text-stone-600">{{ strtoupper($specialist) }}</span>
+                @endforeach
+            </div>
         </a>
     @empty
         <div class="col-span-full py-14 text-center bg-white rounded-2xl border border-dashed border-stone-300">

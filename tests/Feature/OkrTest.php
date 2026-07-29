@@ -7,9 +7,12 @@ use App\Models\Board;
 use App\Models\BoardCard;
 use App\Models\BoardColumn;
 use App\Models\OkrCycle;
+use App\Models\Product;
+use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiTurn;
+use App\Services\OkrBusinessSnapshotService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\Support\FakeAiProvider;
@@ -47,6 +50,7 @@ class OkrTest extends TestCase
         $args = array_replace_recursive([
             'name' => 'OKR Pertumbuhan Q3',
             'objectives' => [[
+                'specialist' => 'cmo',
                 'title' => 'Percepat pertumbuhan TikTok',
                 'description' => 'Pertumbuhan yang sehat dan terukur.',
                 'owner_user_id' => $member->id,
@@ -67,9 +71,31 @@ class OkrTest extends TestCase
             ]],
         ], $overrides);
 
+        $proposal = fn (string $id, string $label) => new AiTurn(toolCalls: [[
+            'id' => $id,
+            'name' => 'usulkan_okr_spesialis',
+            'arguments' => [
+                'analysis' => "Analisis {$label}",
+                'risks' => ['Kapasitas tim'],
+                'objectives' => [[
+                    'title' => "Usulan {$label}",
+                    'rationale' => 'Berdasarkan data aktual.',
+                    'key_results' => [[
+                        'title' => 'Hasil terukur',
+                        'metric' => 'Persentase',
+                        'target' => '20%',
+                        'workstreams' => ['Eksekusi lintas fungsi'],
+                    ]],
+                ]],
+            ],
+        ]]);
+
         return new FakeAiProvider([
+            $proposal('panel-cmo', 'CMO'),
+            $proposal('panel-cfo', 'CFO'),
+            $proposal('panel-coo', 'COO'),
             new AiTurn(toolCalls: [[
-                'id' => 'okr-1',
+                'id' => 'okr-final',
                 'name' => 'susun_draf_okr',
                 'arguments' => $args,
             ]]),
@@ -128,13 +154,20 @@ class OkrTest extends TestCase
         ]);
         $this->assertSame(0, BoardCard::count());
 
-        $prompt = $fake->sent[0]['messages'][1]['content'];
-        $this->assertStringContainsString('Target tahunan omzet sepuluh miliar', $prompt);
-        $this->assertStringContainsString('Papan Marketing', $prompt);
-        $this->assertStringContainsString('BILLY', $prompt);
+        $this->assertCount(4, $fake->sent);
+        $this->assertStringContainsString('spesialis CMO AI', $fake->sent[0]['messages'][0]['content']);
+        $this->assertStringContainsString('spesialis CFO AI', $fake->sent[1]['messages'][0]['content']);
+        $this->assertStringContainsString('spesialis COO AI', $fake->sent[2]['messages'][0]['content']);
+        $this->assertStringContainsString('AI Orchestrator', $fake->sent[3]['messages'][0]['content']);
+        $this->assertStringContainsString('Target tahunan omzet sepuluh miliar', $fake->sent[0]['messages'][1]['content']);
+        $orchestrator = $fake->sent[3]['messages'][1]['content'];
+        $this->assertStringContainsString('Papan Marketing', $orchestrator);
+        $this->assertStringContainsString('BILLY', $orchestrator);
+        $this->assertStringContainsString('Usulan CFO', $orchestrator);
 
         $this->actingAs($super)->get(route('okr.show', $cycle))->assertOk()
             ->assertSee('Pratinjau')
+            ->assertSee('CMO AI')
             ->assertSee('Percepat pertumbuhan TikTok')
             ->assertSee('Susun kalender konten TikTok');
     }
@@ -188,6 +221,7 @@ class OkrTest extends TestCase
             'direction' => $cycle->direction,
             'objectives' => [
                 $objective->id => [
+                    'specialist' => 'cmo',
                     'title' => 'Objective hasil koreksi',
                     'description' => $objective->description,
                     'owner_user_id' => $member->id,
@@ -224,6 +258,7 @@ class OkrTest extends TestCase
         $this->assertSame($member->id, $card->assignee_user_id);
         $this->assertSame($todo->id, $card->column_id);
         $this->assertSame('ai', $card->created_via);
+        $this->assertStringContainsString('Spesialis AI: CMO', $card->description);
         $this->assertStringContainsString('Objective hasil koreksi', $card->description);
         $this->assertDatabaseHas('okr_tasks', ['id' => $task->id, 'board_card_id' => $card->id]);
 
@@ -283,5 +318,46 @@ class OkrTest extends TestCase
         $this->assertNull($task->assignee_user_id);
         $this->assertSame($todo->id, $task->board_column_id);
         $this->assertSame(0, BoardCard::count());
+    }
+
+    public function test_panel_menerima_snapshot_data_aktual_dan_mematuhi_izin(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrlive');
+        $member = $this->user(User::ROLE_ADMIN, 'livepic');
+        $partner = $this->user(User::ROLE_DISTRIBUTOR, 'livepartner');
+        [$board, $todo] = $this->board($super);
+        Product::create([
+            'name' => 'Serum Snapshot',
+            'sku' => 'SNAP-1',
+            'category' => 'Serum',
+            'hq_stock' => 7,
+            'status' => Product::STATUS_ACTIVE,
+        ]);
+        PurchaseOrder::create([
+            'po_number' => 'PO-OKR-LIVE',
+            'created_by' => $super->id,
+            'user_id' => $partner->id,
+            'company_name' => 'Mitra Snapshot',
+            'user_role' => $partner->role,
+            'status' => PurchaseOrder::STATUS_COMPLETED,
+            'total_amount' => 250000,
+            'order_date' => now()->toDateString(),
+            'completed_at' => now(),
+        ]);
+        $fake = $this->fakeDraft($member, $todo->id);
+        $this->app->instance(AiProvider::class, $fake);
+
+        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
+
+        $this->assertStringContainsString('250000', $fake->sent[0]['messages'][1]['content']);
+        $this->assertStringContainsString('Serum Snapshot', $fake->sent[2]['messages'][1]['content']);
+
+        $gudang = $this->user(User::ROLE_GUDANG, 'snapshotgudang');
+        $snapshot = app(OkrBusinessSnapshotService::class)->for('cfo', $gudang, [
+            'start_date' => now()->startOfMonth()->toDateString(),
+            'end_date' => now()->endOfMonth()->toDateString(),
+        ]);
+        $this->assertSame('ditutup karena user tidak punya view_accounting', $snapshot['akuntansi']['akses']);
+        $this->assertArrayNotHasKey('laba_rugi', $snapshot);
     }
 }

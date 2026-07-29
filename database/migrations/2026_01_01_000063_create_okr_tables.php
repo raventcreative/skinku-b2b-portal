@@ -37,6 +37,7 @@ return new class extends Migration
         Schema::create('okr_objectives', function (Blueprint $table) {
             $table->id();
             $table->foreignId('okr_cycle_id')->constrained('okr_cycles')->cascadeOnDelete();
+            $table->string('specialist', 10)->nullable()->index();
             $table->string('title');
             $table->text('description')->nullable();
             $table->foreignId('owner_user_id')->nullable()->constrained('users')->nullOnDelete();

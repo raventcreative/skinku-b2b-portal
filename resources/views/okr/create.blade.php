@@ -5,8 +5,8 @@
 @section('content')
 <div class="max-w-3xl">
     <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 mb-5">
-        <p class="text-sm font-bold text-indigo-900">AI bekerja dari konteks yang sudah ada ✨</p>
-        <p class="text-xs text-indigo-700 mt-1">AI membaca Pengetahuan AI, anggota aktif, serta papan dan kolom Kanban. Hasilnya tetap menjadi draf yang bisa diperiksa dan diedit sebelum satu pun kartu dibuat.</p>
+        <p class="text-sm font-bold text-indigo-900">Panel CMO + CFO + COO AI bekerja bersama ✨</p>
+        <p class="text-xs text-indigo-700 mt-1">Setiap spesialis membaca Pengetahuan AI dan data aktual bidangnya. AI Orchestrator kemudian menyelaraskan usulan mereka, membagi pekerjaan ke anggota aktif, serta memilih papan/kolom Kanban. Hasilnya tetap menjadi draf sebelum satu pun kartu dibuat.</p>
         <a href="{{ route('ai.knowledge') }}" class="inline-block mt-2 text-xs font-semibold text-indigo-800 underline">Periksa Pengetahuan AI</a>
     </div>
 
@@ -91,9 +91,9 @@
         </div>
 
         <button class="w-full px-5 py-3 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold">
-            ✨ Buat Draf & Pratinjau dengan AI
+            ✨ Jalankan Panel AI & Buat Pratinjau
         </button>
-        <p class="text-center text-[11px] text-stone-400">Proses ini memanggil provider AI aktif. Belum ada kartu Kanban yang dibuat.</p>
+        <p class="text-center text-[11px] text-stone-400">Proses memakai 4 giliran AI: CMO, CFO, COO, lalu Orchestrator. Belum ada kartu Kanban yang dibuat.</p>
     </form>
 </div>
 @endsection

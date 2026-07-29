@@ -12,6 +12,14 @@
 - Periode mendukung **bulanan** dan **kuartalan**.
 - Cakupan mendukung **perusahaan**, **tim/divisi**, dan **individu**.
 - Struktur: `OkrCycle → OkrObjective → OkrKeyResult → OkrTask`.
+- Generator memakai panel kolaboratif:
+  - **CMO AI**: marketing, brand, konten, KOL/affiliate, live commerce, dan penjualan;
+  - **CFO AI**: cashflow, margin, biaya, piutang, settlement, dan akuntansi;
+  - **COO AI**: stok, produksi, PO, pengiriman, kapasitas, dan SOP.
+  - **AI Orchestrator** menyelaraskan ketiga usulan, menghapus duplikasi/konflik,
+    lalu membagi pekerjaan ke user nyata.
+- CMO/CFO/COO adalah **spesialis AI**, bukan role user baru. Nama BOD/PIC dan
+  aturan delegasi tetap berasal dari Pengetahuan AI.
 - Satu Key Result boleh dipecah menjadi beberapa tugas spesifik untuk orang yang berbeda.
 - AI membaca:
   - seluruh isi **Pengetahuan AI**;
@@ -34,13 +42,16 @@
 1. Buka **OKR → Susun OKR dengan AI**.
 2. Pilih periode, cakupan, dan tulis arahan bisnis.
 3. Opsional: pilih papan Kanban utama. Tanpa pilihan, AI memilih dari konteks.
-4. AI memanggil structured tool `susun_draf_okr` dan menyimpan hasil sebagai draf.
-5. User memeriksa serta mengedit Objective, Key Result, dan setiap tugas.
-6. User menyimpan koreksi pratinjau.
-7. User menekan **Ya, Setujui & Buat Semua Kartu**.
-8. Server memvalidasi ulang seluruh penerima/kolom/tanggal, membuat kartu
+4. CMO AI, CFO AI, dan COO AI membaca snapshot bidangnya lalu masing-masing
+   memanggil structured tool `usulkan_okr_spesialis`.
+5. AI Orchestrator menerima ketiga usulan + konteks bersama, memanggil
+   `susun_draf_okr`, dan menyimpan hasil sebagai draf.
+6. User memeriksa serta mengedit spesialis, Objective, Key Result, dan setiap tugas.
+7. User menyimpan koreksi pratinjau.
+8. User menekan **Ya, Setujui & Buat Semua Kartu**.
+9. Server memvalidasi ulang seluruh penerima/kolom/tanggal, membuat kartu
    `created_via=ai`, menghubungkan kartu ke tugas OKR, lalu mengaktifkan OKR.
-9. Halaman OKR menghitung progres Objective/KR dari kartu yang selesai.
+10. Halaman OKR menghitung progres Objective/KR dari kartu yang selesai.
 
 ---
 
@@ -49,7 +60,7 @@
 Migrasi `2026_01_01_000063_create_okr_tables.php`:
 
 - `okr_cycles`: periode, cakupan, arahan, status draf/aktif, pembuat dan penyetuju.
-- `okr_objectives`: hasil utama dan owner.
+- `okr_objectives`: label spesialis `cmo/cfo/coo`, hasil utama, dan owner.
 - `okr_key_results`: metrik, target, owner, tenggat.
 - `okr_tasks`: pekerjaan spesifik, penerima, kolom tujuan, tenggat, dan relasi
   satu-ke-satu ke `board_cards`.
@@ -63,6 +74,14 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
 
 - Tetap provider-agnostic lewat `AiProvider`.
 - Tanpa SDK/paket baru; mengikuti arsitektur AI zero-dependency yang sudah ada.
+- Satu generate memakai **4 giliran AI**: CMO, CFO, COO, lalu Orchestrator.
+- `OkrBusinessSnapshotService` memberi data aktual read-only:
+  - CMO: penjualan/channel, produk, KOL/deal, status TikTok;
+  - CFO: laba-rugi, neraca, arus kas, margin, piutang tempo, settlement TikTok;
+  - COO: stok HQ/partner, produksi, status PO, dan operasional TikTok.
+- Tiap sumber data disaring dengan izin user (`view_reports`, `view_accounting`,
+  `kol.view`, `manage_tiktok`, `manage_hq_stock`, dan izin terkait). Panel tidak
+  mendapat akses data tambahan hanya karena memakai AI.
 - Provider baru di-resolve hanya saat tombol generate ditekan. Halaman daftar,
   detail, dan progres tetap bisa dibuka jika key/provider sedang bermasalah.
 - Structured tool hanya menghasilkan data draf; tool tersebut tidak punya jalur
@@ -81,7 +100,9 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
 Bagian baru **Strategi & aturan OKR** ditambahkan ke `AiKnowledge::SECTIONS`.
 Gunakan untuk menyimpan arah tahunan, baseline angka, kapasitas tim, batasan,
 dan aturan pembagian target. Bagian Tim, Workflow Kanban, dan Fokus/Target yang
-sudah ada juga otomatis ikut dibaca.
+sudah ada juga otomatis ikut dibaca. Struktur BOD (mis. Freddie/CMO,
+Billy/CFO, Devrina/COO) dan delegasi ke tim cukup ditulis di sini; tidak ada
+pengaturan mapping jabatan terpisah.
 
 ---
 
@@ -102,6 +123,8 @@ sudah ada juga otomatis ikut dibaca.
 
 - gate izin + render halaman;
 - AI membaca pengetahuan, anggota, papan, dan kolom;
+- empat giliran panel berjalan dalam urutan CMO → CFO → COO → Orchestrator;
+- snapshot berisi angka sistem aktual dan menutup bagian tanpa izin;
 - generate menghasilkan draf tanpa kartu;
 - edit pratinjau;
 - approve menghasilkan kartu berlabel AI;
@@ -109,7 +132,7 @@ sudah ada juga otomatis ikut dibaca.
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah implementasi: **504 test lulus, 2211 assertions**.
+Baseline setelah implementasi panel spesialis: **505 test lulus, 2224 assertions**.
 
 ---
 
