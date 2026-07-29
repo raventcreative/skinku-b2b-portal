@@ -768,12 +768,23 @@ class OkrAiService
         $preferredColumn = collect($preferredBoard['columns'] ?? [])->first(fn (array $c) => ! $c['done']);
         $defaultColumnId = $preferredColumn['id']
             ?? ($actionableColumns->first()['id'] ?? null);
+        $requiredSpecialists = $this->requiredSpecialists($input);
+        $objectiveRows = $this->balancedObjectiveRows(
+            (array) ($draft['objectives'] ?? []),
+            $requiredSpecialists,
+            $proposals,
+            $specialistOwners,
+            $specialistOwnerNames,
+            $sharedBodOwnerId,
+            $input,
+            $defaultColumnId,
+        );
 
         $objectives = [];
         $krCount = 0;
         $taskCount = 0;
         $generatedTaskLimit = self::MAX_TASKS - self::MAX_OBJECTIVES - 3;
-        foreach (array_slice((array) ($draft['objectives'] ?? []), 0, self::MAX_OBJECTIVES) as $objectiveData) {
+        foreach (array_slice($objectiveRows, 0, self::MAX_OBJECTIVES) as $objectiveData) {
             if (! is_array($objectiveData) || blank($objectiveData['title'] ?? null)) {
                 continue;
             }
@@ -807,21 +818,32 @@ class OkrAiService
                     if ($delegated !== null) {
                         $assignee = $delegated;
                     }
-                    $column = in_array($column, $columnIds, true) ? $column : $defaultColumnId;
-                    $matchedColumn = $this->columnForAssignee(
-                        $assignee,
+                    $assigneeName = $this->memberName(
+                        in_array($assignee, $memberIds, true) ? $assignee : null,
                         $members,
-                        $actionableColumns->all(),
-                        (int) ($input['preferred_board_id'] ?? 0),
                     );
+                    if ($assignee === $ownerId
+                        && $this->normalise((string) ($taskData['assignee_name'] ?? '')) === $this->normalise($ownerName)) {
+                        $assigneeName = $ownerName;
+                    }
+                    $column = in_array($column, $columnIds, true) ? $column : $defaultColumnId;
+                    $matchedColumn = ($assigneeName
+                        ? $this->columnForName(
+                            $assigneeName,
+                            $actionableColumns->all(),
+                            (int) ($input['preferred_board_id'] ?? 0),
+                        )
+                        : null) ?? $this->columnForAssignee(
+                            $assignee,
+                            $members,
+                            $actionableColumns->all(),
+                            (int) ($input['preferred_board_id'] ?? 0),
+                        );
                     $tasks[] = [
                         'title' => Str::limit(trim($taskData['title']), 255, ''),
                         'description' => $description,
                         'assignee_user_id' => in_array($assignee, $memberIds, true) ? $assignee : null,
-                        'assignee_name' => $this->memberName(
-                            in_array($assignee, $memberIds, true) ? $assignee : null,
-                            $members,
-                        ),
+                        'assignee_name' => $assigneeName,
                         'board_column_id' => $matchedColumn ?? $column,
                         'due_date' => $this->safeDate($taskData['due_date'] ?? null, $input),
                     ];
@@ -918,7 +940,6 @@ class OkrAiService
         if ($objectives === [] || $taskCount === 0) {
             throw new AiException('AI belum menghasilkan Objective, Key Result, dan tugas yang lengkap. Perjelas arahannya lalu coba lagi.');
         }
-        $requiredSpecialists = $this->requiredSpecialists($input);
         $objectiveSpecialists = collect($objectives)->pluck('specialist');
         if ($requiredSpecialists !== []
             && (collect($requiredSpecialists)->diff($objectiveSpecialists)->isNotEmpty()
@@ -933,6 +954,145 @@ class OkrAiService
             ...$analysis,
             'data_coverage' => $this->snapshots->coverage($liveData),
             'objectives' => $objectives,
+        ];
+    }
+
+    /**
+     * Untuk arahan eksplisit CMO+CFO+COO, paksa tepat satu baris per fungsi.
+     * Duplikat digabung; fungsi yang hilang dibentuk dari proposal panelnya.
+     *
+     * @param  array<int,mixed>  $rows
+     * @param  array<int,string>  $requiredSpecialists
+     * @param  array<string,array<string,mixed>>  $proposals
+     * @param  array<string,int>  $specialistOwners
+     * @param  array<string,string>  $specialistOwnerNames
+     * @param  array<string,mixed>  $input
+     * @return array<int,array<string,mixed>>
+     */
+    private function balancedObjectiveRows(
+        array $rows,
+        array $requiredSpecialists,
+        array $proposals,
+        array $specialistOwners,
+        array $specialistOwnerNames,
+        ?int $sharedBodOwnerId,
+        array $input,
+        ?int $defaultColumnId,
+    ): array {
+        $validRows = collect($rows)->filter(fn ($row) => is_array($row) && filled($row['title'] ?? null));
+        if ($requiredSpecialists === []) {
+            return $validRows->values()->all();
+        }
+
+        return collect($requiredSpecialists)->map(function (string $specialist) use (
+            $validRows,
+            $proposals,
+            $specialistOwners,
+            $specialistOwnerNames,
+            $sharedBodOwnerId,
+            $input,
+            $defaultColumnId,
+        ) {
+            $candidates = $validRows
+                ->filter(fn (array $row) => ($row['specialist'] ?? null) === $specialist)
+                ->sortByDesc(fn (array $row) => count((array) ($row['key_results'] ?? [])))
+                ->values();
+            if ($candidates->isEmpty()) {
+                return $this->objectiveFromPanel(
+                    $specialist,
+                    $proposals,
+                    $specialistOwners[$specialist] ?? $sharedBodOwnerId,
+                    $specialistOwnerNames[$specialist] ?? $this->specialistLabel($specialist),
+                    $input,
+                    $defaultColumnId,
+                );
+            }
+
+            $base = $candidates->first();
+            $base['key_results'] = $candidates
+                ->flatMap(fn (array $row) => (array) ($row['key_results'] ?? []))
+                ->filter(fn ($kr) => is_array($kr) && filled($kr['title'] ?? null))
+                ->unique(fn (array $kr) => $this->normalise((string) $kr['title']))
+                ->take(4)
+                ->values()
+                ->all();
+
+            return $base;
+        })->values()->all();
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $proposals
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function objectiveFromPanel(
+        string $specialist,
+        array $proposals,
+        ?int $ownerId,
+        string $ownerName,
+        array $input,
+        ?int $defaultColumnId,
+    ): array {
+        $proposal = (array) data_get($proposals, "{$specialist}.proposal", []);
+        $panelObjectives = collect((array) ($proposal['objectives'] ?? []))
+            ->filter(fn ($objective) => is_array($objective));
+        $first = (array) ($panelObjectives->first() ?? []);
+        $keyResults = $panelObjectives
+            ->flatMap(fn (array $objective) => (array) ($objective['key_results'] ?? []))
+            ->filter(fn ($kr) => is_array($kr) && filled($kr['title'] ?? null))
+            ->unique(fn (array $kr) => $this->normalise((string) $kr['title']))
+            ->take(4)
+            ->map(function (array $kr) use (
+                $specialist,
+                $ownerId,
+                $ownerName,
+                $input,
+                $defaultColumnId,
+                $proposal,
+            ) {
+                $workstreams = collect((array) ($kr['workstreams'] ?? []))
+                    ->filter(fn ($workstream) => is_string($workstream) && filled($workstream))
+                    ->take(3);
+                if ($workstreams->isEmpty()) {
+                    $workstreams = collect(['Validasi baseline, susun rencana eksekusi, dan tetapkan checkpoint hasil']);
+                }
+
+                return [
+                    'title' => (string) $kr['title'],
+                    'metric' => (string) ($kr['metric'] ?? 'Metrik hasil fungsi '.$this->specialistLabel($specialist)),
+                    'target' => (string) ($kr['target'] ?? 'Perlu validasi'),
+                    'baseline_status' => 'needs_validation',
+                    'baseline_source_path' => '',
+                    'baseline_interpretation' => 'Baseline spesifik Key Result ini belum dipilih Orchestrator dan harus divalidasi terhadap bukti panel sebelum eksekusi.',
+                    'target_gap' => (string) ($proposal['target_gap_analysis']
+                        ?? 'Hitung gap baseline menuju target dan tetapkan milestone yang dapat diperiksa.'),
+                    'owner_user_id' => $ownerId,
+                    'due_date' => (string) $input['end_date'],
+                    'tasks' => $workstreams->map(fn (string $workstream) => [
+                        'title' => Str::limit($workstream, 255, ''),
+                        'description' => 'Jalankan workstream ini berdasarkan diagnosis panel '
+                            .$this->specialistLabel($specialist)
+                            .' dan bukti sistem. Serahkan hasil terukur, catatan validasi, risiko, serta keputusan yang masih diperlukan.',
+                        'assignee_user_id' => $ownerId,
+                        'assignee_name' => $ownerName,
+                        'board_column_id' => $defaultColumnId,
+                        'due_date' => (string) $input['end_date'],
+                    ])->all(),
+                ];
+            })->values()->all();
+
+        if ($keyResults === []) {
+            throw new AiException("Panel {$this->specialistLabel($specialist)} belum menghasilkan Key Result yang dapat dipulihkan. Draf tidak disimpan.");
+        }
+
+        return [
+            'specialist' => $specialist,
+            'title' => (string) ($first['title'] ?? 'Pastikan hasil strategis '.$this->specialistLabel($specialist).' tercapai'),
+            'description' => (string) ($proposal['analysis'] ?? 'Objective dipulihkan dari diagnosis panel spesialis.'),
+            'rationale' => (string) ($first['rationale'] ?? $proposal['analysis'] ?? 'Dibentuk dari proposal panel spesialis.'),
+            'owner_user_id' => $ownerId,
+            'key_results' => $keyResults,
         ];
     }
 

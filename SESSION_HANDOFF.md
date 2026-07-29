@@ -100,6 +100,9 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
   konflik kosong, server memulihkannya dari hasil panel dan katalog data yang
   sudah terverifikasi. Draf baru ditolak bila tiga panel memang tidak mempunyai
   data/diagnosis atau struktur Objective/KR/tugas yang cukup.
+- Untuk arahan eksplisit CMO+CFO+COO, server menyeimbangkan hasil menjadi tepat
+  satu Objective per fungsi: duplikat digabung/dideduplikasi dan fungsi yang
+  hilang dibentuk dari proposal panelnya lengkap dengan KR serta tugas awal.
 - Pratinjau menampilkan Dasar Analisis AI, bukti terverifikasi, asumsi/data gap,
   konflik dan keputusan BOD, cakupan sumber yang dibaca, rationale Objective,
   serta baseline dan gap setiap Key Result.

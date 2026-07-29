@@ -684,7 +684,7 @@ class OkrTest extends TestCase
         $this->assertSame(0, BoardCard::count());
     }
 
-    public function test_arahan_panel_lengkap_ditolak_jika_objective_hanya_mewakili_satu_fungsi(): void
+    public function test_arahan_panel_lengkap_memulihkan_objective_fungsi_yang_hilang(): void
     {
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrpanelgate');
         $member = $this->user(User::ROLE_ADMIN, 'panelgatepic');
@@ -694,12 +694,16 @@ class OkrTest extends TestCase
         $payload['direction'] = 'Susun OKR perusahaan dengan CMO, CFO, dan COO bekerja bersama.';
 
         $this->actingAs($super)
-            ->from(route('okr.create'))
             ->post(route('okr.generate'), $payload)
-            ->assertRedirect(route('okr.create'))
-            ->assertSessionHas('error');
+            ->assertRedirect();
 
-        $this->assertSame(0, OkrCycle::count());
+        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
+        $this->assertSame(
+            ['cmo', 'cfo', 'coo'],
+            $cycle->objectives->pluck('specialist')->values()->all(),
+        );
+        $this->assertTrue($cycle->objectives->every(fn ($objective) => $objective->keyResults->isNotEmpty()));
+        $this->assertTrue($cycle->objectives->flatMap->keyResults->every(fn ($kr) => $kr->tasks->isNotEmpty()));
     }
 
     public function test_bukti_spesialis_yang_formatnya_meleset_dilengkapi_dari_server(): void

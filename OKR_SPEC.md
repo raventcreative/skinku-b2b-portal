@@ -130,6 +130,10 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
   Source path palsu dibuang dan bukti valid panel dipakai; baseline/gap serta
   konflik yang pendek dilengkapi secara defensif. Keluaran baru ditolak bila
   panel tidak menyediakan diagnosis/data minimum atau struktur kerja kosong.
+- Bila arahan menyebut CMO, CFO, dan COO sekaligus, server memastikan tepat satu
+  Objective per fungsi. Objective duplikat digabung, KR dideduplikasi maksimal
+  empat per fungsi, dan fungsi yang hilang dipulihkan dari proposal spesialis
+  beserta workstream tugasnya.
 - Baseline `actual` hanya sah jika jalurnya ada pada katalog snapshot. Jika
   sumbernya tidak ada, status dipaksa menjadi asumsi/kebutuhan validasi.
 - Maksimum server: 6 Objective, 30 Key Result, dan 60 tugas per generasi.
@@ -190,6 +194,7 @@ pengaturan mapping jabatan terpisah.
 - auto-PIC dan kolom bernama anggota dari aturan delegasi;
 - bukti angka diambil ulang dari snapshot server dan tampil di pratinjau;
 - ringkasan generik/bukti palsu dipulihkan dari panel dan katalog server;
+- Objective fungsi yang hilang/duplikat diseimbangkan dari proposal panel;
 - akun bersama BOD tetap menghasilkan kartu approval di kolom nama BOD;
 - coverage Gracelyn untuk video/UGC dan peringatan Hida tanpa akun;
 - uraian kosong dan tenggat lampau dinormalisasi defensif;
