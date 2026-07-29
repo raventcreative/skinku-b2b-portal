@@ -7,9 +7,12 @@
 
 ## 0. STATUS & DEPLOY
 
-- Fitur OKR dasar sudah ada di `origin/main`. Perbaikan lokal terbaru menambah
-  penyeimbang Objective CMO/CFO/COO dan pemulihan menyeluruh untuk output AI
-  kosong/salah format; commit lokal terbaru masih perlu di-push sebelum deploy.
+- `origin/main` sudah sampai **`cb10fe6`** (`fix: pulihkan OKR saat OpenAI
+  timeout`). Worktree bersih saat handoff dibuat.
+- Perbaikan mencakup penyeimbang Objective CMO/CFO/COO, pemulihan output AI
+  kosong/salah format, dan fallback timeout/rate-limit sementara.
+- Status deploy produksi `cb10fe6` **belum dikonfirmasi**. Untuk commit terbaru
+  tidak ada migrasi baru; cukup `git pull` + `optimize:clear`.
 - **Ada migrasi baru sampai 000066** → deploy WAJIB `migrate --force`.
 
 **Deploy penuh (server produksi):**
@@ -19,6 +22,84 @@ git pull
 /opt/alt/php83/usr/bin/php artisan migrate --force
 /opt/alt/php83/usr/bin/php artisan optimize:clear   # config+route+view sekaligus
 ```
+
+### MULAI DARI SINI BESOK — PRIORITAS OKR
+
+1. Pastikan server benar-benar sudah menerima commit terbaru:
+   ```bash
+   git log -1 --oneline
+   ```
+   Hasil wajib diawali `cb10fe6`. Jika belum:
+   ```bash
+   git pull
+   /opt/alt/php83/usr/bin/php artisan optimize:clear
+   ```
+2. Jalankan ulang prompt OKR Q3 yang sama **satu kali**. Jangan approve dulu.
+3. Periksa hasil pratinjau dengan acceptance checklist:
+   - tepat satu Objective CMO/Freddie, CFO/Billy, dan COO/Devrina;
+   - omzet e-commerce Rp500 juta tidak tercampur target distributor;
+   - target distributor 30 × Rp100 juta/bulan ditandai aspiratif bila baseline
+     aktual belum mendukung;
+   - 5.000 affiliate dibedakan antara daftar, onboarding, aktif konten/live,
+     menghasilkan order, GMV/conversion, dan retention;
+   - 15 master item baru di luar Perfume/Acne memakai tahapan validasi, bukan
+     langsung dianggap siap launch;
+   - tugas Agatha/Tiar/Gracelyn sesuai job desk dan masuk kolom namanya;
+   - tugas approval Freddie/Billy/Devrina memakai akun teknis Super Admin tetapi
+     nama PIC tetap BOD;
+   - Hida diberi peringatan karena belum punya akun/kolom, bukan dialihkan diam-diam;
+   - setiap tugas punya detail, output, PIC, kolom, dan tenggat.
+4. Jika ada tulisan asumsi **“Orchestrator OpenAI gagal sementara”**, hasil panel
+   tetap dipakai dan aman ditinjau. Jika semua panel fallback, jangan langsung
+   approve: kualitasnya lebih generik dan wajib dikoreksi/retry.
+5. Jika masih ada gangguan, periksa:
+   ```bash
+   grep -E "Koneksi OpenAI gagal|OpenAI" storage/logs/laravel.log | tail -50
+   ```
+   Log baru mencatat tahap `single` (Orchestrator) atau `parallel` (panel).
+
+### YANG MASIH KURANG / PERLU DIPERBAIKI
+
+**P0 — validasi produksi**
+
+- Belum ada bukti hasil generate produksi setelah deploy `cb10fe6`. Ini pekerjaan
+  pertama besok; jangan menambah fitur sebelum alur generate → preview → approve
+  → kartu Kanban terbukti sekali dengan prompt asli.
+- Setelah preview lolos checklist, approve dan cek jumlah kartu, label ✨AI,
+  kolom per PIC, serta tautan balik ke OKR.
+
+**P1 — ketajaman data OKR**
+
+- Modul belum menyimpan metrik affiliate lengkap: onboarding, aktif membuat
+  konten/live, order, GMV, conversion, retention, dan produktivitas per affiliate.
+  AI hanya bisa menandainya sebagai kebutuhan validasi sampai sumber data dibuat.
+- Distributor belum punya field/tahap onboarding khusus. Akun aktif saat ini
+  hanya proxy; perlu status `terdaftar → onboarding → aktif transaksi → mencapai
+  Rp100 juta`.
+- Produk baru belum punya pipeline `riset → konsep → costing/HPP → sampling →
+  uji pasar → produksi → launch → evaluasi`. Sistem baru bisa membuktikan master
+  produk yang sudah tersimpan, sehingga target 15 item belum dapat dipantau tajam.
+- Validasi angka produksi tetap diperlukan untuk komposisi omzet per SKU/channel,
+  margin setelah fee/diskon/campaign, kapasitas stok, dan modal kerja.
+
+**P1 — ketahanan proses AI**
+
+- Empat panggilan AI masih terjadi dalam satu request web: tiga panel paralel
+  lalu satu Orchestrator. Fallback mencegah gagal total, tetapi solusi jangka
+  panjang yang lebih kuat adalah job queue + halaman status/progress.
+- Saat dibuat async, simpan hasil tiap panel agar panel yang sukses tidak
+  dipanggil ulang dan hanya tahap gagal yang di-retry.
+- UI sebaiknya membedakan tiga mode: `AI lengkap`, `Orchestrator fallback`, dan
+  `fallback server penuh`, supaya user tahu tingkat keyakinan hasil.
+- Model aktif masih `gpt-4o-mini` dengan output maksimum 1.500 token. Uji prompt
+  asli dahulu; bila hasil sering terpotong/generik, evaluasi model atau batas
+  output dengan mempertimbangkan biaya dan waktu respons.
+
+**P2 — penyempurnaan setelah alur utama stabil**
+
+- Tambah/hapus Objective/KR/tugas manual langsung dari pratinjau.
+- Dashboard progres KR berbasis metrik bisnis aktual; progres sekarang sengaja
+  berbasis kartu Kanban selesai.
 
 **Migrasi baru sesi ini:**
 - `000059_create_community_links` — tabel Komunitas WA per role.
