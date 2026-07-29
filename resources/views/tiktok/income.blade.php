@@ -38,6 +38,12 @@
             @endforeach
         </div>
 
+        @if(($s['backfilled'] ?? 0) > 0)
+            <div class="mt-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
+                ✓ <b>{{ number_format($s['backfilled'], 0, ',', '.') }} baris</b> yang Seller SKU-nya kosong diisi otomatis dari SKU ID yang sama (cuma yang <b>tak ambigu</b> — 1 SKU ID = 1 kode).
+            </div>
+        @endif
+
         @if(count($report['unmapped']))
             <div class="mt-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
                 ⚠️ <b>{{ count($report['unmapped']) }} SKU belum dipetakan</b> ke produk (qty-nya belum masuk kolom item):

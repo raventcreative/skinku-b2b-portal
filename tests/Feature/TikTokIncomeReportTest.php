@@ -79,6 +79,42 @@ class TikTokIncomeReportTest extends TestCase
         $this->assertSame(1, collect($rep['rows'])->firstWhere('order_id', '001')['cat_qty']['Lainnya']);
     }
 
+    public function test_seller_sku_kosong_diisi_dari_sku_id_yang_sama(): void
+    {
+        Product::create(['name' => 'Sabun A', 'sku' => 'Soap-1', 'category' => 'Sabun', 'status' => 'active']);
+        $orderRows = [
+            $this->orderHeader(),
+            $this->orderRowFull('001', 'SID-1', 'Soap-1', 2),   // SID-1 = Soap-1
+            $this->orderRowFull('002', 'SID-1', '', 3),          // kosong → auto Soap-1
+        ];
+        $rep = $this->svc()->build($orderRows, [
+            $this->incomeHeader(), $this->incomeRow('001', 70000, 90000, -20000), $this->incomeRow('002', 100000, 130000, -30000),
+        ]);
+
+        $this->assertSame(1, $rep['summary']['backfilled']);
+        $this->assertSame([], $rep['unmapped']);
+        $byId = collect($rep['rows'])->keyBy('order_id');
+        $this->assertSame(2, $byId['001']['cat_qty']['Sabun']);
+        $this->assertSame(3, $byId['002']['cat_qty']['Sabun']);   // baris kosong ter-resolve
+    }
+
+    public function test_sku_id_ambigu_tidak_ditebak(): void
+    {
+        Product::create(['name' => 'BB Cream', 'sku' => 'BBC-1', 'category' => 'BB', 'status' => 'active']);
+        Product::create(['name' => 'Day Cream', 'sku' => 'DC-1', 'category' => 'Cream', 'status' => 'active']);
+        $orderRows = [
+            $this->orderHeader(),
+            $this->orderRowFull('001', 'AMB', 'BBC-1', 1),
+            $this->orderRowFull('002', 'AMB', 'DC-1', 1),
+            $this->orderRowFull('003', 'AMB', '', 1),   // kosong + SKU ID ambigu → JANGAN ditebak
+        ];
+        $rep = $this->svc()->build($orderRows, [$this->incomeHeader(), $this->incomeRow('003', 5000, 6000, -1000)]);
+
+        $this->assertSame(0, $rep['summary']['backfilled']);
+        $this->assertContains('AMB', $rep['unmapped']);   // dibiarkan sebagai SKU ID mentah
+        $this->assertSame([], collect($rep['rows'])->firstWhere('order_id', '003')['cat_qty']);
+    }
+
     public function test_tanpa_izin_manage_tiktok_ditolak(): void
     {
         $u = User::create([
@@ -134,6 +170,17 @@ class TikTokIncomeReportTest extends TestCase
         $r = array_fill(0, 10, '');
         $r[0] = $id."\t";   // simulasi \t nyangkut ala file TikTok (di-trim service)
         $r[6] = $sku;
+        $r[9] = (string) $qty;
+
+        return $r;
+    }
+
+    private function orderRowFull(string $id, string $skuId, string $sellerSku, int $qty): array
+    {
+        $r = array_fill(0, 10, '');
+        $r[0] = $id."\t";
+        $r[5] = $skuId;       // SKU ID (nomor internal TikTok)
+        $r[6] = $sellerSku;   // Seller SKU (bisa kosong)
         $r[9] = (string) $qty;
 
         return $r;

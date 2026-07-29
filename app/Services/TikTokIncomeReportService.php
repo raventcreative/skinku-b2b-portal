@@ -57,17 +57,40 @@ class TikTokIncomeReportService
      */
     public function build(array $orderRows, array $incomeRows): array
     {
-        // 1) Index baris pesanan per Order ID → daftar {sku, qty}.
-        $orderSkus = [];
-        $csvRead = 0;
+        // 1) Kumpulkan baris pesanan + peta SKU ID → Seller SKU (buat auto-isi kosong).
+        $raw = [];
+        $skuIdSellers = [];
         foreach (array_slice($orderRows, 1) as $r) {
             $oid = trim($r[self::C_ORDER_ID] ?? '');
             if ($oid === '') {
                 continue;
             }
-            $csvRead++;
-            $sku = trim($r[self::C_SELLER_SKU] ?? '') ?: trim($r[self::C_SKU_ID] ?? '');
-            $orderSkus[$oid][] = ['sku' => $sku, 'qty' => max(0, (int) ($r[self::C_QTY] ?? 0))];
+            $sellerSku = trim($r[self::C_SELLER_SKU] ?? '');
+            $skuId = trim($r[self::C_SKU_ID] ?? '');
+            $raw[] = [$oid, $sellerSku, $skuId, max(0, (int) ($r[self::C_QTY] ?? 0))];
+            if ($sellerSku !== '' && $skuId !== '') {
+                $skuIdSellers[$skuId][$sellerSku] = true;
+            }
+        }
+        $csvRead = count($raw);
+
+        // Seller SKU efektif: kalau KOSONG, isi dari SKU ID yang sama HANYA bila SKU ID
+        // itu punya TEPAT SATU Seller SKU (tak ambigu). Kalau ambigu / tak ada bukti →
+        // pakai nomor SKU ID mentah (jadi "belum dikenal", bukan salah tebak barang).
+        $orderSkus = [];
+        $backfilled = 0;
+        foreach ($raw as [$oid, $sellerSku, $skuId, $qty]) {
+            $sku = $sellerSku;
+            if ($sku === '') {
+                $cand = array_keys($skuIdSellers[$skuId] ?? []);
+                if (count($cand) === 1) {
+                    $sku = $cand[0];
+                    $backfilled++;
+                } else {
+                    $sku = $skuId;
+                }
+            }
+            $orderSkus[$oid][] = ['sku' => $sku, 'qty' => $qty];
         }
 
         // 2) Resolve tiap SKU unik → komponen (kategori × qty per 1 unit SKU). Deteksi SKU tak dikenal.
@@ -135,6 +158,7 @@ class TikTokIncomeReportService
                 'matched' => $matched,
                 'unmatched' => $incomeOrders - $matched,
                 'unmapped_count' => count(array_unique($unmapped)),
+                'backfilled' => $backfilled,
             ],
             'columns' => array_keys($columns),
             'rows' => $rows,
