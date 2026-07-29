@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai;
 
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -9,7 +11,7 @@ use Illuminate\Support\Facades\Http;
  * Memetakan format pesan/alat internal (lihat AiProvider) ke bentuk OpenAI dan
  * sebaliknya. Pilih model & max token disuntik factory dari config/AppSetting.
  */
-class OpenAiProvider implements AiProvider
+class OpenAiProvider implements ConcurrentAiProvider
 {
     public function __construct(
         private string $apiKey,
@@ -19,6 +21,58 @@ class OpenAiProvider implements AiProvider
     ) {}
 
     public function chat(array $messages, array $tools): AiTurn
+    {
+        try {
+            $res = Http::withToken($this->apiKey)
+                ->acceptJson()
+                ->timeout(60)
+                ->post($this->endpoint(), $this->payload($messages, $tools));
+        } catch (\Throwable $e) {
+            throw new AiException('Tak bisa menghubungi OpenAI (jaringan/timeout). Coba lagi sebentar.');
+        }
+
+        return $this->turnFromResponse($res);
+    }
+
+    public function chatMany(array $requests): array
+    {
+        if ($requests === []) {
+            return [];
+        }
+
+        try {
+            $responses = Http::pool(function (Pool $pool) use ($requests) {
+                $pending = [];
+                foreach ($requests as $key => $request) {
+                    $pending[] = $pool->as($key)
+                        ->withToken($this->apiKey)
+                        ->acceptJson()
+                        ->timeout(60)
+                        ->post($this->endpoint(), $this->payload(
+                            $request['messages'] ?? [],
+                            $request['tools'] ?? [],
+                        ));
+                }
+
+                return $pending;
+            });
+        } catch (\Throwable $e) {
+            throw new AiException('Tak bisa menghubungi OpenAI saat menjalankan panel paralel (jaringan/timeout). Coba lagi sebentar.');
+        }
+
+        $turns = [];
+        foreach (array_keys($requests) as $key) {
+            $response = $responses[$key] ?? null;
+            if (! $response instanceof Response) {
+                throw new AiException("Panel AI {$key} gagal menerima respons dari OpenAI.");
+            }
+            $turns[$key] = $this->turnFromResponse($response);
+        }
+
+        return $turns;
+    }
+
+    private function payload(array $messages, array $tools): array
     {
         $payload = [
             'model' => $this->model,
@@ -30,20 +84,21 @@ class OpenAiProvider implements AiProvider
             $payload['tool_choice'] = 'auto';
         }
 
-        try {
-            $res = Http::withToken($this->apiKey)
-                ->acceptJson()
-                ->timeout(60)
-                ->post(rtrim($this->base, '/').'/chat/completions', $payload);
-        } catch (\Throwable $e) {
-            throw new AiException('Tak bisa menghubungi OpenAI (jaringan/timeout). Coba lagi sebentar.');
+        return $payload;
+    }
+
+    private function endpoint(): string
+    {
+        return rtrim($this->base, '/').'/chat/completions';
+    }
+
+    private function turnFromResponse(Response $response): AiTurn
+    {
+        if (! $response->successful()) {
+            throw new AiException($this->explain($response->status(), $response->json('error.message')));
         }
 
-        if (! $res->successful()) {
-            throw new AiException($this->explain($res->status(), $res->json('error.message')));
-        }
-
-        return $this->parse($res->json('choices.0.message') ?? []);
+        return $this->parse($response->json('choices.0.message') ?? []);
     }
 
     /** Pesan internal → format OpenAI. */

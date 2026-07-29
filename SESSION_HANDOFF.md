@@ -1,7 +1,7 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **511 test lulus (2292 assertions)** setelah quality gate analisis berbasis bukti.
+> Baseline sebelum OKR: `37820b9`. **512 test lulus (2298 assertions)** setelah panel paralel dan quality gate analisis berbasis bukti.
 
 ---
 
@@ -85,7 +85,7 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
 
 - Alur minim setting: pilih bulanan/kuartalan + cakupan perusahaan/tim/individu + arahan; papan utama opsional.
 - AI membaca Pengetahuan AI + anggota/papan/kolom aktif, lalu membuat draf `Objective → Key Result → tugas per individu`.
-- **Panel spesialis:** CMO AI + CFO AI + COO AI membuat usulan bidang masing-masing, lalu AI Orchestrator menyelaraskan hasil final. Total 4 giliran provider per generate.
+- **Panel spesialis:** CMO AI + CFO AI + COO AI membuat usulan bidang masing-masing secara paralel, lalu AI Orchestrator menyelaraskan hasil final. Total tetap 4 giliran provider, tetapi waktu tunggu panel tidak dijumlahkan.
 - **Data aktual per fungsi:** CMO baca penjualan/channel/KOL/TikTok; CFO baca laporan keuangan/margin/piutang/settlement; COO baca stok/produksi/PO/operasional. Semua disaring menurut izin user lewat `OkrBusinessSnapshotService`.
 - Snapshot analitis diperluas dengan tren tiga bulan, pemisahan omzet e-commerce
   dan distributor, funnel distributor Rp100 juta, portofolio produk, tren
@@ -127,7 +127,7 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
 - Uji offline: `tests/Feature/OkrTest.php`; total suite setelah quality gate
-  analisis **511 lulus / 2292 assertions**.
+  analisis **512 lulus / 2298 assertions**.
 
 ---
 
@@ -136,7 +136,7 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
 1. **OpenAI:** set **spending cap** (Billing → Usage limits). Key sudah di `.env`.
 2. **Laporan Income TikTok:** upload file asli → cek (a) angka uang bener (kalau meleset, indeks kolom income `[5]/[6]/[14]` mungkin geser), (b) kolom item-besar rapi (dari `Product.category`), (c) "SKU tak dikenal" → lengkapi di **Peta SKU** (halaman Pesanan TikTok, sekarang tanpa reload).
 3. **Komunitas / Pengumuman:** cek fitur baru sesuai kebutuhan.
-4. **OKR:** isi bagian "Strategi & aturan OKR", generate satu draf kecil, periksa label CMO/CFO/COO + pembagian orang/kolom/tenggat, baru approve. Satu generate = 4 panggilan AI.
+4. **OKR:** isi bagian "Strategi & aturan OKR", generate satu draf kecil, periksa label CMO/CFO/COO + pembagian orang/kolom/tenggat, baru approve. Satu generate = 3 panel paralel + 1 Orchestrator.
 
 ---
 

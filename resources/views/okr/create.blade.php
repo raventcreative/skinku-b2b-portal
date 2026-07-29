@@ -93,7 +93,7 @@
         <button class="w-full px-5 py-3 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold">
             ✨ Jalankan Panel AI & Buat Pratinjau
         </button>
-        <p class="text-center text-[11px] text-stone-400">Proses memakai 4 giliran AI: CMO, CFO, COO, lalu Orchestrator. Belum ada kartu Kanban yang dibuat.</p>
+        <p class="text-center text-[11px] text-stone-400">CMO, CFO, dan COO dijalankan paralel; setelah semuanya selesai, Orchestrator menyusun pratinjau. Belum ada kartu Kanban yang dibuat.</p>
     </form>
 </div>
 @endsection

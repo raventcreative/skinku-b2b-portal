@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AppSetting;
 use App\Services\Ai\AiException;
 use App\Services\Ai\AiProviderFactory;
+use App\Services\Ai\ConcurrentAiProvider;
 use App\Services\Ai\OpenAiProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -68,6 +69,30 @@ class AiProviderTest extends TestCase
         $this->assertSame('buat_kartu_kanban', $turn->toolCalls[0]['name']);
         $this->assertSame('Tes', $turn->toolCalls[0]['arguments']['judul']);
         $this->assertSame('call_1', $turn->toolCalls[0]['id']);
+    }
+
+    public function test_panel_independen_bisa_dikirim_paralel(): void
+    {
+        Http::fake([
+            'api.openai.com/*' => Http::sequence()
+                ->push(['choices' => [['message' => ['content' => 'CMO siap']]]], 200)
+                ->push(['choices' => [['message' => ['content' => 'CFO siap']]]], 200)
+                ->push(['choices' => [['message' => ['content' => 'COO siap']]]], 200),
+        ]);
+        $provider = $this->provider();
+
+        $this->assertInstanceOf(ConcurrentAiProvider::class, $provider);
+        $turns = $provider->chatMany([
+            'cmo' => ['messages' => [['role' => 'user', 'content' => 'CMO']], 'tools' => []],
+            'cfo' => ['messages' => [['role' => 'user', 'content' => 'CFO']], 'tools' => []],
+            'coo' => ['messages' => [['role' => 'user', 'content' => 'COO']], 'tools' => []],
+        ]);
+
+        $this->assertSame(['cmo', 'cfo', 'coo'], array_keys($turns));
+        $this->assertSame('CMO siap', $turns['cmo']->text);
+        $this->assertSame('CFO siap', $turns['cfo']->text);
+        $this->assertSame('COO siap', $turns['coo']->text);
+        Http::assertSentCount(3);
     }
 
     public function test_petakan_riwayat_toolcall_dan_hasil_alat(): void

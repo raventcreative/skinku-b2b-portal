@@ -106,7 +106,9 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
 
 - Tetap provider-agnostic lewat `AiProvider`.
 - Tanpa SDK/paket baru; mengikuti arsitektur AI zero-dependency yang sudah ada.
-- Satu generate memakai **4 giliran AI**: CMO, CFO, COO, lalu Orchestrator.
+- Satu generate memakai **4 giliran AI**: CMO, CFO, dan COO dijalankan paralel
+  oleh provider yang mendukung `ConcurrentAiProvider`; setelah ketiganya selesai,
+  Orchestrator dijalankan satu kali. Provider lain tetap punya fallback berurutan.
 - `OkrBusinessSnapshotService` memberi data aktual read-only:
   - CMO: penjualan/channel, produk, KOL/deal, status TikTok;
   - CFO: laba-rugi, neraca, arus kas, margin, piutang tempo, settlement TikTok;
@@ -194,7 +196,8 @@ pengaturan mapping jabatan terpisah.
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah quality gate analisis berbasis bukti: **511 test lulus, 2292 assertions**.
+Baseline setelah panel paralel dan quality gate analisis berbasis bukti:
+**512 test lulus, 2298 assertions**.
 
 ---
 

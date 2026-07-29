@@ -10,6 +10,8 @@ use App\Models\OkrObjective;
 use App\Models\User;
 use App\Services\Ai\AiException;
 use App\Services\Ai\AiProvider;
+use App\Services\Ai\AiTurn;
+use App\Services\Ai\ConcurrentAiProvider;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -62,18 +64,11 @@ class OkrAiService
         // Provider sengaja di-resolve hanya saat tombol generate ditekan. Halaman
         // OKR dan progres tetap bisa dibuka walau key AI sedang kosong/bermasalah.
         $provider = app(AiProvider::class);
-        $proposals = [];
         $liveData = [];
         foreach (self::SPECIALISTS as $key => $profile) {
             $liveData[$key] = $this->snapshots->for($key, $user, $input);
-            $proposals[$key] = $this->specialistProposal(
-                provider: $provider,
-                specialist: $key,
-                profile: $profile,
-                input: $input,
-                liveData: $liveData[$key],
-            );
         }
+        $proposals = $this->specialistProposals($provider, $input, $liveData);
 
         $messages = [
             ['role' => 'system', 'content' => $this->orchestratorSystemPrompt()],
@@ -326,22 +321,61 @@ class OkrAiService
     }
 
     /**
-     * @param  array{label:string,focus:string}  $profile
+     * Jalankan CMO, CFO, dan COO secara paralel bila provider mendukungnya.
+     * Ketiganya independen; Orchestrator tetap menunggu semua hasil.
+     *
      * @param  array<string,mixed>  $input
-     * @param  array<string,mixed>  $liveData
+     * @param  array<string,array<string,mixed>>  $liveData
+     * @return array<string,array<string,mixed>>
      */
-    private function specialistProposal(
+    private function specialistProposals(
         AiProvider $provider,
-        string $specialist,
-        array $profile,
         array $input,
         array $liveData,
     ): array {
-        $messages = [
-            ['role' => 'system', 'content' => $this->specialistSystemPrompt($profile)],
-            ['role' => 'user', 'content' => $this->specialistUserPrompt($specialist, $input, $liveData)],
-        ];
-        $turn = $provider->chat($messages, [$this->proposalSchema()]);
+        $requests = [];
+        foreach (self::SPECIALISTS as $key => $profile) {
+            $requests[$key] = [
+                'messages' => [
+                    ['role' => 'system', 'content' => $this->specialistSystemPrompt($profile)],
+                    ['role' => 'user', 'content' => $this->specialistUserPrompt($key, $input, $liveData[$key])],
+                ],
+                'tools' => [$this->proposalSchema()],
+            ];
+        }
+
+        if ($provider instanceof ConcurrentAiProvider) {
+            $turns = $provider->chatMany($requests);
+        } else {
+            $turns = [];
+            foreach ($requests as $key => $request) {
+                $turns[$key] = $provider->chat($request['messages'], $request['tools']);
+            }
+        }
+
+        $proposals = [];
+        foreach (self::SPECIALISTS as $key => $profile) {
+            $proposals[$key] = $this->specialistProposal(
+                turn: $turns[$key] ?? new AiTurn,
+                specialist: $key,
+                profile: $profile,
+                liveData: $liveData[$key],
+            );
+        }
+
+        return $proposals;
+    }
+
+    /**
+     * @param  array{label:string,focus:string}  $profile
+     * @param  array<string,mixed>  $liveData
+     */
+    private function specialistProposal(
+        AiTurn $turn,
+        string $specialist,
+        array $profile,
+        array $liveData,
+    ): array {
         $call = collect($turn->toolCalls)->firstWhere('name', 'usulkan_okr_spesialis');
         if (! $call || ! is_array($call['arguments'] ?? null)) {
             throw new AiException("Spesialis AI {$profile['label']} belum menghasilkan usulan yang valid. Coba generate ulang.");
@@ -465,8 +499,8 @@ class OkrAiService
             "ARAHAN USER:\n{$input['direction']}",
             "PENGETAHUAN BISNIS & DELEGASI:\n".($knowledge ?: '(belum diisi)'),
             'SNAPSHOT DATA AKTUAL BIDANGMU (JSON): '.json_encode($liveData, JSON_UNESCAPED_UNICODE),
-            'KATALOG BUKTI YANG BOLEH DIKUTIP (source_path => nilai aktual): '.json_encode(
-                collect($catalog)->map(fn (array $fact) => $fact['value'])->all(),
+            'SOURCE_PATH YANG BOLEH DIKUTIP (nilainya ada pada snapshot di atas): '.json_encode(
+                array_keys($catalog),
                 JSON_UNESCAPED_UNICODE,
             ),
             'Berikan diagnosis, gap target, pilihan strategi, dan usulan paling berdampak dari sudut pandangmu. Tandai semua data yang belum tersedia.',
@@ -530,7 +564,6 @@ class OkrAiService
             'PAPAN & KOLOM AKTIF (JSON): '.json_encode($boards, JSON_UNESCAPED_UNICODE),
             'PAPAN PILIHAN USER: '.($preferred ?: 'otomatis pilih yang paling sesuai'),
             'USULAN PANEL SPESIALIS (JSON): '.json_encode($proposals, JSON_UNESCAPED_UNICODE),
-            'SNAPSHOT PENDUKUNG PER SPESIALIS (JSON): '.json_encode($liveData, JSON_UNESCAPED_UNICODE),
             'KATALOG BUKTI FINAL (source_path => nilai aktual): '.json_encode(
                 collect($catalog)->map(fn (array $fact) => $fact['value'])->all(),
                 JSON_UNESCAPED_UNICODE,
