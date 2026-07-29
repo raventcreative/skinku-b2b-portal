@@ -120,10 +120,12 @@ class OkrTest extends TestCase
         $admin = $this->user(User::ROLE_ADMIN, 'okradm');
         $partner = $this->user(User::ROLE_DISTRIBUTOR, 'okrmitra');
 
-        $this->actingAs($super)->get(route('okr.create'))->assertOk()
+        $response = $this->actingAs($super)->get(route('okr.create'));
+        $response->assertOk()
             ->assertSee('Susun OKR dengan AI')
             ->assertSee('Bulanan')
             ->assertSee('Kuartalan');
+        $this->assertSame(1, substr_count($response->getContent(), 'href="'.route('okr.index').'"'));
         $this->actingAs($admin)->get(route('okr.index'))->assertOk();
         $this->actingAs($admin)->get(route('okr.create'))->assertForbidden();
         $this->actingAs($partner)->get(route('okr.index'))->assertForbidden();

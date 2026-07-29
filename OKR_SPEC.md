@@ -132,7 +132,7 @@ pengaturan mapping jabatan terpisah.
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah implementasi panel spesialis: **505 test lulus, 2224 assertions**.
+Baseline setelah implementasi panel spesialis: **505 test lulus, 2226 assertions**.
 
 ---
 

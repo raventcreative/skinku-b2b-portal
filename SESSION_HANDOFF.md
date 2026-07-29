@@ -1,7 +1,7 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **505 test lulus (2224 assertions)** setelah implementasi panel OKR.
+> Baseline sebelum OKR: `37820b9`. **505 test lulus (2226 assertions)** setelah implementasi panel OKR.
 
 ---
 
@@ -84,12 +84,13 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
 - **Data aktual per fungsi:** CMO baca penjualan/channel/KOL/TikTok; CFO baca laporan keuangan/margin/piutang/settlement; COO baca stok/produksi/PO/operasional. Semua disaring menurut izin user lewat `OkrBusinessSnapshotService`.
 - CMO/CFO/COO hanya perspektif AI; BOD dan PIC manusia tetap diinferensikan dari Pengetahuan AI (tidak ada setting mapping jabatan baru).
 - Setiap Objective menyimpan label spesialis `cmo/cfo/coo`; label ikut terlihat di pratinjau, halaman aktif, dan deskripsi kartu.
+- Sidebar dirapikan: link **Pengetahuan AI** yang sebelumnya tampil dua kali sekarang hanya satu; menu **OKR** tampil setelah Kanban.
 - Pratinjau dapat mengubah teks, owner, metrik/target, penerima, kolom, dan tenggat.
 - Persetujuan eksplisit membuat semua kartu Kanban secara atomik; kartu memakai `created_via=ai` dan tertaut ke tugas OKR.
 - Progres Objective/KR otomatis dari `BoardCard.completed_at`; masuk/keluar Done/Selesai langsung mengubah progres.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
-- Uji offline: `tests/Feature/OkrTest.php`; total suite **505 lulus / 2224 assertions**.
+- Uji offline: `tests/Feature/OkrTest.php`; total suite **505 lulus / 2226 assertions**.
 
 ---
 

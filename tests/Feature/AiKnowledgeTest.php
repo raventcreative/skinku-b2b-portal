@@ -36,12 +36,17 @@ class AiKnowledgeTest extends TestCase
     {
         $this->actingAs($this->user(User::ROLE_DISTRIBUTOR, 'dst'))->get(route('ai.knowledge'))->assertForbidden();
 
-        $this->actingAs($this->super())->get(route('ai.knowledge'))->assertOk()
+        $response = $this->actingAs($this->super())->get(route('ai.knowledge'));
+        $response->assertOk()
             ->assertSee('Pengetahuan AI')
             ->assertSee('Tentang bisnis')
             ->assertSee('Tim & tanggung jawab')
             ->assertSee('Strategi & aturan OKR')
             ->assertSee('bikin asisten tahu mau delegasi tugas', false);   // pertanyaan pemandu
+
+        // Sidebar hanya boleh punya satu link Pengetahuan AI. Dulu link yang sama
+        // terdaftar setelah Kanban dan sekali lagi dekat Pengaturan Sistem.
+        $this->assertSame(1, substr_count($response->getContent(), 'href="'.route('ai.knowledge').'"'));
     }
 
     public function test_simpan_pengetahuan_per_bagian(): void
