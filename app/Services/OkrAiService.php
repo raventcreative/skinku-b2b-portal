@@ -108,6 +108,7 @@ class OkrAiService
                     'title' => $objectiveData['title'],
                     'description' => $objectiveData['description'],
                     'owner_user_id' => $objectiveData['owner_user_id'],
+                    'owner_name' => $objectiveData['owner_name'],
                     'position' => $oi,
                 ]);
                 foreach ($objectiveData['key_results'] as $ki => $krData) {
@@ -116,6 +117,7 @@ class OkrAiService
                         'metric' => $krData['metric'],
                         'target' => $krData['target'],
                         'owner_user_id' => $krData['owner_user_id'],
+                        'owner_name' => $krData['owner_name'],
                         'due_date' => $krData['due_date'],
                         'position' => $ki,
                     ]);
@@ -223,15 +225,17 @@ class OkrAiService
         $keyResults = $objectives->flatMap->keyResults;
         $tasks = $cycle->objectives->flatMap->keyResults->flatMap->tasks;
         $issues = [];
-        if ($objectives->contains(fn ($objective) => ! $objective->owner
-            || ! $objective->owner->isActive()
-            || $objective->owner->isPartner())) {
-            $issues[] = 'Semua Objective harus punya penanggung jawab internal yang aktif.';
+        if ($objectives->contains(fn ($objective) => blank($objective->ownerLabel())
+            || ($objective->owner_user_id && (! $objective->owner
+                || ! $objective->owner->isActive()
+                || $objective->owner->isPartner())))) {
+            $issues[] = 'Semua Objective harus punya nama penanggung jawab.';
         }
-        if ($keyResults->contains(fn ($keyResult) => ! $keyResult->owner
-            || ! $keyResult->owner->isActive()
-            || $keyResult->owner->isPartner())) {
-            $issues[] = 'Semua Key Result harus punya penanggung jawab internal yang aktif.';
+        if ($keyResults->contains(fn ($keyResult) => blank($keyResult->ownerLabel())
+            || ($keyResult->owner_user_id && (! $keyResult->owner
+                || ! $keyResult->owner->isActive()
+                || $keyResult->owner->isPartner())))) {
+            $issues[] = 'Semua Key Result harus punya nama penanggung jawab.';
         }
         if ($tasks->isEmpty()) {
             $issues[] = 'Draf belum punya tugas.';
@@ -515,6 +519,7 @@ class OkrAiService
     {
         $memberIds = array_column($members, 'id');
         $specialistOwners = $this->specialistOwners($members);
+        $specialistOwnerNames = $this->specialistOwnerNames();
         $delegationRules = $this->delegationRules($members);
         $columns = collect($boards)->flatMap(fn (array $board) => $board['columns']);
         $actionableColumns = $columns->filter(fn (array $column) => ! $column['done']);
@@ -534,6 +539,12 @@ class OkrAiService
             $specialist = array_key_exists((string) ($objectiveData['specialist'] ?? ''), OkrObjective::SPECIALISTS)
                 ? (string) $objectiveData['specialist']
                 : 'cmo';
+            $ownerId = array_key_exists($specialist, $specialistOwnerNames)
+                ? ($specialistOwners[$specialist] ?? null)
+                : $this->validMember($objectiveData['owner_user_id'] ?? null, $memberIds);
+            $ownerName = $specialistOwnerNames[$specialist]
+                ?? $this->memberName($ownerId, $members)
+                ?? $this->specialistLabel($specialist);
             $keyResults = [];
             foreach ((array) ($objectiveData['key_results'] ?? []) as $krData) {
                 if ($krCount >= self::MAX_KEY_RESULTS || ! is_array($krData) || blank($krData['title'] ?? null)) {
@@ -578,8 +589,8 @@ class OkrAiService
                     'title' => Str::limit(trim($krData['title']), 255, ''),
                     'metric' => $this->nullableText($krData['metric'] ?? null, 255),
                     'target' => $this->nullableText($krData['target'] ?? null, 255),
-                    'owner_user_id' => $specialistOwners[$specialist]
-                        ?? $this->validMember($krData['owner_user_id'] ?? null, $memberIds),
+                    'owner_user_id' => $ownerId,
+                    'owner_name' => $ownerName,
                     'due_date' => $this->safeDate($krData['due_date'] ?? null, $input),
                     'tasks' => $tasks,
                 ];
@@ -593,8 +604,8 @@ class OkrAiService
                 'title' => Str::limit(trim($objectiveData['title']), 255, ''),
                 'description' => $this->nullableText($objectiveData['description'] ?? null, 4000)
                     ?? 'Objective '.$objectiveData['title'].' disusun oleh panel '.$this->specialistLabel($specialist).' AI berdasarkan target dan data aktual.',
-                'owner_user_id' => $specialistOwners[$specialist]
-                    ?? $this->validMember($objectiveData['owner_user_id'] ?? null, $memberIds),
+                'owner_user_id' => $ownerId,
+                'owner_name' => $ownerName,
                 'key_results' => $keyResults,
             ];
         }
@@ -639,6 +650,31 @@ class OkrAiService
         }
 
         return $owners;
+    }
+
+    /** @return array<string,string> */
+    private function specialistOwnerNames(): array
+    {
+        $team = (string) (AiKnowledge::map()['team'] ?? '');
+        $names = [];
+
+        foreach (self::SPECIALISTS as $key => $profile) {
+            foreach (preg_split('/\R/u', $team) ?: [] as $line) {
+                if (! preg_match('/\b'.preg_quote($profile['label'], '/').'\b/iu', $line)) {
+                    continue;
+                }
+                if (preg_match('/^\s*[-*]?\s*([^—–\r\n]+?)\s*(?:—|–|-\s)\s*'.preg_quote($profile['label'], '/').'\b/iu', $line, $match)) {
+                    $name = trim($match[1], " \t\n\r\0\x0B-");
+                    if ($name !== '') {
+                        $names[$key] = $name;
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $names;
     }
 
     /**
@@ -783,6 +819,17 @@ class OkrAiService
     private function specialistLabel(string $specialist): string
     {
         return self::SPECIALISTS[$specialist]['label'] ?? strtoupper($specialist);
+    }
+
+    /** @param array<int,array{id:int,name:string,role:string}> $members */
+    private function memberName(?int $memberId, array $members): ?string
+    {
+        if (! $memberId) {
+            return null;
+        }
+        $member = collect($members)->firstWhere('id', $memberId);
+
+        return $member['name'] ?? null;
     }
 
     private function normalise(string $value): string

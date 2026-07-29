@@ -103,12 +103,14 @@ class OkrController extends Controller
             'objectives.*.title' => ['required', 'string', 'max:255'],
             'objectives.*.specialist' => ['required', 'in:'.implode(',', array_keys(OkrObjective::SPECIALISTS))],
             'objectives.*.description' => ['nullable', 'string', 'max:4000'],
-            'objectives.*.owner_user_id' => ['required', 'integer', 'exists:users,id'],
+            'objectives.*.owner_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'objectives.*.owner_name' => ['nullable', 'string', 'max:255'],
             'key_results' => ['required', 'array'],
             'key_results.*.title' => ['required', 'string', 'max:255'],
             'key_results.*.metric' => ['nullable', 'string', 'max:255'],
             'key_results.*.target' => ['nullable', 'string', 'max:255'],
-            'key_results.*.owner_user_id' => ['required', 'integer', 'exists:users,id'],
+            'key_results.*.owner_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'key_results.*.owner_name' => ['nullable', 'string', 'max:255'],
             'key_results.*.due_date' => ['required', 'date_format:Y-m-d'],
             'tasks' => ['required', 'array'],
             'tasks.*.title' => ['required', 'string', 'max:255'],
@@ -121,8 +123,9 @@ class OkrController extends Controller
         $okr->load('objectives.keyResults.tasks');
         $this->validatePreviewReferences($okr, $data);
         $taskColumns = $this->matchedTaskColumns($okr, $data);
+        $owners = $this->resolvedOwners($okr, $data);
 
-        DB::transaction(function () use ($okr, $data, $request, $taskColumns) {
+        DB::transaction(function () use ($okr, $data, $request, $taskColumns, $owners) {
             $okr->update(['name' => $data['name'], 'direction' => $data['direction']]);
             foreach ($okr->objectives as $objective) {
                 $row = $data['objectives'][$objective->id];
@@ -130,7 +133,8 @@ class OkrController extends Controller
                     'specialist' => $row['specialist'],
                     'title' => $row['title'],
                     'description' => $row['description'] ?? null,
-                    'owner_user_id' => $row['owner_user_id'] ?? null,
+                    'owner_user_id' => $owners['objectives'][$objective->id]['user_id'],
+                    'owner_name' => $owners['objectives'][$objective->id]['name'],
                 ]);
                 foreach ($objective->keyResults as $kr) {
                     $krRow = $data['key_results'][$kr->id];
@@ -138,7 +142,8 @@ class OkrController extends Controller
                         'title' => $krRow['title'],
                         'metric' => $krRow['metric'] ?? null,
                         'target' => $krRow['target'] ?? null,
-                        'owner_user_id' => $krRow['owner_user_id'] ?? null,
+                        'owner_user_id' => $owners['key_results'][$kr->id]['user_id'],
+                        'owner_name' => $owners['key_results'][$kr->id]['name'],
                         'due_date' => $krRow['due_date'],
                     ]);
                     foreach ($kr->tasks as $task) {
@@ -354,5 +359,71 @@ class OkrController extends Controller
     private function normaliseName(string $value): string
     {
         return Str::of($value)->lower()->replaceMatches('/[^\pL\pN ]+/u', ' ')->squish()->toString();
+    }
+
+    /**
+     * BOD boleh menjadi penanggung jawab meski belum mempunyai akun portal.
+     * Jika namanya cocok dengan anggota aktif, relasi user tetap ditautkan.
+     *
+     * @param  array<string,mixed>  $data
+     * @return array{objectives:array<int,array{name:string,user_id:?int}>,key_results:array<int,array{name:string,user_id:?int}>}
+     */
+    private function resolvedOwners(OkrCycle $okr, array $data): array
+    {
+        $members = $this->members();
+        $resolved = ['objectives' => [], 'key_results' => []];
+        $errors = [];
+
+        foreach ($okr->objectives as $objective) {
+            $row = $data['objectives'][$objective->id];
+            $resolved['objectives'][$objective->id] = $this->resolvedOwner(
+                $row['owner_name'] ?? null,
+                $row['owner_user_id'] ?? null,
+                $members,
+            );
+            if (blank($resolved['objectives'][$objective->id]['name'])) {
+                $errors[] = "Objective \"{$objective->title}\" belum punya nama penanggung jawab.";
+            }
+
+            foreach ($objective->keyResults as $kr) {
+                $krRow = $data['key_results'][$kr->id];
+                $resolved['key_results'][$kr->id] = $this->resolvedOwner(
+                    $krRow['owner_name'] ?? null,
+                    $krRow['owner_user_id'] ?? null,
+                    $members,
+                );
+                if (blank($resolved['key_results'][$kr->id]['name'])) {
+                    $errors[] = "Key Result \"{$kr->title}\" belum punya nama penanggung jawab.";
+                }
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages(['okr' => implode(' ', $errors)]);
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * @param  Collection<int,User>  $members
+     * @return array{name:string,user_id:?int}
+     */
+    private function resolvedOwner(mixed $name, mixed $userId, Collection $members): array
+    {
+        $name = trim((string) $name);
+        if ($name !== '') {
+            $normalised = $this->normaliseName($name);
+            $member = $members->first(fn (User $candidate) => $this->normaliseName($candidate->displayName()) === $normalised);
+
+            return ['name' => $name, 'user_id' => $member?->id];
+        }
+
+        $member = $members->firstWhere('id', (int) $userId);
+
+        return [
+            'name' => $member?->displayName() ?? '',
+            'user_id' => $member?->id,
+        ];
     }
 }

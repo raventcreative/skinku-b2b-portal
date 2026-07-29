@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class OkrObjective extends Model
 {
     protected $fillable = [
-        'okr_cycle_id', 'specialist', 'title', 'description', 'owner_user_id', 'position',
+        'okr_cycle_id', 'specialist', 'title', 'description', 'owner_user_id', 'owner_name', 'position',
     ];
 
     public const SPECIALISTS = [
@@ -34,5 +34,10 @@ class OkrObjective extends Model
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function ownerLabel(): ?string
+    {
+        return $this->owner_name ?: $this->owner?->displayName();
     }
 }

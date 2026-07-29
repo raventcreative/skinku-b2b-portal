@@ -8,7 +8,7 @@ class OkrKeyResult extends Model
 {
     protected $fillable = [
         'okr_objective_id', 'title', 'metric', 'target',
-        'owner_user_id', 'due_date', 'position',
+        'owner_user_id', 'owner_name', 'due_date', 'position',
     ];
 
     protected function casts(): array
@@ -29,5 +29,10 @@ class OkrKeyResult extends Model
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function ownerLabel(): ?string
+    {
+        return $this->owner_name ?: $this->owner?->displayName();
     }
 }

@@ -29,6 +29,9 @@
 - AI mengisi penjelasan pekerjaan, owner Objective/KR, PIC, tenggat, dan kolom
   Kanban dari ID nyata. Server juga mencocokkan struktur BOD, aturan delegasi
   bertanda `→`, serta kolom To Do bernama PIC dari Pengetahuan AI.
+- Owner BOD tidak wajib mempunyai akun portal. Nama seperti Freddie/CMO,
+  Billy/CFO, dan Devrina/COO tetap disimpan di `owner_name`; `owner_user_id`
+  hanya ditautkan bila ada akun internal aktif dengan nama yang cocok.
 - Pratinjau utama berupa ringkasan siap-setujui dengan lebar terbatas dan kartu
   pekerjaan dua kolom. Koreksi dilakukan langsung pada Objective, Key Result,
   atau kartu tugas melalui tombol **Edit** di bagian terkait; tidak ada formulir
@@ -68,6 +71,11 @@ Migrasi `2026_01_01_000063_create_okr_tables.php`:
 - `okr_key_results`: metrik, target, owner, tenggat.
 - `okr_tasks`: pekerjaan spesifik, penerima, kolom tujuan, tenggat, dan relasi
   satu-ke-satu ke `board_cards`.
+
+Migrasi `2026_01_01_000064_add_owner_names_to_okr_tables.php` menambahkan
+`owner_name` pada Objective dan Key Result. Migrasi ini juga mengisi draf lama
+dari pola BOD di Pengetahuan AI, sehingga owner tidak kosong hanya karena BOD
+belum mempunyai akun portal.
 
 Jika kartu dihapus secara soft-delete, tugas OKR tetap tersimpan tetapi progresnya
 tidak dianggap selesai dan UI menandai kartu tidak tersedia.
@@ -146,7 +154,7 @@ pengaturan mapping jabatan terpisah.
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah penyempurnaan editor inline: **506 test lulus, 2244 assertions**.
+Baseline setelah dukungan owner BOD tanpa akun portal: **507 test lulus, 2260 assertions**.
 
 ---
 

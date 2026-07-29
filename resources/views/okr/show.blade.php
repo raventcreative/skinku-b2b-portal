@@ -16,8 +16,8 @@
         : $okr->start_date->toDateString();
     $showEditors = $errors->any();
     $legacyDraft = $okr->isDraft() && (
-        $okr->objectives->contains(fn($objective) => !$objective->owner_user_id)
-        || $okr->objectives->flatMap(fn($objective) => $objective->keyResults)->contains(fn($kr) => !$kr->owner_user_id)
+        $okr->objectives->contains(fn($objective) => blank($objective->ownerLabel()))
+        || $okr->objectives->flatMap(fn($objective) => $objective->keyResults)->contains(fn($kr) => blank($kr->ownerLabel()))
         || $allTasks->contains(fn($task) => blank($task->description))
     );
 @endphp
@@ -96,7 +96,7 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 <p class="text-[10px] font-bold tracking-wider text-red-600 uppercase">Objective {{ $oi + 1 }}</p>
                                 <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-100 text-indigo-700">{{ $objective->specialistLabel() }} AI</span>
-                                <span class="text-[11px] text-stone-500">Penanggung jawab: <b class="{{ $objective->owner ? 'text-stone-700' : 'text-rose-600' }}">{{ $objective->owner?->displayName() ?: 'belum terisi' }}</b></span>
+                                <span class="text-[11px] text-stone-500">Penanggung jawab: <b class="{{ $objective->ownerLabel() ? 'text-stone-700' : 'text-rose-600' }}">{{ $objective->ownerLabel() ?: 'belum terisi' }}</b></span>
                             </div>
                             <h4 class="font-bold text-stone-900 mt-1">{{ $objective->title }}</h4>
                             @if($objective->description)<p class="text-xs text-stone-600 mt-1 max-w-3xl">{{ $objective->description }}</p>@endif
@@ -126,13 +126,8 @@
                                 <input name="objectives[{{ $objective->id }}][title]" required maxlength="255" value="{{ old('objectives.'.$objective->id.'.title', $objective->title) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-bold">
                             </label>
                             <label>
-                                <span class="text-[10px] font-bold text-stone-600 uppercase">Penanggung jawab</span>
-                                <select name="objectives[{{ $objective->id }}][owner_user_id]" required class="mt-1 block w-full px-2 py-2 border border-stone-300 rounded-lg text-xs">
-                                    <option value="">Pilih penanggung jawab</option>
-                                    @foreach($members as $member)
-                                        <option value="{{ $member->id }}" @selected((int) old('objectives.'.$objective->id.'.owner_user_id', $objective->owner_user_id) === $member->id)>{{ $member->displayName() }}</option>
-                                    @endforeach
-                                </select>
+                                <span class="text-[10px] font-bold text-stone-600 uppercase">Nama penanggung jawab</span>
+                                <input name="objectives[{{ $objective->id }}][owner_name]" required maxlength="255" value="{{ old('objectives.'.$objective->id.'.owner_name', $objective->ownerLabel()) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs">
                             </label>
                             <label class="md:col-span-3">
                                 <span class="text-[10px] font-bold text-stone-600 uppercase">Penjelasan Objective</span>
@@ -159,7 +154,7 @@
                                     <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-[11px] text-stone-500">
                                         <span>Metrik: <b class="text-stone-700">{{ $kr->metric ?: 'belum terisi' }}</b></span>
                                         <span>Target: <b class="text-stone-700">{{ $kr->target ?: 'belum terisi' }}</b></span>
-                                        <span>Penanggung jawab: <b class="{{ $kr->owner ? 'text-stone-700' : 'text-rose-600' }}">{{ $kr->owner?->displayName() ?: 'belum terisi' }}</b></span>
+                                        <span>Penanggung jawab: <b class="{{ $kr->ownerLabel() ? 'text-stone-700' : 'text-rose-600' }}">{{ $kr->ownerLabel() ?: 'belum terisi' }}</b></span>
                                         <span>Tenggat: <b class="text-stone-700">{{ $kr->due_date?->format('d M Y') ?: 'belum terisi' }}</b></span>
                                     </div>
                                 </div>
@@ -181,12 +176,7 @@
                                         <label><span class="text-[10px] text-stone-500">Target angka</span><input name="key_results[{{ $kr->id }}][target]" maxlength="255" value="{{ old('key_results.'.$kr->id.'.target', $kr->target) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs"></label>
                                         <label>
                                             <span class="text-[10px] text-stone-500">Penanggung jawab KR</span>
-                                            <select name="key_results[{{ $kr->id }}][owner_user_id]" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs">
-                                                <option value="">Pilih penanggung jawab</option>
-                                                @foreach($members as $member)
-                                                    <option value="{{ $member->id }}" @selected((int) old('key_results.'.$kr->id.'.owner_user_id', $kr->owner_user_id) === $member->id)>{{ $member->displayName() }}</option>
-                                                @endforeach
-                                            </select>
+                                            <input name="key_results[{{ $kr->id }}][owner_name]" required maxlength="255" value="{{ old('key_results.'.$kr->id.'.owner_name', $kr->ownerLabel()) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs">
                                         </label>
                                         <label><span class="text-[10px] text-stone-500">Tenggat KR</span><input type="date" name="key_results[{{ $kr->id }}][due_date]" required min="{{ $minDue }}" max="{{ $okr->end_date->toDateString() }}" value="{{ old('key_results.'.$kr->id.'.due_date', $kr->due_date?->toDateString()) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs"></label>
                                     </div>

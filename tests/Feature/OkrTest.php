@@ -379,7 +379,9 @@ class OkrTest extends TestCase
         $task = $kr->tasks->first();
 
         $this->assertSame($freddie->id, $objective->owner_user_id);
+        $this->assertSame('Freddie', $objective->owner_name);
         $this->assertSame($freddie->id, $kr->owner_user_id);
+        $this->assertSame('Freddie', $kr->owner_name);
         $this->assertSame($agatha->id, $task->assignee_user_id);
         $this->assertSame($agathaColumn->id, $task->board_column_id);
         $this->assertNotEmpty($task->description);
@@ -424,6 +426,45 @@ class OkrTest extends TestCase
             ->assertSee('Edit Objective')
             ->assertSee('Setujui & Buat 1 Kartu', false)
             ->assertSee('Penanggung jawab:');
+    }
+
+    public function test_bod_tanpa_akun_portal_tetap_tersimpan_sebagai_penanggung_jawab(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'textowner');
+        [$board, $todo] = $this->board($super);
+        AiKnowledge::create([
+            'section' => 'team',
+            'content' => implode("\n", [
+                '- Billy — CFO. Keuangan dan margin.',
+                '- Freddie — CMO. Marketing dan branding.',
+                '- Devrina — COO. Operasional dan stok.',
+            ]),
+        ]);
+        $this->app->instance(AiProvider::class, $this->fakeDraft($super, $todo->id));
+
+        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))
+            ->assertRedirect();
+
+        $cycle = OkrCycle::with('objectives.keyResults')->firstOrFail();
+        $objective = $cycle->objectives->first();
+        $kr = $objective->keyResults->first();
+
+        $this->assertNull($objective->owner_user_id);
+        $this->assertSame('Freddie', $objective->owner_name);
+        $this->assertSame('Freddie', $objective->ownerLabel());
+        $this->assertNull($kr->owner_user_id);
+        $this->assertSame('Freddie', $kr->owner_name);
+        $this->assertSame('Freddie', $kr->ownerLabel());
+
+        $this->actingAs($super)->get(route('okr.show', $cycle))
+            ->assertOk()
+            ->assertSee('Penanggung jawab:')
+            ->assertSee('Freddie')
+            ->assertDontSee('Draf lama terdeteksi');
+
+        $this->actingAs($super)->post(route('okr.approve', $cycle))
+            ->assertRedirect(route('okr.show', $cycle));
+        $this->assertSame(OkrCycle::STATUS_ACTIVE, $cycle->fresh()->status);
     }
 
     public function test_panel_menerima_snapshot_data_aktual_dan_mematuhi_izin(): void

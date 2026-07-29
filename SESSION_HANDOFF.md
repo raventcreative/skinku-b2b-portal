@@ -1,15 +1,15 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **506 test lulus (2244 assertions)** setelah penyempurnaan editor inline.
+> Baseline sebelum OKR: `37820b9`. **507 test lulus (2260 assertions)** setelah dukungan owner BOD tanpa akun portal.
 
 ---
 
 ## 0. STATUS & DEPLOY
 
-- Fitur OKR sampai perapian menu sudah ada di `origin/main`; penyempurnaan
-  pratinjau otomatis pada sesi terakhir perlu di-push sebelum deploy.
-- **Ada migrasi baru sampai 000063** → deploy WAJIB `migrate --force`.
+- Fitur OKR sampai editor inline sudah ada di `origin/main`; dukungan nama owner
+  BOD tanpa akun portal pada sesi terakhir perlu di-push sebelum deploy.
+- **Ada migrasi baru sampai 000064** → deploy WAJIB `migrate --force`.
 
 **Deploy penuh (server produksi):**
 ```bash
@@ -25,6 +25,7 @@ git pull
 - `000061_add_created_via_to_board_cards` — penanda kartu Kanban buatan AI.
 - `000062_add_completed_at_to_board_cards` — waktu selesai kartu (buat KPI).
 - `000063_create_okr_tables` — periode, Objective, Key Result, tugas, dan relasi kartu Kanban.
+- `000064_add_owner_names_to_okr_tables` — nama owner BOD tanpa wajib akun portal + backfill draf lama.
 
 ---
 
@@ -77,7 +78,7 @@ Spec: **`TIKTOK_INCOME_SPEC.md`**. **Migrasi n8n "Tiktok income" → SKINKU.**
 - `TikTokIncomeController` (form/process/download/reset), hasil di **session** (stateless), unduh **Excel** (`XlsxWriter`, Order ID tetap teks, kolom item dinamis). Sub-halaman Integrasi TikTok "🧾 Laporan Income", route `tiktok.income.*`, izin `manage_tiktok`.
 
 ### F. OKR berbasis AI
-Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
+Spec: **`OKR_SPEC.md`**. Migrasi `000063` + `000064`.
 
 - Alur minim setting: pilih bulanan/kuartalan + cakupan perusahaan/tim/individu + arahan; papan utama opsional.
 - AI membaca Pengetahuan AI + anggota/papan/kolom aktif, lalu membuat draf `Objective → Key Result → tugas per individu`.
@@ -92,6 +93,9 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
   dibatasi `max-w-6xl` agar tidak melebar.
 - Normalisasi defensif membaca pola BOD (`Freddie — CMO`, dst.) dan aturan
   delegasi (`jenis pekerjaan → Nama`) langsung dari bagian Tim & tanggung jawab.
+- Owner BOD kini punya `owner_name` terpisah dari akun portal. Migrasi `000064`
+  membackfill draf lama dari Pengetahuan AI; BOD tidak perlu dibuatkan akun
+  hanya agar namanya tampil sebagai penanggung jawab.
 - PIC dan kolom bernama anggota diselaraskan lagi saat koreksi disimpan, sehingga
   PIC Agatha tidak dapat tertinggal di `To Do Tiar`. Detail dan owner wajib
   sebelum approval; draf versi lama yang kosong diberi peringatan khusus.
@@ -100,7 +104,7 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
 - Uji offline: `tests/Feature/OkrTest.php`; total suite setelah penyempurnaan UI
-  otomatis **506 lulus / 2244 assertions**.
+  otomatis **507 lulus / 2260 assertions**.
 
 ---
 
