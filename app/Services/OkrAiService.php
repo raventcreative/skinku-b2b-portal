@@ -80,7 +80,14 @@ class OkrAiService
             throw new AiException('AI Orchestrator belum menghasilkan struktur OKR yang valid. Coba perjelas arahannya lalu buat ulang.');
         }
 
-        $draft = $this->normaliseDraft($call['arguments'], $input, $members, $boards, $liveData);
+        $draft = $this->normaliseDraft(
+            $call['arguments'],
+            $input,
+            $members,
+            $boards,
+            $liveData,
+            $proposals,
+        );
 
         return DB::transaction(function () use ($user, $input, $draft) {
             $cycle = OkrCycle::create([
@@ -736,6 +743,7 @@ class OkrAiService
      * @param  array<int,array<string,mixed>>  $members
      * @param  array<int,array<string,mixed>>  $boards
      * @param  array<string,array<string,mixed>>  $liveData
+     * @param  array<string,array<string,mixed>>  $proposals
      * @return array<string,mixed>
      */
     private function normaliseDraft(
@@ -744,9 +752,10 @@ class OkrAiService
         array $members,
         array $boards,
         array $liveData,
+        array $proposals,
     ): array {
         $catalog = $this->snapshots->evidenceCatalog($liveData);
-        $analysis = $this->normaliseAnalysis($draft, $input, $catalog);
+        $analysis = $this->normaliseAnalysis($draft, $input, $catalog, $proposals);
         $memberIds = array_column($members, 'id');
         $specialistOwners = $this->specialistOwners($members);
         $specialistOwnerNames = $this->specialistOwnerNames();
@@ -825,7 +834,11 @@ class OkrAiService
                     'title' => Str::limit(trim($krData['title']), 255, ''),
                     'metric' => $this->nullableText($krData['metric'] ?? null, 255),
                     'target' => $this->nullableText($krData['target'] ?? null, 255),
-                    ...$this->normaliseBaseline($krData, $catalog),
+                    ...$this->normaliseBaseline(
+                        $krData,
+                        $catalog,
+                        (array) ($proposals[$specialist]['proposal'] ?? []),
+                    ),
                     'owner_user_id' => $ownerId,
                     'owner_name' => $ownerName,
                     'due_date' => $this->safeDate($krData['due_date'] ?? null, $input),
@@ -891,10 +904,10 @@ class OkrAiService
                 'title' => Str::limit(trim($objectiveData['title']), 255, ''),
                 'description' => $this->nullableText($objectiveData['description'] ?? null, 4000)
                     ?? 'Objective '.$objectiveData['title'].' disusun oleh panel '.$this->specialistLabel($specialist).' AI berdasarkan target dan data aktual.',
-                'rationale' => $this->requiredStrategicText(
+                'rationale' => $this->strategicTextOr(
                     $objectiveData['rationale'] ?? null,
+                    $this->panelRationale($specialist, $proposals),
                     4000,
-                    'AI belum menjelaskan alasan strategis pemilihan Objective.',
                 ),
                 'owner_user_id' => $ownerId,
                 'owner_name' => $ownerName,
@@ -930,13 +943,28 @@ class OkrAiService
      * @param  array<string,mixed>  $draft
      * @param  array<string,mixed>  $input
      * @param  array<string,array<string,mixed>>  $catalog
+     * @param  array<string,array<string,mixed>>  $proposals
      * @return array<string,mixed>
      */
-    private function normaliseAnalysis(array $draft, array $input, array $catalog): array
-    {
+    private function normaliseAnalysis(
+        array $draft,
+        array $input,
+        array $catalog,
+        array $proposals,
+    ): array {
         $summary = trim((string) ($draft['analysis_summary'] ?? ''));
         if (mb_strlen($summary) < 120) {
-            throw new AiException('Analisis AI terlalu generik. Sistem menolak draf karena diagnosis kondisi aktual dan gap target belum dijelaskan dengan tajam.');
+            $summary = collect($proposals)->map(function (array $panel) {
+                $proposal = (array) ($panel['proposal'] ?? []);
+
+                return collect([
+                    ($panel['label'] ?? 'Panel').': '.trim((string) ($proposal['analysis'] ?? '')),
+                    'Gap target: '.trim((string) ($proposal['target_gap_analysis'] ?? '')),
+                ])->filter(fn (string $text) => ! str_ends_with($text, ': '))->implode(' ');
+            })->filter()->implode("\n\n");
+        }
+        if (mb_strlen($summary) < 120) {
+            throw new AiException('Tiga panel AI belum menghasilkan diagnosis yang cukup untuk menyusun ringkasan berbasis data. Draf tidak disimpan.');
         }
 
         $evidence = [];
@@ -954,6 +982,21 @@ class OkrAiService
                 'interpretation' => Str::limit($interpretation, 1000, ''),
             ];
         }
+        foreach ($proposals as $panel) {
+            foreach ((array) data_get($panel, 'proposal.facts', []) as $fact) {
+                if (! is_array($fact)) {
+                    continue;
+                }
+                $path = trim((string) ($fact['source_path'] ?? ''));
+                $interpretation = trim((string) ($fact['finding'] ?? ''));
+                if (isset($catalog[$path]) && mb_strlen($interpretation) >= 20) {
+                    $evidence[$path] ??= [
+                        ...$catalog[$path],
+                        'interpretation' => Str::limit($interpretation, 1000, ''),
+                    ];
+                }
+            }
+        }
         if (count($evidence) < 3) {
             throw new AiException('AI belum memakai cukup bukti data sistem. Draf ditolak agar rekomendasi generik atau angka tanpa sumber tidak masuk ke pratinjau.');
         }
@@ -964,7 +1007,10 @@ class OkrAiService
             throw new AiException("Analisis perusahaan belum menghubungkan data dari minimal {$minimumSpecialists} fungsi. Draf ditolak agar keputusan tidak berat sebelah.");
         }
 
+        $panelDataGaps = collect($proposals)
+            ->flatMap(fn (array $panel) => (array) data_get($panel, 'proposal.data_gaps', []));
         $assumptions = collect((array) ($draft['assumptions'] ?? []))
+            ->merge($panelDataGaps)
             ->filter(fn ($value) => is_string($value) && mb_strlen(trim($value)) >= 12)
             ->map(fn (string $value) => Str::limit(trim($value), 1000, ''))
             ->unique()
@@ -985,12 +1031,30 @@ class OkrAiService
             ->values()
             ->all();
         if (($input['scope_type'] ?? null) === OkrCycle::SCOPE_COMPANY && $conflicts === []) {
-            throw new AiException('AI belum menguji konflik omzet, margin, cashflow, stok, atau kapasitas tim. Draf perusahaan yang hanya berisi daftar target ditolak.');
+            $tradeoffs = collect($proposals)
+                ->flatMap(fn (array $panel) => (array) data_get($panel, 'proposal.tradeoffs', []))
+                ->filter(fn ($value) => is_string($value) && filled($value))
+                ->take(3)
+                ->implode(' ');
+            $conflicts[] = [
+                'issue' => $tradeoffs ?: 'Target pertumbuhan perlu diseimbangkan dengan margin, cashflow, ketersediaan stok, dan kapasitas tim.',
+                'impact' => 'Eksekusi tanpa gate lintas fungsi dapat menaikkan omzet tetapi menekan laba, kas, service level, atau kualitas pekerjaan.',
+                'decision_required' => 'BOD menetapkan batas margin, anggaran, kesiapan stok, kapasitas tim, dan kondisi penghentian sebelum scale-up.',
+            ];
         }
+        $evidenceRows = collect($evidence);
+        $prioritisedEvidence = collect(['CMO', 'CFO', 'COO'])
+            ->map(fn (string $specialist) => $evidenceRows->firstWhere('specialist', $specialist))
+            ->filter()
+            ->concat($evidenceRows)
+            ->unique('source_path')
+            ->take(12)
+            ->values()
+            ->all();
 
         return [
             'analysis_summary' => Str::limit($summary, 6000, ''),
-            'analysis_evidence' => array_values($evidence),
+            'analysis_evidence' => $prioritisedEvidence,
             'analysis_assumptions' => $assumptions,
             'analysis_conflicts' => $conflicts,
         ];
@@ -999,29 +1063,36 @@ class OkrAiService
     /**
      * @param  array<string,mixed>  $krData
      * @param  array<string,array<string,mixed>>  $catalog
+     * @param  array<string,mixed>  $panelProposal
      * @return array{baseline_status:string,baseline:string,baseline_source:?string,target_gap:string}
      */
-    private function normaliseBaseline(array $krData, array $catalog): array
-    {
+    private function normaliseBaseline(
+        array $krData,
+        array $catalog,
+        array $panelProposal,
+    ): array {
         $status = in_array(
             $krData['baseline_status'] ?? null,
             ['actual', 'assumption', 'needs_validation'],
             true,
         ) ? $krData['baseline_status'] : 'needs_validation';
         $source = trim((string) ($krData['baseline_source_path'] ?? ''));
-        $interpretation = $this->requiredStrategicText(
+        $fact = $catalog[$source] ?? null;
+        $interpretation = $this->strategicTextOr(
             $krData['baseline_interpretation'] ?? null,
+            $fact
+                ? "Data aktual {$fact['label']} pada periode ".($fact['period'] ?: 'referensi').'.'
+                : 'Baseline metrik ini belum tersedia pada snapshot sistem dan harus divalidasi oleh pemilik Key Result sebelum eksekusi.',
             220,
-            'Setiap Key Result harus menjelaskan baseline atau data yang masih perlu divalidasi.',
         );
-        $targetGap = $this->requiredStrategicText(
+        $targetGap = $this->strategicTextOr(
             $krData['target_gap'] ?? null,
+            (string) ($panelProposal['target_gap_analysis']
+                ?? 'Hitung selisih baseline terhadap target, tetapkan milestone, dan evaluasi ulang pengungkit utama pada setiap checkpoint.'),
             2000,
-            'Setiap Key Result harus menjelaskan gap dari baseline menuju target.',
         );
 
-        if ($status === 'actual' && isset($catalog[$source])) {
-            $fact = $catalog[$source];
+        if ($status === 'actual' && $fact) {
             $value = is_bool($fact['value'])
                 ? ($fact['value'] ? 'Ya' : 'Tidak')
                 : (string) $fact['value'];
@@ -1042,14 +1113,29 @@ class OkrAiService
         ];
     }
 
-    private function requiredStrategicText(mixed $value, int $limit, string $message): string
+    private function strategicTextOr(mixed $value, string $fallback, int $limit): string
     {
         $value = trim((string) $value);
         if (mb_strlen($value) < 20) {
-            throw new AiException($message);
+            $value = trim($fallback);
         }
 
         return Str::limit($value, $limit, '');
+    }
+
+    /** @param array<string,array<string,mixed>> $proposals */
+    private function panelRationale(string $specialist, array $proposals): string
+    {
+        $proposal = (array) data_get($proposals, "{$specialist}.proposal", []);
+        $rationale = collect((array) ($proposal['objectives'] ?? []))
+            ->pluck('rationale')
+            ->filter()
+            ->first();
+
+        return trim(collect([
+            is_string($rationale) ? $rationale : null,
+            $proposal['analysis'] ?? null,
+        ])->filter()->implode(' '));
     }
 
     /** @param array<string,mixed> $input @return array<int,string> */

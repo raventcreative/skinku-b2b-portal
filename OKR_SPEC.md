@@ -61,8 +61,9 @@
    memanggil structured tool `usulkan_okr_spesialis`.
 5. AI Orchestrator menerima ketiga usulan + konteks bersama, memanggil
    `susun_draf_okr`, dan menyimpan hasil sebagai draf.
-6. Server menolak keluaran yang generik, tidak punya bukti valid, tidak
-   menjelaskan baseline/gap, atau mengabaikan konflik lintas fungsi.
+6. Server memulihkan ringkasan generik, bukti tidak valid, baseline/gap pendek,
+   atau konflik kosong dari hasil panel dan katalog data server. Draf hanya
+   ditolak jika diagnosis panel atau struktur kerja memang tidak cukup.
 7. User memeriksa dasar analisis, bukti, asumsi, konflik, ringkasan Objective,
    Key Result, detail pekerjaan, PIC, tenggat, serta kolom Kanban. Semua pilihan
    ini sudah diisi otomatis.
@@ -125,9 +126,10 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
   berasal dari query, bukan dari model. AI Orchestrator wajib mengirim minimal
   tiga bukti final; untuk arahan eksplisit CMO+CFO+COO, bukti dan Objective
   harus mencakup ketiganya.
-- Diagnosis kurang dari batas kualitas, source path palsu, baseline aktual tanpa
-  sumber, atau OKR perusahaan tanpa konflik/trade-off ditolak sebelum draf
-  disimpan.
+- Ringkasan kurang dari batas kualitas disusun ulang dari diagnosis CMO/CFO/COO.
+  Source path palsu dibuang dan bukti valid panel dipakai; baseline/gap serta
+  konflik yang pendek dilengkapi secara defensif. Keluaran baru ditolak bila
+  panel tidak menyediakan diagnosis/data minimum atau struktur kerja kosong.
 - Baseline `actual` hanya sah jika jalurnya ada pada katalog snapshot. Jika
   sumbernya tidak ada, status dipaksa menjadi asumsi/kebutuhan validasi.
 - Maksimum server: 6 Objective, 30 Key Result, dan 60 tugas per generasi.
@@ -187,7 +189,7 @@ pengaturan mapping jabatan terpisah.
 - auto-owner CMO/CFO/COO dari struktur BOD;
 - auto-PIC dan kolom bernama anggota dari aturan delegasi;
 - bukti angka diambil ulang dari snapshot server dan tampil di pratinjau;
-- draf generik/bukti palsu ditolak sebelum tersimpan;
+- ringkasan generik/bukti palsu dipulihkan dari panel dan katalog server;
 - akun bersama BOD tetap menghasilkan kartu approval di kolom nama BOD;
 - coverage Gracelyn untuk video/UGC dan peringatan Hida tanpa akun;
 - uraian kosong dan tenggat lampau dinormalisasi defensif;
@@ -197,7 +199,7 @@ pengaturan mapping jabatan terpisah.
 - ID palsu dari AI dinormalisasi defensif.
 
 Baseline setelah panel paralel dan quality gate analisis berbasis bukti:
-**512 test lulus, 2298 assertions**.
+**512 test lulus, 2300 assertions**.
 
 ---
 

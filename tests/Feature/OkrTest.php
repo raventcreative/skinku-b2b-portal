@@ -211,7 +211,7 @@ class OkrTest extends TestCase
             'board_card_id' => null,
         ]);
         $this->assertSame(0, BoardCard::count());
-        $this->assertCount(3, $cycle->analysis_evidence);
+        $this->assertGreaterThanOrEqual(3, count($cycle->analysis_evidence));
         $this->assertSame(0.0, (float) $cycle->analysis_evidence[0]['value']);
         $this->assertSame('cmo.penjualan.total_sales', $cycle->analysis_evidence[0]['source_path']);
 
@@ -230,7 +230,7 @@ class OkrTest extends TestCase
             ->assertSee('Pratinjau')
             ->assertSee('CMO AI')
             ->assertSee('Dasar analisis AI')
-            ->assertSee('3 bukti terverifikasi')
+            ->assertSee('bukti terverifikasi')
             ->assertSee('Gap ke target')
             ->assertSee('Percepat pertumbuhan TikTok')
             ->assertSee('Susun kalender konten TikTok')
@@ -658,7 +658,7 @@ class OkrTest extends TestCase
         $this->assertArrayNotHasKey('laba_rugi', $snapshot);
     }
 
-    public function test_draf_generik_atau_bukti_palsu_ditolak_sebelum_disimpan(): void
+    public function test_ringkasan_generik_dan_bukti_palsu_dipulihkan_dari_panel_dan_server(): void
     {
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrquality');
         $member = $this->user(User::ROLE_ADMIN, 'qualitypic');
@@ -674,12 +674,13 @@ class OkrTest extends TestCase
         $this->app->instance(AiProvider::class, $fake);
 
         $this->actingAs($super)
-            ->from(route('okr.create'))
             ->post(route('okr.generate'), $this->generatePayload($board->id))
-            ->assertRedirect(route('okr.create'))
-            ->assertSessionHas('error');
+            ->assertRedirect();
 
-        $this->assertSame(0, OkrCycle::count());
+        $cycle = OkrCycle::firstOrFail();
+        $this->assertStringContainsString('CMO:', $cycle->analysis_summary);
+        $this->assertGreaterThanOrEqual(3, count($cycle->analysis_evidence));
+        $this->assertNotContains('cmo.angka_rekaan', collect($cycle->analysis_evidence)->pluck('source_path')->all());
         $this->assertSame(0, BoardCard::count());
     }
 
