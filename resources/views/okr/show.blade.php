@@ -54,6 +54,17 @@
         </div>
     @endif
 
+    @if($okr->isDraft() && $delegationWarnings !== [])
+        <div class="bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4">
+            <p class="text-xs font-bold text-sky-900">Catatan pembagian tugas</p>
+            <ul class="mt-1.5 space-y-1 text-xs text-sky-800 list-disc pl-4">
+                @foreach($delegationWarnings as $warning)
+                    <li>{{ $warning }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     @if($okr->isDraft() && $canManage)
         <div class="bg-white rounded-xl border border-stone-200 p-4 mb-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
@@ -199,7 +210,7 @@
                                                 </div>
                                                 <p class="text-[11px] leading-relaxed mt-1 {{ $task->description ? 'text-stone-600' : 'font-semibold text-rose-600' }}">{{ $task->description ?: 'Detail pekerjaan belum terisi.' }}</p>
                                                 <div class="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[10px] text-stone-500">
-                                                    <span>PIC: <b class="{{ $task->assignee ? 'text-stone-700' : 'text-rose-600' }}">{{ $task->assignee?->displayName() ?: 'belum terisi' }}</b></span>
+                                                    <span>PIC: <b class="{{ $task->assigneeLabel() ? 'text-stone-700' : 'text-rose-600' }}">{{ $task->assigneeLabel() ?: 'belum terisi' }}</b></span>
                                                     <span>Tenggat: <b class="text-stone-700">{{ $task->due_date?->format('d M Y') ?: 'belum terisi' }}</b></span>
                                                 </div>
                                                 @if($okr->isDraft())
@@ -214,6 +225,7 @@
 
                                         @if($okr->isDraft() && $canManage)
                                             <div id="{{ $taskEditor }}-edit" class="{{ $showEditors ? '' : 'hidden' }} space-y-2">
+                                                <input id="task-assignee-name-{{ $task->id }}" type="hidden" name="tasks[{{ $task->id }}][assignee_name]" value="{{ old('tasks.'.$task->id.'.assignee_name', $task->assigneeLabel()) }}">
                                                 <label class="block"><span class="text-[10px] text-stone-500">Nama pekerjaan</span><input name="tasks[{{ $task->id }}][title]" required maxlength="255" value="{{ old('tasks.'.$task->id.'.title', $task->title) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-semibold"></label>
                                                 <label class="block"><span class="text-[10px] text-stone-500">Detail pekerjaan & hasil yang harus diserahkan</span><textarea name="tasks[{{ $task->id }}][description]" required rows="3" maxlength="4000" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs">{{ old('tasks.'.$task->id.'.description', $task->description) }}</textarea></label>
                                                 <div class="grid sm:grid-cols-2 gap-2">
@@ -276,8 +288,10 @@
             }
 
             function syncTaskColumn(picSelect, taskId) {
-                const memberName = normaliseOkrName(picSelect.options[picSelect.selectedIndex]?.dataset.memberName || '');
+                const selectedMemberName = picSelect.options[picSelect.selectedIndex]?.dataset.memberName || '';
+                const memberName = normaliseOkrName(selectedMemberName);
                 if (!memberName) return;
+                document.getElementById('task-assignee-name-' + taskId).value = selectedMemberName;
 
                 const tokens = memberName.split(' ').filter(token => token.length >= 3 && !['admin', 'super', 'skinku'].includes(token));
                 const columnSelect = document.getElementById('task-column-' + taskId);

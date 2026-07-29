@@ -88,6 +88,7 @@ class OkrController extends Controller
             'okr' => $okr,
             'members' => $this->members(),
             'columns' => BoardColumn::query()->with('board')->orderBy('board_id')->orderBy('position')->get(),
+            'delegationWarnings' => $okr->isDraft() ? $this->okr->delegationWarnings($okr) : [],
         ]);
     }
 
@@ -116,6 +117,7 @@ class OkrController extends Controller
             'tasks.*.title' => ['required', 'string', 'max:255'],
             'tasks.*.description' => ['required', 'string', 'max:4000'],
             'tasks.*.assignee_user_id' => ['required', 'integer', 'exists:users,id'],
+            'tasks.*.assignee_name' => ['nullable', 'string', 'max:255'],
             'tasks.*.board_column_id' => ['required', 'integer', 'exists:board_columns,id'],
             'tasks.*.due_date' => ['required', 'date_format:Y-m-d'],
         ]);
@@ -124,8 +126,9 @@ class OkrController extends Controller
         $this->validatePreviewReferences($okr, $data);
         $taskColumns = $this->matchedTaskColumns($okr, $data);
         $owners = $this->resolvedOwners($okr, $data);
+        $memberNames = $this->members()->mapWithKeys(fn (User $member) => [$member->id => $member->displayName()]);
 
-        DB::transaction(function () use ($okr, $data, $request, $taskColumns, $owners) {
+        DB::transaction(function () use ($okr, $data, $request, $taskColumns, $owners, $memberNames) {
             $okr->update(['name' => $data['name'], 'direction' => $data['direction']]);
             foreach ($okr->objectives as $objective) {
                 $row = $data['objectives'][$objective->id];
@@ -152,6 +155,9 @@ class OkrController extends Controller
                             'title' => $taskRow['title'],
                             'description' => $taskRow['description'],
                             'assignee_user_id' => $taskRow['assignee_user_id'],
+                            'assignee_name' => filled($taskRow['assignee_name'] ?? null)
+                                ? $taskRow['assignee_name']
+                                : $memberNames->get((int) $taskRow['assignee_user_id']),
                             'board_column_id' => $taskColumns[$task->id],
                             'due_date' => $taskRow['due_date'],
                         ]);

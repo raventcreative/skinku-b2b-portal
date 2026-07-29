@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class OkrTask extends Model
 {
     protected $fillable = [
-        'okr_key_result_id', 'title', 'description', 'assignee_user_id',
+        'okr_key_result_id', 'title', 'description', 'assignee_user_id', 'assignee_name',
         'board_column_id', 'due_date', 'position', 'board_card_id',
     ];
 
@@ -39,5 +39,10 @@ class OkrTask extends Model
     public function isCompleted(): bool
     {
         return $this->card?->isCompleted() ?? false;
+    }
+
+    public function assigneeLabel(): ?string
+    {
+        return $this->assignee_name ?: $this->assignee?->displayName();
     }
 }

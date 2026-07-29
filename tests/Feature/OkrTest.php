@@ -220,6 +220,7 @@ class OkrTest extends TestCase
         $objective = $cycle->objectives->first();
         $kr = $objective->keyResults->first();
         $task = $kr->tasks->first();
+        $approvalTask = $kr->tasks->last();
 
         $this->actingAs($super)->put(route('okr.update', $cycle), [
             'name' => 'OKR Q3 Final',
@@ -249,6 +250,14 @@ class OkrTest extends TestCase
                     'board_column_id' => $todo->id,
                     'due_date' => '2026-08-20',
                 ],
+                $approvalTask->id => [
+                    'title' => $approvalTask->title,
+                    'description' => $approvalTask->description,
+                    'assignee_user_id' => $approvalTask->assignee_user_id,
+                    'assignee_name' => $approvalTask->assignee_name,
+                    'board_column_id' => $approvalTask->board_column_id,
+                    'due_date' => $approvalTask->due_date->toDateString(),
+                ],
             ],
         ])->assertRedirect(route('okr.show', $cycle));
 
@@ -258,7 +267,7 @@ class OkrTest extends TestCase
         $cycle->refresh();
         $this->assertSame(OkrCycle::STATUS_ACTIVE, $cycle->status);
         $this->assertNotNull($cycle->approved_at);
-        $card = BoardCard::firstOrFail();
+        $card = BoardCard::where('title', 'Kartu hasil koreksi')->firstOrFail();
         $this->assertSame('Kartu hasil koreksi', $card->title);
         $this->assertSame($member->id, $card->assignee_user_id);
         $this->assertSame($todo->id, $card->column_id);
@@ -269,7 +278,7 @@ class OkrTest extends TestCase
 
         // Klik ulang tak boleh menduplikasi kartu.
         $this->actingAs($super)->post(route('okr.approve', $cycle))->assertSessionHasErrors('okr');
-        $this->assertSame(1, BoardCard::count());
+        $this->assertSame(2, BoardCard::count());
     }
 
     public function test_progres_okr_otomatis_mengikuti_kartu_done(): void
@@ -286,17 +295,17 @@ class OkrTest extends TestCase
             ->assertOk()
             ->assertSee('0%');
 
-        $card = BoardCard::firstOrFail();
-        $card->update(['column_id' => $done->id]);
-        $this->assertNotNull($card->fresh()->completed_at);
+        $cards = BoardCard::all();
+        $cards->each->update(['column_id' => $done->id]);
+        $this->assertTrue($cards->every(fn (BoardCard $card) => $card->fresh()->completed_at !== null));
 
         $this->actingAs($member)->get(route('okr.show', $cycle))
             ->assertOk()
             ->assertSee('100%')
             ->assertSee('✓');
 
-        $card->update(['column_id' => $todo->id]);
-        $this->assertNull($card->fresh()->completed_at);
+        $cards->each->update(['column_id' => $todo->id]);
+        $this->assertTrue($cards->every(fn (BoardCard $card) => $card->fresh()->completed_at === null));
         $this->actingAs($member)->get(route('okr.index'))->assertOk()->assertSee('0%');
     }
 
@@ -377,6 +386,7 @@ class OkrTest extends TestCase
         $objective = $cycle->objectives->first();
         $kr = $objective->keyResults->first();
         $task = $kr->tasks->first();
+        $approvalTask = $kr->tasks->last();
 
         $this->assertSame($freddie->id, $objective->owner_user_id);
         $this->assertSame('Freddie', $objective->owner_name);
@@ -415,6 +425,14 @@ class OkrTest extends TestCase
                     'board_column_id' => $tiarColumn->id,
                     'due_date' => $task->due_date->toDateString(),
                 ],
+                $approvalTask->id => [
+                    'title' => $approvalTask->title,
+                    'description' => $approvalTask->description,
+                    'assignee_user_id' => $approvalTask->assignee_user_id,
+                    'assignee_name' => $approvalTask->assignee_name,
+                    'board_column_id' => $approvalTask->board_column_id,
+                    'due_date' => $approvalTask->due_date->toDateString(),
+                ],
             ],
         ])->assertRedirect(route('okr.show', $cycle));
 
@@ -424,14 +442,16 @@ class OkrTest extends TestCase
             ->assertOk()
             ->assertSee('Pratinjau OKR')
             ->assertSee('Edit Objective')
-            ->assertSee('Setujui & Buat 1 Kartu', false)
+            ->assertSee('Setujui & Buat 2 Kartu', false)
             ->assertSee('Penanggung jawab:');
     }
 
     public function test_bod_tanpa_akun_portal_tetap_tersimpan_sebagai_penanggung_jawab(): void
     {
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'textowner');
-        [$board, $todo] = $this->board($super);
+        $board = Board::create(['name' => 'Papan BOD', 'created_by' => $super->id]);
+        $todo = $board->columns()->create(['name' => 'To Do Freddie', 'position' => 0]);
+        $board->columns()->create(['name' => 'Done Freddie', 'position' => 1]);
         AiKnowledge::create([
             'section' => 'team',
             'content' => implode("\n", [
@@ -449,12 +469,17 @@ class OkrTest extends TestCase
         $objective = $cycle->objectives->first();
         $kr = $objective->keyResults->first();
 
-        $this->assertNull($objective->owner_user_id);
+        $this->assertSame($super->id, $objective->owner_user_id);
         $this->assertSame('Freddie', $objective->owner_name);
         $this->assertSame('Freddie', $objective->ownerLabel());
-        $this->assertNull($kr->owner_user_id);
+        $this->assertSame($super->id, $kr->owner_user_id);
         $this->assertSame('Freddie', $kr->owner_name);
         $this->assertSame('Freddie', $kr->ownerLabel());
+        $approvalTask = $kr->tasks->first(fn ($task) => str_contains($task->title, 'Review dan approval'));
+        $this->assertNotNull($approvalTask);
+        $this->assertSame($super->id, $approvalTask->assignee_user_id);
+        $this->assertSame('Freddie', $approvalTask->assignee_name);
+        $this->assertSame($todo->id, $approvalTask->board_column_id);
 
         $this->actingAs($super)->get(route('okr.show', $cycle))
             ->assertOk()
@@ -465,6 +490,57 @@ class OkrTest extends TestCase
         $this->actingAs($super)->post(route('okr.approve', $cycle))
             ->assertRedirect(route('okr.show', $cycle));
         $this->assertSame(OkrCycle::STATUS_ACTIVE, $cycle->fresh()->status);
+    }
+
+    public function test_job_desk_talent_dan_pic_tanpa_akun_ditangani_secara_eksplisit(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'coverageowner');
+        $agatha = $this->user(User::ROLE_ADMIN, 'agathacoverage');
+        $gracelyn = $this->user(User::ROLE_ADMIN, 'gracelyn');
+        $board = Board::create(['name' => 'Papan Coverage', 'created_by' => $super->id]);
+        $agathaColumn = $board->columns()->create(['name' => 'To Do Agatha', 'position' => 0]);
+        $gracelynColumn = $board->columns()->create(['name' => 'To Do Gracelyn', 'position' => 1]);
+        $board->columns()->create(['name' => 'To Do Freddie', 'position' => 2]);
+        $board->columns()->create(['name' => 'Done', 'position' => 3]);
+
+        AiKnowledge::create([
+            'section' => 'team',
+            'content' => implode("\n", [
+                '- Freddie — CMO. Marketing, branding, dan approval campaign.',
+                '- Agatha — tim desain & content creator. Desain grafis, poster, cover, dan materi promosi.',
+                '- Gracelyn — talent. Syuting, UGC, video content, dan model di konten.',
+                '- Hida — Live Host. Live streaming, script live, closing, dan demo produk.',
+                '- Syuting, UGC, talent video/konten → Gracelyn',
+            ]),
+        ]);
+        $fake = $this->fakeDraft($agatha, $agathaColumn->id, [
+            'objectives' => [[
+                'key_results' => [[
+                    'tasks' => [[
+                        'title' => 'Susun kalender campaign Q3',
+                        'description' => 'Susun kalender campaign dan target publikasinya.',
+                        'assignee_user_id' => $agatha->id,
+                        'board_column_id' => $agathaColumn->id,
+                    ]],
+                ]],
+            ]],
+        ]);
+        $this->app->instance(AiProvider::class, $fake);
+        $payload = $this->generatePayload($board->id);
+        $payload['direction'] = 'Jalankan produksi video UGC dan live commerce selama Q3.';
+
+        $this->actingAs($super)->post(route('okr.generate'), $payload)->assertRedirect();
+
+        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
+        $task = $cycle->objectives->first()->keyResults->first()->tasks
+            ->firstWhere('title', 'Produksi materi video dan UGC untuk campaign Q3');
+        $this->assertNotNull($task);
+        $this->assertSame($gracelyn->id, $task->assignee_user_id);
+        $this->assertSame($gracelynColumn->id, $task->board_column_id);
+
+        $this->actingAs($super)->get(route('okr.show', $cycle))
+            ->assertOk()
+            ->assertSee('Hida disebut dalam pekerjaan periode ini tetapi belum mempunyai akun internal aktif.');
     }
 
     public function test_panel_menerima_snapshot_data_aktual_dan_mematuhi_izin(): void

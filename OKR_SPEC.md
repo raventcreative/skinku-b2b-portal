@@ -32,6 +32,8 @@
 - Owner BOD tidak wajib mempunyai akun portal. Nama seperti Freddie/CMO,
   Billy/CFO, dan Devrina/COO tetap disimpan di `owner_name`; `owner_user_id`
   hanya ditautkan bila ada akun internal aktif dengan nama yang cocok.
+- Pada struktur akun sementara SKINKU, Freddie/Billy/Devrina memakai akun Super
+  Admin sebagai akun teknis. Nama PIC dan kolom To Do tetap memakai nama BOD.
 - Pratinjau utama berupa ringkasan siap-setujui dengan lebar terbatas dan kartu
   pekerjaan dua kolom. Koreksi dilakukan langsung pada Objective, Key Result,
   atau kartu tugas melalui tombol **Edit** di bagian terkait; tidak ada formulir
@@ -77,6 +79,10 @@ Migrasi `2026_01_01_000064_add_owner_names_to_okr_tables.php` menambahkan
 dari pola BOD di Pengetahuan AI, sehingga owner tidak kosong hanya karena BOD
 belum mempunyai akun portal.
 
+Migrasi `2026_01_01_000065_add_assignee_name_to_okr_tasks.php` memisahkan nama
+PIC operasional dari akun teknis. Kartu Freddie/Billy/Devrina dapat memakai akun
+Super Admin tanpa mengubah nama PIC yang tampil.
+
 Jika kartu dihapus secara soft-delete, tugas OKR tetap tersimpan tetapi progresnya
 tidak dianggap selesai dan UI menandai kartu tidak tersedia.
 
@@ -109,6 +115,12 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
   approval. Draf lama yang belum lengkap ditandai dan tombol approval dinonaktifkan.
 - Bila ada kolom Kanban yang namanya cocok dengan PIC, server selalu memakai
   kolom tersebut meskipun pilihan manual/model menunjuk kolom anggota lain.
+- Setiap Objective otomatis memperoleh satu tugas review/approval BOD.
+- Workstream CMO yang menyebut video/UGC, KOL/affiliate, atau desain/promosi
+  mendapat coverage minimum untuk talent, spesialis KOL/affiliate, dan desainer
+  yang memiliki akun aktif.
+- Anggota relevan di Pengetahuan AI yang belum memiliki akun aktif ditampilkan
+  sebagai peringatan dan tidak dialihkan diam-diam.
 - Klik persetujuan berulang ditolak dan tidak menduplikasi kartu.
 - Generate, edit draf, approve, dan hapus draf masuk Audit Log.
 
@@ -148,13 +160,15 @@ pengaturan mapping jabatan terpisah.
 - edit pratinjau;
 - auto-owner CMO/CFO/COO dari struktur BOD;
 - auto-PIC dan kolom bernama anggota dari aturan delegasi;
+- akun bersama BOD tetap menghasilkan kartu approval di kolom nama BOD;
+- coverage Gracelyn untuk video/UGC dan peringatan Hida tanpa akun;
 - uraian kosong dan tenggat lampau dinormalisasi defensif;
 - approve menghasilkan kartu berlabel AI;
 - double approval tidak menduplikasi kartu;
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah dukungan owner BOD tanpa akun portal: **507 test lulus, 2260 assertions**.
+Baseline setelah pemetaan akun bersama dan coverage delegasi: **508 test lulus, 2270 assertions**.
 
 ---
 

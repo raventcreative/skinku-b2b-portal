@@ -126,6 +126,7 @@ class OkrAiService
                             'title' => $taskData['title'],
                             'description' => $taskData['description'],
                             'assignee_user_id' => $taskData['assignee_user_id'],
+                            'assignee_name' => $taskData['assignee_name'],
                             'board_column_id' => $taskData['board_column_id'],
                             'due_date' => $taskData['due_date'],
                             'position' => $ti,
@@ -182,6 +183,7 @@ class OkrAiService
                             'Spesialis AI: '.$objective->specialistLabel(),
                             "Objective: {$objective->title}",
                             "Key Result: {$kr->title}",
+                            $task->assignee_name ? "PIC operasional: {$task->assignee_name}" : null,
                             filled($task->description) ? $task->description : null,
                             'Pantau progres OKR: '.route('okr.show', $locked),
                         ])->filter()->implode("\n\n");
@@ -373,6 +375,9 @@ class OkrAiService
             'Isi owner Objective dan Key Result dengan BOD/PIC yang sesuai spesialis; jangan default ke user yang meminta.',
             'Setiap tugas WAJIB punya deskripsi 2–4 kalimat: tindakan, output/deliverable, dan kriteria selesai.',
             'Bagi tugas sesuai aturan delegasi Pengetahuan AI; jangan menumpuk semua pekerjaan pada satu orang.',
+            'Pisahkan pekerjaan CMO: konsep/desain ke desainer, KOL/affiliate ke spesialisnya, syuting/UGC/talent ke talent, dan live ke host. Jangan gabungkan semuanya sebagai tugas content creator.',
+            'Setiap anggota aktif yang job desknya relevan dengan arahan wajib mendapat minimal satu tugas yang benar-benar sesuai keahliannya.',
+            'Jangan menganggap pemilik Objective sudah cukup tanpa tugas: sertakan pekerjaan review/approval BOD; server juga memastikan kartu approval tersedia.',
             'Gunakan HANYA ID anggota dan ID kolom Kanban yang diberikan.',
             'Jika kolom Kanban memakai nama orang, pilih kolom To Do yang namanya cocok dengan penerima tugas.',
             'Tempatkan tugas baru di kolom awal/To Do, bukan Done/Selesai.',
@@ -520,6 +525,7 @@ class OkrAiService
         $memberIds = array_column($members, 'id');
         $specialistOwners = $this->specialistOwners($members);
         $specialistOwnerNames = $this->specialistOwnerNames();
+        $sharedBodOwnerId = collect($members)->firstWhere('role', User::ROLE_SUPER_ADMIN)['id'] ?? null;
         $delegationRules = $this->delegationRules($members);
         $columns = collect($boards)->flatMap(fn (array $board) => $board['columns']);
         $actionableColumns = $columns->filter(fn (array $column) => ! $column['done']);
@@ -532,6 +538,7 @@ class OkrAiService
         $objectives = [];
         $krCount = 0;
         $taskCount = 0;
+        $generatedTaskLimit = self::MAX_TASKS - self::MAX_OBJECTIVES - 3;
         foreach (array_slice((array) ($draft['objectives'] ?? []), 0, self::MAX_OBJECTIVES) as $objectiveData) {
             if (! is_array($objectiveData) || blank($objectiveData['title'] ?? null)) {
                 continue;
@@ -540,7 +547,7 @@ class OkrAiService
                 ? (string) $objectiveData['specialist']
                 : 'cmo';
             $ownerId = array_key_exists($specialist, $specialistOwnerNames)
-                ? ($specialistOwners[$specialist] ?? null)
+                ? ($specialistOwners[$specialist] ?? $sharedBodOwnerId)
                 : $this->validMember($objectiveData['owner_user_id'] ?? null, $memberIds);
             $ownerName = $specialistOwnerNames[$specialist]
                 ?? $this->memberName($ownerId, $members)
@@ -552,7 +559,7 @@ class OkrAiService
                 }
                 $tasks = [];
                 foreach ((array) ($krData['tasks'] ?? []) as $taskData) {
-                    if ($taskCount >= self::MAX_TASKS || ! is_array($taskData) || blank($taskData['title'] ?? null)) {
+                    if ($taskCount >= $generatedTaskLimit || ! is_array($taskData) || blank($taskData['title'] ?? null)) {
                         continue;
                     }
                     $assignee = (int) ($taskData['assignee_user_id'] ?? 0);
@@ -577,6 +584,10 @@ class OkrAiService
                         'title' => Str::limit(trim($taskData['title']), 255, ''),
                         'description' => $description,
                         'assignee_user_id' => in_array($assignee, $memberIds, true) ? $assignee : null,
+                        'assignee_name' => $this->memberName(
+                            in_array($assignee, $memberIds, true) ? $assignee : null,
+                            $members,
+                        ),
                         'board_column_id' => $matchedColumn ?? $column,
                         'due_date' => $this->safeDate($taskData['due_date'] ?? null, $input),
                     ];
@@ -598,6 +609,56 @@ class OkrAiService
             }
             if ($keyResults === []) {
                 continue;
+            }
+            if ($specialist === 'cmo') {
+                $assignedIds = collect($keyResults)->flatMap(fn (array $kr) => $kr['tasks'])
+                    ->pluck('assignee_user_id')
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+                foreach ($this->cmoCoverageAssignments($input, $members) as $coverage) {
+                    if (in_array($coverage['member_id'], $assignedIds, true) || $taskCount >= self::MAX_TASKS) {
+                        continue;
+                    }
+                    $lastKr = array_key_last($keyResults);
+                    $keyResults[$lastKr]['tasks'][] = [
+                        'title' => $coverage['title'],
+                        'description' => $coverage['description'],
+                        'assignee_user_id' => $coverage['member_id'],
+                        'assignee_name' => $coverage['member_name'],
+                        'board_column_id' => $this->columnForAssignee(
+                            $coverage['member_id'],
+                            $members,
+                            $actionableColumns->all(),
+                            (int) ($input['preferred_board_id'] ?? 0),
+                        ) ?? $defaultColumnId,
+                        'due_date' => $keyResults[$lastKr]['due_date'],
+                    ];
+                    $assignedIds[] = $coverage['member_id'];
+                    $taskCount++;
+                }
+            }
+            if ($ownerId && $taskCount < self::MAX_TASKS) {
+                $approvalColumn = $this->columnForName(
+                    $ownerName,
+                    $actionableColumns->all(),
+                    (int) ($input['preferred_board_id'] ?? 0),
+                ) ?? $this->columnForAssignee(
+                    $ownerId,
+                    $members,
+                    $actionableColumns->all(),
+                    (int) ($input['preferred_board_id'] ?? 0),
+                ) ?? $defaultColumnId;
+                $lastKr = array_key_last($keyResults);
+                $keyResults[$lastKr]['tasks'][] = [
+                    'title' => Str::limit('Review dan approval '.$this->specialistLabel($specialist).': '.$objectiveData['title'], 255, ''),
+                    'description' => 'Tinjau hasil kerja dan risiko lintas fungsi untuk Objective ini. Berikan keputusan, koreksi, atau approval tertulis sebelum tenggat Key Result.',
+                    'assignee_user_id' => $ownerId,
+                    'assignee_name' => $ownerName,
+                    'board_column_id' => $approvalColumn,
+                    'due_date' => $keyResults[$lastKr]['due_date'],
+                ];
+                $taskCount++;
             }
             $objectives[] = [
                 'specialist' => $specialist,
@@ -690,22 +751,35 @@ class OkrAiService
         $rules = [];
         foreach (preg_split('/\R/u', $team) ?: [] as $line) {
             $parts = preg_split('/\s*(?:→|->)\s*/u', $line, 2);
-            if (count($parts) !== 2) {
+            $memberId = count($parts) === 2
+                ? $this->memberInText($parts[1], $members)
+                : $this->memberInText($line, $members);
+            if ($memberId === null) {
                 continue;
             }
-            $memberId = $this->memberInText($parts[1], $members);
-            if ($memberId === null) {
+            $responsibilities = count($parts) === 2
+                ? $parts[0]
+                : ((preg_split('/\s*(?:—|–)\s*/u', $line, 2)[1] ?? null));
+            if (blank($responsibilities)) {
                 continue;
             }
 
             $keywords = [];
-            foreach (preg_split('/[,;\/]/u', ltrim($parts[0], "-* \t")) ?: [] as $phrase) {
+            $domainWords = [
+                'affiliate', 'kol', 'onboarding', 'rekrut', 'sample',
+                'syuting', 'ugc', 'video', 'talent', 'model',
+                'live', 'streaming', 'script', 'closing', 'demo', 'gmv',
+                'desain', 'visual', 'poster', 'cover',
+                'harga', 'diskon', 'pembayaran', 'margin', 'invoice', 'hpp',
+                'stok', 'gudang', 'produksi', 'pengiriman', 'distributor',
+            ];
+            foreach (preg_split('/[,;\/.]/u', ltrim($responsibilities, "-* \t")) ?: [] as $phrase) {
                 $phrase = $this->normalise($phrase);
                 if (mb_strlen($phrase) >= 4) {
                     $keywords[] = $phrase;
                 }
                 foreach (preg_split('/\s+/u', $phrase) ?: [] as $word) {
-                    if (mb_strlen($word) >= 5) {
+                    if (in_array($word, $domainWords, true)) {
                         $keywords[] = $word;
                     }
                 }
@@ -716,6 +790,67 @@ class OkrAiService
         }
 
         return $rules;
+    }
+
+    /**
+     * Coverage minimum untuk arahan CMO yang eksplisit. Task hanya ditambah jika
+     * workstream disebut user dan anggota dengan job desk terkait punya akun aktif.
+     *
+     * @param  array<string,mixed>  $input
+     * @param  array<int,array{id:int,name:string,role:string}>  $members
+     * @return array<int,array{member_id:int,member_name:string,title:string,description:string}>
+     */
+    private function cmoCoverageAssignments(array $input, array $members): array
+    {
+        $direction = $this->normalise((string) ($input['direction'] ?? ''));
+        $definitions = [
+            [
+                'triggers' => ['konten', 'content', 'campaign', 'ugc', 'video'],
+                'skills' => ['syuting', 'ugc', 'talent'],
+                'title' => 'Produksi materi video dan UGC untuk campaign Q3',
+                'description' => 'Siapkan kebutuhan talent dan lakukan produksi video/UGC sesuai brief campaign. Serahkan aset final yang siap tayang beserta daftar revisi atau validasi yang masih diperlukan.',
+            ],
+            [
+                'triggers' => ['affiliate', 'affiliator', 'kol'],
+                'skills' => ['affiliate', 'kol', 'onboarding'],
+                'title' => 'Jalankan onboarding dan aktivasi KOL/affiliate Q3',
+                'description' => 'Rekrut dan onboarding KOL/affiliate sesuai target periode. Catat status aktivasi, konten yang terbit, order yang dihasilkan, dan hambatan yang perlu dieskalasikan.',
+            ],
+            [
+                'triggers' => ['konten', 'content', 'campaign', 'promosi'],
+                'skills' => ['desain', 'visual', 'poster'],
+                'title' => 'Siapkan aset desain dan materi promosi campaign Q3',
+                'description' => 'Turunkan strategi campaign menjadi aset desain dan materi promosi sesuai channel. Serahkan file final yang sudah mengikuti brand guideline dan siap diajukan untuk approval CMO.',
+            ],
+        ];
+        $teamLines = preg_split('/\R/u', (string) (AiKnowledge::map()['team'] ?? '')) ?: [];
+        $assignments = [];
+
+        foreach ($definitions as $definition) {
+            if (! collect($definition['triggers'])->contains(fn (string $trigger) => str_contains($direction, $trigger))) {
+                continue;
+            }
+            foreach ($teamLines as $line) {
+                $lineNormalised = $this->normalise($line);
+                if (! collect($definition['skills'])->contains(fn (string $skill) => str_contains($lineNormalised, $skill))) {
+                    continue;
+                }
+                $memberId = $this->memberInText($line, $members);
+                if (! $memberId) {
+                    continue;
+                }
+                $assignments[] = [
+                    'member_id' => $memberId,
+                    'member_name' => $this->memberName($memberId, $members) ?? 'PIC',
+                    'title' => $definition['title'],
+                    'description' => $definition['description'],
+                ];
+
+                break;
+            }
+        }
+
+        return collect($assignments)->unique('member_id')->values()->all();
     }
 
     /** @param array<int,array{member_id:int,keywords:array<int,string>}> $rules */
@@ -749,7 +884,14 @@ class OkrAiService
         if (! $member) {
             return null;
         }
-        $name = $this->normalise($member['name']);
+
+        return $this->columnForName($member['name'], $columns, $preferredBoardId);
+    }
+
+    /** @param array<int,array<string,mixed>> $columns */
+    private function columnForName(string $assigneeName, array $columns, int $preferredBoardId): ?int
+    {
+        $name = $this->normalise($assigneeName);
         $tokens = array_values(array_filter(
             preg_split('/\s+/u', $name) ?: [],
             fn (string $token) => mb_strlen($token) >= 3 && ! in_array($token, ['admin', 'super', 'skinku'], true),
@@ -835,6 +977,34 @@ class OkrAiService
     private function normalise(string $value): string
     {
         return mb_strtolower(trim($value));
+    }
+
+    /** @return array<int,string> */
+    public function delegationWarnings(OkrCycle $cycle): array
+    {
+        $team = (string) (AiKnowledge::map()['team'] ?? '');
+        $members = $this->members();
+        $direction = $this->normalise($cycle->direction);
+        $warnings = [];
+
+        foreach (preg_split('/\R/u', $team) ?: [] as $line) {
+            if (! preg_match('/^\s*[-*]?\s*([^—–\r\n]+?)\s*(?:—|–)\s*(.+)$/u', $line, $match)) {
+                continue;
+            }
+            $name = trim($match[1], " \t\n\r\0\x0B-");
+            $responsibility = $this->normalise($match[2]);
+            if (preg_match('/\b(?:CMO|CFO|COO)\b/i', $responsibility)
+                || $this->memberInText($name, $members) !== null) {
+                continue;
+            }
+            $relevant = collect(['live', 'affiliate', 'kol', 'syuting', 'ugc', 'video', 'desain', 'stok', 'produksi'])
+                ->contains(fn (string $keyword) => str_contains($responsibility, $keyword) && str_contains($direction, $keyword));
+            if ($relevant) {
+                $warnings[] = "{$name} disebut dalam pekerjaan periode ini tetapi belum mempunyai akun internal aktif. Tugasnya belum dapat diberikan langsung.";
+            }
+        }
+
+        return array_values(array_unique($warnings));
     }
 
     /** @param array<int,int> $memberIds */
