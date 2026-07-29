@@ -39,6 +39,27 @@ class TikTokTest extends TestCase
         ]);
     }
 
+    public function test_peta_sku_ajax_json_simpan_dan_hapus(): void
+    {
+        $sa = $this->user(User::ROLE_SUPER_ADMIN);
+        $product = Product::create(['name' => 'REINA', 'sku' => 'REI-1', 'status' => 'active']);
+
+        // Simpan komponen (AJAX) → JSON berisi komponen baru (tanpa reload).
+        $res = $this->actingAs($sa)->postJson(route('tiktok.sku-map'), [
+            'tiktok_sku' => 'SK-REI', 'product_id' => $product->id, 'qty' => 2,
+        ])->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('component.product_name', 'REINA')
+            ->assertJsonPath('component.qty', 2);
+        $mapId = $res->json('component.id');
+        $this->assertDatabaseHas('tiktok_sku_maps', ['tiktok_sku' => 'SK-REI', 'product_id' => $product->id, 'qty' => 2]);
+
+        // Hapus komponen (AJAX) → JSON ok.
+        $this->actingAs($sa)->deleteJson(route('tiktok.sku-map.remove', $mapId))
+            ->assertOk()->assertJsonPath('ok', true);
+        $this->assertDatabaseMissing('tiktok_sku_maps', ['id' => $mapId]);
+    }
+
     /** Nyalakan saklar pembukuan (default MATI). */
     private function enableJournal(): TiktokConnection
     {

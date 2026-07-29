@@ -59,24 +59,24 @@
         <p class="text-[11px] text-stone-500 mb-3">1 SKU TikTok bisa = beberapa produk SKINKU × qty. Contoh: <b>Soap-3</b> → Body Soap ×3; <b>bundle</b> → Sabun ×1 + Lotion ×1 + Scrub ×1. Diingat untuk semua order.</p>
         <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             @foreach($skusNeedingMap as $sku => $info)
-                <div class="border border-stone-200 rounded-xl p-3 flex flex-col">
+                <div class="border border-stone-200 rounded-xl p-3 flex flex-col" data-sku-card>
                     <div class="mb-1.5">
                         <span class="font-mono text-stone-800 text-sm">{{ $sku }}</span>
-                        @if($info['components']->isEmpty())<span class="ml-1 text-[10px] text-rose-500">belum ada resep</span>@endif
+                        <span class="ml-1 text-[10px] text-rose-500 {{ $info['components']->isEmpty() ? '' : 'hidden' }}" data-empty-badge>belum ada resep</span>
                         <div class="text-[10px] text-stone-400 truncate">{{ $info['name'] }}</div>
                     </div>
                     {{-- komponen yang sudah ada --}}
-                    @foreach($info['components'] as $c)
-                        <div class="flex items-center gap-1.5 text-xs py-0.5">
-                            <span class="text-emerald-700 truncate">{{ $c->product?->name ?? '(produk terhapus)' }}</span>
-                            <span class="text-stone-400 shrink-0">× {{ $c->qty }}</span>
-                            <form method="POST" action="{{ route('tiktok.sku-map.remove', $c) }}" class="inline shrink-0">@csrf @method('DELETE')
-                                <button class="text-[10px] text-rose-500 hover:text-rose-700 underline">hapus</button>
-                            </form>
-                        </div>
-                    @endforeach
-                    {{-- tambah komponen --}}
-                    <form method="POST" action="{{ route('tiktok.sku-map') }}" class="flex items-center gap-1.5 text-xs mt-auto pt-2">@csrf
+                    <div data-components>
+                        @foreach($info['components'] as $c)
+                            <div class="flex items-center gap-1.5 text-xs py-0.5" data-component-id="{{ $c->id }}" data-product-id="{{ $c->product_id }}">
+                                <span class="text-emerald-700 truncate" data-comp-name>{{ $c->product?->name ?? '(produk terhapus)' }}</span>
+                                <span class="text-stone-400 shrink-0">× <span data-comp-qty>{{ $c->qty }}</span></span>
+                                <button type="button" data-remove="{{ route('tiktok.sku-map.remove', $c) }}" class="text-[10px] text-rose-500 hover:text-rose-700 underline shrink-0">hapus</button>
+                            </div>
+                        @endforeach
+                    </div>
+                    {{-- tambah komponen (AJAX — simpan tanpa reload) --}}
+                    <form data-add-map action="{{ route('tiktok.sku-map') }}" class="flex items-center gap-1.5 text-xs mt-auto pt-2">@csrf
                         <input type="hidden" name="tiktok_sku" value="{{ $sku }}">
                         <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded flex-1 min-w-0">
                             <option value="">— produk —</option>
@@ -84,13 +84,83 @@
                         </select>
                         <span class="text-stone-400 shrink-0">×</span>
                         <input type="number" name="qty" value="1" min="1" max="999" class="w-12 px-1.5 py-1 border border-stone-300 rounded text-right shrink-0">
-                        <button class="px-2.5 py-1 bg-stone-800 text-white rounded hover:bg-stone-900 shrink-0">+</button>
+                        <button type="submit" class="px-2.5 py-1 bg-stone-800 text-white rounded hover:bg-stone-900 shrink-0">+</button>
                     </form>
                 </div>
             @endforeach
         </div>
         </div>
     </details>
+
+    <script>
+    (function () {
+        function csrf() { return window.CSRF || (document.querySelector('meta[name=csrf-token]') || {}).content; }
+
+        function refreshEmpty(card) {
+            var badge = card.querySelector('[data-empty-badge]');
+            if (badge) badge.classList.toggle('hidden', card.querySelector('[data-components]').children.length > 0);
+        }
+
+        function bindRemove(btn) {
+            btn.addEventListener('click', function () {
+                if (! confirm('Hapus komponen ini?')) return;
+                btn.disabled = true;
+                fetch(btn.dataset.remove, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (! res.ok) throw new Error();
+                        var card = btn.closest('[data-sku-card]');
+                        btn.closest('[data-component-id]').remove();
+                        refreshEmpty(card);
+                    })
+                    .catch(function () { alert('Gagal hapus. Coba lagi.'); btn.disabled = false; });
+            });
+        }
+
+        function upsert(card, comp) {
+            var list = card.querySelector('[data-components]');
+            var row = list.querySelector('[data-product-id="' + comp.product_id + '"]');
+            if (row) {
+                row.querySelector('[data-comp-qty]').textContent = comp.qty;   // updateOrCreate → ubah qty
+            } else {
+                row = document.createElement('div');
+                row.className = 'flex items-center gap-1.5 text-xs py-0.5';
+                row.dataset.componentId = comp.id;
+                row.dataset.productId = comp.product_id;
+                row.innerHTML = '<span class="text-emerald-700 truncate" data-comp-name></span>'
+                    + '<span class="text-stone-400 shrink-0">× <span data-comp-qty></span></span>'
+                    + '<button type="button" class="text-[10px] text-rose-500 hover:text-rose-700 underline shrink-0">hapus</button>';
+                row.querySelector('[data-comp-name]').textContent = comp.product_name;   // aman XSS
+                row.querySelector('[data-comp-qty]').textContent = comp.qty;
+                var rm = row.querySelector('button');
+                rm.dataset.remove = comp.remove_url;
+                bindRemove(rm);
+                list.appendChild(row);
+            }
+            refreshEmpty(card);
+        }
+
+        document.querySelectorAll('[data-remove]').forEach(bindRemove);
+
+        document.querySelectorAll('form[data-add-map]').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var btn = form.querySelector('button[type=submit]');
+                btn.disabled = true;
+                fetch(form.action, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: new FormData(form) })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (! res.ok) throw new Error(res.message || 'gagal');
+                        upsert(form.closest('[data-sku-card]'), res.component);
+                        form.querySelector('select').value = '';
+                        form.querySelector('input[name=qty]').value = '1';
+                    })
+                    .catch(function (err) { alert('Gagal simpan: ' + (err.message || '')); })
+                    .finally(function () { btn.disabled = false; });
+            });
+        });
+    })();
+    </script>
 @endif
 
 <div class="mt-4 space-y-2">

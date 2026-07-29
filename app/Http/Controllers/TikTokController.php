@@ -15,6 +15,7 @@ use App\Services\TikTokOrderService;
 use App\Services\TikTokReturnService;
 use App\Services\TikTokSettlementService;
 use App\Services\TikTokSyncService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -123,26 +124,42 @@ class TikTokController extends Controller
     }
 
     /** Tambah komponen resep: 1 SKU TikTok → produk SKINKU × qty (boleh banyak). */
-    public function saveSkuMap(Request $request): RedirectResponse
+    public function saveSkuMap(Request $request): RedirectResponse|JsonResponse
     {
         $data = $request->validate([
             'tiktok_sku' => ['required', 'string', 'max:190'],
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'qty' => ['required', 'integer', 'min:1', 'max:999'],
         ]);
-        TiktokSkuMap::updateOrCreate(
+        $map = TiktokSkuMap::updateOrCreate(
             ['tiktok_sku' => $data['tiktok_sku'], 'product_id' => $data['product_id']],
             ['qty' => $data['qty']],
         );
+
+        if ($request->wantsJson()) {
+            $map->load('product');
+
+            return response()->json(['ok' => true, 'component' => [
+                'id' => $map->id,
+                'product_id' => $map->product_id,
+                'product_name' => $map->product?->name ?? '(produk)',
+                'qty' => (int) $map->qty,
+                'remove_url' => route('tiktok.sku-map.remove', $map),
+            ]]);
+        }
 
         return back()->with('status', "Komponen ditambahkan ke SKU \"{$data['tiktok_sku']}\".");
     }
 
     /** Hapus 1 komponen resep. */
-    public function removeSkuMap(TiktokSkuMap $map): RedirectResponse
+    public function removeSkuMap(Request $request, TiktokSkuMap $map): RedirectResponse|JsonResponse
     {
         $sku = $map->tiktok_sku;
         $map->delete();
+
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true]);
+        }
 
         return back()->with('status', "Komponen dihapus dari SKU \"{$sku}\".");
     }
