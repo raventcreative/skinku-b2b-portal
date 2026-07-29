@@ -1,7 +1,7 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **515 test lulus (2322 assertions)** setelah panel paralel dan pemulihan output AI menyeluruh.
+> Baseline sebelum OKR: `37820b9`. **520 test lulus (2340 assertions)** setelah panel paralel, pemulihan output AI, dan fallback gangguan OpenAI.
 
 ---
 
@@ -104,6 +104,9 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
   salah, mengirim argumen kosong, Objective duplikat, KR minim, atau tugas
   kosong, server membentuk dan menormalkan pratinjau lengkap secara
   deterministik. Pengujian adversarial juga mencakup approval hingga kartu AI.
+- Timeout/koneksi/rate limit sementara tidak lagi membuang hasil: Orchestrator
+  memakai hasil panel, atau seluruh panel memakai fallback server yang ditandai
+  di asumsi. Kuota/saldo habis dan key salah tetap menjadi error permanen.
 - Untuk arahan eksplisit CMO+CFO+COO, server menyeimbangkan hasil menjadi tepat
   satu Objective per fungsi: duplikat digabung/dideduplikasi dan fungsi yang
   hilang dibentuk dari proposal panelnya lengkap dengan KR serta tugas awal.
@@ -135,8 +138,8 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063` sampai `000066`.
 - Progres Objective/KR otomatis dari `BoardCard.completed_at`; masuk/keluar Done/Selesai langsung mengubah progres.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
-- Uji offline: `tests/Feature/OkrTest.php`; total suite setelah quality gate dan
-  pengujian adversarial **515 lulus / 2322 assertions**.
+- Uji offline: `tests/Feature/OkrTest.php`; total suite setelah quality gate,
+  pengujian adversarial, dan fallback transient **520 lulus / 2340 assertions**.
 
 ---
 

@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Otak berbasis OpenAI Chat Completions (via Http bawaan Laravel — TANPA SDK).
@@ -18,6 +19,8 @@ class OpenAiProvider implements ConcurrentAiProvider
         private string $base,
         private string $model,
         private int $maxTokens,
+        private int $timeout = 45,
+        private int $connectTimeout = 10,
     ) {}
 
     public function chat(array $messages, array $tools): AiTurn
@@ -25,10 +28,17 @@ class OpenAiProvider implements ConcurrentAiProvider
         try {
             $res = Http::withToken($this->apiKey)
                 ->acceptJson()
-                ->timeout(60)
+                ->connectTimeout($this->connectTimeout)
+                ->timeout($this->timeout)
                 ->post($this->endpoint(), $this->payload($messages, $tools));
         } catch (\Throwable $e) {
-            throw new AiException('Tak bisa menghubungi OpenAI (jaringan/timeout). Coba lagi sebentar.');
+            $this->logConnectionFailure('single', $e);
+
+            throw new AiException(
+                'OpenAI tidak merespons dalam batas waktu. Sistem dapat memakai hasil panel/fallback bila tersedia.',
+                transient: true,
+                previous: $e,
+            );
         }
 
         return $this->turnFromResponse($res);
@@ -47,7 +57,8 @@ class OpenAiProvider implements ConcurrentAiProvider
                     $pending[] = $pool->as($key)
                         ->withToken($this->apiKey)
                         ->acceptJson()
-                        ->timeout(60)
+                        ->connectTimeout($this->connectTimeout)
+                        ->timeout($this->timeout)
                         ->post($this->endpoint(), $this->payload(
                             $request['messages'] ?? [],
                             $request['tools'] ?? [],
@@ -57,14 +68,23 @@ class OpenAiProvider implements ConcurrentAiProvider
                 return $pending;
             });
         } catch (\Throwable $e) {
-            throw new AiException('Tak bisa menghubungi OpenAI saat menjalankan panel paralel (jaringan/timeout). Coba lagi sebentar.');
+            $this->logConnectionFailure('parallel', $e);
+
+            throw new AiException(
+                'Panel OpenAI tidak merespons dalam batas waktu. Sistem akan memakai fallback berbasis data yang tersedia.',
+                transient: true,
+                previous: $e,
+            );
         }
 
         $turns = [];
         foreach (array_keys($requests) as $key) {
             $response = $responses[$key] ?? null;
             if (! $response instanceof Response) {
-                throw new AiException("Panel AI {$key} gagal menerima respons dari OpenAI.");
+                throw new AiException(
+                    "Panel AI {$key} gagal menerima respons dari OpenAI.",
+                    transient: true,
+                );
             }
             $turns[$key] = $this->turnFromResponse($response);
         }
@@ -95,7 +115,12 @@ class OpenAiProvider implements ConcurrentAiProvider
     private function turnFromResponse(Response $response): AiTurn
     {
         if (! $response->successful()) {
-            throw new AiException($this->explain($response->status(), $response->json('error.message')));
+            $status = $response->status();
+            $detail = $response->json('error.message');
+            throw new AiException(
+                $this->explain($status, $detail),
+                transient: $this->isTransientResponse($status, $detail),
+            );
         }
 
         return $this->parse($response->json('choices.0.message') ?? []);
@@ -175,11 +200,38 @@ class OpenAiProvider implements ConcurrentAiProvider
     /** Pesan error yang enak dibaca sesuai status HTTP. */
     private function explain(int $status, ?string $detail): string
     {
+        $quotaProblem = $status === 429 && $this->isQuotaProblem($detail);
+
         return match (true) {
             $status === 401 => 'Key OpenAI ditolak — cek OPENAI_API_KEY di .env server.',
-            $status === 429 => 'OpenAI lagi sibuk / kena limit. Coba lagi sebentar.',
+            $quotaProblem => 'Kuota/saldo OpenAI tidak tersedia — periksa Billing dan Usage Limits.',
+            $status === 429 => 'OpenAI terkena rate limit sementara. Sistem dapat memakai hasil panel/fallback yang tersedia.',
             $status >= 500 => 'Server OpenAI lagi bermasalah. Coba lagi nanti.',
             default => 'OpenAI menolak permintaan'.($detail ? ": {$detail}" : '.'),
         };
+    }
+
+    private function isTransientResponse(int $status, ?string $detail): bool
+    {
+        if ($status === 429) {
+            return ! $this->isQuotaProblem($detail);
+        }
+
+        return in_array($status, [408, 409, 425], true) || $status >= 500;
+    }
+
+    private function isQuotaProblem(?string $detail): bool
+    {
+        return $detail !== null
+            && preg_match('/insufficient_quota|quota|billing|credit/i', $detail) === 1;
+    }
+
+    private function logConnectionFailure(string $stage, \Throwable $e): void
+    {
+        Log::warning('Koneksi OpenAI gagal.', [
+            'stage' => $stage,
+            'exception' => $e::class,
+            'message' => $e->getMessage(),
+        ]);
     }
 }

@@ -65,6 +65,8 @@ return [
         'default_model' => env('AI_MODEL', 'gpt-4o-mini'),
         'max_iterations' => (int) env('AI_MAX_ITERATIONS', 5),
         'max_output_tokens' => (int) env('AI_MAX_OUTPUT_TOKENS', 1500),
+        'request_timeout' => (int) env('AI_REQUEST_TIMEOUT', 45),
+        'connect_timeout' => (int) env('AI_CONNECT_TIMEOUT', 10),
         'openai' => [
             'key' => env('OPENAI_API_KEY'),
             'base' => env('OPENAI_API_BASE', 'https://api.openai.com/v1'),

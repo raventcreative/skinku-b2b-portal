@@ -30,7 +30,14 @@ class AiProviderFactory
             throw new AiException('OPENAI_API_KEY belum diisi di .env server.');
         }
 
-        return new OpenAiProvider($key, (string) config('services.ai.openai.base'), $model, $maxTokens);
+        return new OpenAiProvider(
+            $key,
+            (string) config('services.ai.openai.base'),
+            $model,
+            $maxTokens,
+            (int) config('services.ai.request_timeout', 45),
+            (int) config('services.ai.connect_timeout', 10),
+        );
     }
 
     /** Daftar provider yang siap pakai (ada key-nya) — buat dropdown Pengaturan. */

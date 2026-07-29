@@ -127,6 +127,46 @@ class AiProviderTest extends TestCase
         $this->provider()->chat([['role' => 'user', 'content' => 'hai']], []);
     }
 
+    public function test_koneksi_putus_ditandai_sebagai_error_sementara(): void
+    {
+        Http::fake(['api.openai.com/*' => Http::failedConnection('Operation timed out')]);
+
+        try {
+            $this->provider()->chat([['role' => 'user', 'content' => 'hai']], []);
+            $this->fail('Connection exception seharusnya dilempar.');
+        } catch (AiException $e) {
+            $this->assertTrue($e->isTransient());
+            $this->assertStringContainsString('tidak merespons', $e->getMessage());
+        }
+    }
+
+    public function test_rate_limit_sementara_dibedakan_dari_kuota_habis(): void
+    {
+        Http::fake(['api.openai.com/*' => Http::sequence()
+            ->push([
+                'error' => ['message' => 'Rate limit reached for requests'],
+            ], 429)
+            ->push([
+                'error' => ['message' => 'You exceeded your current quota, please check your plan and billing details.'],
+            ], 429)]);
+
+        try {
+            $this->provider()->chat([['role' => 'user', 'content' => 'hai']], []);
+            $this->fail('Rate limit exception seharusnya dilempar.');
+        } catch (AiException $e) {
+            $this->assertTrue($e->isTransient());
+            $this->assertStringContainsString('rate limit sementara', $e->getMessage());
+        }
+
+        try {
+            $this->provider()->chat([['role' => 'user', 'content' => 'hai']], []);
+            $this->fail('Quota exception seharusnya dilempar.');
+        } catch (AiException $e) {
+            $this->assertFalse($e->isTransient());
+            $this->assertStringContainsString('Kuota/saldo', $e->getMessage());
+        }
+    }
+
     public function test_factory_pilih_openai_dan_daftar_tersedia(): void
     {
         config()->set('services.ai.openai.key', 'sk-test');

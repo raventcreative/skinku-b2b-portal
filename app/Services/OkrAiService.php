@@ -74,8 +74,17 @@ class OkrAiService
             ['role' => 'system', 'content' => $this->orchestratorSystemPrompt()],
             ['role' => 'user', 'content' => $this->orchestratorPrompt($input, $members, $boards, $proposals, $liveData)],
         ];
-        $turn = $provider->chat($messages, [$this->draftSchema()]);
-        $call = collect($turn->toolCalls)->firstWhere('name', 'susun_draf_okr');
+        $orchestratorRecovered = false;
+        try {
+            $turn = $provider->chat($messages, [$this->draftSchema()]);
+            $call = collect($turn->toolCalls)->firstWhere('name', 'susun_draf_okr');
+        } catch (AiException $e) {
+            if (! $e->isTransient()) {
+                throw $e;
+            }
+            $orchestratorRecovered = true;
+            $call = null;
+        }
         $draftArguments = is_array($call['arguments'] ?? null) ? $call['arguments'] : [];
         if ($draftArguments === []) {
             $draftArguments = [
@@ -83,7 +92,9 @@ class OkrAiService
                 'analysis_summary' => '',
                 'evidence' => [],
                 'assumptions' => [
-                    'Orchestrator tidak mengirim struktur final lengkap; server menyusun pratinjau dari proposal CMO, CFO, dan COO.',
+                    $orchestratorRecovered
+                        ? 'Panggilan Orchestrator OpenAI gagal sementara; server menyusun pratinjau dari proposal CMO, CFO, dan COO yang sudah tersedia.'
+                        : 'Orchestrator tidak mengirim struktur final lengkap; server menyusun pratinjau dari proposal CMO, CFO, dan COO.',
                 ],
                 'conflicts' => [],
                 'objectives' => [],
@@ -363,13 +374,22 @@ class OkrAiService
             ];
         }
 
-        if ($provider instanceof ConcurrentAiProvider) {
-            $turns = $provider->chatMany($requests);
-        } else {
-            $turns = [];
-            foreach ($requests as $key => $request) {
-                $turns[$key] = $provider->chat($request['messages'], $request['tools']);
+        $panelRecovered = false;
+        try {
+            if ($provider instanceof ConcurrentAiProvider) {
+                $turns = $provider->chatMany($requests);
+            } else {
+                $turns = [];
+                foreach ($requests as $key => $request) {
+                    $turns[$key] = $provider->chat($request['messages'], $request['tools']);
+                }
             }
+        } catch (AiException $e) {
+            if (! $e->isTransient()) {
+                throw $e;
+            }
+            $panelRecovered = true;
+            $turns = [];
         }
 
         $proposals = [];
@@ -381,6 +401,10 @@ class OkrAiService
                 liveData: $liveData[$key],
                 input: $input,
             );
+            if ($panelRecovered) {
+                $proposals[$key]['proposal']['data_gaps'][] =
+                    "Panggilan panel {$profile['label']} OpenAI gagal sementara; diagnosis ini memakai fallback server dan wajib ditinjau manusia.";
+            }
         }
 
         return $proposals;

@@ -135,6 +135,11 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
   memanggil tool yang salah, atau mengirim argumen kosong, server membentuk
   Objective, Key Result, tugas, owner, tenggat, dan kolom awal dari target,
   proposal yang tersedia, Pengetahuan AI, serta data sistem.
+- Timeout, gangguan koneksi, rate limit sementara, dan error OpenAI 5xx dianggap
+  gangguan transient. Jika Orchestrator gagal, server mempertahankan hasil tiga
+  panel; jika panel ikut gagal, server membuat fallback berbasis data/target dan
+  menandainya di asumsi untuk ditinjau manusia. Key salah dan kuota/saldo habis
+  tetap ditampilkan sebagai error permanen agar masalah konfigurasi tidak tersamar.
 - Bila arahan menyebut CMO, CFO, dan COO sekaligus, server memastikan tepat satu
   Objective per fungsi. Objective duplikat digabung, KR dideduplikasi maksimal
   empat per fungsi, dan fungsi yang hilang dipulihkan dari proposal spesialis
@@ -205,6 +210,8 @@ pengaturan mapping jabatan terpisah.
 - seluruh structured output kosong/salah tool tetap menghasilkan tiga Objective;
 - snapshot tanpa metrik tetap menghasilkan draf dengan baseline perlu validasi;
 - KR minim, tugas kosong, ID palsu, dan tanggal lampau dinormalisasi bersamaan;
+- timeout Orchestrator/seluruh panel tetap menghasilkan pratinjau transparan;
+- koneksi putus, rate limit, kuota habis, dan key permanen dibedakan;
 - akun bersama BOD tetap menghasilkan kartu approval di kolom nama BOD;
 - coverage Gracelyn untuk video/UGC dan peringatan Hida tanpa akun;
 - uraian kosong dan tenggat lampau dinormalisasi defensif;
@@ -214,7 +221,7 @@ pengaturan mapping jabatan terpisah.
 - ID palsu dari AI dinormalisasi defensif.
 
 Baseline setelah panel paralel, pemulihan output AI, dan uji adversarial:
-**515 test lulus, 2322 assertions**.
+**520 test lulus, 2340 assertions**.
 
 ---
 

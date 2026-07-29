@@ -10,6 +10,7 @@ use App\Models\OkrCycle;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\User;
+use App\Services\Ai\AiException;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiTurn;
 use App\Services\OkrBusinessSnapshotService;
@@ -875,5 +876,87 @@ class OkrTest extends TestCase
 
         $this->actingAs($super)->post(route('okr.approve', $cycle))->assertRedirect();
         $this->assertSame(OkrCycle::STATUS_ACTIVE, $cycle->fresh()->status);
+    }
+
+    public function test_timeout_orchestrator_memakai_hasil_panel_dan_tetap_membuat_pratinjau(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrtimeoutfinal');
+        $member = $this->user(User::ROLE_ADMIN, 'timeoutfinalpic');
+        [$board, $todo] = $this->board($super);
+        $seed = $this->fakeDraft($member, $todo->id);
+        $this->app->instance(AiProvider::class, new class($seed) implements AiProvider
+        {
+            private int $calls = 0;
+
+            public function __construct(private FakeAiProvider $seed) {}
+
+            public function chat(array $messages, array $tools): AiTurn
+            {
+                $this->calls++;
+                if ($this->calls === 4) {
+                    throw new AiException('Orchestrator timeout.', transient: true);
+                }
+
+                return $this->seed->chat($messages, $tools);
+            }
+        });
+
+        $this->actingAs($super)
+            ->post(route('okr.generate'), $this->generatePayload($board->id))
+            ->assertRedirect();
+
+        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
+        $this->assertSame(['cmo', 'cfo', 'coo'], $cycle->objectives->pluck('specialist')->all());
+        $this->assertStringContainsString(
+            'Orchestrator OpenAI gagal sementara',
+            implode(' ', $cycle->analysis_assumptions),
+        );
+        $this->assertTrue($cycle->objectives->flatMap->keyResults->flatMap->tasks->isNotEmpty());
+    }
+
+    public function test_timeout_seluruh_panel_memakai_fallback_transparan_tanpa_halaman_error(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrtimeoutall');
+        $this->user(User::ROLE_ADMIN, 'timeoutallpic');
+        [$board] = $this->board($super);
+        $this->app->instance(AiProvider::class, new class implements AiProvider
+        {
+            public function chat(array $messages, array $tools): AiTurn
+            {
+                throw new AiException('OpenAI timeout.', transient: true);
+            }
+        });
+
+        $this->actingAs($super)
+            ->post(route('okr.generate'), $this->generatePayload($board->id))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
+        $assumptions = implode(' ', $cycle->analysis_assumptions);
+        $this->assertStringContainsString('panel CMO OpenAI gagal sementara', $assumptions);
+        $this->assertStringContainsString('Orchestrator OpenAI gagal sementara', $assumptions);
+        $this->assertSame(['cmo', 'cfo', 'coo'], $cycle->objectives->pluck('specialist')->all());
+    }
+
+    public function test_error_openai_permanen_tetap_ditampilkan_dan_tidak_disamarkan(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrpermanent');
+        $this->user(User::ROLE_ADMIN, 'permanentpic');
+        [$board] = $this->board($super);
+        $this->app->instance(AiProvider::class, new class implements AiProvider
+        {
+            public function chat(array $messages, array $tools): AiTurn
+            {
+                throw new AiException('Key OpenAI ditolak.');
+            }
+        });
+
+        $this->actingAs($super)
+            ->post(route('okr.generate'), $this->generatePayload($board->id))
+            ->assertRedirect()
+            ->assertSessionHas('error', 'Key OpenAI ditolak.');
+
+        $this->assertSame(0, OkrCycle::count());
     }
 }

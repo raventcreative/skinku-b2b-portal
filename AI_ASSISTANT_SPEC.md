@@ -121,12 +121,17 @@ Semua di `app/Services/Ai/`.
     'default_model'  => env('AI_MODEL', 'gpt-4o-mini'), // murah; ganti di Pengaturan sesuai lineup terbaru
     'max_iterations' => 5,
     'max_output_tokens' => 1500,
+    'request_timeout' => 45,
+    'connect_timeout' => 10,
 ],
 ```
 
 Di **Pengaturan Sistem**: dropdown **Provider** (cuma yang ada key-nya) + **Model**
 (teks/preset). Disimpan `AppSetting('ai_provider')`, `AppSetting('ai_model')`.
 `.env` cukup diisi `OPENAI_API_KEY` (sudah). `AI_PROVIDER`/`AI_MODEL` opsional.
+Timeout dapat dioverride lewat `AI_REQUEST_TIMEOUT` dan `AI_CONNECT_TIMEOUT`.
+Provider membedakan koneksi/timeout, rate limit sementara, kuota/billing habis,
+key ditolak, dan error server. Detail koneksi aman dicatat ke log server.
 
 ---
 
