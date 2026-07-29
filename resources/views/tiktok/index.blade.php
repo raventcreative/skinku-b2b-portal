@@ -70,6 +70,7 @@ TIKTOK_SERVICE_ID=7659787806251779858</pre>
                 <a href="{{ route('tiktok.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700">↩ Retur TikTok →</a>
                 <a href="{{ route('tiktok.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800">📊 Konversi Stok →</a>
                 <a href="{{ route('tiktok.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">💰 Dana Cair →</a>
+                <a href="{{ route('tiktok.income') }}" class="px-4 py-2 text-sm bg-violet-700 text-white rounded-lg hover:bg-violet-800">🧾 Laporan Income →</a>
                 <form method="POST" action="{{ route('tiktok.disconnect') }}" onsubmit="return confirm('Putuskan koneksi TikTok?')">@csrf @method('DELETE')
                     <button class="px-4 py-2 text-sm text-rose-600 hover:text-rose-800">Putuskan</button>
                 </form>

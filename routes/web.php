@@ -32,6 +32,7 @@ use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockReceiptController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TikTokController;
+use App\Http\Controllers\TikTokIncomeController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -281,6 +282,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/tiktok/sync-orders', [TikTokController::class, 'syncOrders'])->name('tiktok.sync-orders');
         Route::get('/tiktok/orders', [TikTokController::class, 'orderList'])->name('tiktok.orders');
         Route::get('/tiktok/stok', [TikTokController::class, 'stockFunnel'])->name('tiktok.stock');
+
+        // Laporan Income TikTok (Fase 1: upload CSV pesanan + xlsx income → gabung).
+        Route::get('/tiktok/income', [TikTokIncomeController::class, 'form'])->name('tiktok.income');
+        Route::post('/tiktok/income', [TikTokIncomeController::class, 'process'])->name('tiktok.income.process');
+        Route::get('/tiktok/income/unduh', [TikTokIncomeController::class, 'download'])->name('tiktok.income.download');
+        Route::post('/tiktok/income/reset', [TikTokIncomeController::class, 'reset'])->name('tiktok.income.reset');
         Route::post('/tiktok/sku-map', [TikTokController::class, 'saveSkuMap'])->name('tiktok.sku-map');
         Route::delete('/tiktok/sku-map/{map}', [TikTokController::class, 'removeSkuMap'])->name('tiktok.sku-map.remove');
         Route::post('/tiktok/orders/{order}/deduct', [TikTokController::class, 'deductStock'])->name('tiktok.deduct');

@@ -71,8 +71,8 @@ Parse csv (trim `\t`) + xlsx sheet-1 · join by Order ID (matched & unmatched) �
 
 ---
 
-## 9. KEPUTUSAN TERBUKA (butuh jawaban Freddie)
+## 9. KEPUTUSAN (terkunci — Freddie, 29 Jul 2026)
 
-1. **Item-besar = `Product.category`?** — master produk sudah bagi jadi "Sabun/Lotion/Scrub/…"? Kalau beda, kolom ikut kategori master apa adanya (atau tambah field "item besar" khusus).
-2. **Sheet income** = sheet pertama (Detail pesanan) — asumsi aman; kalau TikTok ubah urutan sheet, nanti tambah pemilih sheet.
-3. **Upload sekali** (2 file bareng, 1 form) vs **2-langkah** ala bot — rekomendasi **sekali**.
+1. **Item-besar = `Product.category`** (via `resolve()` → produk → kategori). `Product.category` adalah **teks bebas** (bukan daftar tetap) → kolom = kategori distinct yang muncul di data, **produk tanpa kategori → kolom "Lainnya"**. Self-correcting: kolom keliru = benerin kategori produk di master.
+2. **Sheet income = sheet pertama** ("Detail pesanan"). Kalau TikTok ubah urutan, nanti tambah pemilih sheet.
+3. **Upload sekali** (2 file bareng, 1 form).
