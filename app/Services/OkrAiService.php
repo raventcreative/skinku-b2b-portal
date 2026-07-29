@@ -160,7 +160,12 @@ class OkrAiService
                 throw ValidationException::withMessages(['okr' => 'OKR ini sudah disetujui sebelumnya.']);
             }
 
-            $locked->load('objectives.keyResults.tasks.assignee', 'objectives.keyResults.tasks.column.board');
+            $locked->load(
+                'objectives.owner',
+                'objectives.keyResults.owner',
+                'objectives.keyResults.tasks.assignee',
+                'objectives.keyResults.tasks.column.board',
+            );
             $issues = $this->approvalIssues($locked);
             if ($issues !== []) {
                 throw ValidationException::withMessages(['okr' => implode(' ', $issues)]);
@@ -214,10 +219,25 @@ class OkrAiService
     /** @return array<int,string> */
     private function approvalIssues(OkrCycle $cycle): array
     {
+        $objectives = $cycle->objectives;
+        $keyResults = $objectives->flatMap->keyResults;
         $tasks = $cycle->objectives->flatMap->keyResults->flatMap->tasks;
         $issues = [];
+        if ($objectives->contains(fn ($objective) => ! $objective->owner
+            || ! $objective->owner->isActive()
+            || $objective->owner->isPartner())) {
+            $issues[] = 'Semua Objective harus punya penanggung jawab internal yang aktif.';
+        }
+        if ($keyResults->contains(fn ($keyResult) => ! $keyResult->owner
+            || ! $keyResult->owner->isActive()
+            || $keyResult->owner->isPartner())) {
+            $issues[] = 'Semua Key Result harus punya penanggung jawab internal yang aktif.';
+        }
         if ($tasks->isEmpty()) {
             $issues[] = 'Draf belum punya tugas.';
+        }
+        if ($tasks->contains(fn ($task) => blank($task->description))) {
+            $issues[] = 'Semua tugas harus punya detail pekerjaan dan hasil yang harus diserahkan.';
         }
         if ($tasks->contains(fn ($task) => ! $task->assignee_user_id)) {
             $issues[] = 'Semua tugas harus punya penerima.';

@@ -30,8 +30,9 @@
   Kanban dari ID nyata. Server juga mencocokkan struktur BOD, aturan delegasi
   bertanda `→`, serta kolom To Do bernama PIC dari Pengetahuan AI.
 - Pratinjau utama berupa ringkasan siap-setujui dengan lebar terbatas dan kartu
-  pekerjaan dua kolom. Form koreksi lengkap tetap tersedia lewat **Edit manual**,
-  tetapi disembunyikan agar alur normal cukup periksa lalu setujui.
+  pekerjaan dua kolom. Koreksi dilakukan langsung pada Objective, Key Result,
+  atau kartu tugas melalui tombol **Edit** di bagian terkait; tidak ada formulir
+  panjang kedua di bawah pratinjau.
 - **Tidak ada kartu sebelum persetujuan.** Tombol persetujuan membuat seluruh
   kartu secara atomik: berhasil semua atau batal semua.
 - Progres tidak diisi manual. Sumber tunggal progres adalah `completed_at` kartu
@@ -50,7 +51,7 @@
    `susun_draf_okr`, dan menyimpan hasil sebagai draf.
 6. User memeriksa ringkasan Objective, Key Result, detail pekerjaan, PIC, tenggat,
    serta kolom Kanban. Semua pilihan ini sudah diisi otomatis.
-7. Jika perlu, user membuka **Edit manual** dan menyimpan koreksi.
+7. Jika perlu, user menekan **Edit** pada kartu terkait dan menyimpan koreksi.
 8. User menekan **Setujui & Buat N Kartu**.
 9. Server memvalidasi ulang seluruh penerima/kolom/tanggal, membuat kartu
    `created_via=ai`, menghubungkan kartu ke tugas OKR, lalu mengaktifkan OKR.
@@ -96,6 +97,10 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
   generate apabila periode sedang berjalan.
 - Jika model mengosongkan uraian pekerjaan, server memberi uraian defensif agar
   kartu tidak pernah dibuat tanpa petunjuk kerja.
+- Detail pekerjaan, owner Objective, dan owner Key Result wajib ada sebelum
+  approval. Draf lama yang belum lengkap ditandai dan tombol approval dinonaktifkan.
+- Bila ada kolom Kanban yang namanya cocok dengan PIC, server selalu memakai
+  kolom tersebut meskipun pilihan manual/model menunjuk kolom anggota lain.
 - Klik persetujuan berulang ditolak dan tidak menduplikasi kartu.
 - Generate, edit draf, approve, dan hapus draf masuk Audit Log.
 
@@ -141,7 +146,7 @@ pengaturan mapping jabatan terpisah.
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah penyempurnaan pratinjau otomatis: **506 test lulus, 2238 assertions**.
+Baseline setelah penyempurnaan editor inline: **506 test lulus, 2244 assertions**.
 
 ---
 

@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -102,16 +103,16 @@ class OkrController extends Controller
             'objectives.*.title' => ['required', 'string', 'max:255'],
             'objectives.*.specialist' => ['required', 'in:'.implode(',', array_keys(OkrObjective::SPECIALISTS))],
             'objectives.*.description' => ['nullable', 'string', 'max:4000'],
-            'objectives.*.owner_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'objectives.*.owner_user_id' => ['required', 'integer', 'exists:users,id'],
             'key_results' => ['required', 'array'],
             'key_results.*.title' => ['required', 'string', 'max:255'],
             'key_results.*.metric' => ['nullable', 'string', 'max:255'],
             'key_results.*.target' => ['nullable', 'string', 'max:255'],
-            'key_results.*.owner_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'key_results.*.owner_user_id' => ['required', 'integer', 'exists:users,id'],
             'key_results.*.due_date' => ['required', 'date_format:Y-m-d'],
             'tasks' => ['required', 'array'],
             'tasks.*.title' => ['required', 'string', 'max:255'],
-            'tasks.*.description' => ['nullable', 'string', 'max:4000'],
+            'tasks.*.description' => ['required', 'string', 'max:4000'],
             'tasks.*.assignee_user_id' => ['required', 'integer', 'exists:users,id'],
             'tasks.*.board_column_id' => ['required', 'integer', 'exists:board_columns,id'],
             'tasks.*.due_date' => ['required', 'date_format:Y-m-d'],
@@ -119,8 +120,9 @@ class OkrController extends Controller
 
         $okr->load('objectives.keyResults.tasks');
         $this->validatePreviewReferences($okr, $data);
+        $taskColumns = $this->matchedTaskColumns($okr, $data);
 
-        DB::transaction(function () use ($okr, $data, $request) {
+        DB::transaction(function () use ($okr, $data, $request, $taskColumns) {
             $okr->update(['name' => $data['name'], 'direction' => $data['direction']]);
             foreach ($okr->objectives as $objective) {
                 $row = $data['objectives'][$objective->id];
@@ -143,9 +145,9 @@ class OkrController extends Controller
                         $taskRow = $data['tasks'][$task->id];
                         $task->update([
                             'title' => $taskRow['title'],
-                            'description' => $taskRow['description'] ?? null,
+                            'description' => $taskRow['description'],
                             'assignee_user_id' => $taskRow['assignee_user_id'],
-                            'board_column_id' => $taskRow['board_column_id'],
+                            'board_column_id' => $taskColumns[$task->id],
                             'due_date' => $taskRow['due_date'],
                         ]);
                     }
@@ -286,5 +288,71 @@ class OkrController extends Controller
         if ($errors !== []) {
             throw ValidationException::withMessages(['okr' => implode(' ', array_unique($errors))]);
         }
+    }
+
+    /**
+     * Bila papan memiliki kolom bernama PIC, kolom tersebut selalu menang.
+     * Dengan begitu perubahan PIC Agatha tidak mungkin tetap tersimpan ke To Do Tiar.
+     *
+     * @param  array<string,mixed>  $data
+     * @return array<int,int>
+     */
+    private function matchedTaskColumns(OkrCycle $okr, array $data): array
+    {
+        $members = $this->members()->keyBy('id');
+        $columns = BoardColumn::query()->with('board')->orderBy('board_id')->orderBy('position')->get()
+            ->reject(fn (BoardColumn $column) => $column->isDone());
+        $matched = [];
+
+        foreach ($okr->objectives->flatMap->keyResults->flatMap->tasks as $task) {
+            $row = $data['tasks'][$task->id];
+            $selectedId = (int) $row['board_column_id'];
+            $member = $members->get((int) $row['assignee_user_id']);
+            if (! $member) {
+                $matched[$task->id] = $selectedId;
+
+                continue;
+            }
+
+            $memberName = $this->normaliseName($member->displayName());
+            $tokens = collect(preg_split('/\s+/u', $memberName) ?: [])
+                ->filter(fn (string $token) => mb_strlen($token) >= 3 && ! in_array($token, ['admin', 'super', 'skinku'], true))
+                ->values();
+            $selectedBoardId = (int) ($columns->firstWhere('id', $selectedId)?->board_id ?? 0);
+            $bestId = null;
+            $bestScore = 0;
+
+            foreach ($columns as $column) {
+                $columnName = $this->normaliseName($column->name);
+                $score = str_contains($columnName, $memberName) ? 100 : 0;
+                foreach ($tokens as $token) {
+                    if (str_contains($columnName, $token)) {
+                        $score += 20;
+                    }
+                }
+                if ($score === 0) {
+                    continue;
+                }
+                if ((int) $column->board_id === $selectedBoardId) {
+                    $score += 5;
+                }
+                if (str_contains($columnName, 'to do') || str_contains($columnName, 'todo')) {
+                    $score += 5;
+                }
+                if ($score > $bestScore) {
+                    $bestId = $column->id;
+                    $bestScore = $score;
+                }
+            }
+
+            $matched[$task->id] = $bestId ?? $selectedId;
+        }
+
+        return $matched;
+    }
+
+    private function normaliseName(string $value): string
+    {
+        return Str::of($value)->lower()->replaceMatches('/[^\pL\pN ]+/u', ' ')->squish()->toString();
     }
 }

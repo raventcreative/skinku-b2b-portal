@@ -1,7 +1,7 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **506 test lulus (2238 assertions)** setelah penyempurnaan pratinjau otomatis.
+> Baseline sebelum OKR: `37820b9`. **506 test lulus (2244 assertions)** setelah penyempurnaan editor inline.
 
 ---
 
@@ -87,16 +87,20 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
 - Setiap Objective menyimpan label spesialis `cmo/cfo/coo`; label ikut terlihat di pratinjau, halaman aktif, dan deskripsi kartu.
 - Sidebar dirapikan: link **Pengetahuan AI** yang sebelumnya tampil dua kali sekarang hanya satu; menu **OKR** tampil setelah Kanban.
 - Pratinjau utama ringkas dan siap-setujui: AI otomatis mengisi detail pekerjaan,
-  owner BOD, PIC, tenggat, dan kolom To Do bernama PIC. Form lengkap disembunyikan
-  di tombol **Edit manual**; konten halaman dibatasi `max-w-6xl` agar tidak melebar.
+  owner BOD, PIC, tenggat, dan kolom To Do bernama PIC. Edit dilakukan langsung
+  pada kartu Objective/KR/tugas yang dipilih; tidak ada form kedua. Konten halaman
+  dibatasi `max-w-6xl` agar tidak melebar.
 - Normalisasi defensif membaca pola BOD (`Freddie — CMO`, dst.) dan aturan
   delegasi (`jenis pekerjaan → Nama`) langsung dari bagian Tim & tanggung jawab.
+- PIC dan kolom bernama anggota diselaraskan lagi saat koreksi disimpan, sehingga
+  PIC Agatha tidak dapat tertinggal di `To Do Tiar`. Detail dan owner wajib
+  sebelum approval; draf versi lama yang kosong diberi peringatan khusus.
 - Persetujuan eksplisit membuat semua kartu Kanban secara atomik; kartu memakai `created_via=ai` dan tertaut ke tugas OKR.
 - Progres Objective/KR otomatis dari `BoardCard.completed_at`; masuk/keluar Done/Selesai langsung mengubah progres.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
 - Uji offline: `tests/Feature/OkrTest.php`; total suite setelah penyempurnaan UI
-  otomatis **506 lulus / 2238 assertions**.
+  otomatis **506 lulus / 2244 assertions**.
 
 ---
 

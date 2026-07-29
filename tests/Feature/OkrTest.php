@@ -171,7 +171,10 @@ class OkrTest extends TestCase
             ->assertSee('Pratinjau')
             ->assertSee('CMO AI')
             ->assertSee('Percepat pertumbuhan TikTok')
-            ->assertSee('Susun kalender konten TikTok');
+            ->assertSee('Susun kalender konten TikTok')
+            ->assertSee('Edit Objective')
+            ->assertSee('Simpan Perubahan')
+            ->assertDontSee('Koreksi manual');
     }
 
     public function test_periode_bulanan_dan_cakupan_individu_tersimpan_benar(): void
@@ -382,10 +385,43 @@ class OkrTest extends TestCase
         $this->assertNotEmpty($task->description);
         $this->assertSame('2026-09-30', $task->due_date->toDateString());
 
+        $this->actingAs($super)->put(route('okr.update', $cycle), [
+            'name' => $cycle->name,
+            'direction' => $cycle->direction,
+            'objectives' => [
+                $objective->id => [
+                    'specialist' => $objective->specialist,
+                    'title' => $objective->title,
+                    'description' => $objective->description,
+                    'owner_user_id' => $objective->owner_user_id,
+                ],
+            ],
+            'key_results' => [
+                $kr->id => [
+                    'title' => $kr->title,
+                    'metric' => $kr->metric,
+                    'target' => $kr->target,
+                    'owner_user_id' => $kr->owner_user_id,
+                    'due_date' => $kr->due_date->toDateString(),
+                ],
+            ],
+            'tasks' => [
+                $task->id => [
+                    'title' => $task->title,
+                    'description' => $task->description,
+                    'assignee_user_id' => $agatha->id,
+                    'board_column_id' => $tiarColumn->id,
+                    'due_date' => $task->due_date->toDateString(),
+                ],
+            ],
+        ])->assertRedirect(route('okr.show', $cycle));
+
+        $this->assertSame($agathaColumn->id, $task->fresh()->board_column_id);
+
         $this->actingAs($super)->get(route('okr.show', $cycle))
             ->assertOk()
             ->assertSee('Pratinjau OKR')
-            ->assertSee('Edit manual')
+            ->assertSee('Edit Objective')
             ->assertSee('Setujui & Buat 1 Kartu', false)
             ->assertSee('Penanggung jawab:');
     }
