@@ -1,13 +1,14 @@
 # SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
-> Baseline sebelum OKR: `37820b9`. **505 test lulus (2226 assertions)** setelah implementasi panel OKR.
+> Baseline sebelum OKR: `37820b9`. **506 test lulus (2238 assertions)** setelah penyempurnaan pratinjau otomatis.
 
 ---
 
 ## 0. STATUS & DEPLOY
 
-- Baseline lama sudah di `origin/main`; fitur OKR sudah di-commit lokal dan perlu di-push sebelum deploy.
+- Fitur OKR sampai perapian menu sudah ada di `origin/main`; penyempurnaan
+  pratinjau otomatis pada sesi terakhir perlu di-push sebelum deploy.
 - **Ada migrasi baru sampai 000063** → deploy WAJIB `migrate --force`.
 
 **Deploy penuh (server produksi):**
@@ -85,12 +86,17 @@ Spec: **`OKR_SPEC.md`**. Migrasi `000063`.
 - CMO/CFO/COO hanya perspektif AI; BOD dan PIC manusia tetap diinferensikan dari Pengetahuan AI (tidak ada setting mapping jabatan baru).
 - Setiap Objective menyimpan label spesialis `cmo/cfo/coo`; label ikut terlihat di pratinjau, halaman aktif, dan deskripsi kartu.
 - Sidebar dirapikan: link **Pengetahuan AI** yang sebelumnya tampil dua kali sekarang hanya satu; menu **OKR** tampil setelah Kanban.
-- Pratinjau dapat mengubah teks, owner, metrik/target, penerima, kolom, dan tenggat.
+- Pratinjau utama ringkas dan siap-setujui: AI otomatis mengisi detail pekerjaan,
+  owner BOD, PIC, tenggat, dan kolom To Do bernama PIC. Form lengkap disembunyikan
+  di tombol **Edit manual**; konten halaman dibatasi `max-w-6xl` agar tidak melebar.
+- Normalisasi defensif membaca pola BOD (`Freddie — CMO`, dst.) dan aturan
+  delegasi (`jenis pekerjaan → Nama`) langsung dari bagian Tim & tanggung jawab.
 - Persetujuan eksplisit membuat semua kartu Kanban secara atomik; kartu memakai `created_via=ai` dan tertaut ke tugas OKR.
 - Progres Objective/KR otomatis dari `BoardCard.completed_at`; masuk/keluar Done/Selesai langsung mengubah progres.
 - Bagian Pengetahuan AI baru: **Strategi & aturan OKR**.
 - Izin baru: `okr.view` (tim internal) dan `okr.manage` (default hanya super admin).
-- Uji offline: `tests/Feature/OkrTest.php`; total suite **505 lulus / 2226 assertions**.
+- Uji offline: `tests/Feature/OkrTest.php`; total suite setelah penyempurnaan UI
+  otomatis **506 lulus / 2238 assertions**.
 
 ---
 

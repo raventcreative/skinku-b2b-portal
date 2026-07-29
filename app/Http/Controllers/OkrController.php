@@ -69,7 +69,7 @@ class OkrController extends Controller
         }
 
         return redirect()->route('okr.show', $cycle)
-            ->with('status', 'Draf OKR dari AI sudah siap. Periksa dan edit sebelum membuat kartu Kanban.');
+            ->with('status', 'Draf OKR dari AI sudah siap. Periksa ringkasannya, lalu setujui untuk membuat kartu Kanban.');
     }
 
     public function show(OkrCycle $okr): View

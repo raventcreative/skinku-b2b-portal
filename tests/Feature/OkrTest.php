@@ -290,7 +290,7 @@ class OkrTest extends TestCase
         $this->actingAs($member)->get(route('okr.show', $cycle))
             ->assertOk()
             ->assertSee('100%')
-            ->assertSee('✅');
+            ->assertSee('✓');
 
         $card->update(['column_id' => $todo->id]);
         $this->assertNull($card->fresh()->completed_at);
@@ -320,6 +320,74 @@ class OkrTest extends TestCase
         $this->assertNull($task->assignee_user_id);
         $this->assertSame($todo->id, $task->board_column_id);
         $this->assertSame(0, BoardCard::count());
+    }
+
+    public function test_pic_owner_detail_kolom_dan_tenggat_diisi_otomatis_dari_pengetahuan_ai(): void
+    {
+        $this->travelTo('2026-07-29 10:00:00');
+
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'autoowner');
+        $freddie = $this->user(User::ROLE_ADMIN, 'freddie');
+        $this->user(User::ROLE_ADMIN, 'billy');
+        $this->user(User::ROLE_ADMIN, 'devrina');
+        $agatha = $this->user(User::ROLE_ADMIN, 'agatha');
+        $tiar = $this->user(User::ROLE_ADMIN, 'tiar');
+
+        $board = Board::create(['name' => 'Task SKINKU Management', 'created_by' => $super->id]);
+        $agathaColumn = $board->columns()->create(['name' => 'To Do Agatha', 'position' => 0]);
+        $tiarColumn = $board->columns()->create(['name' => 'To Do Tiar', 'position' => 1]);
+        $board->columns()->create(['name' => 'Done', 'position' => 2]);
+
+        AiKnowledge::create([
+            'section' => 'team',
+            'content' => implode("\n", [
+                '- Billy — CFO. Keuangan, margin, dan pembayaran.',
+                '- Freddie — CMO. Marketing, branding, konten, dan campaign.',
+                '- Devrina — COO. Operasional, stok, dan pengiriman.',
+                '- Desain, visual, poster, cover, materi promosi → Agatha',
+                '- Rekrut affiliate, onboarding KOL, request sample → Tiar',
+            ]),
+        ]);
+
+        $fake = $this->fakeDraft($super, $tiarColumn->id, [
+            'objectives' => [[
+                'specialist' => 'cmo',
+                'owner_user_id' => $super->id,
+                'key_results' => [[
+                    'owner_user_id' => $super->id,
+                    'tasks' => [[
+                        'title' => 'Rancang materi promosi untuk parfum',
+                        'description' => '',
+                        'assignee_user_id' => $tiar->id,
+                        'board_column_id' => $tiarColumn->id,
+                        'due_date' => '2026-07-15',
+                    ]],
+                ]],
+            ]],
+        ]);
+        $this->app->instance(AiProvider::class, $fake);
+
+        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))
+            ->assertRedirect();
+
+        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
+        $objective = $cycle->objectives->first();
+        $kr = $objective->keyResults->first();
+        $task = $kr->tasks->first();
+
+        $this->assertSame($freddie->id, $objective->owner_user_id);
+        $this->assertSame($freddie->id, $kr->owner_user_id);
+        $this->assertSame($agatha->id, $task->assignee_user_id);
+        $this->assertSame($agathaColumn->id, $task->board_column_id);
+        $this->assertNotEmpty($task->description);
+        $this->assertSame('2026-09-30', $task->due_date->toDateString());
+
+        $this->actingAs($super)->get(route('okr.show', $cycle))
+            ->assertOk()
+            ->assertSee('Pratinjau OKR')
+            ->assertSee('Edit manual')
+            ->assertSee('Setujui & Buat 1 Kartu', false)
+            ->assertSee('Penanggung jawab:');
     }
 
     public function test_panel_menerima_snapshot_data_aktual_dan_mematuhi_izin(): void

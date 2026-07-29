@@ -264,6 +264,8 @@ class OkrAiService
                 'name' => $board->name,
                 'columns' => $board->columns->map(fn (BoardColumn $column) => [
                     'id' => $column->id,
+                    'board_id' => $board->id,
+                    'board_name' => $board->name,
                     'name' => $column->name,
                     'done' => $column->isDone(),
                 ])->all(),
@@ -344,7 +346,11 @@ class OkrAiService
             'Objective menjelaskan hasil bermakna, bukan daftar aktivitas.',
             'Key Result wajib punya metrik dan target yang jelas.',
             'Pecah setiap Key Result menjadi tugas spesifik per individu berdasarkan Pengetahuan AI.',
+            'Isi owner Objective dan Key Result dengan BOD/PIC yang sesuai spesialis; jangan default ke user yang meminta.',
+            'Setiap tugas WAJIB punya deskripsi 2–4 kalimat: tindakan, output/deliverable, dan kriteria selesai.',
+            'Bagi tugas sesuai aturan delegasi Pengetahuan AI; jangan menumpuk semua pekerjaan pada satu orang.',
             'Gunakan HANYA ID anggota dan ID kolom Kanban yang diberikan.',
+            'Jika kolom Kanban memakai nama orang, pilih kolom To Do yang namanya cocok dengan penerima tugas.',
             'Tempatkan tugas baru di kolom awal/To Do, bukan Done/Selesai.',
             'Jangan membuat tugas generik atau duplikat. Maksimum 60 tugas total.',
             'Panggil alat susun_draf_okr satu kali; jangan menjawab dengan prosa.',
@@ -367,6 +373,7 @@ class OkrAiService
         $preferred = $input['preferred_board_id'] ?? null;
 
         return implode("\n\n", [
+            'HARI INI: '.Carbon::today()->toDateString(),
             "PERIODE: {$input['period_label']} ({$input['start_date']} s.d. {$input['end_date']})",
             'CAKUPAN: '.$input['scope_label'],
             "ARAHAN USER:\n{$input['direction']}",
@@ -433,7 +440,7 @@ class OkrAiService
                 'board_column_id' => ['type' => 'integer'],
                 'due_date' => ['type' => 'string', 'description' => 'YYYY-MM-DD'],
             ],
-            'required' => ['title', 'assignee_user_id', 'board_column_id', 'due_date'],
+            'required' => ['title', 'description', 'assignee_user_id', 'board_column_id', 'due_date'],
         ];
         $kr = [
             'type' => 'object',
@@ -445,7 +452,7 @@ class OkrAiService
                 'due_date' => ['type' => 'string', 'description' => 'YYYY-MM-DD'],
                 'tasks' => ['type' => 'array', 'items' => $task],
             ],
-            'required' => ['title', 'metric', 'target', 'due_date', 'tasks'],
+            'required' => ['title', 'metric', 'target', 'owner_user_id', 'due_date', 'tasks'],
         ];
         $objective = [
             'type' => 'object',
@@ -456,7 +463,7 @@ class OkrAiService
                 'owner_user_id' => ['type' => 'integer'],
                 'key_results' => ['type' => 'array', 'items' => $kr],
             ],
-            'required' => ['specialist', 'title', 'key_results'],
+            'required' => ['specialist', 'title', 'description', 'owner_user_id', 'key_results'],
         ];
 
         return [
@@ -487,6 +494,8 @@ class OkrAiService
     private function normaliseDraft(array $draft, array $input, array $members, array $boards): array
     {
         $memberIds = array_column($members, 'id');
+        $specialistOwners = $this->specialistOwners($members);
+        $delegationRules = $this->delegationRules($members);
         $columns = collect($boards)->flatMap(fn (array $board) => $board['columns']);
         $actionableColumns = $columns->filter(fn (array $column) => ! $column['done']);
         $columnIds = $actionableColumns->pluck('id')->all();
@@ -502,6 +511,9 @@ class OkrAiService
             if (! is_array($objectiveData) || blank($objectiveData['title'] ?? null)) {
                 continue;
             }
+            $specialist = array_key_exists((string) ($objectiveData['specialist'] ?? ''), OkrObjective::SPECIALISTS)
+                ? (string) $objectiveData['specialist']
+                : 'cmo';
             $keyResults = [];
             foreach ((array) ($objectiveData['key_results'] ?? []) as $krData) {
                 if ($krCount >= self::MAX_KEY_RESULTS || ! is_array($krData) || blank($krData['title'] ?? null)) {
@@ -514,11 +526,27 @@ class OkrAiService
                     }
                     $assignee = (int) ($taskData['assignee_user_id'] ?? 0);
                     $column = (int) ($taskData['board_column_id'] ?? 0);
+                    $description = $this->nullableText($taskData['description'] ?? null, 4000)
+                        ?? 'Kerjakan '.$taskData['title'].'. Pastikan hasil akhirnya dapat diperiksa dan disetujui oleh pemilik Key Result.';
+                    $delegated = $this->delegatedAssignee(
+                        (string) $taskData['title'].' '.$description,
+                        $delegationRules,
+                    );
+                    if ($delegated !== null) {
+                        $assignee = $delegated;
+                    }
+                    $column = in_array($column, $columnIds, true) ? $column : $defaultColumnId;
+                    $matchedColumn = $this->columnForAssignee(
+                        $assignee,
+                        $members,
+                        $actionableColumns->all(),
+                        (int) ($input['preferred_board_id'] ?? 0),
+                    );
                     $tasks[] = [
                         'title' => Str::limit(trim($taskData['title']), 255, ''),
-                        'description' => $this->nullableText($taskData['description'] ?? null, 4000),
+                        'description' => $description,
                         'assignee_user_id' => in_array($assignee, $memberIds, true) ? $assignee : null,
-                        'board_column_id' => in_array($column, $columnIds, true) ? $column : $defaultColumnId,
+                        'board_column_id' => $matchedColumn ?? $column,
                         'due_date' => $this->safeDate($taskData['due_date'] ?? null, $input),
                     ];
                     $taskCount++;
@@ -530,7 +558,8 @@ class OkrAiService
                     'title' => Str::limit(trim($krData['title']), 255, ''),
                     'metric' => $this->nullableText($krData['metric'] ?? null, 255),
                     'target' => $this->nullableText($krData['target'] ?? null, 255),
-                    'owner_user_id' => $this->validMember($krData['owner_user_id'] ?? null, $memberIds),
+                    'owner_user_id' => $specialistOwners[$specialist]
+                        ?? $this->validMember($krData['owner_user_id'] ?? null, $memberIds),
                     'due_date' => $this->safeDate($krData['due_date'] ?? null, $input),
                     'tasks' => $tasks,
                 ];
@@ -540,12 +569,12 @@ class OkrAiService
                 continue;
             }
             $objectives[] = [
-                'specialist' => array_key_exists((string) ($objectiveData['specialist'] ?? ''), OkrObjective::SPECIALISTS)
-                    ? (string) $objectiveData['specialist']
-                    : 'cmo',
+                'specialist' => $specialist,
                 'title' => Str::limit(trim($objectiveData['title']), 255, ''),
-                'description' => $this->nullableText($objectiveData['description'] ?? null, 4000),
-                'owner_user_id' => $this->validMember($objectiveData['owner_user_id'] ?? null, $memberIds),
+                'description' => $this->nullableText($objectiveData['description'] ?? null, 4000)
+                    ?? 'Objective '.$objectiveData['title'].' disusun oleh panel '.$this->specialistLabel($specialist).' AI berdasarkan target dan data aktual.',
+                'owner_user_id' => $specialistOwners[$specialist]
+                    ?? $this->validMember($objectiveData['owner_user_id'] ?? null, $memberIds),
                 'key_results' => $keyResults,
             ];
         }
@@ -560,6 +589,185 @@ class OkrAiService
             'name' => Str::limit($name !== '' ? $name : 'OKR '.$input['period_label'], 255, ''),
             'objectives' => $objectives,
         ];
+    }
+
+    /**
+     * Petakan label CMO/CFO/COO di bagian Tim & tanggung jawab ke user aktif.
+     * Contoh yang didukung: "- Freddie — CMO. Marketing, branding, ...".
+     *
+     * @param  array<int,array{id:int,name:string,role:string}>  $members
+     * @return array<string,int>
+     */
+    private function specialistOwners(array $members): array
+    {
+        $team = (string) (AiKnowledge::map()['team'] ?? '');
+        $lines = preg_split('/\R/u', $team) ?: [];
+        $owners = [];
+
+        foreach (self::SPECIALISTS as $key => $profile) {
+            foreach ($lines as $line) {
+                if (! preg_match('/\b'.preg_quote($profile['label'], '/').'\b/i', $line)) {
+                    continue;
+                }
+                $member = $this->memberInText($line, $members);
+                if ($member !== null) {
+                    $owners[$key] = $member;
+
+                    break;
+                }
+            }
+        }
+
+        return $owners;
+    }
+
+    /**
+     * Ambil aturan "jenis pekerjaan → Nama" dari Pengetahuan AI. Hanya aturan
+     * dengan tepat satu user yang cocok dipakai untuk override defensif.
+     *
+     * @param  array<int,array{id:int,name:string,role:string}>  $members
+     * @return array<int,array{member_id:int,keywords:array<int,string>}>
+     */
+    private function delegationRules(array $members): array
+    {
+        $team = (string) (AiKnowledge::map()['team'] ?? '');
+        $rules = [];
+        foreach (preg_split('/\R/u', $team) ?: [] as $line) {
+            $parts = preg_split('/\s*(?:→|->)\s*/u', $line, 2);
+            if (count($parts) !== 2) {
+                continue;
+            }
+            $memberId = $this->memberInText($parts[1], $members);
+            if ($memberId === null) {
+                continue;
+            }
+
+            $keywords = [];
+            foreach (preg_split('/[,;\/]/u', ltrim($parts[0], "-* \t")) ?: [] as $phrase) {
+                $phrase = $this->normalise($phrase);
+                if (mb_strlen($phrase) >= 4) {
+                    $keywords[] = $phrase;
+                }
+                foreach (preg_split('/\s+/u', $phrase) ?: [] as $word) {
+                    if (mb_strlen($word) >= 5) {
+                        $keywords[] = $word;
+                    }
+                }
+            }
+            if ($keywords !== []) {
+                $rules[] = ['member_id' => $memberId, 'keywords' => array_values(array_unique($keywords))];
+            }
+        }
+
+        return $rules;
+    }
+
+    /** @param array<int,array{member_id:int,keywords:array<int,string>}> $rules */
+    private function delegatedAssignee(string $task, array $rules): ?int
+    {
+        $task = $this->normalise($task);
+        $best = null;
+        $bestScore = 0;
+        foreach ($rules as $rule) {
+            foreach ($rule['keywords'] as $keyword) {
+                if (str_contains($task, $keyword) && mb_strlen($keyword) > $bestScore) {
+                    $best = $rule['member_id'];
+                    $bestScore = mb_strlen($keyword);
+                }
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * Cocokkan penerima ke kolom To Do bernama orang. Bila tak ada kecocokan,
+     * biarkan pilihan AI/default agar papan generik tetap didukung.
+     *
+     * @param  array<int,array{id:int,name:string,role:string}>  $members
+     * @param  array<int,array<string,mixed>>  $columns
+     */
+    private function columnForAssignee(int $assigneeId, array $members, array $columns, int $preferredBoardId): ?int
+    {
+        $member = collect($members)->firstWhere('id', $assigneeId);
+        if (! $member) {
+            return null;
+        }
+        $name = $this->normalise($member['name']);
+        $tokens = array_values(array_filter(
+            preg_split('/\s+/u', $name) ?: [],
+            fn (string $token) => mb_strlen($token) >= 3 && ! in_array($token, ['admin', 'super', 'skinku'], true),
+        ));
+
+        $best = null;
+        $bestScore = 0;
+        foreach ($columns as $column) {
+            $columnName = $this->normalise((string) ($column['name'] ?? ''));
+            $score = str_contains($columnName, $name) ? 100 : 0;
+            foreach ($tokens as $token) {
+                if (str_contains($columnName, $token)) {
+                    $score += 20;
+                }
+            }
+            if ($score === 0) {
+                continue;
+            }
+            if ((int) ($column['board_id'] ?? 0) === $preferredBoardId) {
+                $score += 5;
+            }
+            if (str_contains($columnName, 'to do') || str_contains($columnName, 'todo')) {
+                $score += 5;
+            }
+            if ($score > $bestScore) {
+                $best = (int) $column['id'];
+                $bestScore = $score;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * @param  array<int,array{id:int,name:string,role:string}>  $members
+     */
+    private function memberInText(string $text, array $members): ?int
+    {
+        $text = $this->normalise($text);
+        $matches = [];
+        foreach ($members as $member) {
+            $name = $this->normalise($member['name']);
+            $tokens = array_values(array_filter(
+                preg_split('/\s+/u', $name) ?: [],
+                fn (string $token) => mb_strlen($token) >= 3 && ! in_array($token, ['admin', 'super', 'skinku'], true),
+            ));
+            $score = str_contains($text, $name) ? 100 : 0;
+            foreach ($tokens as $token) {
+                if (preg_match('/\b'.preg_quote($token, '/').'\b/u', $text)) {
+                    $score += 10;
+                }
+            }
+            if ($score > 0) {
+                $matches[] = ['id' => (int) $member['id'], 'score' => $score];
+            }
+        }
+        if ($matches === []) {
+            return null;
+        }
+        usort($matches, fn (array $a, array $b) => $b['score'] <=> $a['score']);
+
+        return count($matches) === 1 || $matches[0]['score'] > $matches[1]['score']
+            ? $matches[0]['id']
+            : null;
+    }
+
+    private function specialistLabel(string $specialist): string
+    {
+        return self::SPECIALISTS[$specialist]['label'] ?? strtoupper($specialist);
+    }
+
+    private function normalise(string $value): string
+    {
+        return mb_strtolower(trim($value));
     }
 
     /** @param array<int,int> $memberIds */
@@ -577,7 +785,9 @@ class OkrAiService
             $value = Carbon::createFromFormat('Y-m-d', (string) $date)->startOfDay();
             $start = Carbon::parse($input['start_date'])->startOfDay();
             $end = Carbon::parse($input['end_date'])->startOfDay();
-            if ($value->betweenIncluded($start, $end)) {
+            $today = Carbon::today();
+            $minimum = $today->betweenIncluded($start, $end) ? $today : $start;
+            if ($value->betweenIncluded($minimum, $end)) {
                 return $value->toDateString();
             }
         } catch (\Throwable) {

@@ -26,10 +26,12 @@
   - anggota internal aktif;
   - papan dan kolom Kanban aktif;
   - arahan awal, periode, cakupan, dan papan pilihan user (opsional).
-- AI memilih penerima dan kolom awal dari ID nyata. ID keluaran model tetap
-  dinormalisasi server dan terlihat di pratinjau.
-- Pratinjau dapat mengubah nama, uraian, owner, metrik, target, penerima,
-  kolom Kanban, dan tenggat.
+- AI mengisi penjelasan pekerjaan, owner Objective/KR, PIC, tenggat, dan kolom
+  Kanban dari ID nyata. Server juga mencocokkan struktur BOD, aturan delegasi
+  bertanda `→`, serta kolom To Do bernama PIC dari Pengetahuan AI.
+- Pratinjau utama berupa ringkasan siap-setujui dengan lebar terbatas dan kartu
+  pekerjaan dua kolom. Form koreksi lengkap tetap tersedia lewat **Edit manual**,
+  tetapi disembunyikan agar alur normal cukup periksa lalu setujui.
 - **Tidak ada kartu sebelum persetujuan.** Tombol persetujuan membuat seluruh
   kartu secara atomik: berhasil semua atau batal semua.
 - Progres tidak diisi manual. Sumber tunggal progres adalah `completed_at` kartu
@@ -46,9 +48,10 @@
    memanggil structured tool `usulkan_okr_spesialis`.
 5. AI Orchestrator menerima ketiga usulan + konteks bersama, memanggil
    `susun_draf_okr`, dan menyimpan hasil sebagai draf.
-6. User memeriksa serta mengedit spesialis, Objective, Key Result, dan setiap tugas.
-7. User menyimpan koreksi pratinjau.
-8. User menekan **Ya, Setujui & Buat Semua Kartu**.
+6. User memeriksa ringkasan Objective, Key Result, detail pekerjaan, PIC, tenggat,
+   serta kolom Kanban. Semua pilihan ini sudah diisi otomatis.
+7. Jika perlu, user membuka **Edit manual** dan menyimpan koreksi.
+8. User menekan **Setujui & Buat N Kartu**.
 9. Server memvalidasi ulang seluruh penerima/kolom/tanggal, membuat kartu
    `created_via=ai`, menghubungkan kartu ke tugas OKR, lalu mengaktifkan OKR.
 10. Halaman OKR menghitung progres Objective/KR dari kartu yang selesai.
@@ -89,7 +92,10 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
 - Maksimum server: 6 Objective, 30 Key Result, dan 60 tugas per generasi.
 - Anggota partner tidak boleh menjadi penerima.
 - Tugas tidak boleh dimulai di kolom Done/Selesai.
-- Tenggat wajib berada di dalam periode OKR.
+- Tenggat wajib berada di dalam periode OKR dan tidak boleh lebih awal dari hari
+  generate apabila periode sedang berjalan.
+- Jika model mengosongkan uraian pekerjaan, server memberi uraian defensif agar
+  kartu tidak pernah dibuat tanpa petunjuk kerja.
 - Klik persetujuan berulang ditolak dan tidak menduplikasi kartu.
 - Generate, edit draf, approve, dan hapus draf masuk Audit Log.
 
@@ -127,12 +133,15 @@ pengaturan mapping jabatan terpisah.
 - snapshot berisi angka sistem aktual dan menutup bagian tanpa izin;
 - generate menghasilkan draf tanpa kartu;
 - edit pratinjau;
+- auto-owner CMO/CFO/COO dari struktur BOD;
+- auto-PIC dan kolom bernama anggota dari aturan delegasi;
+- uraian kosong dan tenggat lampau dinormalisasi defensif;
 - approve menghasilkan kartu berlabel AI;
 - double approval tidak menduplikasi kartu;
 - progres 0% → 100% → 0% mengikuti perpindahan kartu;
 - ID palsu dari AI dinormalisasi defensif.
 
-Baseline setelah implementasi panel spesialis: **505 test lulus, 2226 assertions**.
+Baseline setelah penyempurnaan pratinjau otomatis: **506 test lulus, 2238 assertions**.
 
 ---
 
