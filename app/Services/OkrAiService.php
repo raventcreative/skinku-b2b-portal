@@ -668,7 +668,8 @@ class OkrAiService
                 array_keys($catalog),
                 JSON_UNESCAPED_UNICODE,
             ),
-            'Berikan diagnosis, gap target, pilihan strategi, dan usulan paling berdampak dari sudut pandangmu. Tandai semua data yang belum tersedia.',
+            'Untuk baseline keuangan pakai bulan buku terakhir yang sudah TUTUP (mis. cfo.laba_rugi_bulan_tutup_terakhir). Bulan berjalan masih MTD/belum lengkap — jangan dipakai sebagai baseline dan JANGAN disebut "belum tersedia". Satu-satunya sumber yang benar-benar belum tersambung adalah affiliate.',
+            'Berikan diagnosis, gap target, pilihan strategi, dan usulan paling berdampak. Tandai sebagai kebutuhan validasi HANYA data yang benar-benar tidak ada di snapshot; jangan menulis source_path mentah sebagai data gap.',
         ]);
     }
 
@@ -688,6 +689,7 @@ class OkrAiService
             'Objective menjelaskan hasil bermakna, bukan daftar aktivitas.',
             'Key Result wajib punya metrik dan target yang jelas.',
             'Setiap Key Result wajib menjelaskan baseline: actual jika ada source_path yang sah, atau needs_validation/assumption jika belum ada. Jelaskan gap dari baseline ke target.',
+            'Baseline keuangan pakai bulan buku terakhir yang TUTUP (cfo.laba_rugi_bulan_tutup_terakhir.*). Bulan berjalan (cfo.laba_rugi.*) masih MTD — jangan jadi baseline dan jangan disebut "belum tersedia". Satu-satunya sumber yang benar-benar belum tersambung: affiliate.',
             'Pecah setiap Key Result menjadi tugas spesifik per individu berdasarkan Pengetahuan AI.',
             'Isi owner Objective dan Key Result dengan BOD/PIC yang sesuai spesialis; jangan default ke user yang meminta.',
             'Setiap tugas WAJIB punya deskripsi 2–4 kalimat: tindakan, output/deliverable, dan kriteria selesai.',
@@ -913,7 +915,7 @@ class OkrAiService
         array $proposals,
     ): array {
         $catalog = $this->snapshots->evidenceCatalog($liveData);
-        $analysis = $this->normaliseAnalysis($draft, $input, $catalog, $proposals);
+        $analysis = $this->normaliseAnalysis($draft, $input, $catalog, $proposals, $liveData);
         $memberIds = array_column($members, 'id');
         $specialistOwners = $this->specialistOwners($members);
         $specialistOwnerNames = $this->specialistOwnerNames();
@@ -1323,6 +1325,7 @@ class OkrAiService
         array $input,
         array $catalog,
         array $proposals,
+        array $liveData,
     ): array {
         $summary = trim((string) ($draft['analysis_summary'] ?? ''));
         if (mb_strlen($summary) < 120) {
@@ -1389,10 +1392,25 @@ class OkrAiService
                 "Bukti numerik belum mencakup {$minimumSpecialists} fungsi; fungsi tanpa bukti tetap mempunyai Objective validasi, bukan baseline rekaan.",
             );
         }
-        $assumptions = collect((array) ($draft['assumptions'] ?? []))
+        // Affiliate = satu-satunya sumber yang benar-benar belum tersambung.
+        // Ditambahkan eksplisit supaya jelas ini yang "belum tersedia" — bukan
+        // data akuntansi yang sebenarnya ada.
+        $sourceGaps = collect();
+        $affiliateUnavailable = collect($liveData)->contains(
+            fn ($snap) => is_array($snap) && ($snap['affiliate']['status'] ?? null) === 'source_not_available',
+        );
+        if ($affiliateUnavailable) {
+            $sourceGaps->push('Sumber data affiliate (funnel kreator TikTok Shop) belum tersambung ke sistem. Metrik affiliate wajib divalidasi manual — jangan diisi nol dan jangan diambil dari data KOL.');
+        }
+        $assumptions = $sourceGaps
+            ->merge((array) ($draft['assumptions'] ?? []))
             ->merge($panelDataGaps)
             ->merge($coverageGaps)
             ->filter(fn ($value) => is_string($value) && mb_strlen(trim($value)) >= 12)
+            // Buang source_path mentah yang bocor sebagai "data gap" (mis.
+            // "cfo.laba_rugi.net_income"): kalau ada di katalog, datanya JUSTRU
+            // tersedia — bukan kebutuhan validasi.
+            ->reject(fn (string $value) => (bool) preg_match('/^(cmo|cfo|coo)(\.[a-z0-9_]+)+$/i', trim($value)))
             ->map(fn (string $value) => Str::limit(trim($value), 1000, ''))
             ->unique()
             ->take(12)

@@ -703,6 +703,34 @@ class OkrTest extends TestCase
         $this->assertStringContainsString('berjalan', $cfo['laba_rugi_periode']['status_periode']);
     }
 
+    public function test_data_gap_hanya_affiliate_dan_source_path_mentah_dibuang(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrgap');
+        $member = $this->user(User::ROLE_ADMIN, 'okrgappic');
+        [$board, $todo] = $this->board($super);
+        $fake = $this->fakeDraft($member, $todo->id, [
+            'assumptions' => [
+                'cfo.laba_rugi.net_income',   // path mentah → dibuang (datanya ADA di katalog)
+                'cfo.arus_kas.operasi',        // path mentah → dibuang
+                'Distributor baru perlu waktu untuk mulai bertransaksi.', // prosa → tetap
+            ],
+        ]);
+        $this->app->instance(AiProvider::class, $fake);
+
+        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
+
+        $assumptions = mb_strtolower(implode("\n", OkrCycle::firstOrFail()->analysis_assumptions));
+
+        // Path akuntansi mentah tidak lagi muncul sebagai "belum tersedia".
+        $this->assertStringNotContainsString('cfo.laba_rugi.net_income', $assumptions);
+        $this->assertStringNotContainsString('cfo.arus_kas.operasi', $assumptions);
+        // Prosa asli tetap dipertahankan.
+        $this->assertStringContainsString('distributor baru perlu waktu', $assumptions);
+        // Affiliate = satu-satunya sumber yang benar-benar belum tersambung.
+        $this->assertStringContainsString('affiliate', $assumptions);
+        $this->assertStringContainsString('belum tersambung', $assumptions);
+    }
+
     public function test_ringkasan_generik_dan_bukti_palsu_dipulihkan_dari_panel_dan_server(): void
     {
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrquality');
