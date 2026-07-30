@@ -332,6 +332,50 @@ class OkrBusinessSnapshotService
     }
 
     /**
+     * FAKTA INTI server dengan URUTAN TETAP. Tujuannya: panel "Fakta server" di
+     * pratinjau OKR selalu menampilkan metrik & urutan yang sama tiap generate —
+     * tidak lagi bergantung pada source_path mana yang kebetulan dikutip AI (yang
+     * dulu membuat set fakta berubah-ubah antar generate). Metrik yang tak ada di
+     * katalog (izin/data) dilewati secara konsisten.
+     *
+     * @param  array<string,array{source_path:string,label:string,value:mixed,period:?string,specialist:string}>  $catalog
+     * @return array<int,array{source_path:string,label:string,value:mixed,period:?string,specialist:string}>
+     */
+    public function coreFacts(array $catalog): array
+    {
+        $spec = [
+            ['path' => 'cmo.penjualan.total_sales', 'label' => 'Omzet total (semua channel)'],
+            ['path' => 'cmo.distributor.mencapai_100_juta', 'label' => 'Distributor tembus Rp100 juta'],
+            ['path' => 'cmo.distributor.aktif_30_hari', 'label' => 'Distributor aktif (30 hari)'],
+            ['path' => 'cmo.distributor.onboarding', 'label' => 'Distributor onboarding (belum PO)'],
+            ['path' => 'cmo.portofolio_produk.master_aktif', 'label' => 'Produk master aktif'],
+            ['path' => 'cfo.laba_rugi_bulan_tutup_terakhir.penjualan_bersih', 'label' => 'Penjualan bersih (bulan buku tutup)'],
+            ['path' => 'cfo.laba_rugi_bulan_tutup_terakhir.laba_bersih', 'label' => 'Laba bersih (bulan buku tutup)'],
+            ['path' => 'cfo.laba_rugi_bulan_tutup_terakhir.arus_kas_bersih', 'label' => 'Arus kas bersih (bulan buku tutup)'],
+            ['path' => 'cfo.piutang_tempo.sisa_tagihan', 'label' => 'Piutang tempo (sisa tagihan)'],
+            ['path' => 'coo.stok.total_hq', 'label' => 'Stok HQ'],
+            ['path' => 'coo.stok.total_partner', 'label' => 'Stok partner'],
+        ];
+
+        $facts = [];
+        foreach ($spec as $item) {
+            $entry = $catalog[$item['path']] ?? null;
+            if ($entry === null) {
+                continue;
+            }
+            $facts[] = [
+                'source_path' => $entry['source_path'],
+                'label' => $item['label'],
+                'value' => $entry['value'],
+                'period' => $entry['period'] ?? null,
+                'specialist' => $entry['specialist'],
+            ];
+        }
+
+        return $facts;
+    }
+
+    /**
      * @param  array<string,array<string,mixed>>  $snapshots
      * @return array<int,array{specialist:string,sources:array<int,string>,closed:array<int,string>}>
      */

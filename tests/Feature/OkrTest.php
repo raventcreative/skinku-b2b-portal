@@ -230,8 +230,9 @@ class OkrTest extends TestCase
         $this->actingAs($super)->get(route('okr.show', $cycle))->assertOk()
             ->assertSee('Pratinjau')
             ->assertSee('CMO AI')
-            ->assertSee('Dasar analisis AI')
-            ->assertSee('bukti terverifikasi')
+            ->assertSee('Fakta server')
+            ->assertSee('fakta terverifikasi')
+            ->assertSee('bisa berbeda tiap generate')
             ->assertSee('Gap ke target')
             ->assertSee('Percepat pertumbuhan TikTok')
             ->assertSee('Susun kalender konten TikTok')
@@ -703,6 +704,37 @@ class OkrTest extends TestCase
         $cfo = app(OkrBusinessSnapshotService::class)->for('cfo', $super, $input);
         $this->assertSame(now()->subMonth()->format('Y-m'), $cfo['laba_rugi_bulan_tutup_terakhir']['bulan']);
         $this->assertStringContainsString('berjalan', $cfo['laba_rugi_periode']['status_periode']);
+    }
+
+    public function test_fakta_server_identik_antar_generate_walau_ai_kutip_beda(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrconsist');
+        $member = $this->user(User::ROLE_ADMIN, 'consistpic');
+        [$board, $todo] = $this->board($super);
+
+        // Generate #1 — AI mengutip set bukti default.
+        $this->app->instance(AiProvider::class, $this->fakeDraft($member, $todo->id));
+        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
+        $first = OkrCycle::latest('id')->firstOrFail()->analysis_evidence;
+
+        // Generate #2 — AI SENGAJA mengutip fakta berbeda.
+        OkrCycle::query()->delete();
+        $this->app->instance(AiProvider::class, $this->fakeDraft($member, $todo->id, [
+            'evidence' => [
+                ['source_path' => 'coo.stok.total_hq', 'interpretation' => 'Kali ini AI mengutip fakta yang berbeda dari generate sebelumnya secara sengaja.'],
+            ],
+        ]));
+        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
+        $second = OkrCycle::latest('id')->firstOrFail()->analysis_evidence;
+
+        // Fakta server (path, urutan, nilai) IDENTIK — tidak ikut berubah walau
+        // pilihan kutipan AI berbeda.
+        $shape = fn ($facts) => collect($facts)->map(fn ($f) => [$f['source_path'], (string) $f['value']])->all();
+        $this->assertSame($shape($first), $shape($second));
+        // Urutan tetap diawali omzet total.
+        $this->assertSame('cmo.penjualan.total_sales', $first[0]['source_path']);
+        // Bukan hasil kutipan AI: fakta tak punya interpretasi model.
+        $this->assertArrayNotHasKey('interpretation', $first[0]);
     }
 
     public function test_delegasi_menang_untuk_affiliate_dan_pic_ambigu_tetap_kosong(): void

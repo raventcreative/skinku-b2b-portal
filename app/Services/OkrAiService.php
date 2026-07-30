@@ -1346,46 +1346,20 @@ class OkrAiService
                 .'dan menandai seluruh baseline yang belum didukung snapshot sebagai kebutuhan validasi sebelum eksekusi.';
         }
 
-        $evidence = [];
-        foreach (array_slice((array) ($draft['evidence'] ?? []), 0, 12) as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $path = trim((string) ($row['source_path'] ?? ''));
-            $interpretation = trim((string) ($row['interpretation'] ?? ''));
-            if (! isset($catalog[$path]) || mb_strlen($interpretation) < 20) {
-                continue;
-            }
-            $evidence[$path] = [
-                ...$catalog[$path],
-                'interpretation' => Str::limit($interpretation, 1000, ''),
-            ];
-        }
-        foreach ($proposals as $panel) {
-            foreach ((array) data_get($panel, 'proposal.facts', []) as $fact) {
-                if (! is_array($fact)) {
-                    continue;
-                }
-                $path = trim((string) ($fact['source_path'] ?? ''));
-                $interpretation = trim((string) ($fact['finding'] ?? ''));
-                if (isset($catalog[$path]) && mb_strlen($interpretation) >= 20) {
-                    $evidence[$path] ??= [
-                        ...$catalog[$path],
-                        'interpretation' => Str::limit($interpretation, 1000, ''),
-                    ];
-                }
-            }
-        }
-        $specialists = collect($evidence)->pluck('specialist')->unique();
+        // FAKTA SERVER: daftar inti berurutan TETAP dari server — tidak lagi
+        // bergantung pada source_path mana yang kebetulan dikutip AI, sehingga
+        // panel "Fakta server" konsisten (setara) tiap generate.
+        $coreFacts = $this->snapshots->coreFacts($catalog);
+        $specialists = collect($coreFacts)->pluck('specialist')->unique();
         $minimumSpecialists = $this->requiredSpecialists($input) !== [] ? 3 : 2;
 
         $panelDataGaps = collect($proposals)
             ->flatMap(fn (array $panel) => (array) data_get($panel, 'proposal.data_gaps', []));
         $coverageGaps = collect();
-        if (count($evidence) < 3) {
+        if (count($coreFacts) < 3) {
             $coverageGaps->push(
-                'Snapshot sistem hanya menyediakan '.count($evidence)
-                .' bukti numerik yang dapat diverifikasi; baseline lain tidak boleh diasumsikan dan wajib divalidasi.',
+                'Snapshot sistem hanya menyediakan '.count($coreFacts)
+                .' fakta inti yang dapat diverifikasi; baseline lain tidak boleh diasumsikan dan wajib divalidasi.',
             );
         }
         if (($input['scope_type'] ?? null) === OkrCycle::SCOPE_COMPANY
@@ -1443,19 +1417,10 @@ class OkrAiService
                 'decision_required' => 'BOD menetapkan batas margin, anggaran, kesiapan stok, kapasitas tim, dan kondisi penghentian sebelum scale-up.',
             ];
         }
-        $evidenceRows = collect($evidence);
-        $prioritisedEvidence = collect(['CMO', 'CFO', 'COO'])
-            ->map(fn (string $specialist) => $evidenceRows->firstWhere('specialist', $specialist))
-            ->filter()
-            ->concat($evidenceRows)
-            ->unique('source_path')
-            ->take(12)
-            ->values()
-            ->all();
 
         return [
             'analysis_summary' => Str::limit($summary, 6000, ''),
-            'analysis_evidence' => $prioritisedEvidence,
+            'analysis_evidence' => $coreFacts,
             'analysis_assumptions' => $assumptions,
             'analysis_conflicts' => $conflicts,
         ];

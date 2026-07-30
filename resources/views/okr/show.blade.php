@@ -76,35 +76,54 @@
         </div>
     @endif
 
-    @if($okr->analysis_summary)
+    @if($okr->analysis_summary || count($okr->analysis_evidence ?? []))
+        @php
+            $okrTasks = $okr->objectives->flatMap->keyResults->flatMap->tasks;
+            $tasksNoPic = $okrTasks->whereNull('assignee_user_id')->count();
+            $krNoOwner = $okr->objectives->flatMap->keyResults->filter(fn ($kr) => blank($kr->owner_name))->count();
+        @endphp
         <section class="bg-white border border-stone-200 rounded-xl p-4 mb-4">
+            {{-- 1. FAKTA SERVER — tetap/konsisten tiap generate --}}
             <div class="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                    <p class="text-sm font-bold text-stone-900">Dasar analisis AI</p>
-                    <p class="text-[11px] text-stone-500 mt-0.5">Angka di bawah diambil ulang dari query sistem, bukan dipercaya dari jawaban model.</p>
+                    <p class="text-sm font-bold text-stone-900">Fakta server
+                        <span class="ml-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[9px] font-bold uppercase align-middle">tetap</span>
+                    </p>
+                    <p class="text-[11px] text-stone-500 mt-0.5">Diambil ulang dari query sistem. Metrik & urutannya <b>sama tiap generate</b> — bukan dipilih AI.</p>
                 </div>
-                <span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">{{ count($okr->analysis_evidence ?? []) }} bukti terverifikasi</span>
+                <span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">{{ count($okr->analysis_evidence ?? []) }} fakta terverifikasi</span>
             </div>
-            <p class="mt-3 text-xs leading-5 text-stone-700">{{ $okr->analysis_summary }}</p>
-
             <div class="grid md:grid-cols-2 gap-2 mt-3">
-                @foreach($okr->analysis_evidence ?? [] as $evidence)
+                @forelse($okr->analysis_evidence ?? [] as $evidence)
                     <article class="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
                         <div class="flex flex-wrap justify-between gap-2">
                             <p class="text-[10px] font-bold text-emerald-800">{{ $evidence['specialist'] ?? 'DATA' }} · {{ $evidence['label'] ?? $evidence['source_path'] }}</p>
                             <p class="text-xs font-bold text-stone-900">{{ $formatEvidence($evidence['value'] ?? null) }}</p>
                         </div>
-                        <p class="text-[11px] leading-4 text-stone-600 mt-1">{{ $evidence['interpretation'] ?? '' }}</p>
                         <p class="text-[9px] text-stone-400 mt-1">Sumber: {{ $evidence['source_path'] ?? '—' }}{{ filled($evidence['period'] ?? null) ? ' · Periode '.$evidence['period'] : '' }}</p>
                     </article>
-                @endforeach
+                @empty
+                    <p class="text-[11px] text-stone-500">Belum ada fakta numerik yang bisa diverifikasi dari snapshot untuk periode ini.</p>
+                @endforelse
             </div>
 
-            <div class="grid md:grid-cols-2 gap-3 mt-3">
+            {{-- 2. ANALISIS AI — opini model, bisa berbeda tiap generate --}}
+            @if($okr->analysis_summary)
+                <div class="mt-4 pt-3 border-t border-stone-100">
+                    <p class="text-sm font-bold text-stone-900">Analisis &amp; rekomendasi AI
+                        <span class="ml-1 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[9px] font-bold uppercase align-middle">bisa berbeda tiap generate</span>
+                    </p>
+                    <p class="text-[11px] text-stone-500 mt-0.5">Opini model atas fakta di atas. Narasinya bisa berubah tiap generate — perlakukan sebagai draf, bukan angka.</p>
+                    <p class="mt-2 text-xs leading-5 text-stone-700">{{ $okr->analysis_summary }}</p>
+                </div>
+            @endif
+
+            {{-- 3 & 4. Data belum tersedia + Konflik --}}
+            <div class="grid md:grid-cols-2 gap-3 mt-4">
                 <div class="rounded-lg bg-amber-50 border border-amber-100 p-3">
-                    <p class="text-[10px] font-bold uppercase tracking-wide text-amber-800">Asumsi / data yang belum tersedia</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-amber-800">Data yang belum tersedia</p>
                     @if(($okr->analysis_assumptions ?? []) === [])
-                        <p class="text-[11px] text-amber-700 mt-1">AI tidak menandai asumsi tambahan.</p>
+                        <p class="text-[11px] text-amber-700 mt-1">Tidak ada sumber data yang ditandai belum tersedia.</p>
                     @else
                         <ul class="mt-1.5 space-y-1 text-[11px] text-amber-800 list-disc pl-4">
                             @foreach($okr->analysis_assumptions as $assumption)<li>{{ $assumption }}</li>@endforeach
@@ -112,7 +131,7 @@
                     @endif
                 </div>
                 <div class="rounded-lg bg-rose-50 border border-rose-100 p-3">
-                    <p class="text-[10px] font-bold uppercase tracking-wide text-rose-800">Konflik dan keputusan BOD</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-rose-800">Konflik &amp; keputusan BOD</p>
                     <div class="mt-1.5 space-y-2">
                         @forelse($okr->analysis_conflicts ?? [] as $conflict)
                             <div class="text-[11px] text-rose-800">
@@ -125,6 +144,22 @@
                         @endforelse
                     </div>
                 </div>
+            </div>
+
+            {{-- 5. Checklist struktur draf — peringatan KUNING, tidak memblokir --}}
+            <div class="mt-3 rounded-lg bg-stone-50 border border-stone-200 p-3">
+                <p class="text-[10px] font-bold uppercase tracking-wide text-stone-600">Checklist struktur draf</p>
+                <ul class="mt-1.5 space-y-1 text-[11px]">
+                    <li class="{{ $tasksNoPic === 0 ? 'text-emerald-700' : 'text-amber-700' }}">
+                        {{ $tasksNoPic === 0 ? '✓' : '⚠' }} PIC tiap tugas
+                        @if($tasksNoPic > 0)<span class="font-semibold">— {{ $tasksNoPic }} tugas belum ditentukan PIC-nya (koreksi via Edit).</span>@endif
+                    </li>
+                    <li class="{{ $krNoOwner === 0 ? 'text-emerald-700' : 'text-amber-700' }}">
+                        {{ $krNoOwner === 0 ? '✓' : '⚠' }} Owner tiap Key Result
+                        @if($krNoOwner > 0)<span class="font-semibold">— {{ $krNoOwner }} Key Result belum ada owner.</span>@endif
+                    </li>
+                </ul>
+                <p class="text-[9px] text-stone-400 mt-1.5">Ini peringatan struktur, bukan penilaian data. Data yang belum tersedia (mis. affiliate) tidak memblokir persetujuan.</p>
             </div>
 
             <details class="mt-3 pt-3 border-t border-stone-100">

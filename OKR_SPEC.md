@@ -157,8 +157,9 @@ tidak dianggap selesai dan UI menandai kartu tidak tersedia.
   kartu tidak pernah dibuat tanpa petunjuk kerja.
 - Detail pekerjaan, owner Objective, dan owner Key Result wajib ada sebelum
   approval. Draf lama yang belum lengkap ditandai dan tombol approval dinonaktifkan.
-- Bila ada kolom Kanban yang namanya cocok dengan PIC, server selalu memakai
-  kolom tersebut meskipun pilihan manual/model menunjuk kolom anggota lain.
+- Saat **generate**, bila ada kolom Kanban yang namanya cocok dengan PIC, server
+  memakai kolom tersebut. Namun **koreksi manual manusia tidak ditimpa**: saat
+  user mengedit pratinjau, kolom (dan PIC) pilihannya dihormati apa adanya.
 - Setiap Objective otomatis memperoleh satu tugas review/approval BOD.
 - Workstream CMO yang menyebut video/UGC, KOL/affiliate, atau desain/promosi
   mendapat coverage minimum untuk talent, spesialis KOL/affiliate, dan desainer
@@ -235,3 +236,37 @@ git pull
 
 Setelah deploy, isi/periksa **Pengetahuan AI → Strategi & aturan OKR**, lalu uji
 satu draf kecil sebelum membuat OKR tim yang besar.
+
+---
+
+## 9. PEMBARUAN FASE 2A — sumber fakta stabil
+
+Revisi setelah tiga commit OKR yang "ngaco" di-rollback. Prinsip: **stabilkan
+sumber fakta, jangan mengunci atau mengarang kesimpulan.** Alur tetap: AI baca
+data → draf → manusia periksa → baru kartu Kanban.
+
+- **Fakta server = daftar inti TETAP.** Panel "Fakta server" di pratinjau memakai
+  `OkrBusinessSnapshotService::coreFacts()` — metrik & urutan **sama tiap
+  generate**, tidak lagi bergantung pada `source_path` mana yang kebetulan
+  dikutip AI. Nilai diambil ulang dari query (model tak bisa mengarang).
+- **KOL ≠ affiliate.** KOL = master endorsement saja. Funnel affiliate belum
+  punya sumber tersambung → `affiliate.status = source_not_available` (bukan nol,
+  bukan data KOL). Sumber affiliate direncanakan dari **TikTok Affiliate API**
+  (Fase 2B; perlu scope Affiliate di Partner Center).
+- **Data yang benar-benar ada tak dilabel "belum tersedia".** Baseline keuangan
+  memakai bulan buku **tutup terakhir** (`cfo.laba_rugi_bulan_tutup_terakhir`);
+  bulan berjalan ditandai **MTD**. Assumption yang cuma `source_path` mentah
+  dibuang — yang tersisa hanya kebutuhan validasi nyata (mis. affiliate).
+- **Funnel distributor dihitung dari PO** (read-only): terdaftar / onboarding
+  (belum pernah PO) / aktif 30 hari / tembus Rp100 juta.
+- **Tanpa fallback diam-diam.** PIC/kolom ambigu → **kosong ("belum ditentukan")**
+  untuk dikoreksi manusia; owner tidak jatuh ke anggota pertama. Koreksi manual
+  manusia tidak ditimpa normalisasi otomatis.
+- **Fakta server vs analisis AI dipisah di UI.** Narasi/rekomendasi AI jelas
+  ditandai "bisa berbeda tiap generate". Checklist hanya memeriksa **struktur**
+  (PIC/owner) sebagai peringatan kuning — data belum tersedia **tidak** memblokir
+  persetujuan.
+
+> Deploy Fase 2A **tanpa migrasi** (tak ada skema baru): `git pull` +
+> `optimize:clear`. Migrasi 000067–000069 (dari commit lama) sengaja disimpan
+> tapi tabelnya tidak terpakai; pembersihan DB adalah keputusan terpisah.
