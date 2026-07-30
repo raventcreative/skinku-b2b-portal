@@ -23,6 +23,29 @@ class OkrAcceptanceService
         $direction = $this->normalise($cycle->direction);
         $rows = [];
 
+        $scorecard = collect($cycle->analysis_evidence ?? [])
+            ->filter(fn ($row) => is_array($row) && filled($row['metric_key'] ?? null));
+        $requiredScorecard = ['penjualan_operasional', 'laba_rugi_bulan', 'stok_hq'];
+        $missingScorecard = collect($requiredScorecard)->diff($scorecard->pluck('metric_key'));
+        $rows[] = $this->row(
+            'deterministic_scorecard',
+            'Scorecard CMO, CFO, dan COO memakai KPI server yang tetap',
+            $missingScorecard->isEmpty(),
+            $missingScorecard->isEmpty()
+                ? $scorecard->count().' KPI tetap dibaca; pilihan bukti tidak diserahkan kepada AI.'
+                : 'Scorecard belum lengkap. KPI server yang hilang: '.$missingScorecard->implode(', ').'.',
+        );
+
+        $dataBlockers = $scorecard->filter(fn (array $row) => (bool) ($row['blocking'] ?? false));
+        $rows[] = $this->row(
+            'scorecard_data_readiness',
+            'Tidak ada konflik atau kekosongan data inti yang memblokir keputusan',
+            $scorecard->isNotEmpty() && $dataBlockers->isEmpty(),
+            $dataBlockers->isEmpty()
+                ? 'Tidak ada blocker data. Status bulan berjalan/perlu validasi tetap ditampilkan dan tidak diubah menjadi kesimpulan naik/turun.'
+                : $dataBlockers->map(fn (array $row) => ($row['label'] ?? 'Data').': '.($row['note'] ?? 'perlu validasi'))->implode(' '),
+        );
+
         $specialistCounts = $objectives->countBy('specialist');
         $requiresThreeFunctions = collect(['cmo', 'cfo', 'coo'])
             ->every(fn (string $key) => preg_match('/\b'.$key.'\b/u', $direction));

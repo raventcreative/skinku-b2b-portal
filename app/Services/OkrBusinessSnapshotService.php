@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AccJournal;
 use App\Models\Inventory;
 use App\Models\Kol;
 use App\Models\KolAffiliateMetric;
@@ -128,6 +129,17 @@ class OkrBusinessSnapshotService
                 'penjualan_bersih', 'hpp', 'laba_kotor', 'beban_operasional',
                 'operating_income', 'net_income',
             ])->all();
+            $out['status_pencatatan'] = [
+                'jurnal_posted' => AccJournal::query()
+                    ->where('period', $period)
+                    ->where('status', AccJournal::STATUS_POSTED)
+                    ->count(),
+                'jurnal_draft' => AccJournal::query()
+                    ->where('period', $period)
+                    ->where('status', AccJournal::STATUS_DRAFT)
+                    ->count(),
+                'definisi' => 'Laba-rugi hanya menghitung jurnal berstatus posted pada periode referensi.',
+            ];
             $out['neraca'] = collect($balance)->only([
                 'total_aktiva', 'total_liabilitas', 'total_ekuitas', 'laba_berjalan', 'balanced',
             ])->all();
