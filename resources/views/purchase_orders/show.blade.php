@@ -24,7 +24,7 @@
                     <p class="text-xs text-stone-500 mt-1">{{ $purchaseOrder->created_at?->format('d M Y H:i') }}</p>
                 </div>
                 <div class="flex flex-col items-end gap-1.5">
-                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-stone-100 text-stone-700">{{ $purchaseOrder->status }}</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold {{ $purchaseOrder->statusColor() }}">{{ $purchaseOrder->status }}</span>
                     <span class="px-3 py-1 rounded-full text-[10px] font-bold {{ $payBadge[1] }}">{{ $payBadge[0] }}</span>
                 </div>
             </div>

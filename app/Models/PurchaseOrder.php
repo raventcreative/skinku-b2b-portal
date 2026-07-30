@@ -69,6 +69,32 @@ class PurchaseOrder extends Model
         self::STATUS_CANCELLED => [],
     ];
 
+    /**
+     * Urutan MAJU status. Dipakai aksi massal untuk melangkah bertahap: kalau
+     * staf memilih target jauh (mis. completed) untuk PO yang masih pending,
+     * sistem menjalankannya lewat tiap status antara — bukan lompat langsung.
+     */
+    public const STATUS_FLOW = [
+        self::STATUS_DRAFT,
+        self::STATUS_PENDING,
+        self::STATUS_APPROVED,
+        self::STATUS_PROCESSING,
+        self::STATUS_SHIPPED,
+        self::STATUS_COMPLETED,
+    ];
+
+    /** Kelas warna badge per status (bg + teks) — biar mudah dibedakan sekilas. */
+    public const STATUS_COLORS = [
+        self::STATUS_DRAFT => 'bg-stone-100 text-stone-500',
+        self::STATUS_PENDING => 'bg-amber-100 text-amber-700',
+        self::STATUS_APPROVED => 'bg-blue-100 text-blue-700',
+        self::STATUS_PROCESSING => 'bg-indigo-100 text-indigo-700',
+        self::STATUS_SHIPPED => 'bg-cyan-100 text-cyan-700',
+        self::STATUS_COMPLETED => 'bg-emerald-100 text-emerald-700',
+        self::STATUS_CANCELLED => 'bg-rose-100 text-rose-700',
+        self::STATUS_DELETED => 'bg-stone-200 text-stone-400',
+    ];
+
     public const PAYMENT_UNPAID = 'unpaid';
 
     public const PAYMENT_AWAITING = 'awaiting_verification';
@@ -132,6 +158,12 @@ class PurchaseOrder extends Model
     public function canTransitionTo(string $next): bool
     {
         return in_array($next, self::TRANSITIONS[$this->status] ?? [], true);
+    }
+
+    /** Kelas warna Tailwind untuk badge status ini. */
+    public function statusColor(): string
+    {
+        return self::STATUS_COLORS[$this->status] ?? 'bg-stone-100 text-stone-700';
     }
 
     public function isPaid(): bool

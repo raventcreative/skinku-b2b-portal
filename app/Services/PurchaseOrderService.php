@@ -161,6 +161,40 @@ class PurchaseOrderService
     }
 
     /**
+     * Jalankan PO MAJU sampai status target, melewati tiap status antara satu
+     * per satu (aturan transisi + gerbang lunas + potong stok tetap berlaku di
+     * tiap langkah). Dipakai aksi massal supaya "ubah ke completed" untuk PO
+     * pending benar-benar berjalan (pending→approved→processing→shipped→completed),
+     * bukan gagal karena tak boleh lompat.
+     *
+     * Kalau satu langkah ditolak (mis. belum lunas), exception naik dan PO
+     * berhenti di status sah terakhir — langkah yang sudah lewat tetap tercatat.
+     */
+    public function advanceStatus(PurchaseOrder $po, string $target, ?string $notes = null): PurchaseOrder
+    {
+        // Batal bukan alur maju — langsung coba transisi (aturan yang memutuskan).
+        if ($target === PurchaseOrder::STATUS_CANCELLED) {
+            return $this->updateStatus($po, $target, $notes);
+        }
+
+        $flow = PurchaseOrder::STATUS_FLOW;
+        $from = array_search($po->status, $flow, true);
+        $to = array_search($target, $flow, true);
+
+        // Target tak dikenal di alur, atau mundur/sama → coba langsung; biarkan
+        // aturan transisi yang menolak (itu perilaku yang benar).
+        if ($from === false || $to === false || $to <= $from) {
+            return $this->updateStatus($po, $target, $notes);
+        }
+
+        for ($i = $from + 1; $i <= $to; $i++) {
+            $po = $this->updateStatus($po, $flow[$i], $notes);
+        }
+
+        return $po;
+    }
+
+    /**
      * Atomically fulfil a PO:
      *   1. Guard against double completion.
      *   2. Decrement products.hq_stock (fails if insufficient).

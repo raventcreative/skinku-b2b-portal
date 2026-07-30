@@ -148,27 +148,42 @@ class PurchaseOrderController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $target = $data['status'];
         $orders = PurchaseOrder::whereIn('id', $data['ids'])
             ->where('status', '!=', PurchaseOrder::STATUS_DELETED)
             ->get();
 
-        $done = 0;
-        $failed = 0;
+        $done = 0;      // sampai target
+        $partial = 0;   // maju sebagian lalu terkunci (mis. belum lunas)
+        $skipped = 0;   // tak bergerak sama sekali
         $reasons = [];
         foreach ($orders as $po) {
+            $before = $po->status;
             try {
-                $this->service->updateStatus($po, $data['status'], $data['notes'] ?? null);
-                $done++;
+                // Melangkah maju bertahap: PO pending yang mau ke completed pun
+                // dijalankan lewat tiap status antara (aturan tiap langkah tetap).
+                $this->service->advanceStatus($po, $target, $data['notes'] ?? null);
             } catch (\Throwable $e) {
-                $failed++;
                 $reasons[$e->getMessage()] = ($reasons[$e->getMessage()] ?? 0) + 1;
+            }
+
+            $after = $po->fresh()->status; // status sah terakhir yang tercapai
+            if ($after === $target) {
+                $done++;
+            } elseif ($after !== $before) {
+                $partial++;
+            } else {
+                $skipped++;
             }
         }
 
-        $msg = "{$done} PO diubah ke {$data['status']}.";
-        if ($failed) {
+        $msg = "{$done} PO → {$target}.";
+        if ($partial) {
+            $msg .= " {$partial} PO maju sebagian (terkunci — cek pembayaran).";
+        }
+        if ($skipped) {
             $top = collect($reasons)->sortDesc()->keys()->first();
-            $msg .= " {$failed} dilewati".($top ? " (mis. {$top})" : '').'.';
+            $msg .= " {$skipped} tak berubah".($top ? " (mis. {$top})" : '').'.';
         }
 
         return back()->with('status', $msg);

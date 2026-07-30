@@ -50,7 +50,7 @@
             </select>
         </label>
         <button data-bulk-apply disabled class="px-4 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold disabled:opacity-40">Terapkan</button>
-        <span class="text-[11px] text-stone-400">Transisi tak valid / belum lunas otomatis dilewati (aturan sama seperti ubah 1 PO).</span>
+        <span class="text-[11px] text-stone-400">PO dijalankan maju bertahap sampai status target. Belum lunas otomatis berhenti di langkah aman (aturan sama seperti ubah 1 PO).</span>
     </form>
 @endif
 
@@ -77,7 +77,7 @@
                     <td class="text-stone-600">{{ $po->company_name ?? ($po->user->fullname ?? '-') }}</td>
                     <td class="text-stone-500">{{ $po->created_at?->format('d M Y H:i') }}</td>
                     <td class="text-right">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</td>
-                    <td><span class="px-2 py-0.5 rounded-full text-[10px] bg-stone-100 text-stone-700">{{ $po->status }}</span></td>
+                    <td><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $po->statusColor() }}">{{ $po->status }}</span></td>
                     <td class="whitespace-nowrap">
                         @php
                             // Sisa dari withSum (tanpa query per baris). Badge bayar
@@ -148,7 +148,7 @@
         var checked = boxes().filter(function (b) { return b.checked; });
         if (! checked.length) return false;
         var status = form.querySelector('[name=status]').value;
-        if (! confirm('Ubah status ' + checked.length + ' PO terpilih ke "' + status + '"? Transisi tak valid / belum lunas akan dilewati.')) return false;
+        if (! confirm('Jalankan ' + checked.length + ' PO terpilih maju sampai status "' + status + '"?\n\nTiap PO dilangkahkan bertahap melewati status antara. PO yang belum lunas otomatis berhenti di langkah aman. Menuju "completed" akan memotong stok.')) return false;
         form.querySelectorAll('input[name="ids[]"]').forEach(function (i) { i.remove(); });
         checked.forEach(function (b) {
             var h = document.createElement('input');

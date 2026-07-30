@@ -74,6 +74,43 @@ class PurchaseOrderBulkStatusTest extends TestCase
         $this->assertEquals(PurchaseOrder::STATUS_APPROVED, $po2->fresh()->status);
     }
 
+    public function test_mass_completed_walks_paid_pending_po_through_all_steps(): void
+    {
+        $svc = app(PurchaseOrderService::class);
+        $admin = $this->admin();
+        $product = $this->product();
+        $po = $this->makePo($this->partner(), $product);
+        $svc->verifyPayment($po->fresh(), true, $admin->id); // lunas → gerbang terbuka
+
+        $this->actingAs($admin)
+            ->post(route('purchase-orders.bulk-status'), [
+                'ids' => [$po->id],
+                'status' => PurchaseOrder::STATUS_COMPLETED,
+            ])
+            ->assertRedirect();
+
+        // pending → approved → processing → shipped → completed dalam satu aksi.
+        $po = $po->fresh();
+        $this->assertEquals(PurchaseOrder::STATUS_COMPLETED, $po->status);
+        $this->assertNotNull($po->completed_at);
+    }
+
+    public function test_mass_completed_stops_at_approved_when_unpaid(): void
+    {
+        $admin = $this->admin();
+        $po = $this->makePo($this->partner(), $this->product()); // belum lunas
+
+        $this->actingAs($admin)
+            ->post(route('purchase-orders.bulk-status'), [
+                'ids' => [$po->id],
+                'status' => PurchaseOrder::STATUS_COMPLETED,
+            ])
+            ->assertRedirect();
+
+        // Maju sampai approved lalu berhenti di gerbang lunas — tidak completed.
+        $this->assertEquals(PurchaseOrder::STATUS_APPROVED, $po->fresh()->status);
+    }
+
     public function test_invalid_transition_is_skipped_not_fatal(): void
     {
         $svc = app(PurchaseOrderService::class);
