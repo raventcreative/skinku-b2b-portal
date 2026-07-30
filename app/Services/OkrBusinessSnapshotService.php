@@ -64,6 +64,7 @@ class OkrBusinessSnapshotService
 
                     return [
                         'bulan' => $period->format('Y-m'),
+                        'status_periode' => $this->monthStatus($period),
                         'ecommerce_confirmed' => round((float) $channels
                             ->whereIn('key', ['tiktok', 'shopee'])->sum('confirmed'), 2),
                         'ecommerce_pipeline' => round((float) $channels
@@ -83,21 +84,30 @@ class OkrBusinessSnapshotService
                     ->groupBy('category')
                     ->pluck('total', 'category')
                     ->all(),
-                'catatan_cakupan' => 'Produk baru belum mempunyai tahapan pipeline khusus; sistem hanya dapat membuktikan master produk yang sudah tersimpan.',
+                'catatan_cakupan' => 'Target produk baru dikerjakan sebagai tugas OKR biasa (kartu Kanban), bukan modul pipeline terpisah. Sistem hanya membuktikan master produk yang sudah tersimpan.',
             ];
         } else {
             $out['penjualan'] = ['akses' => 'ditutup karena user tidak punya view_reports'];
         }
 
         if ($this->allowed($user, 'kol.view')) {
+            // KOL = master ENDORSEMENT saja. Ini BUKAN sumber affiliate.
             $out['kol'] = [
                 'total' => Kol::count(),
                 'status' => Kol::query()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status')->all(),
                 'deal_status' => KolDeal::query()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status')->all(),
                 'slot_aktif' => (int) KolDeal::where('status', 'berjalan')->sum('jumlah_slot'),
-                'catatan_cakupan' => 'Modul KOL belum menyimpan metrik konten, order, GMV, conversion, atau retention affiliate. Angka tersebut wajib ditandai sebagai kebutuhan validasi.',
+                'catatan_cakupan' => 'Modul KOL = master endorsement (screening, deal, slot, ratecard). Bukan sumber affiliate; jangan pakai angka KOL untuk metrik affiliate.',
             ];
         }
+
+        // Affiliate (kreator affiliate TikTok Shop) TERPISAH TOTAL dari KOL.
+        // Sumbernya (TikTok Affiliate API) belum tersambung → status eksplisit
+        // "belum tersedia". Jangan diambil dari data KOL, jangan dianggap nol.
+        $out['affiliate'] = [
+            'status' => 'source_not_available',
+            'catatan' => 'Funnel affiliate (terdaftar, onboarding, aktif konten/live, order, GMV, conversion, retention, produktivitas per affiliate) belum punya sumber data tersambung. Perlakukan sebagai kebutuhan validasi — bukan nol, dan bukan data KOL.',
+        ];
 
         if ($this->allowed($user, 'manage_tiktok')) {
             $out['tiktok'] = [
@@ -136,6 +146,28 @@ class OkrBusinessSnapshotService
                 'bersih' => $cash['net'],
                 'kas_akhir' => $cash['kas_akhir'],
             ];
+            // laba_rugi/arus_kas di atas = bulan referensi. Untuk OKR periode
+            // depan, bulan referensi sering bulan BERJALAN (belum tutup buku) →
+            // angkanya MTD dan bisa 0. Baseline yang sah = bulan tutup terakhir.
+            // Ini fakta TERSEDIA, bukan "belum tersedia".
+            $out['laba_rugi_periode'] = [
+                'bulan' => $period,
+                'status_periode' => $this->monthStatus($month),
+            ];
+            $closed = $this->latestClosedMonth($month);
+            $closedIncome = $this->financial->incomeStatement($closed->format('Y-m'));
+            $closedCash = $this->cashFlow->directCashFlow($closed->format('Y-m'));
+            $out['laba_rugi_bulan_tutup_terakhir'] = [
+                'bulan' => $closed->format('Y-m'),
+                'status_periode' => 'bulan selesai',
+                'penjualan_bersih' => $closedIncome['penjualan_bersih'],
+                'hpp' => $closedIncome['hpp'],
+                'laba_kotor' => $closedIncome['laba_kotor'],
+                'beban_operasional' => $closedIncome['beban_operasional'],
+                'laba_bersih' => $closedIncome['net_income'],
+                'arus_kas_bersih' => $closedCash['net'],
+                'catatan' => 'Baseline dari bulan buku terakhir yang sudah tutup. Jangan pakai bulan berjalan (MTD) sebagai baseline.',
+            ];
             $out['tren_keuangan_3_bulan'] = collect($this->comparisonMonths($month))
                 ->map(function (Carbon $period) {
                     $periodLabel = $period->format('Y-m');
@@ -144,6 +176,7 @@ class OkrBusinessSnapshotService
 
                     return [
                         'bulan' => $periodLabel,
+                        'status_periode' => $this->monthStatus($period),
                         'penjualan_bersih' => $income['penjualan_bersih'],
                         'hpp' => $income['hpp'],
                         'laba_kotor' => $income['laba_kotor'],
@@ -244,6 +277,7 @@ class OkrBusinessSnapshotService
 
                     return [
                         'bulan' => $period->format('Y-m'),
+                        'status_periode' => $this->monthStatus($period),
                         'batch' => (clone $production)->count(),
                         'output_unit' => (int) (clone $production)->sum('output_qty'),
                         'total_biaya' => round((float) (clone $production)->sum('total_cost'), 2),
@@ -335,6 +369,23 @@ class OkrBusinessSnapshotService
         ];
     }
 
+    /** Status periode satu bulan: berjalan (MTD, belum lengkap) atau selesai. */
+    private function monthStatus(Carbon $period): string
+    {
+        return $period->isSameMonth(Carbon::today()) ? 'bulan berjalan (MTD)' : 'bulan selesai';
+    }
+
+    /**
+     * Bulan buku terakhir yang sudah TUTUP. Bulan berjalan belum tutup buku
+     * (angkanya MTD), jadi baseline yang sah = bulan sebelumnya.
+     */
+    private function latestClosedMonth(Carbon $month): Carbon
+    {
+        return $month->isSameMonth(Carbon::today())
+            ? $month->copy()->subMonth()->startOfMonth()
+            : $month->copy()->startOfMonth();
+    }
+
     /** @return array<string,mixed> */
     private function distributorSnapshot(Carbon $month): array
     {
@@ -351,10 +402,30 @@ class OkrBusinessSnapshotService
             ->orderByDesc('omzet')
             ->get();
 
+        // Funnel distributor DIHITUNG dari data PO yang sudah ada (read-only),
+        // pakai ambang default yang disetujui — tanpa field manual baru.
+        $terdaftar = User::where('role', User::ROLE_DISTRIBUTOR)->count();
+        // Onboarding = terdaftar tapi BELUM pernah ada PO sama sekali (kapan pun).
+        $pernahPo = PurchaseOrder::query()
+            ->where('user_role', User::ROLE_DISTRIBUTOR)
+            ->whereNotNull('user_id')
+            ->distinct()->count('user_id');
+        // Aktif = ada PO (committed) dalam 30 hari terakhir (rolling) sampai akhir bulan referensi.
+        $aktifSejak = $month->copy()->endOfMonth()->subDays(30)->toDateString();
+        $aktifSampai = $month->copy()->endOfMonth()->toDateString();
+        $aktif30Hari = PurchaseOrder::query()
+            ->where('user_role', User::ROLE_DISTRIBUTOR)
+            ->whereIn('status', $committedStatuses)
+            ->whereNotNull('user_id')
+            ->whereRaw('COALESCE(order_date, DATE(created_at)) BETWEEN ? AND ?', [$aktifSejak, $aktifSampai])
+            ->distinct()->count('user_id');
+
         return [
-            'terdaftar' => User::where('role', User::ROLE_DISTRIBUTOR)->count(),
+            'terdaftar' => $terdaftar,
             'akun_aktif' => User::where('role', User::ROLE_DISTRIBUTOR)
                 ->where('status', User::STATUS_ACTIVE)->count(),
+            'onboarding' => max(0, $terdaftar - $pernahPo),
+            'aktif_30_hari' => $aktif30Hari,
             'aktif_bertransaksi' => (clone $base)->whereIn('status', $committedStatuses)
                 ->whereNotNull('user_id')->distinct()->count('user_id'),
             'mencapai_100_juta' => $revenueByDistributor->where('omzet', '>=', 100_000_000)->count(),
@@ -365,8 +436,10 @@ class OkrBusinessSnapshotService
                 'omzet' => (float) $row->omzet,
             ])->values()->all(),
             'definisi' => [
-                'onboarding' => 'Belum ada field onboarding khusus; akun aktif dipakai sebagai proxy dan harus divalidasi.',
-                'aktif_bertransaksi' => 'Distributor dengan minimal satu PO selesai atau masih pipeline pada bulan referensi.',
+                'terdaftar' => 'Punya akun distributor (role distributor).',
+                'onboarding' => 'Terdaftar tetapi belum pernah membuat PO sama sekali.',
+                'aktif_30_hari' => 'Ada PO (selesai/pipeline) dalam 30 hari terakhir hingga akhir bulan referensi.',
+                'aktif_bertransaksi' => 'Distributor dengan minimal satu PO selesai/pipeline pada bulan referensi.',
                 'mencapai_100_juta' => 'Omzet PO berstatus selesai minimal Rp100 juta pada bulan referensi.',
             ],
         ];

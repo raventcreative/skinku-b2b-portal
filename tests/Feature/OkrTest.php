@@ -659,6 +659,50 @@ class OkrTest extends TestCase
         $this->assertArrayNotHasKey('laba_rugi', $snapshot);
     }
 
+    public function test_snapshot_memisahkan_kol_dari_affiliate_dan_menghitung_funnel_distributor(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrfacts');
+        // Satu distributor onboarding (tanpa PO), satu yang aktif bertransaksi.
+        $this->user(User::ROLE_DISTRIBUTOR, 'distonboard');
+        $aktif = $this->user(User::ROLE_DISTRIBUTOR, 'distaktif');
+        PurchaseOrder::create([
+            'po_number' => 'PO-FUNNEL-1',
+            'created_by' => $super->id,
+            'user_id' => $aktif->id,
+            'company_name' => 'Distributor Aktif',
+            'user_role' => $aktif->role,
+            'status' => PurchaseOrder::STATUS_COMPLETED,
+            'total_amount' => 150_000_000,
+            'order_date' => now()->toDateString(),
+            'completed_at' => now(),
+        ]);
+
+        // OKR periode DEPAN → bulan referensi = bulan berjalan (MTD).
+        $input = [
+            'start_date' => now()->addMonth()->startOfMonth()->toDateString(),
+            'end_date' => now()->addMonths(3)->endOfMonth()->toDateString(),
+        ];
+        $cmo = app(OkrBusinessSnapshotService::class)->for('cmo', $super, $input);
+
+        // Affiliate TERPISAH dari KOL (kunci sendiri) & ditandai belum tersedia.
+        $this->assertSame('source_not_available', $cmo['affiliate']['status']);
+        $this->assertArrayHasKey('affiliate', $cmo);
+        $this->assertArrayNotHasKey('affiliate_status', $cmo['kol']); // affiliate tak dilipat ke KOL
+        $this->assertStringContainsString('endorsement', mb_strtolower($cmo['kol']['catatan_cakupan']));
+        $this->assertStringContainsString('bukan sumber affiliate', mb_strtolower($cmo['kol']['catatan_cakupan']));
+
+        // Funnel distributor dari PO: onboarding (tanpa PO) & tercapai Rp100jt.
+        $this->assertArrayHasKey('onboarding', $cmo['distributor']);
+        $this->assertSame(1, $cmo['distributor']['onboarding']);
+        $this->assertSame(1, $cmo['distributor']['mencapai_100_juta']);
+        $this->assertStringContainsString('belum pernah', $cmo['distributor']['definisi']['onboarding']);
+
+        // CFO: baseline dari bulan tutup terakhir + bulan berjalan ditandai MTD.
+        $cfo = app(OkrBusinessSnapshotService::class)->for('cfo', $super, $input);
+        $this->assertSame(now()->subMonth()->format('Y-m'), $cfo['laba_rugi_bulan_tutup_terakhir']['bulan']);
+        $this->assertStringContainsString('berjalan', $cfo['laba_rugi_periode']['status_periode']);
+    }
+
     public function test_ringkasan_generik_dan_bukti_palsu_dipulihkan_dari_panel_dan_server(): void
     {
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrquality');
