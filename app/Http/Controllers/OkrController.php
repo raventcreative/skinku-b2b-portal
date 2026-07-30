@@ -328,53 +328,12 @@ class OkrController extends Controller
      */
     private function matchedTaskColumns(OkrCycle $okr, array $data): array
     {
-        $members = $this->members()->keyBy('id');
-        $columns = BoardColumn::query()->with('board')->orderBy('board_id')->orderBy('position')->get()
-            ->reject(fn (BoardColumn $column) => $column->isDone());
+        // Hormati kolom pilihan manusia saat edit pratinjau. Pencocokan otomatis
+        // kolom-per-nama HANYA dilakukan saat generate (OkrAiService); begitu user
+        // sudah mengoreksi manual, pilihannya TIDAK boleh ditimpa normalisasi.
         $matched = [];
-
         foreach ($okr->objectives->flatMap->keyResults->flatMap->tasks as $task) {
-            $row = $data['tasks'][$task->id];
-            $selectedId = (int) $row['board_column_id'];
-            $member = $members->get((int) $row['assignee_user_id']);
-            if (! $member) {
-                $matched[$task->id] = $selectedId;
-
-                continue;
-            }
-
-            $memberName = $this->normaliseName($member->displayName());
-            $tokens = collect(preg_split('/\s+/u', $memberName) ?: [])
-                ->filter(fn (string $token) => mb_strlen($token) >= 3 && ! in_array($token, ['admin', 'super', 'skinku'], true))
-                ->values();
-            $selectedBoardId = (int) ($columns->firstWhere('id', $selectedId)?->board_id ?? 0);
-            $bestId = null;
-            $bestScore = 0;
-
-            foreach ($columns as $column) {
-                $columnName = $this->normaliseName($column->name);
-                $score = str_contains($columnName, $memberName) ? 100 : 0;
-                foreach ($tokens as $token) {
-                    if (str_contains($columnName, $token)) {
-                        $score += 20;
-                    }
-                }
-                if ($score === 0) {
-                    continue;
-                }
-                if ((int) $column->board_id === $selectedBoardId) {
-                    $score += 5;
-                }
-                if (str_contains($columnName, 'to do') || str_contains($columnName, 'todo')) {
-                    $score += 5;
-                }
-                if ($score > $bestScore) {
-                    $bestId = $column->id;
-                    $bestScore = $score;
-                }
-            }
-
-            $matched[$task->id] = $bestId ?? $selectedId;
+            $matched[$task->id] = (int) $data['tasks'][$task->id]['board_column_id'];
         }
 
         return $matched;

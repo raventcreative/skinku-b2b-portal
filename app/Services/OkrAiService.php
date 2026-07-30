@@ -919,8 +919,10 @@ class OkrAiService
         $memberIds = array_column($members, 'id');
         $specialistOwners = $this->specialistOwners($members);
         $specialistOwnerNames = $this->specialistOwnerNames();
-        $sharedBodOwnerId = collect($members)->firstWhere('role', User::ROLE_SUPER_ADMIN)['id']
-            ?? ($members[0]['id'] ?? null);
+        // BOD (Freddie/Billy/Devrina) memakai akun teknis Super Admin. Kalau tak
+        // ada Super Admin, JANGAN fallback diam-diam ke anggota pertama — biarkan
+        // null agar owner ditandai untuk koreksi manusia.
+        $sharedBodOwnerId = collect($members)->firstWhere('role', User::ROLE_SUPER_ADMIN)['id'] ?? null;
         $delegationRules = $this->delegationRules($members);
         $columns = collect($boards)->flatMap(fn (array $board) => $board['columns']);
         $actionableColumns = $columns->filter(fn (array $column) => ! $column['done']);

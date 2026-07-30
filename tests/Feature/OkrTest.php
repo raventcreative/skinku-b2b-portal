@@ -509,7 +509,9 @@ class OkrTest extends TestCase
             ],
         ])->assertRedirect(route('okr.show', $cycle));
 
-        $this->assertSame($agathaColumn->id, $task->fresh()->board_column_id);
+        // Kolom pilihan manusia saat edit DIHORMATI, tidak ditimpa normalisasi
+        // otomatis (auto-match kolom hanya berlaku saat generate).
+        $this->assertSame($tiarColumn->id, $task->fresh()->board_column_id);
 
         $this->actingAs($super)->get(route('okr.show', $cycle))
             ->assertOk()
@@ -701,6 +703,63 @@ class OkrTest extends TestCase
         $cfo = app(OkrBusinessSnapshotService::class)->for('cfo', $super, $input);
         $this->assertSame(now()->subMonth()->format('Y-m'), $cfo['laba_rugi_bulan_tutup_terakhir']['bulan']);
         $this->assertStringContainsString('berjalan', $cfo['laba_rugi_periode']['status_periode']);
+    }
+
+    public function test_delegasi_menang_untuk_affiliate_dan_pic_ambigu_tetap_kosong(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrdel');
+        $tiar = $this->user(User::ROLE_ADMIN, 'tiar');
+        $this->user(User::ROLE_ADMIN, 'agatha');
+        [$board, $todo] = $this->board($super);
+        AiKnowledge::create([
+            'section' => 'team',
+            'content' => implode("\n", [
+                '- Desain, visual, poster, materi promosi → Agatha',
+                '- Rekrut affiliate, onboarding KOL, request sample → Tiar',
+            ]),
+        ]);
+
+        $fake = $this->fakeDraft($super, $todo->id, [
+            'objectives' => [[
+                'specialist' => 'cmo',
+                'owner_user_id' => $super->id,
+                'key_results' => [[
+                    'owner_user_id' => $super->id,
+                    'tasks' => [
+                        [
+                            // Model menebak PIC salah (super); delegasi harus menang → Tiar.
+                            'title' => 'Rekrut affiliate baru untuk TikTok Shop',
+                            'description' => 'Jalankan rekrutmen affiliate periode ini.',
+                            'assignee_user_id' => $super->id,
+                            'board_column_id' => $todo->id,
+                            'due_date' => '2026-08-20',
+                        ],
+                        [
+                            // Tak ada kata kunci delegasi & PIC tak valid → belum ditentukan.
+                            'title' => 'Analisis tren pasar umum kuartal ini',
+                            'description' => 'Rangkum kondisi pasar tanpa PIC spesifik.',
+                            'assignee_user_id' => 0,
+                            'board_column_id' => $todo->id,
+                            'due_date' => '2026-08-21',
+                        ],
+                    ],
+                ]],
+            ]],
+        ]);
+        $this->app->instance(AiProvider::class, $fake);
+
+        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
+
+        $tasks = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail()
+            ->objectives->first()->keyResults->first()->tasks;
+        $affiliateTask = $tasks->firstWhere('title', 'Rekrut affiliate baru untuk TikTok Shop');
+        $ambiguousTask = $tasks->firstWhere('title', 'Analisis tren pasar umum kuartal ini');
+
+        // Delegasi menang: affiliate → Tiar, bukan tebakan model.
+        $this->assertSame($tiar->id, $affiliateTask->assignee_user_id);
+        // PIC ambigu tetap kosong (belum ditentukan) — tidak ditebak/dilempar.
+        $this->assertNull($ambiguousTask->assignee_user_id);
+        $this->assertNull($ambiguousTask->assignee_name);
     }
 
     public function test_data_gap_hanya_affiliate_dan_source_path_mentah_dibuang(): void
