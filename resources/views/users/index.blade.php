@@ -32,6 +32,7 @@
                 <th class="text-left">Email</th>
                 <th class="text-left">Role</th>
                 <th class="text-left">Perusahaan</th>
+                <th class="text-left">Tahap Distributor</th>
                 <th class="text-left">Status</th>
                 <th class="text-right px-4">Aksi</th>
             </tr>
@@ -44,6 +45,7 @@
                     <td class="text-stone-600">{{ $row->email }}</td>
                     <td><span class="px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">{{ $row->role }}</span></td>
                     <td class="text-stone-600">{{ $row->company_name ?? '-' }}</td>
+                    <td class="text-stone-600">{{ $row->distributorStageLabel() ?? '—' }}</td>
                     <td>
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
                             {{ $row->status === 'active' ? 'bg-emerald-100 text-emerald-700' : ($row->status === 'deleted' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700') }}">
@@ -53,7 +55,7 @@
                     <td class="px-4 py-3 text-right whitespace-nowrap">
                         @if($row->status !== 'deleted')
                             <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","status"])) }})'>Edit</button>
+                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","distributor_stage","status"])) }})'>Edit</button>
                             <form method="POST" action="{{ route('users.toggle-status', $row) }}" class="inline">
                                 @csrf
                                 <button class="ml-2 text-amber-600 hover:text-amber-800 font-semibold">{{ $row->status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}</button>
@@ -82,7 +84,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-6 text-center text-stone-400">Tidak ada user.</td></tr>
+                <tr><td colspan="8" class="px-4 py-6 text-center text-stone-400">Tidak ada user.</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -173,7 +175,9 @@
         f.querySelector('[name=phone]').value = u.phone ?? '';
         f.querySelector('[name=address]').value = u.address ?? '';
         f.querySelector('[name=region]').value = u.region ?? '';
+        f.querySelector('[name=distributor_stage]').value = u.distributor_stage ?? '';
         f.querySelector('[name=status]').value = u.status ?? 'active';
+        refreshDistributorStage(f);
         toggleModal('editUserModal');
     }
     function openResetPw(id, name) {
@@ -199,6 +203,11 @@
         const parts = [firstWordSlug(name), (ROLE_SHORT[role] || slugUsername(role || '')), firstWordSlug(region)].filter(Boolean);
         return parts.join('_').slice(0, 30);
     }
+    function refreshDistributorStage(form) {
+        const role = form.querySelector('[name=role]')?.value;
+        const wrapper = form.querySelector('.distributor-stage-field');
+        if (wrapper) wrapper.classList.toggle('hidden', role !== 'distributor');
+    }
 
     (function () {
         const cf = document.getElementById('createUserForm');
@@ -218,7 +227,10 @@
             );
         }
         nameInput.addEventListener('input', refreshUsername);
-        if (roleInput) roleInput.addEventListener('change', refreshUsername);
+        if (roleInput) roleInput.addEventListener('change', function () {
+            refreshUsername();
+            refreshDistributorStage(cf);
+        });
         if (regionInput) regionInput.addEventListener('input', refreshUsername);
         // keep hidden confirmation synced if admin edits password manually
         const pw = cf.querySelector('#genPassword');
@@ -231,9 +243,15 @@
             regenPw();                 // fresh auto-generated password
             if (pw) pw.type = 'text';  // visible by default so it can be copied
             if (pwEyeBtn) pwEyeBtn.textContent = '👁';
+            refreshDistributorStage(cf);
             toggleModal('createUserModal');
         };
     })();
+    document.querySelectorAll('#editUserForm [name=role]').forEach(function (select) {
+        select.addEventListener('change', function () {
+            refreshDistributorStage(document.getElementById('editUserForm'));
+        });
+    });
     // Fallback if create form is absent for some reason.
     if (!window.openCreateUser) { window.openCreateUser = function () { toggleModal('createUserModal'); }; }
 

@@ -76,6 +76,27 @@
         </div>
     @endif
 
+    @if($okr->isDraft())
+        <section class="bg-white border border-stone-200 rounded-xl p-4 mb-4">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="text-sm font-bold text-stone-900">Checklist kelayakan pratinjau</p>
+                    <p class="text-[11px] text-stone-500 mt-0.5">Approval ditahan sampai seluruh pemeriksaan faktual di bawah lulus.</p>
+                </div>
+                @php $acceptancePassed = collect($acceptanceChecklist)->every(fn($row) => $row['status'] === 'pass'); @endphp
+                <span class="px-2 py-1 rounded-full text-[10px] font-bold {{ $acceptancePassed ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">{{ $acceptancePassed ? 'Siap ditinjau' : 'Perlu koreksi' }}</span>
+            </div>
+            <div class="grid md:grid-cols-2 gap-2 mt-3">
+                @foreach($acceptanceChecklist as $row)
+                    <article class="rounded-lg border p-3 {{ $row['status'] === 'pass' ? 'border-emerald-100 bg-emerald-50/50' : 'border-rose-100 bg-rose-50/50' }}">
+                        <p class="text-xs font-semibold {{ $row['status'] === 'pass' ? 'text-emerald-800' : 'text-rose-800' }}">{{ $row['status'] === 'pass' ? '✓' : '✕' }} {{ $row['label'] }}</p>
+                        <p class="text-[10px] mt-1 {{ $row['status'] === 'pass' ? 'text-emerald-700' : 'text-rose-700' }}">{{ $row['detail'] }}</p>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     @if($okr->analysis_summary)
         <section class="bg-white border border-stone-200 rounded-xl p-4 mb-4">
             <div class="flex flex-wrap items-start justify-between gap-2">

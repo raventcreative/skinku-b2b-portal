@@ -9,6 +9,7 @@ use App\Models\OkrObjective;
 use App\Models\User;
 use App\Services\Ai\AiException;
 use App\Services\AuditService;
+use App\Services\OkrAcceptanceService;
 use App\Services\OkrAiService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -21,7 +22,10 @@ use Illuminate\View\View;
 
 class OkrController extends Controller
 {
-    public function __construct(private OkrAiService $okr) {}
+    public function __construct(
+        private OkrAiService $okr,
+        private OkrAcceptanceService $acceptance,
+    ) {}
 
     public function index(): View
     {
@@ -89,6 +93,7 @@ class OkrController extends Controller
             'members' => $this->members(),
             'columns' => BoardColumn::query()->with('board')->orderBy('board_id')->orderBy('position')->get(),
             'delegationWarnings' => $okr->isDraft() ? $this->okr->delegationWarnings($okr) : [],
+            'acceptanceChecklist' => $okr->isDraft() ? $this->acceptance->check($okr) : [],
         ]);
     }
 
@@ -190,6 +195,12 @@ class OkrController extends Controller
 
     public function approve(Request $request, OkrCycle $okr): RedirectResponse
     {
+        $blocking = $this->acceptance->blockingMessages($this->acceptance->check($okr));
+        if ($blocking !== []) {
+            throw ValidationException::withMessages([
+                'okr' => 'Checklist pratinjau belum lulus. '.implode(' ', $blocking),
+            ]);
+        }
         $this->okr->approve($okr, $request->user());
 
         return redirect()->route('okr.show', $okr)

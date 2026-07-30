@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolAffiliateMetric;
 use App\Models\KolScreening;
 use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class KolController extends Controller
@@ -172,7 +174,7 @@ class KolController extends Controller
 
     public function show(Kol $kol)
     {
-        $kol->load(['screenings', 'deals.pic']);
+        $kol->load(['screenings', 'deals.pic', 'affiliateMetrics']);
 
         return view('kols.show', [
             'kol' => $kol,
@@ -206,5 +208,38 @@ class KolController extends Controller
         );
 
         return back()->with('status', 'Data KOL diperbarui.');
+    }
+
+    public function storeAffiliateMetric(Request $request, Kol $kol): RedirectResponse
+    {
+        $data = $request->validate([
+            'period_month' => ['required', 'date_format:Y-m'],
+            'stage' => ['required', Rule::in(array_keys(KolAffiliateMetric::STAGES))],
+            'content_count' => ['required', 'integer', 'min:0'],
+            'live_count' => ['required', 'integer', 'min:0'],
+            'order_count' => ['required', 'integer', 'min:0'],
+            'gmv' => ['required', 'numeric', 'min:0'],
+            'conversion_rate' => ['nullable', 'numeric', 'between:0,100'],
+            'retention_rate' => ['nullable', 'numeric', 'between:0,100'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $data['period_month'] = Carbon::createFromFormat('Y-m-d', $data['period_month'].'-01')->startOfDay();
+
+        $metric = $kol->affiliateMetrics()->updateOrCreate(
+            ['period_month' => $data['period_month']],
+            $data,
+        );
+
+        AuditService::log(
+            action: 'upsert_kol_affiliate_metric',
+            targetType: 'kol_affiliate_metric',
+            targetId: $metric->id,
+            after: $metric->only([
+                'kol_id', 'period_month', 'stage', 'content_count', 'live_count',
+                'order_count', 'gmv', 'conversion_rate', 'retention_rate',
+            ]),
+        );
+
+        return back()->with('status', 'Metrik affiliate bulanan disimpan.');
     }
 }

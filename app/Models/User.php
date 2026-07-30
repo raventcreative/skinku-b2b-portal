@@ -37,9 +37,25 @@ class User extends Authenticatable
 
     public const STATUS_DELETED = 'deleted';
 
+    public const DISTRIBUTOR_STAGE_REGISTERED = 'registered';
+
+    public const DISTRIBUTOR_STAGE_ONBOARDING = 'onboarding';
+
+    public const DISTRIBUTOR_STAGE_TRANSACTION_ACTIVE = 'transaction_active';
+
+    public const DISTRIBUTOR_STAGE_TARGET_100M = 'target_100m';
+
+    public const DISTRIBUTOR_STAGES = [
+        self::DISTRIBUTOR_STAGE_REGISTERED => 'Terdaftar',
+        self::DISTRIBUTOR_STAGE_ONBOARDING => 'Onboarding',
+        self::DISTRIBUTOR_STAGE_TRANSACTION_ACTIVE => 'Aktif transaksi',
+        self::DISTRIBUTOR_STAGE_TARGET_100M => 'Mencapai Rp100 juta/bulan',
+    ];
+
     protected $fillable = [
         'uid', 'name', 'fullname', 'email', 'username', 'password',
         'role', 'company_name', 'phone', 'address', 'status', 'region',
+        'distributor_stage', 'distributor_stage_updated_at',
         'email_verified_at', 'disabled_at', 'created_by', 'updated_by',
     ];
 
@@ -52,6 +68,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'disabled_at' => 'datetime',
+            'distributor_stage_updated_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -125,6 +142,13 @@ class User extends Authenticatable
     public function displayName(): string
     {
         return $this->fullname ?: ($this->name ?: $this->username);
+    }
+
+    public function distributorStageLabel(): ?string
+    {
+        return $this->role === self::ROLE_DISTRIBUTOR
+            ? (self::DISTRIBUTOR_STAGES[$this->distributor_stage] ?? $this->distributor_stage)
+            : null;
     }
 
     /** Unit price field that applies to this partner's role. */

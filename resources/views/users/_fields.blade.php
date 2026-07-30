@@ -39,6 +39,16 @@
     <label class="block text-xs font-semibold text-stone-700 mb-1">Region</label>
     <input name="region" value="{{ old('region') }}" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
 </div>
+<div class="distributor-stage-field">
+    <label class="block text-xs font-semibold text-stone-700 mb-1">Tahap Distributor</label>
+    <select name="distributor_stage" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+        <option value="">Terdaftar (default)</option>
+        @foreach(\App\Models\User::DISTRIBUTOR_STAGES as $key => $label)
+            <option value="{{ $key }}">{{ $label }}</option>
+        @endforeach
+    </select>
+    <p class="text-[10px] text-stone-400 mt-1">Hanya dipakai untuk role distributor.</p>
+</div>
 <div class="col-span-2">
     <label class="block text-xs font-semibold text-stone-700 mb-1">Alamat</label>
     <textarea name="address" rows="2" class="w-full px-3 py-2 border border-stone-300 rounded-lg">{{ old('address') }}</textarea>
