@@ -397,7 +397,8 @@ class OkrTest extends TestCase
         $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id));
 
         $task = OkrCycle::firstOrFail()->objectives()->first()->keyResults()->first()->tasks()->first();
-        $this->assertNull($task->assignee_user_id);
+        $this->assertSame($member->id, $task->assignee_user_id);
+        $this->assertSame($member->displayName(), $task->assignee_name);
         $this->assertSame($todo->id, $task->board_column_id);
         $this->assertSame(0, BoardCard::count());
     }
@@ -876,6 +877,56 @@ class OkrTest extends TestCase
 
         $this->actingAs($super)->post(route('okr.approve', $cycle))->assertRedirect();
         $this->assertSame(OkrCycle::STATUS_ACTIVE, $cycle->fresh()->status);
+    }
+
+    public function test_server_melengkapi_funnel_affiliate_gate_produk_dan_field_tugas_yang_hilang(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrcoverage');
+        $member = $this->user(User::ROLE_ADMIN, 'coveragepic');
+        [$board, $todo] = $this->board($super);
+        $fake = $this->fakeDraft($member, $todo->id, [
+            'objectives' => [[
+                'key_results' => [[
+                    'tasks' => [[
+                        'description' => '',
+                        'assignee_user_id' => 999999,
+                        'board_column_id' => 999999,
+                        'due_date' => null,
+                    ]],
+                ]],
+            ]],
+        ]);
+        $this->app->instance(AiProvider::class, $fake);
+        $payload = $this->generatePayload($board->id);
+        $payload['direction'] = implode(' ', [
+            'CMO CFO COO bekerja bersama.',
+            'Bangun funnel 5.000 affiliate dari rekrut sampai retention.',
+            'Kembangkan 15 produk baru melalui pipeline, bukan langsung launch.',
+        ]);
+
+        $this->actingAs($super)->post(route('okr.generate'), $payload)->assertRedirect();
+
+        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
+        $corpus = mb_strtolower($cycle->objectives->flatMap->keyResults->map(
+            fn ($kr) => collect([
+                $kr->title, $kr->metric, $kr->target_gap,
+                $kr->tasks->pluck('description')->implode(' '),
+            ])->filter()->implode(' '),
+        )->implode(' '));
+        foreach (['daftar/rekrut', 'onboarding', 'konten/live', 'order', 'gmv/conversion', 'retention'] as $term) {
+            $this->assertStringContainsString($term, $corpus);
+        }
+        foreach (['riset', 'konsep', 'costing/hpp', 'sampling', 'uji pasar', 'produksi', 'launch', 'evaluasi'] as $term) {
+            $this->assertStringContainsString($term, $corpus);
+        }
+        $this->assertTrue($cycle->objectives->flatMap->keyResults->flatMap->tasks->every(
+            fn ($task) => filled($task->title)
+                && filled($task->description)
+                && filled($task->assignee_name)
+                && $task->assignee_user_id
+                && $task->board_column_id
+                && $task->due_date,
+        ));
     }
 
     public function test_timeout_orchestrator_memakai_hasil_panel_dan_tetap_membuat_pratinjau(): void

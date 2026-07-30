@@ -1112,6 +1112,15 @@ class OkrAiService
                 'key_results' => $keyResults,
             ];
         }
+        $objectives = $this->ensureRequiredBusinessStages($objectives, $input);
+        $objectives = $this->completeNormalisedTasks(
+            $objectives,
+            $input,
+            $members,
+            $memberIds,
+            $actionableColumns->all(),
+            $defaultColumnId,
+        );
 
         if ($objectives === [] || $taskCount === 0) {
             throw new AiException('AI belum menghasilkan Objective, Key Result, dan tugas yang lengkap. Perjelas arahannya lalu coba lagi.');
@@ -1131,6 +1140,145 @@ class OkrAiService
             'data_coverage' => $this->snapshots->coverage($liveData),
             'objectives' => $objectives,
         ];
+    }
+
+    /**
+     * Arahan eksplisit tentang affiliate dan produk baru tidak boleh kehilangan
+     * tahapan hanya karena output model terpotong. Server menambahkan definisi
+     * outcome/gate ke KR relevan tanpa mengarang baseline atau angka aktual.
+     *
+     * @param  array<int,array<string,mixed>>  $objectives
+     * @param  array<string,mixed>  $input
+     * @return array<int,array<string,mixed>>
+     */
+    private function ensureRequiredBusinessStages(array $objectives, array $input): array
+    {
+        $direction = $this->normalise((string) ($input['direction'] ?? ''));
+        if (str_contains($direction, 'affiliate') || str_contains($direction, 'affiliator')) {
+            $this->appendCoverageToRelevantKr(
+                $objectives,
+                'cmo',
+                ['affiliate', 'affiliator', 'kol'],
+                'Funnel wajib diukur terpisah dari daftar/rekrut, onboarding, aktif konten/live, menghasilkan order, GMV/conversion, hingga retention dan produktivitas per affiliate.',
+            );
+        }
+        if (preg_match('/\b15\b/u', $direction)
+            && collect(['produk', 'item', 'master'])->contains(fn (string $word) => str_contains($direction, $word))) {
+            $this->appendCoverageToRelevantKr(
+                $objectives,
+                'coo',
+                ['produk', 'item', 'launch', 'sampling'],
+                'Setiap item wajib melewati gate riset, konsep, costing/HPP, sampling, uji pasar, produksi, launch, dan evaluasi; keberadaan master produk bukan bukti siap launch.',
+            );
+        }
+
+        return $objectives;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $objectives
+     * @param  array<int,string>  $keywords
+     */
+    private function appendCoverageToRelevantKr(
+        array &$objectives,
+        string $preferredSpecialist,
+        array $keywords,
+        string $sentence,
+    ): void {
+        $objectiveIndex = collect($objectives)->search(fn (array $objective) => $objective['specialist'] === $preferredSpecialist);
+        if ($objectiveIndex === false) {
+            $objectiveIndex = array_key_first($objectives);
+        }
+        if ($objectiveIndex === null || ($objectives[$objectiveIndex]['key_results'] ?? []) === []) {
+            return;
+        }
+        $krIndex = collect($objectives[$objectiveIndex]['key_results'])->search(function (array $kr) use ($keywords) {
+            $text = $this->normalise(collect([
+                $kr['title'] ?? null,
+                $kr['metric'] ?? null,
+                $kr['target'] ?? null,
+                $kr['target_gap'] ?? null,
+            ])->filter()->implode(' '));
+
+            return collect($keywords)->contains(fn (string $keyword) => str_contains($text, $keyword));
+        });
+        if ($krIndex === false) {
+            $krIndex = array_key_last($objectives[$objectiveIndex]['key_results']);
+        }
+        $currentGap = trim((string) ($objectives[$objectiveIndex]['key_results'][$krIndex]['target_gap'] ?? ''));
+        if (! str_contains($this->normalise($currentGap), $this->normalise($sentence))) {
+            $objectives[$objectiveIndex]['key_results'][$krIndex]['target_gap'] = Str::limit(
+                trim($currentGap.' '.$sentence),
+                2000,
+                '',
+            );
+        }
+        $taskIndex = array_key_first($objectives[$objectiveIndex]['key_results'][$krIndex]['tasks'] ?? []);
+        if ($taskIndex !== null) {
+            $description = trim((string) $objectives[$objectiveIndex]['key_results'][$krIndex]['tasks'][$taskIndex]['description']);
+            if (! str_contains($this->normalise($description), $this->normalise($sentence))) {
+                $objectives[$objectiveIndex]['key_results'][$krIndex]['tasks'][$taskIndex]['description'] = Str::limit(
+                    trim($description.' '.$sentence),
+                    4000,
+                    '',
+                );
+            }
+        }
+    }
+
+    /**
+     * Lapisan terakhir sebelum simpan: tidak ada tugas yang boleh kehilangan
+     * detail, akun/nama PIC, kolom, atau tenggat akibat ID keluaran AI yang salah.
+     *
+     * @param  array<int,array<string,mixed>>  $objectives
+     * @param  array<string,mixed>  $input
+     * @param  array<int,array{id:int,name:string,role:string}>  $members
+     * @param  array<int,int>  $memberIds
+     * @param  array<int,array<string,mixed>>  $columns
+     * @return array<int,array<string,mixed>>
+     */
+    private function completeNormalisedTasks(
+        array $objectives,
+        array $input,
+        array $members,
+        array $memberIds,
+        array $columns,
+        ?int $defaultColumnId,
+    ): array {
+        foreach ($objectives as &$objective) {
+            $ownerId = $this->validMember($objective['owner_user_id'] ?? null, $memberIds)
+                ?? ($members[0]['id'] ?? null);
+            $ownerName = trim((string) ($objective['owner_name'] ?? ''))
+                ?: ($this->memberName($ownerId, $members) ?? 'PIC belum dinamai');
+            foreach ($objective['key_results'] as &$kr) {
+                foreach ($kr['tasks'] as &$task) {
+                    $assigneeId = $this->validMember($task['assignee_user_id'] ?? null, $memberIds) ?? $ownerId;
+                    $assigneeName = trim((string) ($task['assignee_name'] ?? ''))
+                        ?: ($this->memberName($assigneeId, $members) ?? $ownerName);
+                    $task['title'] = trim((string) ($task['title'] ?? '')) ?: 'Tindak lanjut '.$kr['title'];
+                    $task['description'] = trim((string) ($task['description'] ?? ''))
+                        ?: 'Jalankan pekerjaan ini dan serahkan output yang dapat diperiksa oleh pemilik Key Result.';
+                    $task['assignee_user_id'] = $assigneeId;
+                    $task['assignee_name'] = $assigneeName;
+                    $task['board_column_id'] = $this->columnForName(
+                        $assigneeName,
+                        $columns,
+                        (int) ($input['preferred_board_id'] ?? 0),
+                    ) ?? $this->columnForAssignee(
+                        (int) $assigneeId,
+                        $members,
+                        $columns,
+                        (int) ($input['preferred_board_id'] ?? 0),
+                    ) ?? ($task['board_column_id'] ?? $defaultColumnId);
+                    $task['due_date'] = $this->safeDate($task['due_date'] ?? null, $input);
+                }
+                unset($task);
+            }
+            unset($kr);
+        }
+        unset($objective);
+
+        return $objectives;
     }
 
     /**

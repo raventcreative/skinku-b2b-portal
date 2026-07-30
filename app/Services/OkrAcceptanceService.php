@@ -62,13 +62,25 @@ class OkrAcceptanceService
             || ! $task->assignee_user_id
             || ! $task->board_column_id
             || ! $task->due_date);
+        $incompleteDetails = $incompleteTasks->take(5)->map(function ($task) {
+            $missing = collect([
+                'nama pekerjaan' => blank($task->title),
+                'detail/output' => blank($task->description),
+                'nama PIC' => blank($task->assignee_name),
+                'akun PIC' => ! $task->assignee_user_id,
+                'kolom' => ! $task->board_column_id,
+                'tenggat' => ! $task->due_date,
+            ])->filter()->keys()->implode(', ');
+
+            return '"'.($task->title ?: 'Tanpa nama').'" ('.$missing.')';
+        })->implode('; ');
         $rows[] = $this->row(
             'task_completeness',
             'Setiap pekerjaan punya detail, output, PIC, kolom, dan tenggat',
             $tasks->isNotEmpty() && $incompleteTasks->isEmpty(),
             $incompleteTasks->isEmpty()
                 ? "{$tasks->count()} pekerjaan lengkap secara struktural."
-                : "{$incompleteTasks->count()} pekerjaan belum lengkap.",
+                : "{$incompleteTasks->count()} pekerjaan belum lengkap: {$incompleteDetails}.",
         );
 
         $columnMismatch = $tasks->filter(function ($task) {
@@ -150,35 +162,37 @@ class OkrAcceptanceService
         if (str_contains($direction, 'affiliate') || str_contains($direction, 'affiliator')) {
             $corpus = $this->normalise($keyResults->map(fn ($kr) => $this->krText($kr))->implode(' '));
             $groups = [
-                ['daftar', 'rekrut'],
-                ['onboarding'],
-                ['konten', 'live'],
-                ['order'],
-                ['gmv', 'conversion', 'konversi'],
-                ['retention', 'retensi'],
+                'daftar/rekrut' => ['daftar', 'rekrut'],
+                'onboarding' => ['onboarding'],
+                'konten/live' => ['konten', 'live'],
+                'order' => ['order'],
+                'GMV/conversion' => ['gmv', 'conversion', 'konversi'],
+                'retention' => ['retention', 'retensi'],
             ];
-            $missing = collect($groups)->reject(fn (array $keywords) => $this->containsAny($corpus, $keywords));
+            $missing = collect($groups)->filter(fn (array $keywords) => ! $this->containsAny($corpus, $keywords));
             $rows[] = $this->row(
                 'affiliate_funnel',
                 'Funnel affiliate dibedakan sampai GMV/conversion/retention',
                 $missing->isEmpty(),
                 $missing->isEmpty()
                     ? 'Tahap daftar, onboarding, aktivitas, order, GMV/conversion, dan retention tercakup.'
-                    : $missing->count().' kelompok metrik affiliate belum muncul dalam Key Result.',
+                    : 'Belum muncul dalam Key Result: '.$missing->keys()->implode(', ').'.',
             );
         }
 
         if (preg_match('/\b15\b/u', $direction) && $this->containsAny($direction, ['produk', 'item', 'master'])) {
             $corpus = $this->normalise($keyResults->map(fn ($kr) => $this->krText($kr))->implode(' '));
             $stages = ['riset', 'konsep', 'costing', 'hpp', 'sampling', 'uji pasar', 'produksi', 'launch', 'evaluasi'];
-            $covered = collect($stages)->filter(fn (string $stage) => str_contains($corpus, $stage))->count();
+            $coveredStages = collect($stages)->filter(fn (string $stage) => str_contains($corpus, $stage));
+            $covered = $coveredStages->count();
+            $missingStages = collect($stages)->diff($coveredStages);
             $rows[] = $this->row(
                 'product_pipeline',
                 '15 item baru memakai gate pipeline, bukan langsung dianggap launch',
                 $covered >= 5,
                 $covered >= 5
                     ? "{$covered} penanda tahap pengembangan muncul dalam Key Result."
-                    : 'Gunakan minimal lima tahap nyata: riset, konsep, costing/HPP, sampling, uji pasar, produksi, launch, evaluasi.',
+                    : "Baru {$covered} tahap terdeteksi. Belum muncul: ".$missingStages->implode(', ').'.',
             );
         }
 
