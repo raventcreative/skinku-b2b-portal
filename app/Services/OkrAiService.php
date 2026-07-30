@@ -45,10 +45,7 @@ class OkrAiService
 
     private const MAX_TASKS = 60;
 
-    public function __construct(
-        private OkrBusinessSnapshotService $snapshots,
-        private OkrScorecardService $scorecards,
-    ) {}
+    public function __construct(private OkrBusinessSnapshotService $snapshots) {}
 
     /**
      * @param  array<string,mixed>  $input
@@ -267,6 +264,9 @@ class OkrAiService
             || (count($cycle->analysis_evidence ?? []) < 3
                 && count($cycle->analysis_assumptions ?? []) < 1)) {
             $issues[] = 'Draf belum mempunyai dasar analisis data yang dapat diverifikasi.';
+        }
+        if ($cycle->scope_type === OkrCycle::SCOPE_COMPANY && count($cycle->analysis_conflicts ?? []) < 1) {
+            $issues[] = 'OKR perusahaan harus menjelaskan minimal satu konflik atau trade-off lintas fungsi.';
         }
         if ($objectives->contains(fn ($objective) => blank($objective->rationale))) {
             $issues[] = 'Semua Objective harus punya alasan pemilihan berbasis analisis.';
@@ -645,8 +645,6 @@ class OkrAiService
             'Bertindak sebagai eksekutif yang kritis, bukan penulis template. Hitung gap target terhadap baseline, uji kelayakan, dan jelaskan kenapa opsi yang dipilih lebih kuat daripada alternatifnya.',
             'Setiap fakta angka WAJIB memakai source_path persis dari KATALOG BUKTI. Jangan mengutip angka dari ingatan atau membuat baseline sendiri.',
             'Jika metrik penting tidak tersedia, masukkan ke data_gaps secara eksplisit. Nilai nol tetap data aktual, tetapi jangan mengartikannya sebagai kinerja nol bila integrasi sumbernya belum tersedia.',
-            'Periode berstatus bulan berjalan adalah MTD dan tidak boleh diperlakukan sebagai bulan tutup buku.',
-            'penjualan.total_sales adalah semua channel, bukan e-commerce. Laba-rugi hanya berasal dari jurnal posted. Jangan menyimpulkan naik/turun bila kedua sumber belum direkonsiliasi.',
             'Usulkan outcome yang terukur, bukan daftar aktivitas. Pisahkan fakta, inferensi, asumsi, risiko, dan trade-off.',
             'Jangan membuat kartu atau memilih ID. AI Orchestrator akan menyelaraskan usulanmu dengan spesialis lain dan membagi tugas.',
             'Buat maksimal 2 Objective dan maksimal 3 Key Result per Objective.',
@@ -683,8 +681,6 @@ class OkrAiService
             'Jangan menghasilkan OKR sekadar lengkap. Diagnosis harus menyebut kondisi aktual, gap ke target, penyebab paling mungkin, pilihan yang ditolak, serta keputusan yang perlu dibuat.',
             'Setiap bukti angka WAJIB memakai source_path persis dari katalog server. Nilai bukti akan diambil ulang oleh server; source_path palsu membuat seluruh draf ditolak.',
             'Bedakan DATA AKTUAL, ASUMSI/KEBUTUHAN VALIDASI, dan INFERENSI. Jangan menyamarkan target user sebagai baseline aktual.',
-            'SCORECARD SERVER adalah dasar faktual tunggal. Jangan mengganti KPI, menafsirkan bulan berjalan sebagai periode selesai, atau menyimpulkan naik/turun saat status rekonsiliasi conflict.',
-            'Teks analysis_summary, pilihan evidence, asumsi data, dan konflik data akan diganti server; fokuskan keluaranmu pada Objective, Key Result, dan pekerjaan yang menanggapi scorecard tersebut.',
             'Untuk OKR perusahaan, wajib nyatakan minimal satu konflik/trade-off nyata antara omzet, margin, cashflow, stok/produksi, atau kapasitas tim.',
             'Setiap Objective final WAJIB diberi specialist cmo/cfo/coo sesuai pemilik sudut pandangnya.',
             'Untuk OKR perusahaan, pertahankan kontribusi ketiga spesialis jika relevan dengan arahan.',
@@ -722,7 +718,6 @@ class OkrAiService
         $knowledge = AiKnowledge::document();
         $preferred = $input['preferred_board_id'] ?? null;
         $catalog = $this->snapshots->evidenceCatalog($liveData);
-        $scorecard = $this->scorecards->build($liveData, $input);
 
         return implode("\n\n", [
             'HARI INI: '.Carbon::today()->toDateString(),
@@ -734,7 +729,6 @@ class OkrAiService
             'PAPAN & KOLOM AKTIF (JSON): '.json_encode($boards, JSON_UNESCAPED_UNICODE),
             'PAPAN PILIHAN USER: '.($preferred ?: 'otomatis pilih yang paling sesuai'),
             'USULAN PANEL SPESIALIS (JSON): '.json_encode($proposals, JSON_UNESCAPED_UNICODE),
-            'SCORECARD SERVER TETAP (JSON): '.json_encode($scorecard, JSON_UNESCAPED_UNICODE),
             'KATALOG BUKTI FINAL (source_path => nilai aktual): '.json_encode(
                 collect($catalog)->map(fn (array $fact) => $fact['value'])->all(),
                 JSON_UNESCAPED_UNICODE,
@@ -919,7 +913,7 @@ class OkrAiService
         array $proposals,
     ): array {
         $catalog = $this->snapshots->evidenceCatalog($liveData);
-        $analysis = $this->normaliseAnalysis($draft, $input, $liveData, $proposals);
+        $analysis = $this->normaliseAnalysis($draft, $input, $catalog, $proposals);
         $memberIds = array_column($members, 'id');
         $specialistOwners = $this->specialistOwners($members);
         $specialistOwnerNames = $this->specialistOwnerNames();
@@ -1118,15 +1112,6 @@ class OkrAiService
                 'key_results' => $keyResults,
             ];
         }
-        $objectives = $this->ensureRequiredBusinessStages($objectives, $input);
-        $objectives = $this->completeNormalisedTasks(
-            $objectives,
-            $input,
-            $members,
-            $memberIds,
-            $actionableColumns->all(),
-            $defaultColumnId,
-        );
 
         if ($objectives === [] || $taskCount === 0) {
             throw new AiException('AI belum menghasilkan Objective, Key Result, dan tugas yang lengkap. Perjelas arahannya lalu coba lagi.');
@@ -1146,145 +1131,6 @@ class OkrAiService
             'data_coverage' => $this->snapshots->coverage($liveData),
             'objectives' => $objectives,
         ];
-    }
-
-    /**
-     * Arahan eksplisit tentang affiliate dan produk baru tidak boleh kehilangan
-     * tahapan hanya karena output model terpotong. Server menambahkan definisi
-     * outcome/gate ke KR relevan tanpa mengarang baseline atau angka aktual.
-     *
-     * @param  array<int,array<string,mixed>>  $objectives
-     * @param  array<string,mixed>  $input
-     * @return array<int,array<string,mixed>>
-     */
-    private function ensureRequiredBusinessStages(array $objectives, array $input): array
-    {
-        $direction = $this->normalise((string) ($input['direction'] ?? ''));
-        if (str_contains($direction, 'affiliate') || str_contains($direction, 'affiliator')) {
-            $this->appendCoverageToRelevantKr(
-                $objectives,
-                'cmo',
-                ['affiliate', 'affiliator', 'kol'],
-                'Funnel wajib diukur terpisah dari daftar/rekrut, onboarding, aktif konten/live, menghasilkan order, GMV/conversion, hingga retention dan produktivitas per affiliate.',
-            );
-        }
-        if (preg_match('/\b15\b/u', $direction)
-            && collect(['produk', 'item', 'master'])->contains(fn (string $word) => str_contains($direction, $word))) {
-            $this->appendCoverageToRelevantKr(
-                $objectives,
-                'coo',
-                ['produk', 'item', 'launch', 'sampling'],
-                'Setiap item wajib melewati gate riset, konsep, costing/HPP, sampling, uji pasar, produksi, launch, dan evaluasi; keberadaan master produk bukan bukti siap launch.',
-            );
-        }
-
-        return $objectives;
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $objectives
-     * @param  array<int,string>  $keywords
-     */
-    private function appendCoverageToRelevantKr(
-        array &$objectives,
-        string $preferredSpecialist,
-        array $keywords,
-        string $sentence,
-    ): void {
-        $objectiveIndex = collect($objectives)->search(fn (array $objective) => $objective['specialist'] === $preferredSpecialist);
-        if ($objectiveIndex === false) {
-            $objectiveIndex = array_key_first($objectives);
-        }
-        if ($objectiveIndex === null || ($objectives[$objectiveIndex]['key_results'] ?? []) === []) {
-            return;
-        }
-        $krIndex = collect($objectives[$objectiveIndex]['key_results'])->search(function (array $kr) use ($keywords) {
-            $text = $this->normalise(collect([
-                $kr['title'] ?? null,
-                $kr['metric'] ?? null,
-                $kr['target'] ?? null,
-                $kr['target_gap'] ?? null,
-            ])->filter()->implode(' '));
-
-            return collect($keywords)->contains(fn (string $keyword) => str_contains($text, $keyword));
-        });
-        if ($krIndex === false) {
-            $krIndex = array_key_last($objectives[$objectiveIndex]['key_results']);
-        }
-        $currentGap = trim((string) ($objectives[$objectiveIndex]['key_results'][$krIndex]['target_gap'] ?? ''));
-        if (! str_contains($this->normalise($currentGap), $this->normalise($sentence))) {
-            $objectives[$objectiveIndex]['key_results'][$krIndex]['target_gap'] = Str::limit(
-                trim($currentGap.' '.$sentence),
-                2000,
-                '',
-            );
-        }
-        $taskIndex = array_key_first($objectives[$objectiveIndex]['key_results'][$krIndex]['tasks'] ?? []);
-        if ($taskIndex !== null) {
-            $description = trim((string) $objectives[$objectiveIndex]['key_results'][$krIndex]['tasks'][$taskIndex]['description']);
-            if (! str_contains($this->normalise($description), $this->normalise($sentence))) {
-                $objectives[$objectiveIndex]['key_results'][$krIndex]['tasks'][$taskIndex]['description'] = Str::limit(
-                    trim($description.' '.$sentence),
-                    4000,
-                    '',
-                );
-            }
-        }
-    }
-
-    /**
-     * Lapisan terakhir sebelum simpan: tidak ada tugas yang boleh kehilangan
-     * detail, akun/nama PIC, kolom, atau tenggat akibat ID keluaran AI yang salah.
-     *
-     * @param  array<int,array<string,mixed>>  $objectives
-     * @param  array<string,mixed>  $input
-     * @param  array<int,array{id:int,name:string,role:string}>  $members
-     * @param  array<int,int>  $memberIds
-     * @param  array<int,array<string,mixed>>  $columns
-     * @return array<int,array<string,mixed>>
-     */
-    private function completeNormalisedTasks(
-        array $objectives,
-        array $input,
-        array $members,
-        array $memberIds,
-        array $columns,
-        ?int $defaultColumnId,
-    ): array {
-        foreach ($objectives as &$objective) {
-            $ownerId = $this->validMember($objective['owner_user_id'] ?? null, $memberIds)
-                ?? ($members[0]['id'] ?? null);
-            $ownerName = trim((string) ($objective['owner_name'] ?? ''))
-                ?: ($this->memberName($ownerId, $members) ?? 'PIC belum dinamai');
-            foreach ($objective['key_results'] as &$kr) {
-                foreach ($kr['tasks'] as &$task) {
-                    $assigneeId = $this->validMember($task['assignee_user_id'] ?? null, $memberIds) ?? $ownerId;
-                    $assigneeName = trim((string) ($task['assignee_name'] ?? ''))
-                        ?: ($this->memberName($assigneeId, $members) ?? $ownerName);
-                    $task['title'] = trim((string) ($task['title'] ?? '')) ?: 'Tindak lanjut '.$kr['title'];
-                    $task['description'] = trim((string) ($task['description'] ?? ''))
-                        ?: 'Jalankan pekerjaan ini dan serahkan output yang dapat diperiksa oleh pemilik Key Result.';
-                    $task['assignee_user_id'] = $assigneeId;
-                    $task['assignee_name'] = $assigneeName;
-                    $task['board_column_id'] = $this->columnForName(
-                        $assigneeName,
-                        $columns,
-                        (int) ($input['preferred_board_id'] ?? 0),
-                    ) ?? $this->columnForAssignee(
-                        (int) $assigneeId,
-                        $members,
-                        $columns,
-                        (int) ($input['preferred_board_id'] ?? 0),
-                    ) ?? ($task['board_column_id'] ?? $defaultColumnId);
-                    $task['due_date'] = $this->safeDate($task['due_date'] ?? null, $input);
-                }
-                unset($task);
-            }
-            unset($kr);
-        }
-        unset($objective);
-
-        return $objectives;
     }
 
     /**
@@ -1463,52 +1309,133 @@ class OkrAiService
     }
 
     /**
-     * Ringkasan dan bukti ditentukan scorecard server. AI tetap menyusun usulan
-     * pekerjaan, tetapi tidak boleh memilih KPI yang tampil atau mengubah status
-     * kelengkapan/rekonsiliasi data.
+     * Bukti hanya diterima bila source_path terdapat dalam snapshot server.
+     * Nilai yang disimpan selalu nilai server, bukan angka keluaran model.
      *
      * @param  array<string,mixed>  $draft
      * @param  array<string,mixed>  $input
-     * @param  array<string,array<string,mixed>>  $liveData
+     * @param  array<string,array<string,mixed>>  $catalog
      * @param  array<string,array<string,mixed>>  $proposals
      * @return array<string,mixed>
      */
     private function normaliseAnalysis(
         array $draft,
         array $input,
-        array $liveData,
+        array $catalog,
         array $proposals,
     ): array {
-        $scorecard = $this->scorecards->build($liveData, $input);
-        $providerMessages = collect((array) ($draft['assumptions'] ?? []))
-            ->merge(collect($proposals)->flatMap(
-                fn (array $panel) => (array) data_get($panel, 'proposal.data_gaps', []),
-            ))
-            ->filter(fn ($value) => is_string($value))
-            ->map(fn (string $value) => trim($value))
-            ->filter(fn (string $value) => preg_match(
-                '/(?:OpenAI gagal sementara|Orchestrator tidak mengirim struktur final)/iu',
-                $value,
-            ))
-            ->map(fn (string $value) => Str::limit($value, 1000, ''));
-        $assumptions = collect($scorecard['gaps'])
-            ->merge($providerMessages)
+        $summary = trim((string) ($draft['analysis_summary'] ?? ''));
+        if (mb_strlen($summary) < 120) {
+            $summary = collect($proposals)->map(function (array $panel) {
+                $proposal = (array) ($panel['proposal'] ?? []);
+
+                return collect([
+                    ($panel['label'] ?? 'Panel').': '.trim((string) ($proposal['analysis'] ?? '')),
+                    'Gap target: '.trim((string) ($proposal['target_gap_analysis'] ?? '')),
+                ])->filter(fn (string $text) => ! str_ends_with($text, ': '))->implode(' ');
+            })->filter()->implode("\n\n");
+        }
+        if (mb_strlen($summary) < 120) {
+            $summary = 'Panel CMO, CFO, dan COO belum mengirim diagnosis terstruktur yang memadai. '
+                .'Server mempertahankan target dari arahan awal, membentuk rencana validasi per fungsi, '
+                .'dan menandai seluruh baseline yang belum didukung snapshot sebagai kebutuhan validasi sebelum eksekusi.';
+        }
+
+        $evidence = [];
+        foreach (array_slice((array) ($draft['evidence'] ?? []), 0, 12) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $path = trim((string) ($row['source_path'] ?? ''));
+            $interpretation = trim((string) ($row['interpretation'] ?? ''));
+            if (! isset($catalog[$path]) || mb_strlen($interpretation) < 20) {
+                continue;
+            }
+            $evidence[$path] = [
+                ...$catalog[$path],
+                'interpretation' => Str::limit($interpretation, 1000, ''),
+            ];
+        }
+        foreach ($proposals as $panel) {
+            foreach ((array) data_get($panel, 'proposal.facts', []) as $fact) {
+                if (! is_array($fact)) {
+                    continue;
+                }
+                $path = trim((string) ($fact['source_path'] ?? ''));
+                $interpretation = trim((string) ($fact['finding'] ?? ''));
+                if (isset($catalog[$path]) && mb_strlen($interpretation) >= 20) {
+                    $evidence[$path] ??= [
+                        ...$catalog[$path],
+                        'interpretation' => Str::limit($interpretation, 1000, ''),
+                    ];
+                }
+            }
+        }
+        $specialists = collect($evidence)->pluck('specialist')->unique();
+        $minimumSpecialists = $this->requiredSpecialists($input) !== [] ? 3 : 2;
+
+        $panelDataGaps = collect($proposals)
+            ->flatMap(fn (array $panel) => (array) data_get($panel, 'proposal.data_gaps', []));
+        $coverageGaps = collect();
+        if (count($evidence) < 3) {
+            $coverageGaps->push(
+                'Snapshot sistem hanya menyediakan '.count($evidence)
+                .' bukti numerik yang dapat diverifikasi; baseline lain tidak boleh diasumsikan dan wajib divalidasi.',
+            );
+        }
+        if (($input['scope_type'] ?? null) === OkrCycle::SCOPE_COMPANY
+            && $specialists->count() < $minimumSpecialists) {
+            $coverageGaps->push(
+                "Bukti numerik belum mencakup {$minimumSpecialists} fungsi; fungsi tanpa bukti tetap mempunyai Objective validasi, bukan baseline rekaan.",
+            );
+        }
+        $assumptions = collect((array) ($draft['assumptions'] ?? []))
+            ->merge($panelDataGaps)
+            ->merge($coverageGaps)
+            ->filter(fn ($value) => is_string($value) && mb_strlen(trim($value)) >= 12)
+            ->map(fn (string $value) => Str::limit(trim($value), 1000, ''))
             ->unique()
+            ->take(12)
             ->values()
             ->all();
-        $conflicts = collect($scorecard['evidence'])
-            ->filter(fn (array $row) => (bool) ($row['blocking'] ?? false))
+        $conflicts = collect((array) ($draft['conflicts'] ?? []))
+            ->filter(fn ($row) => is_array($row)
+                && filled($row['issue'] ?? null)
+                && filled($row['impact'] ?? null)
+                && filled($row['decision_required'] ?? null))
             ->map(fn (array $row) => [
-                'issue' => (string) ($row['note'] ?? $row['definition']),
-                'impact' => 'Kesimpulan kondisi bisnis dan prioritas pekerjaan dapat salah bila sumber ini dipakai sebelum validasi selesai.',
-                'decision_required' => 'Rekonsiliasi atau lengkapi sumber data, lalu generate ulang scorecard sebelum OKR disetujui.',
+                'issue' => Str::limit(trim((string) $row['issue']), 1000, ''),
+                'impact' => Str::limit(trim((string) $row['impact']), 1000, ''),
+                'decision_required' => Str::limit(trim((string) $row['decision_required']), 1000, ''),
             ])
+            ->take(10)
+            ->values()
+            ->all();
+        if (($input['scope_type'] ?? null) === OkrCycle::SCOPE_COMPANY && $conflicts === []) {
+            $tradeoffs = collect($proposals)
+                ->flatMap(fn (array $panel) => (array) data_get($panel, 'proposal.tradeoffs', []))
+                ->filter(fn ($value) => is_string($value) && filled($value))
+                ->take(3)
+                ->implode(' ');
+            $conflicts[] = [
+                'issue' => $tradeoffs ?: 'Target pertumbuhan perlu diseimbangkan dengan margin, cashflow, ketersediaan stok, dan kapasitas tim.',
+                'impact' => 'Eksekusi tanpa gate lintas fungsi dapat menaikkan omzet tetapi menekan laba, kas, service level, atau kualitas pekerjaan.',
+                'decision_required' => 'BOD menetapkan batas margin, anggaran, kesiapan stok, kapasitas tim, dan kondisi penghentian sebelum scale-up.',
+            ];
+        }
+        $evidenceRows = collect($evidence);
+        $prioritisedEvidence = collect(['CMO', 'CFO', 'COO'])
+            ->map(fn (string $specialist) => $evidenceRows->firstWhere('specialist', $specialist))
+            ->filter()
+            ->concat($evidenceRows)
+            ->unique('source_path')
+            ->take(12)
             ->values()
             ->all();
 
         return [
-            'analysis_summary' => Str::limit($scorecard['summary'], 6000, ''),
-            'analysis_evidence' => $scorecard['evidence'],
+            'analysis_summary' => Str::limit($summary, 6000, ''),
+            'analysis_evidence' => $prioritisedEvidence,
             'analysis_assumptions' => $assumptions,
             'analysis_conflicts' => $conflicts,
         ];

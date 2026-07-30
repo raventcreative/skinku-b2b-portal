@@ -2,13 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\AccJournal;
 use App\Models\Inventory;
 use App\Models\Kol;
-use App\Models\KolAffiliateMetric;
 use App\Models\KolDeal;
 use App\Models\Product;
-use App\Models\ProductDevelopment;
 use App\Models\Production;
 use App\Models\PurchaseOrder;
 use App\Models\TiktokOrder;
@@ -71,7 +68,8 @@ class OkrBusinessSnapshotService
                             ->whereIn('key', ['tiktok', 'shopee'])->sum('confirmed'), 2),
                         'ecommerce_pipeline' => round((float) $channels
                             ->whereIn('key', ['tiktok', 'shopee'])->sum('pipeline'), 2),
-                        'distributor_po_confirmed' => $this->distributorRevenue($period),
+                        'distributor_po_confirmed' => round((float) $channels
+                            ->where('key', 'reseller')->sum('confirmed'), 2),
                         'semua_channel_confirmed' => round((float) $channels->sum('confirmed'), 2),
                         'jumlah_order' => (int) $channels->sum('orders_n'),
                     ];
@@ -85,9 +83,8 @@ class OkrBusinessSnapshotService
                     ->groupBy('category')
                     ->pluck('total', 'category')
                     ->all(),
-                'catatan_cakupan' => 'Produk master aktif dipisahkan dari calon produk pada pipeline pengembangan.',
+                'catatan_cakupan' => 'Produk baru belum mempunyai tahapan pipeline khusus; sistem hanya dapat membuktikan master produk yang sudah tersimpan.',
             ];
-            $out['pipeline_produk_baru'] = $this->productDevelopmentSnapshot();
         } else {
             $out['penjualan'] = ['akses' => 'ditutup karena user tidak punya view_reports'];
         }
@@ -98,7 +95,7 @@ class OkrBusinessSnapshotService
                 'status' => Kol::query()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status')->all(),
                 'deal_status' => KolDeal::query()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status')->all(),
                 'slot_aktif' => (int) KolDeal::where('status', 'berjalan')->sum('jumlah_slot'),
-                'affiliate' => $this->affiliateSnapshot($month),
+                'catatan_cakupan' => 'Modul KOL belum menyimpan metrik konten, order, GMV, conversion, atau retention affiliate. Angka tersebut wajib ditandai sebagai kebutuhan validasi.',
             ];
         }
 
@@ -129,17 +126,6 @@ class OkrBusinessSnapshotService
                 'penjualan_bersih', 'hpp', 'laba_kotor', 'beban_operasional',
                 'operating_income', 'net_income',
             ])->all();
-            $out['status_pencatatan'] = [
-                'jurnal_posted' => AccJournal::query()
-                    ->where('period', $period)
-                    ->where('status', AccJournal::STATUS_POSTED)
-                    ->count(),
-                'jurnal_draft' => AccJournal::query()
-                    ->where('period', $period)
-                    ->where('status', AccJournal::STATUS_DRAFT)
-                    ->count(),
-                'definisi' => 'Laba-rugi hanya menghitung jurnal berstatus posted pada periode referensi.',
-            ];
             $out['neraca'] = collect($balance)->only([
                 'total_aktiva', 'total_liabilitas', 'total_ekuitas', 'laba_berjalan', 'balanced',
             ])->all();
@@ -237,7 +223,6 @@ class OkrBusinessSnapshotService
                     'hpp' => (float) $product->cogs,
                     'stok_hq' => (int) $product->hq_stock,
                 ])->all();
-            $out['pipeline_produk_baru'] = $this->productDevelopmentSnapshot();
         } else {
             $out['stok'] = ['akses' => 'ditutup karena user tidak punya manage_hq_stock'];
         }
@@ -368,19 +353,6 @@ class OkrBusinessSnapshotService
 
         return [
             'terdaftar' => User::where('role', User::ROLE_DISTRIBUTOR)->count(),
-            'tahap_lifecycle_tersimpan' => User::query()
-                ->where('role', User::ROLE_DISTRIBUTOR)
-                ->selectRaw('COALESCE(distributor_stage, ?) as tahap, COUNT(*) as total', [User::DISTRIBUTOR_STAGE_REGISTERED])
-                ->groupBy('tahap')
-                ->pluck('total', 'tahap')
-                ->all(),
-            'sudah_masuk_onboarding' => User::query()
-                ->where('role', User::ROLE_DISTRIBUTOR)
-                ->whereIn('distributor_stage', [
-                    User::DISTRIBUTOR_STAGE_ONBOARDING,
-                    User::DISTRIBUTOR_STAGE_TRANSACTION_ACTIVE,
-                    User::DISTRIBUTOR_STAGE_TARGET_100M,
-                ])->count(),
             'akun_aktif' => User::where('role', User::ROLE_DISTRIBUTOR)
                 ->where('status', User::STATUS_ACTIVE)->count(),
             'aktif_bertransaksi' => (clone $base)->whereIn('status', $committedStatuses)
@@ -393,94 +365,10 @@ class OkrBusinessSnapshotService
                 'omzet' => (float) $row->omzet,
             ])->values()->all(),
             'definisi' => [
-                'onboarding' => 'Tahap lifecycle eksplisit pada profil distributor; akun aktif tidak lagi dipakai sebagai proxy onboarding.',
+                'onboarding' => 'Belum ada field onboarding khusus; akun aktif dipakai sebagai proxy dan harus divalidasi.',
                 'aktif_bertransaksi' => 'Distributor dengan minimal satu PO selesai atau masih pipeline pada bulan referensi.',
                 'mencapai_100_juta' => 'Omzet PO berstatus selesai minimal Rp100 juta pada bulan referensi.',
             ],
-        ];
-    }
-
-    private function distributorRevenue(Carbon $month): float
-    {
-        return round((float) PurchaseOrder::query()
-            ->where('user_role', User::ROLE_DISTRIBUTOR)
-            ->where('status', PurchaseOrder::STATUS_COMPLETED)
-            ->whereRaw(
-                'COALESCE(order_date, DATE(created_at)) BETWEEN ? AND ?',
-                [$month->copy()->startOfMonth()->toDateString(), $month->copy()->endOfMonth()->toDateString()],
-            )
-            ->sum('total_amount'), 2);
-    }
-
-    /** @return array<string,mixed> */
-    private function affiliateSnapshot(Carbon $month): array
-    {
-        $metrics = KolAffiliateMetric::query()
-            ->whereDate('period_month', $month->copy()->startOfMonth()->toDateString())
-            ->get();
-        $withOrder = $metrics->where('order_count', '>', 0);
-        $contentCount = (int) $metrics->sum('content_count');
-
-        return [
-            'periode' => $month->format('Y-m'),
-            'tercatat' => $metrics->count(),
-            'tahap' => $metrics->countBy('stage')->all(),
-            'onboarding_atau_lanjut' => $metrics->whereIn('stage', [
-                KolAffiliateMetric::STAGE_ONBOARDING,
-                KolAffiliateMetric::STAGE_CONTENT_ACTIVE,
-                KolAffiliateMetric::STAGE_ORDER_ACTIVE,
-                KolAffiliateMetric::STAGE_RETAINED,
-            ])->count(),
-            'aktif_konten' => $metrics->where('content_count', '>', 0)->count(),
-            'aktif_live' => $metrics->where('live_count', '>', 0)->count(),
-            'menghasilkan_order' => $withOrder->count(),
-            'jumlah_konten' => $contentCount,
-            'jumlah_live' => (int) $metrics->sum('live_count'),
-            'jumlah_order' => (int) $metrics->sum('order_count'),
-            'gmv' => round((float) $metrics->sum('gmv'), 2),
-            'conversion_rata_rata_persen' => $metrics->whereNotNull('conversion_rate')->isNotEmpty()
-                ? round((float) $metrics->whereNotNull('conversion_rate')->avg('conversion_rate'), 4)
-                : null,
-            'retention_rata_rata_persen' => $metrics->whereNotNull('retention_rate')->isNotEmpty()
-                ? round((float) $metrics->whereNotNull('retention_rate')->avg('retention_rate'), 4)
-                : null,
-            'gmv_per_affiliate_berorder' => $withOrder->isNotEmpty()
-                ? round((float) $withOrder->sum('gmv') / $withOrder->count(), 2)
-                : null,
-            'gmv_per_konten' => $contentCount > 0
-                ? round((float) $metrics->sum('gmv') / $contentCount, 2)
-                : null,
-            'catatan_cakupan' => $metrics->isEmpty()
-                ? 'Belum ada metrik affiliate pada periode ini; target wajib ditandai perlu validasi.'
-                : 'Metrik berasal dari input bulanan per affiliate/KOL dan dapat ditelusuri ke profilnya.',
-        ];
-    }
-
-    /** @return array<string,mixed> */
-    private function productDevelopmentSnapshot(): array
-    {
-        $projects = ProductDevelopment::query()->get(['name', 'category', 'stage', 'target_launch_date', 'product_id']);
-        $outsideLegacy = $projects->reject(function (ProductDevelopment $project) {
-            $text = Str::lower($project->name.' '.$project->category);
-
-            return str_contains($text, 'perfume') || str_contains($text, 'acne');
-        });
-
-        return [
-            'total_item' => $projects->count(),
-            'item_di_luar_perfume_acne' => $outsideLegacy->count(),
-            'tahap' => $projects->countBy('stage')->all(),
-            'sudah_launch' => $projects->whereIn('stage', ['launch', 'evaluation'])->count(),
-            'sudah_tertaut_master_produk' => $projects->whereNotNull('product_id')->count(),
-            'target_launch_terisi' => $projects->whereNotNull('target_launch_date')->count(),
-            'item' => $projects->take(30)->map(fn (ProductDevelopment $project) => [
-                'nama' => $project->name,
-                'kategori' => $project->category,
-                'tahap' => $project->stage,
-                'target_launch' => $project->target_launch_date?->toDateString(),
-                'sudah_menjadi_master_produk' => $project->product_id !== null,
-            ])->values()->all(),
-            'definisi_tahap' => ProductDevelopment::STAGES,
         ];
     }
 

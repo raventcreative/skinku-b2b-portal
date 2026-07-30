@@ -22,18 +22,9 @@
         }
         return (string) $value;
     };
-    $scorecardRows = collect($okr->analysis_evidence ?? [])->filter(fn($row) => filled($row['metric_key'] ?? null));
-    $formatScorecardValue = function ($value, $label = '') use ($formatEvidence) {
-        $currencyWords = ['penjualan', 'omzet', 'laba', 'kas', 'piutang', 'gmv', 'biaya', 'hpp', 'selisih', 'operasional', 'akuntansi'];
-        $isCurrency = collect($currencyWords)->contains(fn($word) => str_contains(mb_strtolower((string) $label), $word));
-        if ($isCurrency && (is_int($value) || is_float($value))) {
-            return 'Rp'.number_format((float) $value, 0, ',', '.');
-        }
-        return $formatEvidence($value);
-    };
     $legacyDraft = $okr->isDraft() && (
         blank($okr->analysis_summary)
-        || $scorecardRows->isEmpty()
+        || count($okr->analysis_evidence ?? []) < 3
         || $okr->objectives->contains(fn($objective) => blank($objective->ownerLabel()))
         || $okr->objectives->contains(fn($objective) => blank($objective->rationale))
         || $okr->objectives->flatMap(fn($objective) => $objective->keyResults)->contains(fn($kr) => blank($kr->ownerLabel()))
@@ -66,7 +57,7 @@
         <div class="{{ $legacyDraft ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200' }} border rounded-xl p-4 mb-4">
             @if($legacyDraft)
                 <p class="text-sm font-bold text-rose-900">Draf lama terdeteksi</p>
-                <p class="text-xs text-rose-700 mt-1">Draf ini belum memakai scorecard KPI tetap. Jangan setujui sebelum sumber data dilengkapi/direkonsiliasi dan draf disusun ulang.</p>
+                <p class="text-xs text-rose-700 mt-1">Draf ini tersimpan sebelum pengisian otomatis diperbaiki. Susun ulang draf agar owner, detail pekerjaan, PIC, tenggat, dan kolom Kanban dihitung ulang.</p>
             @else
                 <p class="text-sm font-bold text-amber-900">Pratinjau OKR — belum ada kartu yang dibuat</p>
                 <p class="text-xs text-amber-800 mt-1">AI sudah memilih penanggung jawab, PIC, tenggat, dan kolom Kanban. Cukup periksa ringkasannya, lalu setujui.</p>
@@ -85,110 +76,35 @@
         </div>
     @endif
 
-    @if($okr->isDraft())
-        <section class="bg-white border border-stone-200 rounded-xl p-4 mb-4">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="text-sm font-bold text-stone-900">Checklist kelayakan pratinjau</p>
-                    <p class="text-[11px] text-stone-500 mt-0.5">Approval ditahan sampai seluruh pemeriksaan faktual di bawah lulus.</p>
-                </div>
-                @php $acceptancePassed = collect($acceptanceChecklist)->every(fn($row) => $row['status'] === 'pass'); @endphp
-                <span class="px-2 py-1 rounded-full text-[10px] font-bold {{ $acceptancePassed ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">{{ $acceptancePassed ? 'Siap ditinjau' : 'Perlu koreksi' }}</span>
-            </div>
-            <div class="grid md:grid-cols-2 gap-2 mt-3">
-                @foreach($acceptanceChecklist as $row)
-                    <article class="rounded-lg border p-3 {{ $row['status'] === 'pass' ? 'border-emerald-100 bg-emerald-50/50' : 'border-rose-100 bg-rose-50/50' }}">
-                        <p class="text-xs font-semibold {{ $row['status'] === 'pass' ? 'text-emerald-800' : 'text-rose-800' }}">{{ $row['status'] === 'pass' ? '✓' : '✕' }} {{ $row['label'] }}</p>
-                        <p class="text-[10px] mt-1 {{ $row['status'] === 'pass' ? 'text-emerald-700' : 'text-rose-700' }}">{{ $row['detail'] }}</p>
-                    </article>
-                @endforeach
-            </div>
-        </section>
-    @endif
-
     @if($okr->analysis_summary)
         <section class="bg-white border border-stone-200 rounded-xl p-4 mb-4">
             <div class="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                    <p class="text-sm font-bold text-stone-900">Scorecard faktual server</p>
-                    <p class="text-[11px] text-stone-500 mt-0.5">KPI, urutan, definisi, dan status data ditentukan server. AI tidak memilih bukti yang ditampilkan.</p>
+                    <p class="text-sm font-bold text-stone-900">Dasar analisis AI</p>
+                    <p class="text-[11px] text-stone-500 mt-0.5">Angka di bawah diambil ulang dari query sistem, bukan dipercaya dari jawaban model.</p>
                 </div>
-                <span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">{{ $scorecardRows->count() }} KPI tetap</span>
+                <span class="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">{{ count($okr->analysis_evidence ?? []) }} bukti terverifikasi</span>
             </div>
             <p class="mt-3 text-xs leading-5 text-stone-700">{{ $okr->analysis_summary }}</p>
 
-            @foreach($scorecardRows->groupBy('section') as $section => $evidenceRows)
-                <div class="mt-4">
-                    <p class="text-[10px] font-bold tracking-wide text-stone-500">{{ $section }}</p>
-                    <div class="grid md:grid-cols-2 gap-2 mt-1.5">
-                        @foreach($evidenceRows as $evidence)
-                            @php
-                                $status = $evidence['data_status'] ?? 'available';
-                                $statusStyle = match($status) {
-                                    'conflict', 'missing' => 'border-rose-200 bg-rose-50/60',
-                                    'needs_validation' => 'border-amber-200 bg-amber-50/60',
-                                    'partial' => 'border-sky-200 bg-sky-50/60',
-                                    default => 'border-emerald-100 bg-emerald-50/50',
-                                };
-                                $statusLabel = match($status) {
-                                    'conflict' => 'Konflik sumber',
-                                    'missing' => 'Belum diinput',
-                                    'needs_validation' => 'Perlu validasi',
-                                    'partial' => 'Bulan berjalan',
-                                    'reconciled' => 'Terekonsiliasi',
-                                    default => 'Tersedia',
-                                };
-                            @endphp
-                            <article class="rounded-lg border {{ $statusStyle }} p-3">
-                                <div class="flex flex-wrap items-start justify-between gap-2">
-                                    <div>
-                                        <p class="text-[11px] font-bold text-stone-800">{{ $evidence['label'] }}</p>
-                                        <p class="text-[9px] text-stone-500 mt-0.5">{{ $evidence['period'] ?? '—' }} · {{ $evidence['period_status'] ?? 'status tidak tersedia' }}</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-sm font-bold text-stone-900">{{ $formatScorecardValue($evidence['value'] ?? null, $evidence['label'] ?? '') }}</p>
-                                        <span class="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-white/70 text-[9px] font-semibold text-stone-600">{{ $statusLabel }}</span>
-                                    </div>
-                                </div>
-                                <p class="text-[10px] leading-4 text-stone-600 mt-2">{{ $evidence['definition'] ?? '' }}</p>
-                                @if(filled($evidence['note'] ?? null))
-                                    <p class="text-[10px] leading-4 font-medium mt-1 {{ ($evidence['blocking'] ?? false) ? 'text-rose-700' : 'text-stone-600' }}">{{ $evidence['note'] }}</p>
-                                @endif
-                                @if(($evidence['context'] ?? []) !== [])
-                                    <div class="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[9px] text-stone-600">
-                                        @foreach($evidence['context'] as $contextLabel => $contextValue)
-                                            <span>{{ $contextLabel }}: <b>{{ $formatScorecardValue($contextValue, $contextLabel) }}</b></span>
-                                        @endforeach
-                                    </div>
-                                @endif
-                                @if(($evidence['trend'] ?? []) !== [])
-                                    <div class="grid grid-cols-3 gap-1 mt-2">
-                                        @foreach($evidence['trend'] as $point)
-                                            <div class="rounded bg-white/70 px-1.5 py-1 text-center">
-                                                <p class="text-[8px] text-stone-500">{{ $point['period'] }}</p>
-                                                <p class="text-[9px] font-semibold text-stone-700">{{ $formatScorecardValue($point['value'], $evidence['label'] ?? '') }}</p>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                @endif
-                                <p class="text-[8px] text-stone-400 mt-2">Sumber: {{ $evidence['source_path'] ?? '—' }}</p>
-                            </article>
-                        @endforeach
-                    </div>
-                </div>
-            @endforeach
-
-            @if($scorecardRows->isEmpty())
-                <div class="rounded-lg border border-rose-200 bg-rose-50 p-3 mt-3">
-                    <p class="text-xs font-semibold text-rose-800">Draf ini belum mempunyai scorecard KPI tetap.</p>
-                </div>
-            @endif
+            <div class="grid md:grid-cols-2 gap-2 mt-3">
+                @foreach($okr->analysis_evidence ?? [] as $evidence)
+                    <article class="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
+                        <div class="flex flex-wrap justify-between gap-2">
+                            <p class="text-[10px] font-bold text-emerald-800">{{ $evidence['specialist'] ?? 'DATA' }} · {{ $evidence['label'] ?? $evidence['source_path'] }}</p>
+                            <p class="text-xs font-bold text-stone-900">{{ $formatEvidence($evidence['value'] ?? null) }}</p>
+                        </div>
+                        <p class="text-[11px] leading-4 text-stone-600 mt-1">{{ $evidence['interpretation'] ?? '' }}</p>
+                        <p class="text-[9px] text-stone-400 mt-1">Sumber: {{ $evidence['source_path'] ?? '—' }}{{ filled($evidence['period'] ?? null) ? ' · Periode '.$evidence['period'] : '' }}</p>
+                    </article>
+                @endforeach
+            </div>
 
             <div class="grid md:grid-cols-2 gap-3 mt-3">
                 <div class="rounded-lg bg-amber-50 border border-amber-100 p-3">
-                    <p class="text-[10px] font-bold uppercase tracking-wide text-amber-800">Kebutuhan data / validasi</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-amber-800">Asumsi / data yang belum tersedia</p>
                     @if(($okr->analysis_assumptions ?? []) === [])
-                        <p class="text-[11px] text-amber-700 mt-1">Tidak ada kebutuhan validasi tambahan yang terdeteksi server.</p>
+                        <p class="text-[11px] text-amber-700 mt-1">AI tidak menandai asumsi tambahan.</p>
                     @else
                         <ul class="mt-1.5 space-y-1 text-[11px] text-amber-800 list-disc pl-4">
                             @foreach($okr->analysis_assumptions as $assumption)<li>{{ $assumption }}</li>@endforeach
@@ -196,7 +112,7 @@
                     @endif
                 </div>
                 <div class="rounded-lg bg-rose-50 border border-rose-100 p-3">
-                    <p class="text-[10px] font-bold uppercase tracking-wide text-rose-800">Konflik data yang menahan keputusan</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-rose-800">Konflik dan keputusan BOD</p>
                     <div class="mt-1.5 space-y-2">
                         @forelse($okr->analysis_conflicts ?? [] as $conflict)
                             <div class="text-[11px] text-rose-800">
@@ -205,7 +121,7 @@
                                 <p>Keputusan: {{ $conflict['decision_required'] }}</p>
                             </div>
                         @empty
-                            <p class="text-[11px] text-rose-700">Tidak ada konflik sumber data yang terdeteksi.</p>
+                            <p class="text-[11px] text-rose-700">Tidak ada konflik yang ditandai.</p>
                         @endforelse
                     </div>
                 </div>
@@ -224,7 +140,7 @@
                         </div>
                     @endforeach
                 </div>
-                <p class="text-[10px] text-stone-400 mt-2">Server membentuk scorecard dari query read-only. AI menerima scorecard yang sama untuk menyusun pekerjaan, tetapi tidak menentukan KPI atau status datanya.</p>
+                <p class="text-[10px] text-stone-400 mt-2">AI membaca ringkasan analitis read-only, bukan menyalin seluruh baris transaksi mentah. Pendekatan ini menjaga prompt tetap fokus dan membuat angka sumber dapat diverifikasi.</p>
             </details>
         </section>
     @endif

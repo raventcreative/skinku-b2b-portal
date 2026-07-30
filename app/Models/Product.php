@@ -42,11 +42,6 @@ class Product extends Model
         return $this->status === self::STATUS_ACTIVE;
     }
 
-    public function developmentProjects()
-    {
-        return $this->hasMany(ProductDevelopment::class);
-    }
-
     /** Primary product image URL (first gallery photo from the files table). */
     public function imageUrl(): ?string
     {

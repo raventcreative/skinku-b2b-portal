@@ -24,7 +24,6 @@ use App\Http\Controllers\OkrController;
 use App\Http\Controllers\PartnerSaleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
-use App\Http\Controllers\ProductDevelopmentController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReportController;
@@ -234,8 +233,6 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::middleware('permission:kol.screening.manage')->group(function () {
             Route::post('/kols', [KolController::class, 'store'])->name('kols.store');
             Route::put('/kols/{kol}', [KolController::class, 'update'])->name('kols.update');
-            Route::post('/kols/{kol}/affiliate-metrics', [KolController::class, 'storeAffiliateMetric'])
-                ->name('kols.affiliate-metrics.store');
             Route::get('/kol-screenings/create', [KolScreeningController::class, 'create'])->name('kol-screenings.create');
             Route::post('/kol-screenings', [KolScreeningController::class, 'store'])->name('kol-screenings.store');
             Route::patch('/kol-screenings/{screening}/ratecard', [KolScreeningController::class, 'updateRatecard'])->name('kol-screenings.ratecard');
@@ -338,10 +335,6 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
         Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
-        Route::get('/product-developments', [ProductDevelopmentController::class, 'index'])->name('product-developments.index');
-        Route::post('/product-developments', [ProductDevelopmentController::class, 'store'])->name('product-developments.store');
-        Route::put('/product-developments/{productDevelopment}', [ProductDevelopmentController::class, 'update'])->name('product-developments.update');
-        Route::delete('/product-developments/{productDevelopment}', [ProductDevelopmentController::class, 'destroy'])->name('product-developments.destroy');
     });
 
     /* ---------------- User management ---------------- */

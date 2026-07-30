@@ -230,8 +230,8 @@ class OkrTest extends TestCase
         $this->actingAs($super)->get(route('okr.show', $cycle))->assertOk()
             ->assertSee('Pratinjau')
             ->assertSee('CMO AI')
-            ->assertSee('Scorecard faktual server')
-            ->assertSee('KPI tetap')
+            ->assertSee('Dasar analisis AI')
+            ->assertSee('bukti terverifikasi')
             ->assertSee('Gap ke target')
             ->assertSee('Percepat pertumbuhan TikTok')
             ->assertSee('Susun kalender konten TikTok')
@@ -397,8 +397,7 @@ class OkrTest extends TestCase
         $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id));
 
         $task = OkrCycle::firstOrFail()->objectives()->first()->keyResults()->first()->tasks()->first();
-        $this->assertSame($member->id, $task->assignee_user_id);
-        $this->assertSame($member->displayName(), $task->assignee_name);
+        $this->assertNull($task->assignee_user_id);
         $this->assertSame($todo->id, $task->board_column_id);
         $this->assertSame(0, BoardCard::count());
     }
@@ -646,23 +645,6 @@ class OkrTest extends TestCase
 
         $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
 
-        $cycle = OkrCycle::firstOrFail();
-        $scorecard = collect($cycle->analysis_evidence)->keyBy('metric_key');
-        $this->assertTrue($scorecard->has('penjualan_operasional'));
-        $this->assertTrue($scorecard->has('penjualan_ecommerce'));
-        $this->assertTrue($scorecard->has('laba_rugi_bulan'));
-        $this->assertTrue($scorecard->has('laba_berjalan_kumulatif'));
-        $this->assertSame('bulan berjalan', $scorecard['laba_rugi_bulan']['period_status']);
-        $this->assertCount(3, $scorecard['laba_rugi_bulan']['trend']);
-        $this->assertSame('conflict', $scorecard['rekonsiliasi_penjualan']['data_status']);
-        $this->assertTrue($scorecard['rekonsiliasi_penjualan']['blocking']);
-        $this->assertStringContainsString(
-            'penilaian naik/turun ditahan',
-            $cycle->analysis_summary,
-        );
-        $this->actingAs($super)->post(route('okr.approve', $cycle))->assertSessionHasErrors('okr');
-        $this->assertSame(0, BoardCard::count());
-
         $this->assertStringContainsString('250000', $fake->sent[0]['messages'][1]['content']);
         $this->assertStringContainsString('Serum Snapshot', $fake->sent[2]['messages'][1]['content']);
         $this->assertStringContainsString('tren_penjualan_3_bulan', $fake->sent[0]['messages'][1]['content']);
@@ -684,10 +666,6 @@ class OkrTest extends TestCase
         [$board, $todo] = $this->board($super);
         $fake = $this->fakeDraft($member, $todo->id, [
             'analysis_summary' => 'Target perlu dicapai dengan kerja sama tim.',
-            'assumptions' => [
-                'cfo.piutang_tempo.sisa_tagihan',
-                'Kesimpulan bebas dari model yang tidak mempunyai status data server.',
-            ],
             'evidence' => [
                 ['source_path' => 'cmo.angka_rekaan', 'interpretation' => 'Angka rekaan tidak boleh lolos validasi sumber server.'],
                 ['source_path' => 'cfo.angka_rekaan', 'interpretation' => 'Angka rekaan tidak boleh lolos validasi sumber server.'],
@@ -701,54 +679,10 @@ class OkrTest extends TestCase
             ->assertRedirect();
 
         $cycle = OkrCycle::firstOrFail();
-        $this->assertStringStartsWith('Scorecard server memakai KPI tetap', $cycle->analysis_summary);
-        $this->assertStringNotContainsString('Target perlu dicapai dengan kerja sama tim', $cycle->analysis_summary);
-        $this->assertStringNotContainsString(
-            'cfo.piutang_tempo.sisa_tagihan',
-            implode(' ', $cycle->analysis_assumptions),
-        );
-        $this->assertStringNotContainsString(
-            'Kesimpulan bebas dari model',
-            implode(' ', $cycle->analysis_assumptions),
-        );
+        $this->assertStringContainsString('CMO:', $cycle->analysis_summary);
         $this->assertGreaterThanOrEqual(3, count($cycle->analysis_evidence));
         $this->assertNotContains('cmo.angka_rekaan', collect($cycle->analysis_evidence)->pluck('source_path')->all());
         $this->assertSame(0, BoardCard::count());
-    }
-
-    public function test_generate_ulang_memakai_scorecard_yang_sama_meski_pilihan_bukti_ai_berubah(): void
-    {
-        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrstable');
-        $member = $this->user(User::ROLE_ADMIN, 'stablepic');
-        [$board, $todo] = $this->board($super);
-
-        $this->app->instance(AiProvider::class, $this->fakeDraft($member, $todo->id, [
-            'analysis_summary' => 'Versi AI pertama memilih penjualan sebagai cerita utama walaupun server harus memakai scorecard tetap.',
-            'evidence' => [[
-                'source_path' => 'cmo.penjualan.total_sales',
-                'interpretation' => 'Model pertama memilih penjualan operasional sebagai bukti yang ingin ditampilkan.',
-            ]],
-        ]));
-        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
-        $first = OkrCycle::query()->latest('id')->firstOrFail();
-
-        $this->app->instance(AiProvider::class, $this->fakeDraft($member, $todo->id, [
-            'analysis_summary' => 'Versi AI kedua memilih stok sebagai cerita utama, tetapi hasil faktual tidak boleh berubah.',
-            'evidence' => [[
-                'source_path' => 'coo.stok.total_hq',
-                'interpretation' => 'Model kedua memilih stok sebagai bukti yang ingin ditampilkan pada ringkasan.',
-            ]],
-        ]));
-        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
-        $second = OkrCycle::query()->latest('id')->firstOrFail();
-
-        $firstScorecard = collect($first->analysis_evidence);
-        $secondScorecard = collect($second->analysis_evidence);
-        $this->assertSame($firstScorecard->pluck('metric_key')->all(), $secondScorecard->pluck('metric_key')->all());
-        $this->assertSame($firstScorecard->pluck('source_path')->all(), $secondScorecard->pluck('source_path')->all());
-        $this->assertSame($first->analysis_summary, $second->analysis_summary);
-        $this->assertStringNotContainsString('Versi AI pertama', $first->analysis_summary);
-        $this->assertStringNotContainsString('Versi AI kedua', $second->analysis_summary);
     }
 
     public function test_arahan_panel_lengkap_memulihkan_objective_fungsi_yang_hilang(): void
@@ -940,64 +874,8 @@ class OkrTest extends TestCase
                 && $kr->tasks->isNotEmpty()
         ));
 
-        $this->actingAs($super)->post(route('okr.approve', $cycle))->assertSessionHasErrors('okr');
-        $this->assertSame(OkrCycle::STATUS_DRAFT, $cycle->fresh()->status);
-    }
-
-    public function test_server_melengkapi_funnel_affiliate_gate_produk_dan_field_tugas_yang_hilang(): void
-    {
-        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrcoverage');
-        $member = $this->user(User::ROLE_ADMIN, 'coveragepic');
-        [$board, $todo] = $this->board($super);
-        $fake = $this->fakeDraft($member, $todo->id, [
-            'objectives' => [[
-                'key_results' => [[
-                    'tasks' => [[
-                        'description' => '',
-                        'assignee_user_id' => 999999,
-                        'board_column_id' => 999999,
-                        'due_date' => null,
-                    ]],
-                ]],
-            ]],
-        ]);
-        $this->app->instance(AiProvider::class, $fake);
-        $payload = $this->generatePayload($board->id);
-        $payload['direction'] = implode(' ', [
-            'CMO CFO COO bekerja bersama.',
-            'Bangun funnel 5.000 affiliate dari rekrut sampai retention.',
-            'Kembangkan 15 produk baru melalui pipeline, bukan langsung launch.',
-        ]);
-
-        $this->actingAs($super)->post(route('okr.generate'), $payload)->assertRedirect();
-
-        $cycle = OkrCycle::with('objectives.keyResults.tasks')->firstOrFail();
-        $corpus = mb_strtolower($cycle->objectives->flatMap->keyResults->map(
-            fn ($kr) => collect([
-                $kr->title, $kr->metric, $kr->target_gap,
-                $kr->tasks->pluck('description')->implode(' '),
-            ])->filter()->implode(' '),
-        )->implode(' '));
-        foreach (['daftar/rekrut', 'onboarding', 'konten/live', 'order', 'gmv/conversion', 'retention'] as $term) {
-            $this->assertStringContainsString($term, $corpus);
-        }
-        foreach (['riset', 'konsep', 'costing/hpp', 'sampling', 'uji pasar', 'produksi', 'launch', 'evaluasi'] as $term) {
-            $this->assertStringContainsString($term, $corpus);
-        }
-        $this->assertTrue($cycle->objectives->flatMap->keyResults->flatMap->tasks->every(
-            fn ($task) => filled($task->title)
-                && filled($task->description)
-                && filled($task->assignee_name)
-                && $task->assignee_user_id
-                && $task->board_column_id
-                && $task->due_date,
-        ));
-        $scorecard = collect($cycle->analysis_evidence)->keyBy('metric_key');
-        $this->assertSame('missing', $scorecard['affiliate_order']['data_status']);
-        $this->assertTrue($scorecard['affiliate_order']['blocking']);
-        $this->assertSame('missing', $scorecard['pipeline_produk_baru']['data_status']);
-        $this->assertTrue($scorecard['pipeline_produk_baru']['blocking']);
-        $this->actingAs($super)->post(route('okr.approve', $cycle))->assertSessionHasErrors('okr');
+        $this->actingAs($super)->post(route('okr.approve', $cycle))->assertRedirect();
+        $this->assertSame(OkrCycle::STATUS_ACTIVE, $cycle->fresh()->status);
     }
 
     public function test_timeout_orchestrator_memakai_hasil_panel_dan_tetap_membuat_pratinjau(): void

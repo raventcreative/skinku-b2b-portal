@@ -103,11 +103,6 @@ class Kol extends Model
         return $this->hasMany(KolDeal::class)->orderByDesc('id');
     }
 
-    public function affiliateMetrics()
-    {
-        return $this->hasMany(KolAffiliateMetric::class)->orderByDesc('period_month');
-    }
-
     /** Screening terbaru — sumber kolom "verdict terakhir" di daftar KOL. */
     public function latestScreening()
     {

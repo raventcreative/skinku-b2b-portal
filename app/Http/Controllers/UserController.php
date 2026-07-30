@@ -60,7 +60,6 @@ class UserController extends Controller
             'phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],
             'region' => ['nullable', 'string', 'max:100'],
-            'distributor_stage' => ['nullable', Rule::in(array_keys(User::DISTRIBUTOR_STAGES))],
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
         ]);
 
@@ -77,10 +76,6 @@ class UserController extends Controller
             'phone' => $data['phone'] ?? null,
             'address' => $data['address'] ?? null,
             'region' => $data['region'] ?? null,
-            'distributor_stage' => $data['role'] === User::ROLE_DISTRIBUTOR
-                ? ($data['distributor_stage'] ?? User::DISTRIBUTOR_STAGE_REGISTERED)
-                : null,
-            'distributor_stage_updated_at' => $data['role'] === User::ROLE_DISTRIBUTOR ? now() : null,
             'status' => $data['status'],
             'created_by' => $actor->id,
         ]);
@@ -111,7 +106,6 @@ class UserController extends Controller
             'phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],
             'region' => ['nullable', 'string', 'max:100'],
-            'distributor_stage' => ['nullable', Rule::in(array_keys(User::DISTRIBUTOR_STAGES))],
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
         ]);
 
@@ -120,10 +114,7 @@ class UserController extends Controller
             $this->assertCanAssignRole($actor, $data['role']);
         }
 
-        $before = $user->only(['fullname', 'email', 'username', 'role', 'status', 'company_name', 'distributor_stage']);
-        $newDistributorStage = $data['role'] === User::ROLE_DISTRIBUTOR
-            ? ($data['distributor_stage'] ?? User::DISTRIBUTOR_STAGE_REGISTERED)
-            : null;
+        $before = $user->only(['fullname', 'email', 'username', 'role', 'status', 'company_name']);
 
         $user->fill([
             'name' => $data['fullname'],
@@ -135,13 +126,9 @@ class UserController extends Controller
             'phone' => $data['phone'] ?? null,
             'address' => $data['address'] ?? null,
             'region' => $data['region'] ?? null,
-            'distributor_stage' => $newDistributorStage,
             'status' => $data['status'],
             'updated_by' => $actor->id,
         ]);
-        if ($newDistributorStage !== $user->getOriginal('distributor_stage')) {
-            $user->distributor_stage_updated_at = $newDistributorStage ? now() : null;
-        }
         $user->disabled_at = $data['status'] === User::STATUS_INACTIVE ? ($user->disabled_at ?? now()) : null;
         $user->save();
 
@@ -150,7 +137,7 @@ class UserController extends Controller
             targetType: 'user',
             targetId: $user->id,
             before: $before,
-            after: $user->only(['fullname', 'email', 'username', 'role', 'status', 'company_name', 'distributor_stage']),
+            after: $user->only(['fullname', 'email', 'username', 'role', 'status', 'company_name']),
             targetUserId: $user->id,
             targetEmail: $user->email,
         );

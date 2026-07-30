@@ -77,41 +77,6 @@
     @endif
 </div>
 
-{{-- Metrik affiliate bulanan: sumber funnel OKR, bukan estimasi dari followers. --}}
-<div class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-5">
-    <div class="px-5 py-3 border-b border-stone-100">
-        <p class="text-sm font-bold text-stone-800">Metrik Affiliate Bulanan</p>
-        <p class="text-[10px] text-stone-400">Pisahkan terdaftar, onboarding, aktif konten/live, order, GMV, conversion, dan retention.</p>
-    </div>
-    @if($u->canDo('kol.screening.manage'))
-        <form method="POST" action="{{ route('kols.affiliate-metrics.store', $kol) }}" class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 p-4 text-xs border-b border-stone-100">
-            @csrf
-            <label><span class="text-stone-500">Periode</span><input type="month" name="period_month" required value="{{ old('period_month', now()->format('Y-m')) }}" class="mt-1 w-full px-2 py-2 border border-stone-300 rounded-lg"></label>
-            <label><span class="text-stone-500">Tahap</span><select name="stage" required class="mt-1 w-full px-2 py-2 border border-stone-300 rounded-lg">@foreach(\App\Models\KolAffiliateMetric::STAGES as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></label>
-            <label><span class="text-stone-500">Konten</span><input type="number" name="content_count" min="0" required value="{{ old('content_count', 0) }}" class="mt-1 w-full px-2 py-2 border border-stone-300 rounded-lg"></label>
-            <label><span class="text-stone-500">Live</span><input type="number" name="live_count" min="0" required value="{{ old('live_count', 0) }}" class="mt-1 w-full px-2 py-2 border border-stone-300 rounded-lg"></label>
-            <label><span class="text-stone-500">Order</span><input type="number" name="order_count" min="0" required value="{{ old('order_count', 0) }}" class="mt-1 w-full px-2 py-2 border border-stone-300 rounded-lg"></label>
-            <label><span class="text-stone-500">GMV</span><input type="number" name="gmv" min="0" step="0.01" required value="{{ old('gmv', 0) }}" class="mt-1 w-full px-2 py-2 border border-stone-300 rounded-lg"></label>
-            <label><span class="text-stone-500">Conversion %</span><input type="number" name="conversion_rate" min="0" max="100" step="0.0001" value="{{ old('conversion_rate') }}" class="mt-1 w-full px-2 py-2 border border-stone-300 rounded-lg"></label>
-            <label><span class="text-stone-500">Retention %</span><input type="number" name="retention_rate" min="0" max="100" step="0.0001" value="{{ old('retention_rate') }}" class="mt-1 w-full px-2 py-2 border border-stone-300 rounded-lg"></label>
-            <label class="lg:col-span-2"><span class="text-stone-500">Catatan</span><input name="notes" maxlength="2000" value="{{ old('notes') }}" class="mt-1 w-full px-2 py-2 border border-stone-300 rounded-lg"></label>
-            <div class="lg:col-span-5"><button class="px-4 py-2 bg-red-600 text-white rounded-lg">Simpan / Perbarui Periode</button></div>
-        </form>
-    @endif
-    <div class="overflow-x-auto">
-        <table class="w-full text-xs whitespace-nowrap">
-            <thead class="bg-stone-50 text-stone-500 text-[10px] uppercase"><tr><th class="text-left px-4 py-2">Periode</th><th class="text-left">Tahap</th><th class="text-right">Konten</th><th class="text-right">Live</th><th class="text-right">Order</th><th class="text-right">GMV</th><th class="text-right">Conversion</th><th class="text-right px-4">Retention</th></tr></thead>
-            <tbody>
-                @forelse($kol->affiliateMetrics as $metric)
-                    <tr class="border-t border-stone-100"><td class="px-4 py-2">{{ $metric->period_month->format('Y-m') }}</td><td>{{ \App\Models\KolAffiliateMetric::STAGES[$metric->stage] ?? $metric->stage }}</td><td class="text-right">{{ $metric->content_count }}</td><td class="text-right">{{ $metric->live_count }}</td><td class="text-right">{{ $metric->order_count }}</td><td class="text-right">{{ $rp($metric->gmv) }}</td><td class="text-right">{{ $metric->conversion_rate === null ? '—' : number_format((float) $metric->conversion_rate, 2, ',', '.').'%' }}</td><td class="text-right px-4">{{ $metric->retention_rate === null ? '—' : number_format((float) $metric->retention_rate, 2, ',', '.').'%' }}</td></tr>
-                @empty
-                    <tr><td colspan="8" class="px-4 py-5 text-center text-stone-400">Belum ada metrik affiliate bulanan.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-</div>
-
 {{-- Tab: Riwayat Screening --}}
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-5">
     <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">Riwayat Screening</div>
