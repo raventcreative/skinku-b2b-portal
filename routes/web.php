@@ -86,6 +86,8 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::post('/purchase-orders/{purchaseOrder}/payment-proof', [PurchaseOrderController::class, 'uploadPayment'])->name('purchase-orders.payment-proof');
 
     Route::middleware('permission:update_po_status')->group(function () {
+        // Mass approve / ubah status banyak PO sekaligus (sebelum route {purchaseOrder}).
+        Route::post('/purchase-orders/bulk-status', [PurchaseOrderController::class, 'bulkStatus'])->name('purchase-orders.bulk-status');
         Route::post('/purchase-orders/{purchaseOrder}/status', [PurchaseOrderController::class, 'updateStatus'])->name('purchase-orders.status');
         Route::post('/purchase-orders/{purchaseOrder}/shipping', [PurchaseOrderController::class, 'setShipping'])->name('purchase-orders.shipping');
         Route::post('/purchase-orders/{purchaseOrder}/verify-payment', [PurchaseOrderController::class, 'verifyPayment'])->name('purchase-orders.verify-payment');

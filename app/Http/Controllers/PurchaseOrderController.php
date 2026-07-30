@@ -134,6 +134,46 @@ class PurchaseOrderController extends Controller
         return back()->with('status', "Status PO {$purchaseOrder->po_number} diperbarui menjadi {$data['status']}.");
     }
 
+    /**
+     * Ubah status BANYAK PO sekaligus (mass approve / ubah status). Per PO lewat
+     * service yang sama (aturan transisi + gerbang lunas/tempo + potong stok tetap
+     * jalan); per-PO try/catch supaya 1 gagal tak menghentikan yang lain.
+     */
+    public function bulkStatus(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            'status' => ['required', Rule::in(PurchaseOrder::STATUSES)],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $orders = PurchaseOrder::whereIn('id', $data['ids'])
+            ->where('status', '!=', PurchaseOrder::STATUS_DELETED)
+            ->get();
+
+        $done = 0;
+        $failed = 0;
+        $reasons = [];
+        foreach ($orders as $po) {
+            try {
+                $this->service->updateStatus($po, $data['status'], $data['notes'] ?? null);
+                $done++;
+            } catch (\Throwable $e) {
+                $failed++;
+                $reasons[$e->getMessage()] = ($reasons[$e->getMessage()] ?? 0) + 1;
+            }
+        }
+
+        $msg = "{$done} PO diubah ke {$data['status']}.";
+        if ($failed) {
+            $top = collect($reasons)->sortDesc()->keys()->first();
+            $msg .= " {$failed} dilewati".($top ? " (mis. {$top})" : '').'.';
+        }
+
+        return back()->with('status', $msg);
+    }
+
     public function cancel(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
     {
         $user = $request->user();

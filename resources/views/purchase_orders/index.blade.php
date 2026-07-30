@@ -3,7 +3,7 @@
 @section('heading', 'Purchase Orders')
 
 @section('content')
-@php $u = auth()->user(); @endphp
+@php $u = auth()->user(); $canBulk = $u->isStaff() && $u->canDo('update_po_status'); @endphp
 <div class="flex flex-wrap justify-between items-center mb-4 gap-y-2">
     <form method="GET" class="flex flex-wrap gap-2">
         <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari no PO / perusahaan…" class="px-3 py-2 text-sm border border-stone-300 rounded-lg w-60">
@@ -33,11 +33,33 @@
     @endif
 </div>
 
+@if($canBulk && $orders->count())
+    {{-- Bar aksi massal: centang PO → ubah status sekaligus (mass approve dll). --}}
+    <form id="poBulkForm" method="POST" action="{{ route('purchase-orders.bulk-status') }}" onsubmit="return poBulkSubmit(this)"
+        class="flex flex-wrap items-center gap-2 mb-3 px-4 py-2.5 bg-white rounded-xl border border-stone-200">
+        @csrf
+        <span class="text-xs text-stone-500"><b data-bulk-count>0</b> PO dipilih</span>
+        <span class="text-stone-300">·</span>
+        <label class="text-[11px] font-semibold text-stone-500">Ubah status terpilih ke
+            <select name="status" class="ml-1 px-2 py-1.5 border border-stone-300 rounded-lg text-sm">
+                <option value="approved">Setujui (approved)</option>
+                <option value="processing">Proses (processing)</option>
+                <option value="shipped">Kirim (shipped)</option>
+                <option value="completed">Selesai (completed)</option>
+                <option value="cancelled">Batalkan (cancelled)</option>
+            </select>
+        </label>
+        <button data-bulk-apply disabled class="px-4 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold disabled:opacity-40">Terapkan</button>
+        <span class="text-[11px] text-stone-400">Transisi tak valid / belum lunas otomatis dilewati (aturan sama seperti ubah 1 PO).</span>
+    </form>
+@endif
+
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
     <div class="overflow-x-auto">
     <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
+                @if($canBulk)<th class="px-4 py-3 w-8"><input type="checkbox" id="poCheckAll" title="Pilih semua"></th>@endif
                 <th class="text-left px-4 py-3">No. PO</th>
                 <th class="text-left">Mitra</th>
                 <th class="text-left">Tanggal</th>
@@ -50,6 +72,7 @@
         <tbody>
             @forelse($orders as $po)
                 <tr class="border-t border-stone-100 hover:bg-stone-50">
+                    @if($canBulk)<td class="px-4"><input type="checkbox" class="po-check" value="{{ $po->id }}"></td>@endif
                     <td class="px-4 py-3 font-semibold text-stone-800">{{ $po->po_number }}</td>
                     <td class="text-stone-600">{{ $po->company_name ?? ($po->user->fullname ?? '-') }}</td>
                     <td class="text-stone-500">{{ $po->created_at?->format('d M Y H:i') }}</td>
@@ -90,11 +113,51 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-6 text-center text-stone-400">Belum ada PO.</td></tr>
+                <tr><td colspan="{{ $canBulk ? 8 : 7 }}" class="px-4 py-6 text-center text-stone-400">Belum ada PO.</td></tr>
             @endforelse
         </tbody>
     </table>
     </div>
 </div>
 <div class="mt-4">{{ $orders->links() }}</div>
+
+@if($canBulk)
+<script>
+(function () {
+    var all = document.getElementById('poCheckAll');
+    var boxes = function () { return Array.prototype.slice.call(document.querySelectorAll('.po-check')); };
+    var countEl = document.querySelector('[data-bulk-count]');
+    var applyBtn = document.querySelector('[data-bulk-apply]');
+
+    function refresh() {
+        var list = boxes();
+        var checked = list.filter(function (b) { return b.checked; });
+        if (countEl) countEl.textContent = checked.length;
+        if (applyBtn) applyBtn.disabled = checked.length === 0;
+        if (all) all.checked = list.length > 0 && checked.length === list.length;
+    }
+
+    if (all) all.addEventListener('change', function () {
+        boxes().forEach(function (b) { b.checked = all.checked; });
+        refresh();
+    });
+    boxes().forEach(function (b) { b.addEventListener('change', refresh); });
+    refresh();
+
+    window.poBulkSubmit = function (form) {
+        var checked = boxes().filter(function (b) { return b.checked; });
+        if (! checked.length) return false;
+        var status = form.querySelector('[name=status]').value;
+        if (! confirm('Ubah status ' + checked.length + ' PO terpilih ke "' + status + '"? Transisi tak valid / belum lunas akan dilewati.')) return false;
+        form.querySelectorAll('input[name="ids[]"]').forEach(function (i) { i.remove(); });
+        checked.forEach(function (b) {
+            var h = document.createElement('input');
+            h.type = 'hidden'; h.name = 'ids[]'; h.value = b.value;
+            form.appendChild(h);
+        });
+        return true;
+    };
+})();
+</script>
+@endif
 @endsection
