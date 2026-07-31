@@ -7,8 +7,10 @@ use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderFactory;
 use App\Services\Ai\Tools\BuatKartuKanbanTool;
 use App\Services\Ai\Tools\RingkasDashboardTool;
+use App\Services\Ai\Tools\RingkasKpiKanbanTool;
 use App\Services\Ai\Tools\ToolRegistry;
 use App\Services\ImpersonationService;
+use App\Services\KanbanKpiService;
 use App\Services\ReportService;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -27,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
         // Daftar alat yang boleh dipakai asisten (disaring per izin di ToolRegistry).
         $this->app->bind(ToolRegistry::class, fn ($app) => new ToolRegistry([
             new RingkasDashboardTool($app->make(ReportService::class)),
+            new RingkasKpiKanbanTool($app->make(KanbanKpiService::class)),
             new BuatKartuKanbanTool,
         ]));
     }

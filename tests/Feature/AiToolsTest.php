@@ -10,6 +10,8 @@ use App\Models\Product;
 use App\Models\User;
 use App\Services\Ai\Tools\BuatKartuKanbanTool;
 use App\Services\Ai\Tools\RingkasDashboardTool;
+use App\Services\Ai\Tools\RingkasKpiKanbanTool;
+use App\Services\KanbanKpiService;
 use App\Services\ReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -33,6 +35,34 @@ class AiToolsTest extends TestCase
     private function tool(): RingkasDashboardTool
     {
         return new RingkasDashboardTool(app(ReportService::class));
+    }
+
+    public function test_kpi_kanban_baca_telat_per_orang(): void
+    {
+        $sa = $this->super();
+        $board = Board::create(['name' => 'Task SKINKU Management', 'created_by' => $sa->id]);
+        $todo = $board->columns()->create(['name' => 'To Do List Tiar', 'position' => 0]);
+        $done = $board->columns()->create(['name' => 'Done Tiar', 'position' => 1]);
+
+        // Selesai TELAT (masuk Done → completed_at=now; tenggat 2 hari lalu).
+        $done->cards()->create(['title' => 'a', 'position' => 0, 'created_by' => $sa->id, 'due_date' => now()->subDays(2)->toDateString()]);
+        // Berjalan, belum lewat tenggat.
+        $todo->cards()->create(['title' => 'b', 'position' => 0, 'created_by' => $sa->id, 'due_date' => now()->addDay()->toDateString()]);
+
+        $out = (new RingkasKpiKanbanTool(new KanbanKpiService))->run([], $sa);
+
+        $this->assertArrayHasKey('papan', $out);
+        $tiar = collect($out['papan'][0]['per_orang'])->firstWhere('nama', 'Tiar');
+        $this->assertNotNull($tiar);
+        $this->assertSame(2, $tiar['total']);
+        $this->assertSame(1, $tiar['selesai']);
+        $this->assertSame(1, $tiar['telat']);
+        $this->assertSame(1, $tiar['berjalan']);
+    }
+
+    public function test_kpi_kanban_bukan_alat_tulis(): void
+    {
+        $this->assertFalse((new RingkasKpiKanbanTool(new KanbanKpiService))->isWrite());
     }
 
     public function test_db_kosong_balikin_struktur_dan_nol(): void
