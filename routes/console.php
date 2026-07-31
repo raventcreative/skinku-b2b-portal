@@ -54,8 +54,9 @@ Schedule::command('tiktok:sync --full')->dailyAt('03:30')->withoutOverlapping(30
 /*
  * Pekerja antrean OKR (generate draf di background). Numpang cron scheduler yang
  * sudah ada — tanpa worker permanen. Tiap menit: proses job yang ada lalu berhenti
- * (--stop-when-empty), dibatasi ~50 dtk (--max-time) supaya tak menabrak run
- * berikutnya. withoutOverlapping mencegah dua worker jalan bersamaan.
+ * begitu antrean kosong (--stop-when-empty). --timeout=290 memberi ruang job AI
+ * yang lambat (otak cadangan bisa lambat) — jangan pakai default 60 dtk yang bakal
+ * membunuh job di tengah. withoutOverlapping mencegah dua worker jalan bersamaan.
  */
-Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=1')
-    ->everyMinute()->name('okr-queue-worker')->withoutOverlapping();
+Schedule::command('queue:work --stop-when-empty --tries=1 --timeout=290')
+    ->everyMinute()->name('okr-queue-worker')->withoutOverlapping(10);
