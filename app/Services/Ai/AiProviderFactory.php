@@ -46,11 +46,13 @@ class AiProviderFactory
             (string) config('services.ai.backup.base'),
             $model,
             $maxTokens,
-            (int) config('services.ai.backup.timeout', 120),
+            (int) config('services.ai.backup.timeout', 60),
             (int) config('services.ai.connect_timeout', 10),
-            // Cadangan default SEKUENSIAL: router self-hosted sering tak kuat
-            // menerima 3 panel OKR paralel sekaligus. Timeout juga dilonggarkan.
-            sequential: (bool) config('services.ai.backup.sequential', true),
+            // Default PARALEL (seperti primary): panel CMO/CFO/COO jalan bersamaan
+            // lalu di-merge orchestrator, agar total waktu ≈ satu jendela timeout —
+            // bukan dijumlah. Mode sekuensial hanya untuk router yang benar-benar
+            // tak kuat paralel (opt-in via AI_BACKUP_SEQUENTIAL=true).
+            sequential: (bool) config('services.ai.backup.sequential', false),
         );
     }
 

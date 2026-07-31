@@ -83,10 +83,11 @@ return [
             'key' => env('AI_BACKUP_KEY'),
             'base' => env('AI_BACKUP_BASE', 'https://openrouter.ai/api/v1'),
             'model' => env('AI_BACKUP_MODEL'),
-            // Router cadangan sering lebih lambat & tak kuat paralel → timeout
-            // lebih longgar + jalan sekuensial (default aktif).
-            'timeout' => (int) env('AI_BACKUP_TIMEOUT', 120),
-            'sequential' => (bool) env('AI_BACKUP_SEQUENTIAL', true),
+            // Default PARALEL (seperti primary) agar total waktu tak menumpuk
+            // dan request web tak timeout. Sekuensial hanya opt-in untuk router
+            // yang benar-benar tak kuat paralel.
+            'timeout' => (int) env('AI_BACKUP_TIMEOUT', 60),
+            'sequential' => (bool) env('AI_BACKUP_SEQUENTIAL', false),
         ],
     ],
 
