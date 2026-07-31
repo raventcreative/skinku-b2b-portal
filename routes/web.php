@@ -289,6 +289,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::delete('/mindmaps/{mindmap}', [MindmapController::class, 'destroy'])->name('mindmaps.destroy');
         Route::post('/mindmaps/{mindmap}/members', [MindmapController::class, 'addMember'])->name('mindmaps.members.store');
         Route::delete('/mindmaps/{mindmap}/members/{user}', [MindmapController::class, 'removeMember'])->name('mindmaps.members.destroy');
+
+        // Kanvas: state (poll) + node CRUD (JSON, auto-save per elemen).
+        Route::get('/mindmaps/{mindmap}/state', [MindmapController::class, 'state'])->name('mindmaps.state');
+        Route::post('/mindmaps/{mindmap}/nodes', [MindmapController::class, 'storeNode'])->name('mindmaps.nodes.store');
+        Route::patch('/mindmaps/{mindmap}/nodes/{node}', [MindmapController::class, 'updateNode'])->name('mindmaps.nodes.update');
+        Route::delete('/mindmaps/{mindmap}/nodes/{node}', [MindmapController::class, 'destroyNode'])->name('mindmaps.nodes.destroy');
     });
 
     /* ---------------- OKR (draf AI -> persetujuan -> kartu Kanban) ---------------- */

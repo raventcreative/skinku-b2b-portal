@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Mindmap;
 use App\Models\MindmapMember;
+use App\Models\MindmapNode;
 use App\Models\User;
 use App\Services\AuditService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class MindmapController extends Controller
@@ -91,6 +94,63 @@ class MindmapController extends Controller
         $mindmap->members()->where('user_id', $user->id)->delete();
 
         return back()->with('status', 'Anggota dikeluarkan.');
+    }
+
+    public function state(Mindmap $mindmap): JsonResponse
+    {
+        abort_unless($mindmap->canView(auth()->user()), 403);
+
+        return response()->json([
+            'nodes' => $mindmap->nodes()->get(['id', 'type', 'x', 'y', 'width', 'height', 'text', 'color']),
+            'edges' => $mindmap->edges()->get(['id', 'from_node_id', 'to_node_id', 'label']),
+            'updated_at' => $mindmap->updated_at?->toIso8601String(),
+        ]);
+    }
+
+    public function storeNode(Request $request, Mindmap $mindmap): JsonResponse
+    {
+        abort_unless($mindmap->canEdit($request->user()), 403);
+        $data = $request->validate([
+            'type' => ['required', Rule::in(['sticky', 'text'])],
+            'x' => ['required', 'numeric'],
+            'y' => ['required', 'numeric'],
+            'width' => ['sometimes', 'numeric', 'min:60', 'max:2000'],
+            'height' => ['sometimes', 'numeric', 'min:40', 'max:2000'],
+            'text' => ['nullable', 'string', 'max:5000'],
+            'color' => ['sometimes', Rule::in(Mindmap::COLORS)],
+        ]);
+        $node = $mindmap->nodes()->create($data + ['created_by' => $request->user()->id]);
+        $mindmap->touch();
+
+        return response()->json(['ok' => true, 'node' => $node->only(['id', 'type', 'x', 'y', 'width', 'height', 'text', 'color'])]);
+    }
+
+    public function updateNode(Request $request, Mindmap $mindmap, MindmapNode $node): JsonResponse
+    {
+        abort_unless($mindmap->canEdit($request->user()), 403);
+        abort_unless($node->mindmap_id === $mindmap->id, 404);
+        $data = $request->validate([
+            'x' => ['sometimes', 'numeric'],
+            'y' => ['sometimes', 'numeric'],
+            'width' => ['sometimes', 'numeric', 'min:60', 'max:2000'],
+            'height' => ['sometimes', 'numeric', 'min:40', 'max:2000'],
+            'text' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'color' => ['sometimes', Rule::in(Mindmap::COLORS)],
+        ]);
+        $node->update($data);
+        $mindmap->touch();
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function destroyNode(Request $request, Mindmap $mindmap, MindmapNode $node): JsonResponse
+    {
+        abort_unless($mindmap->canEdit($request->user()), 403);
+        abort_unless($node->mindmap_id === $mindmap->id, 404);
+        $node->delete(); // garis terkait ikut (cascade FK)
+        $mindmap->touch();
+
+        return response()->json(['ok' => true]);
     }
 
     /** Staf internal aktif (kandidat anggota papan). */
