@@ -160,6 +160,10 @@
                 {!! navItem('kanban.index', 'Kanban', 'kanban.*') !!}
             @endif
 
+            @if($u->canDo('mindmap.view'))
+                {!! navItem('mindmaps.index', 'Mindmaps', 'mindmaps.*') !!}
+            @endif
+
             @if($u->canDo('okr.view'))
                 {!! navItem('okr.index', 'OKR', 'okr.*') !!}
             @endif

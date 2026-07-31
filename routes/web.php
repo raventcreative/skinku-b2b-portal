@@ -20,6 +20,7 @@ use App\Http\Controllers\KolImportController;
 use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
+use App\Http\Controllers\MindmapController;
 use App\Http\Controllers\OkrController;
 use App\Http\Controllers\PartnerSaleController;
 use App\Http\Controllers\PermissionController;
@@ -275,6 +276,15 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::delete('/kanban-comments/{comment}', [KanbanController::class, 'destroyComment'])->name('kanban.comments.destroy');
         Route::post('/kanban-cards/{card}/attachments', [KanbanController::class, 'storeAttachment'])->name('kanban.cards.attachments.store');
         Route::delete('/kanban-attachments/{file}', [KanbanController::class, 'destroyAttachment'])->name('kanban.attachments.destroy');
+    });
+
+    /* ---------------- Mindmaps (kanvas ide/diagram internal) ---------------- */
+    // 'internal' blokir mitra KERAS di atas permission:mindmap.view. Akses
+    // per-papan (owner/anggota) dicek di controller, bukan di route.
+    Route::middleware(['permission:mindmap.view', 'internal'])->group(function () {
+        Route::get('/mindmaps', [MindmapController::class, 'index'])->name('mindmaps.index');
+        Route::post('/mindmaps', [MindmapController::class, 'store'])->name('mindmaps.store');
+        Route::get('/mindmaps/{mindmap}', [MindmapController::class, 'show'])->name('mindmaps.show');
     });
 
     /* ---------------- OKR (draf AI -> persetujuan -> kartu Kanban) ---------------- */
