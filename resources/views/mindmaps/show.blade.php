@@ -99,7 +99,7 @@
             </svg>
             <div id="mmNodes"></div>
         </div>
-        <p id="mmHint" class="absolute bottom-3 left-3 text-[11px] text-stone-400">{{ $canEdit ? 'Double-click kanvas = sticky baru · seret latar = geser · scroll = zoom · tarik titik biru node = sambung' : 'Mode lihat saja' }}</p>
+        <p id="mmHint" class="absolute bottom-3 left-3 text-[11px] text-stone-400">{{ $canEdit ? 'Double-click kanvas = sticky baru · double-click sticky = ketik · seret latar = geser · scroll = zoom · tarik titik biru node = sambung' : 'Mode lihat saja' }}</p>
     </div>
 </div>
 
@@ -263,6 +263,19 @@
             if (ev.target.classList.contains('mm-text') && document.activeElement === ev.target) return; // sedang edit
             ev.stopPropagation(); select(el);
             drag = { sx: ev.clientX, sy: ev.clientY, ox: nodes[id].x, oy: nodes[id].y };
+        });
+        // Double-click node = langsung mode ketik (fokus teks, kursor di akhir).
+        el.addEventListener('dblclick', function (ev) {
+            ev.stopPropagation();
+            var t = el.querySelector('.mm-text');
+            if (!t) return;
+            t.focus();
+            var r = document.createRange();
+            r.selectNodeContents(t);
+            r.collapse(false);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(r);
         });
         window.addEventListener('mousemove', function (ev) {
             if (!drag) return;
