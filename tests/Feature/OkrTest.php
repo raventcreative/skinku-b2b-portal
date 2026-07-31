@@ -621,6 +621,7 @@ class OkrTest extends TestCase
 
     public function test_panel_menerima_snapshot_data_aktual_dan_mematuhi_izin(): void
     {
+        $this->travelTo('2026-07-15 09:00:00'); // pin tengah bulan; hindari tepi akhir bulan
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrlive');
         $member = $this->user(User::ROLE_ADMIN, 'livepic');
         $partner = $this->user(User::ROLE_DISTRIBUTOR, 'livepartner');
@@ -664,6 +665,7 @@ class OkrTest extends TestCase
 
     public function test_snapshot_memisahkan_kol_dari_affiliate_dan_menghitung_funnel_distributor(): void
     {
+        $this->travelTo('2026-07-15 09:00:00'); // pin tengah bulan; hindari tepi akhir bulan
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrfacts');
         // Satu distributor onboarding (tanpa PO), satu yang aktif bertransaksi.
         $this->user(User::ROLE_DISTRIBUTOR, 'distonboard');
