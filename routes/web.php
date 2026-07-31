@@ -295,6 +295,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/mindmaps/{mindmap}/nodes', [MindmapController::class, 'storeNode'])->name('mindmaps.nodes.store');
         Route::patch('/mindmaps/{mindmap}/nodes/{node}', [MindmapController::class, 'updateNode'])->name('mindmaps.nodes.update');
         Route::delete('/mindmaps/{mindmap}/nodes/{node}', [MindmapController::class, 'destroyNode'])->name('mindmaps.nodes.destroy');
+        Route::post('/mindmaps/{mindmap}/edges', [MindmapController::class, 'storeEdge'])->name('mindmaps.edges.store');
+        Route::patch('/mindmaps/{mindmap}/edges/{edge}', [MindmapController::class, 'updateEdge'])->name('mindmaps.edges.update');
+        Route::delete('/mindmaps/{mindmap}/edges/{edge}', [MindmapController::class, 'destroyEdge'])->name('mindmaps.edges.destroy');
     });
 
     /* ---------------- OKR (draf AI -> persetujuan -> kartu Kanban) ---------------- */

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Mindmap;
+use App\Models\MindmapEdge;
 use App\Models\MindmapMember;
 use App\Models\MindmapNode;
 use App\Models\User;
@@ -148,6 +149,46 @@ class MindmapController extends Controller
         abort_unless($mindmap->canEdit($request->user()), 403);
         abort_unless($node->mindmap_id === $mindmap->id, 404);
         $node->delete(); // garis terkait ikut (cascade FK)
+        $mindmap->touch();
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function storeEdge(Request $request, Mindmap $mindmap): JsonResponse
+    {
+        abort_unless($mindmap->canEdit($request->user()), 403);
+        $data = $request->validate([
+            'from_node_id' => ['required', 'integer'],
+            'to_node_id' => ['required', 'integer', 'different:from_node_id'],
+            'label' => ['nullable', 'string', 'max:255'],
+        ]);
+        // Kedua node WAJIB milik papan ini.
+        $milik = $mindmap->nodes()->whereIn('id', [$data['from_node_id'], $data['to_node_id']])->count();
+        if ($milik !== 2) {
+            return response()->json(['ok' => false, 'error' => 'Node bukan bagian papan ini.'], 422);
+        }
+        $edge = $mindmap->edges()->create($data);
+        $mindmap->touch();
+
+        return response()->json(['ok' => true, 'edge' => $edge->only(['id', 'from_node_id', 'to_node_id', 'label'])]);
+    }
+
+    public function updateEdge(Request $request, Mindmap $mindmap, MindmapEdge $edge): JsonResponse
+    {
+        abort_unless($mindmap->canEdit($request->user()), 403);
+        abort_unless($edge->mindmap_id === $mindmap->id, 404);
+        $data = $request->validate(['label' => ['nullable', 'string', 'max:255']]);
+        $edge->update($data);
+        $mindmap->touch();
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function destroyEdge(Request $request, Mindmap $mindmap, MindmapEdge $edge): JsonResponse
+    {
+        abort_unless($mindmap->canEdit($request->user()), 403);
+        abort_unless($edge->mindmap_id === $mindmap->id, 404);
+        $edge->delete();
         $mindmap->touch();
 
         return response()->json(['ok' => true]);
