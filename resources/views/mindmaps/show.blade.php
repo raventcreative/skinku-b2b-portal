@@ -277,12 +277,13 @@
     // ---------- pointer (dipakai mouse & sentuh) ----------
     var mode = null, pan0, node0, link0, tempPath = null, moved = false;
 
-    function pointerDown(cx, cy, target) {
+    function pointerDown(cx, cy, target, ev) {
         moved = false;
         if (!CAN_EDIT) { mode = 'pan'; pan0 = { sx: cx, sy: cy, ox: view.x, oy: view.y }; canvas.style.cursor = 'grabbing'; return; }
         var h = hit(target);
         if (h.kind === 'node') {
-            if (h.typing) { mode = null; return; }           // biarkan kursor teks
+            if (h.typing) { mode = null; return; }           // sedang edit: biarkan kursor teks
+            if (ev && ev.cancelable) ev.preventDefault();    // klik biasa: pilih node TANPA fokus teks (biar Delete jalan)
             if (h.plus) { mode = null; addChild(h.id); return; } // tombol + = tambah cabang
             if (h.port) {                                     // mulai tarik garis
                 mode = 'link'; link0 = { from: h.id };
@@ -344,7 +345,7 @@
     }
 
     // mouse
-    canvas.addEventListener('mousedown', function (ev) { if (ev.button === 0) pointerDown(ev.clientX, ev.clientY, ev.target); });
+    canvas.addEventListener('mousedown', function (ev) { if (ev.button === 0) pointerDown(ev.clientX, ev.clientY, ev.target, ev); });
     window.addEventListener('mousemove', function (ev) { if (mode) pointerMove(ev.clientX, ev.clientY); });
     window.addEventListener('mouseup', function (ev) { if (mode) pointerUp(ev.clientX, ev.clientY); });
 
@@ -404,7 +405,14 @@
     // ---------- buat sticky ----------
     function createSticky(wx, wy) {
         return api(R.nodes, 'POST', { type: 'sticky', x: Math.round(wx), y: Math.round(wy), color: 'kuning', text: '' })
-            .then(function (res) { var n = res.node; nodes[n.id] = n; renderNode(n); markDirty(); pushUndo(function () { return rawDeleteNode(n.id); }); return res.node; });
+            .then(function (res) {
+                var n = res.node; nodes[n.id] = n; renderNode(n); markDirty();
+                pushUndo(function () { return rawDeleteNode(n.id); });
+                select({ kind: 'node', id: n.id });
+                var el = document.getElementById('mmn-' + n.id), t = el && el.querySelector('.mm-text');
+                if (t) t.focus();
+                return res.node;
+            });
     }
     canvas.addEventListener('dblclick', function (ev) {
         if (hit(ev.target).kind !== 'bg') return;
@@ -534,9 +542,22 @@
 
     // ---------- keyboard ----------
     document.addEventListener('keydown', function (ev) {
-        if (isTyping()) return;
-        if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'z' || ev.key === 'Z')) { ev.preventDefault(); doUndo(); return; }
-        if (ev.key === 'Delete' || ev.key === 'Backspace') { if (selected) { ev.preventDefault(); deleteSelected(); } }
+        var a = document.activeElement;
+        var inSticky = a && a.classList && a.classList.contains('mm-text');
+        var inForm = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT');
+        if (ev.key === 'Escape') { if (inSticky && a.blur) a.blur(); return; }
+        if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'z' || ev.key === 'Z')) {
+            if (inSticky || inForm) return;                  // biarkan undo bawaan di kotak teks
+            ev.preventDefault(); doUndo(); return;
+        }
+        if (ev.key === 'Delete' || ev.key === 'Backspace') {
+            if (inSticky) {                                  // sedang di sticky
+                if (a.textContent.length === 0 && selected) { ev.preventDefault(); a.blur(); deleteSelected(); } // kosong -> hapus sticky
+                return;                                      // ada isi -> hapus huruf
+            }
+            if (inForm) return;
+            if (selected) { ev.preventDefault(); deleteSelected(); }
+        }
     });
 
     applyView(); load(true);
