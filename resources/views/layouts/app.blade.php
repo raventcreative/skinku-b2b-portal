@@ -164,7 +164,7 @@
                 {!! navItem('okr.index', 'OKR', 'okr.*') !!}
             @endif
 
-            @if($u->canDo('use_ai_assistant'))
+            @if($u->canDo('use_ai_assistant') && $u->isStaff())
                 {!! navItem('ai.knowledge', 'Pengetahuan AI', 'ai.knowledge') !!}
             @endif
 

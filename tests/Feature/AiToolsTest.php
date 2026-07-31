@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Ai\Tools\BuatKartuKanbanTool;
 use App\Services\Ai\Tools\RingkasDashboardTool;
 use App\Services\Ai\Tools\RingkasKpiKanbanTool;
+use App\Services\Ai\Tools\ToolRegistry;
 use App\Services\KanbanKpiService;
 use App\Services\ReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,6 +64,52 @@ class AiToolsTest extends TestCase
     public function test_kpi_kanban_bukan_alat_tulis(): void
     {
         $this->assertFalse((new RingkasKpiKanbanTool(new KanbanKpiService))->isWrite());
+    }
+
+    private function partner(string $u = 'dist'): User
+    {
+        return User::create([
+            'name' => 'D', 'fullname' => 'Distributor', 'username' => $u, 'email' => $u.'@skinku.test',
+            'password' => Hash::make('secret123'), 'role' => User::ROLE_DISTRIBUTOR, 'status' => User::STATUS_ACTIVE,
+        ]);
+    }
+
+    private function staff(string $u = 'adm'): User
+    {
+        return User::create([
+            'name' => 'A', 'fullname' => 'Admin', 'username' => $u, 'email' => $u.'@skinku.test',
+            'password' => Hash::make('secret123'), 'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+    }
+
+    public function test_mitra_dapat_dashboard_tapi_bukan_kpi_tim_atau_tulis_kanban(): void
+    {
+        $names = collect(app(ToolRegistry::class)->forUser($this->partner()))->map->name();
+
+        $this->assertTrue($names->contains('ringkas_dashboard'));
+        $this->assertFalse($names->contains('ringkas_kpi_kanban')); // KPI tim = internal
+        $this->assertFalse($names->contains('buat_kartu_kanban'));  // tulis Kanban = internal
+    }
+
+    public function test_staf_dapat_semua_alat(): void
+    {
+        $names = collect(app(ToolRegistry::class)->forUser($this->staff()))->map->name();
+
+        $this->assertTrue($names->contains('ringkas_dashboard'));
+        $this->assertTrue($names->contains('ringkas_kpi_kanban'));
+        $this->assertTrue($names->contains('buat_kartu_kanban'));
+    }
+
+    public function test_dashboard_mitra_hanya_data_sendiri_tanpa_angka_perusahaan(): void
+    {
+        $out = $this->tool()->run([], $this->partner());
+
+        // Data akun sendiri.
+        $this->assertArrayHasKey('omzet_saya', $out);
+        $this->assertArrayHasKey('piutang_saya', $out);
+        // Angka perusahaan disembunyikan dari mitra.
+        $this->assertArrayNotHasKey('stok_hq_unit', $out);
+        $this->assertArrayNotHasKey('mitra_aktif', $out);
     }
 
     public function test_db_kosong_balikin_struktur_dan_nol(): void

@@ -40,11 +40,16 @@ class AiAssistantTest extends TestCase
         $this->app->bind(AiProvider::class, fn () => new FakeAiProvider($turns));
     }
 
-    public function test_hanya_pemegang_izin_bisa_akses(): void
+    public function test_akses_chat_terbuka_tapi_edit_pengetahuan_hanya_staf(): void
     {
-        $this->actingAs($this->user(User::ROLE_ADMIN, 'adm'))->get(route('ai.index'))->assertForbidden();
-        $this->actingAs($this->user(User::ROLE_ADMIN, 'adm2'))->post(route('ai.send'), ['message' => 'hai'])->assertForbidden();
+        // Chat asisten terbuka untuk staf & mitra yang punya izin.
+        $this->actingAs($this->user(User::ROLE_ADMIN, 'adm'))->get(route('ai.index'))->assertOk();
+        $this->actingAs($this->user(User::ROLE_DISTRIBUTOR, 'dist'))->get(route('ai.index'))->assertOk();
         $this->actingAs($this->super())->get(route('ai.index'))->assertOk()->assertSee('Asisten AI');
+
+        // Tapi EDIT Pengetahuan AI (memori/strategi internal) hanya staf internal.
+        $this->actingAs($this->user(User::ROLE_DISTRIBUTOR, 'dist2'))->get(route('ai.knowledge'))->assertForbidden();
+        $this->actingAs($this->user(User::ROLE_ADMIN, 'adm2'))->get(route('ai.knowledge'))->assertOk();
     }
 
     public function test_kirim_pesan_teks_muncul_di_percakapan(): void
@@ -157,13 +162,13 @@ class AiAssistantTest extends TestCase
         $this->actingAs($sa)->get(route('ai.index'))->assertOk()->assertDontSee('ingatan lama')->assertSee('Aku bisa bantu apa');
     }
 
-    public function test_widget_muncul_di_semua_halaman_untuk_pemegang_izin(): void
+    public function test_widget_muncul_untuk_pemegang_izin_termasuk_mitra(): void
     {
         $this->actingAs($this->super())->get(route('dashboard'))->assertOk()
             ->assertSee('id="aiWidget"', false)->assertSee('Buka Asisten AI');
-        // Non-pemegang izin tak melihat widget.
+        // Dibuka juga untuk mitra (distributor) — bisa tanya soal akunnya sendiri.
         $this->actingAs($this->user(User::ROLE_DISTRIBUTOR, 'dst'))->get(route('dashboard'))->assertOk()
-            ->assertDontSee('id="aiWidget"', false);
+            ->assertSee('id="aiWidget"', false);
     }
 
     public function test_endpoint_json_untuk_widget(): void

@@ -90,9 +90,11 @@ class Permissions
         // super_admin sampai haknya sengaja dibuka lewat matriks.
         'okr.view' => [User::ROLE_ADMIN, User::ROLE_GUDANG, 'kol_specialist'],
         'okr.manage' => [],
-        // v1 asisten AI: super_admin dulu (selalu punya semua izin). Role lain
-        // tinggal dicentang di matriks hak akses saat mau dibuka.
-        'use_ai_assistant' => [],
+        // Asisten AI dibuka ke semua role. Yang bisa dibaca disaring per-alat
+        // (ToolRegistry pakai izin): staf lihat data perusahaan sesuai izinnya,
+        // mitra (distributor/reseller) HANYA data akunnya sendiri (ter-scope
+        // user_id di dalam alat). Edit Pengetahuan AI tetap internal saja.
+        'use_ai_assistant' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */

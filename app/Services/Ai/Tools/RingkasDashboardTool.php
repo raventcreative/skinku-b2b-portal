@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Tools;
 
 use App\Models\Inventory;
+use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Services\ReportService;
 use Illuminate\Support\Carbon;
@@ -54,6 +55,35 @@ class RingkasDashboardTool extends BaseTool
             ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
             ->limit(10)
             ->get();
+        $lowExample = $low->map(fn (Inventory $i) => [
+            'produk' => $i->product?->name,
+            'sisa' => $i->quantity,
+            'minimum' => $i->minimum_stock,
+        ])->values()->all();
+
+        // MITRA: hanya data akunnya sendiri (summary sudah ter-scope user).
+        // Angka perusahaan (stok HQ, jumlah mitra, produk aktif) TIDAK dibocorkan.
+        if ($user->isPartner()) {
+            $piutang = PurchaseOrder::query()
+                ->where('user_id', $user->id)
+                ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DELETED])
+                ->withSum('payments', 'amount')
+                ->get()
+                ->sum(fn (PurchaseOrder $po) => max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0)));
+
+            return [
+                'bulan' => $bulan->translatedFormat('F Y'),
+                'catatan' => 'Angka ini KHUSUS akun Anda, bukan data perusahaan.',
+                'omzet_saya' => $summary['total_sales'],
+                'jumlah_po_saya' => $summary['total_po'],
+                'po_pending_saya' => $summary['pending_po'],
+                'po_selesai_saya' => $summary['completed_po'],
+                'stok_saya_unit' => $summary['partner_stock_units'],
+                'piutang_saya' => round((float) $piutang, 2),
+                'distribusi_status_po' => $poStatus,
+                'stok_menipis_saya' => ['jumlah' => $low->count(), 'contoh' => $lowExample],
+            ];
+        }
 
         return [
             'bulan' => $bulan->translatedFormat('F Y'),
@@ -65,14 +95,7 @@ class RingkasDashboardTool extends BaseTool
             'produk_aktif' => $summary['total_products'],
             'stok_hq_unit' => $summary['hq_stock_units'],
             'distribusi_status_po' => $poStatus,
-            'stok_menipis' => [
-                'jumlah' => $low->count(),
-                'contoh' => $low->map(fn (Inventory $i) => [
-                    'produk' => $i->product?->name,
-                    'sisa' => $i->quantity,
-                    'minimum' => $i->minimum_stock,
-                ])->values()->all(),
-            ],
+            'stok_menipis' => ['jumlah' => $low->count(), 'contoh' => $lowExample],
         ];
     }
 

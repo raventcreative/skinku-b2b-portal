@@ -17,6 +17,12 @@ class RingkasKpiKanbanTool extends BaseTool
 {
     public function __construct(private KanbanKpiService $kpi) {}
 
+    /** KPI tim internal — mitra (distributor/reseller) tak boleh melihatnya. */
+    public function permission(): ?string
+    {
+        return 'kanban.view';
+    }
+
     public function name(): string
     {
         return 'ringkas_kpi_kanban';
