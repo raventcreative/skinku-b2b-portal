@@ -22,8 +22,13 @@
         <h3 class="text-sm font-bold text-stone-900">{{ $map->title }}</h3>
         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $canEdit ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500' }}">{{ $canEdit ? 'bisa edit' : 'lihat saja' }}</span>
 
+        @if($isOwner)
+        <button type="button" onclick="document.getElementById('mmMembers').classList.toggle('hidden')"
+            class="ml-auto px-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg hover:bg-stone-50 font-semibold">Anggota ({{ $map->members->count() }})</button>
+        @endif
+
         @if($canEdit)
-        <div class="ml-auto flex items-center gap-1.5">
+        <div class="{{ $isOwner ? '' : 'ml-auto' }} flex items-center gap-1.5">
             <button id="mmAddSticky" class="px-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg hover:bg-stone-50 font-semibold">+ Sticky</button>
             <div class="flex items-center gap-1 px-2">
                 @foreach($colors as $key => $hex)
@@ -41,6 +46,46 @@
         <button id="mmZoomIn" class="w-7 h-7 bg-white border border-stone-300 rounded-lg text-sm">+</button>
         <span id="mmRefreshChip" class="hidden px-2 py-1 text-[11px] bg-amber-100 text-amber-800 rounded-lg cursor-pointer">papan diperbarui — muat ulang</span>
     </div>
+
+    @if($isOwner)
+    <div id="mmMembers" class="hidden mb-2 p-3 bg-white border border-stone-200 rounded-2xl">
+        <div class="flex flex-wrap items-start gap-6">
+            <div class="min-w-56">
+                <p class="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-1.5">Anggota papan</p>
+                @forelse($map->members as $m)
+                    <div class="flex items-center gap-2 py-0.5">
+                        <span class="text-xs text-stone-700">{{ $m->user?->fullname ?? $m->user?->name ?? 'user #'.$m->user_id }}</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold {{ $m->can_edit ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500' }}">{{ $m->can_edit ? 'edit' : 'lihat' }}</span>
+                        <form method="POST" action="{{ route('mindmaps.members.destroy', [$map, $m->user_id]) }}" class="ml-auto">
+                            @csrf @method('DELETE')
+                            <button class="text-[11px] text-rose-500 hover:text-rose-700">keluarkan</button>
+                        </form>
+                    </div>
+                @empty
+                    <p class="text-xs text-stone-400">Belum ada anggota. Undang rekan tim di sebelah.</p>
+                @endforelse
+            </div>
+            <div>
+                <p class="text-[11px] font-bold text-stone-500 uppercase tracking-wide mb-1.5">Undang anggota</p>
+                <form method="POST" action="{{ route('mindmaps.members.store', $map) }}" class="flex flex-wrap items-center gap-2">
+                    @csrf
+                    <select name="user_id" required class="px-2 py-1.5 text-xs border border-stone-300 rounded-lg">
+                        <option value="">Pilih staf…</option>
+                        @foreach($staffOptions as $s)
+                            @if($s->id !== $map->created_by)
+                                <option value="{{ $s->id }}">{{ $s->fullname ?? $s->name }}</option>
+                            @endif
+                        @endforeach
+                    </select>
+                    <label class="flex items-center gap-1 text-xs text-stone-600">
+                        <input type="checkbox" name="can_edit" value="1" checked class="rounded border-stone-300"> boleh edit
+                    </label>
+                    <button class="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Undang</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <div id="mmCanvas" class="relative flex-1 overflow-hidden bg-stone-100 rounded-2xl border border-stone-200 select-none" style="cursor: grab;">
         <div id="mmWorld" class="absolute top-0 left-0" style="transform-origin: 0 0;">
