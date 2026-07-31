@@ -75,6 +75,15 @@ return [
             'key' => env('ANTHROPIC_API_KEY'),
             'base' => env('ANTHROPIC_API_BASE', 'https://api.anthropic.com/v1'),
         ],
+        // Otak CADANGAN (auto-switch saat primary kehabisan kuota/billing atau
+        // down). Endpoint OpenAI-compatible (OpenRouter/DeepSeek/Groq/Together) —
+        // reuse OpenAiProvider, cukup key+base+model sendiri. Aktif hanya bila
+        // key & model terisi. Base default = OpenRouter.
+        'backup' => [
+            'key' => env('AI_BACKUP_KEY'),
+            'base' => env('AI_BACKUP_BASE', 'https://openrouter.ai/api/v1'),
+            'model' => env('AI_BACKUP_MODEL'),
+        ],
     ],
 
 ];
