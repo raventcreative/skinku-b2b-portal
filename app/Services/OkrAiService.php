@@ -50,19 +50,56 @@ class OkrAiService
     /**
      * @param  array<string,mixed>  $input
      */
+    /** Jalur SINKRON (dipakai saat queue=sync/test): buat + susun sekaligus. */
     public function generate(User $user, array $input): OkrCycle
     {
-        $members = $this->members();
-        $boards = $this->boards();
-        if ($members === []) {
+        $cycle = $this->startGeneration($user, $input);
+        $this->runGeneration($cycle, $input, $user);
+
+        return $cycle->fresh();
+    }
+
+    /**
+     * Buat siklus placeholder (status generating) + validasi cepat, TANPA
+     * memanggil AI. Panggilan AI yang lambat dijalankan runGeneration di
+     * background job — supaya request web tak menunggu dan tak pernah timeout.
+     */
+    public function startGeneration(User $user, array $input): OkrCycle
+    {
+        if ($this->members() === []) {
             throw new AiException('Belum ada anggota internal aktif untuk menerima tugas OKR.');
         }
-        if ($boards === []) {
+        if ($this->boards() === []) {
             throw new AiException('Belum ada papan Kanban. Buat papan dan kolom To Do terlebih dahulu.');
         }
 
-        // Provider sengaja di-resolve hanya saat tombol generate ditekan. Halaman
-        // OKR dan progres tetap bisa dibuka walau key AI sedang kosong/bermasalah.
+        return OkrCycle::create([
+            'name' => 'OKR '.$input['period_label'],
+            'period_type' => $input['period_type'],
+            'period_label' => $input['period_label'],
+            'start_date' => $input['start_date'],
+            'end_date' => $input['end_date'],
+            'scope_type' => $input['scope_type'],
+            'scope_name' => $input['scope_name'] ?? null,
+            'scope_owner_user_id' => $input['scope_owner_user_id'] ?? null,
+            'direction' => $input['direction'],
+            'status' => OkrCycle::STATUS_DRAFT,
+            'generation_status' => OkrCycle::GEN_GENERATING,
+            'created_by' => $user->id,
+        ]);
+    }
+
+    /**
+     * Bagian BERAT: panggil 3 panel + orchestrator, susun draf, lalu isi
+     * Objective/KR/tugas ke siklus. Dijalankan di background (boleh lambat).
+     * Kegagalan dilempar ke pemanggil (job) untuk ditandai gagal.
+     */
+    public function runGeneration(OkrCycle $cycle, array $input, ?User $user = null): void
+    {
+        $user ??= $cycle->creator;
+        $members = $this->members();
+        $boards = $this->boards();
+
         $provider = app(AiProvider::class);
         $liveData = [];
         foreach (self::SPECIALISTS as $key => $profile) {
@@ -110,24 +147,16 @@ class OkrAiService
             $proposals,
         );
 
-        return DB::transaction(function () use ($user, $input, $draft) {
-            $cycle = OkrCycle::create([
+        DB::transaction(function () use ($cycle, $draft) {
+            $cycle->update([
                 'name' => $draft['name'],
-                'period_type' => $input['period_type'],
-                'period_label' => $input['period_label'],
-                'start_date' => $input['start_date'],
-                'end_date' => $input['end_date'],
-                'scope_type' => $input['scope_type'],
-                'scope_name' => $input['scope_name'] ?? null,
-                'scope_owner_user_id' => $input['scope_owner_user_id'] ?? null,
-                'direction' => $input['direction'],
                 'analysis_summary' => $draft['analysis_summary'],
                 'analysis_evidence' => $draft['analysis_evidence'],
                 'analysis_assumptions' => $draft['analysis_assumptions'],
                 'analysis_conflicts' => $draft['analysis_conflicts'],
                 'data_coverage' => $draft['data_coverage'],
-                'status' => OkrCycle::STATUS_DRAFT,
-                'created_by' => $user->id,
+                'generation_status' => OkrCycle::GEN_READY,
+                'generation_error' => null,
             ]);
 
             foreach ($draft['objectives'] as $oi => $objectiveData) {
@@ -178,8 +207,6 @@ class OkrAiService
                     'panel_ai' => array_keys(self::SPECIALISTS),
                 ],
             );
-
-            return $cycle;
         });
     }
 

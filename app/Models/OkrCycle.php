@@ -20,12 +20,20 @@ class OkrCycle extends Model
 
     public const SCOPE_INDIVIDUAL = 'individual';
 
+    // Status generate asinkron (background job).
+    public const GEN_GENERATING = 'generating';
+
+    public const GEN_READY = 'ready';
+
+    public const GEN_FAILED = 'failed';
+
     protected $fillable = [
         'name', 'period_type', 'period_label', 'start_date', 'end_date',
         'scope_type', 'scope_name', 'scope_owner_user_id', 'direction',
         'analysis_summary', 'analysis_evidence', 'analysis_assumptions',
         'analysis_conflicts', 'data_coverage',
-        'status', 'created_by', 'approved_by', 'approved_at',
+        'status', 'generation_status', 'generation_error',
+        'created_by', 'approved_by', 'approved_at',
     ];
 
     protected function casts(): array
@@ -64,6 +72,16 @@ class OkrCycle extends Model
     public function isDraft(): bool
     {
         return $this->status === self::STATUS_DRAFT;
+    }
+
+    public function isGenerating(): bool
+    {
+        return $this->generation_status === self::GEN_GENERATING;
+    }
+
+    public function generationFailed(): bool
+    {
+        return $this->generation_status === self::GEN_FAILED;
     }
 
     public function scopeLabel(): string

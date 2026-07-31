@@ -280,6 +280,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     /* ---------------- OKR (draf AI -> persetujuan -> kartu Kanban) ---------------- */
     Route::middleware(['permission:okr.view', 'internal'])->group(function () {
         Route::get('/okr', [OkrController::class, 'index'])->name('okr.index');
+        Route::get('/okr/{okr}/status', [OkrController::class, 'generationStatus'])->name('okr.status');
         Route::get('/okr/{okr}', [OkrController::class, 'show'])->name('okr.show');
 
         Route::middleware('permission:okr.manage')->group(function () {

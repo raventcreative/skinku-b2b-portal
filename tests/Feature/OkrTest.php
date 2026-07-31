@@ -1122,11 +1122,35 @@ class OkrTest extends TestCase
             }
         });
 
+        // Generate jalan di background (queue sync -> inline). Error permanen
+        // TIDAK disamarkan: siklus ditandai GAGAL + pesannya, tampil di halaman.
         $this->actingAs($super)
             ->post(route('okr.generate'), $this->generatePayload($board->id))
-            ->assertRedirect()
-            ->assertSessionHas('error', 'Key OpenAI ditolak.');
+            ->assertRedirect();
 
-        $this->assertSame(0, OkrCycle::count());
+        $cycle = OkrCycle::firstOrFail();
+        $this->assertSame(OkrCycle::GEN_FAILED, $cycle->generation_status);
+        $this->assertStringContainsString('Key OpenAI ditolak.', (string) $cycle->generation_error);
+        $this->assertSame(0, $cycle->objectives()->count());
+    }
+
+    public function test_generate_asinkron_menandai_generating_lalu_ready(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrasync');
+        $member = $this->user(User::ROLE_ADMIN, 'asyncpic');
+        [$board, $todo] = $this->board($super);
+        $this->app->instance(AiProvider::class, $this->fakeDraft($member, $todo->id));
+
+        // Queue sync → job jalan inline → langsung ready dengan objektif terisi.
+        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
+
+        $cycle = OkrCycle::firstOrFail();
+        $this->assertSame(OkrCycle::GEN_READY, $cycle->generation_status);
+        $this->assertTrue($cycle->objectives()->exists());
+
+        // Endpoint status untuk polling.
+        $this->actingAs($super)->get(route('okr.status', $cycle))
+            ->assertOk()
+            ->assertJson(['status' => OkrCycle::GEN_READY]);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\GenerateOkrDraftJob;
 use App\Models\Board;
 use App\Models\BoardColumn;
 use App\Models\OkrCycle;
@@ -11,6 +12,7 @@ use App\Services\Ai\AiException;
 use App\Services\AuditService;
 use App\Services\OkrAiService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -63,14 +65,28 @@ class OkrController extends Controller
             'scope_label' => $this->scopeLabel($data),
         ]);
 
+        // Buat siklus placeholder + validasi cepat (anggota/papan). Proses AI
+        // yang lama dijalankan di BACKGROUND supaya request web langsung balik
+        // dan tak pernah timeout/503.
         try {
-            $cycle = $this->okr->generate($request->user(), $payload);
+            $cycle = $this->okr->startGeneration($request->user(), $payload);
         } catch (AiException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
 
+        GenerateOkrDraftJob::dispatch($cycle->id, $payload);
+
         return redirect()->route('okr.show', $cycle)
-            ->with('status', 'Draf OKR dari AI sudah siap. Periksa ringkasannya, lalu setujui untuk membuat kartu Kanban.');
+            ->with('status', 'AI sedang menyusun draf OKR di latar belakang. Halaman akan memperbarui sendiri saat selesai.');
+    }
+
+    /** Status generate untuk polling halaman "sedang diproses". */
+    public function generationStatus(OkrCycle $okr): JsonResponse
+    {
+        return response()->json([
+            'status' => $okr->generation_status,
+            'error' => $okr->generation_error,
+        ]);
     }
 
     public function show(OkrCycle $okr): View

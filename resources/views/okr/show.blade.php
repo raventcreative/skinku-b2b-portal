@@ -53,6 +53,32 @@
         @endif
     </div>
 
+    @if($okr->isGenerating())
+        {{-- AI menyusun draf di background — polling sampai selesai. --}}
+        <div class="bg-white border border-stone-200 rounded-2xl p-10 text-center">
+            <div class="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-stone-200 border-t-red-500 animate-spin"></div>
+            <p class="text-sm font-bold text-stone-900">AI sedang menyusun draf OKR…</p>
+            <p class="text-xs text-stone-500 mt-1 max-w-md mx-auto">Panel CMO, CFO, COO, lalu Orchestrator berjalan di latar belakang. Halaman ini akan memperbarui sendiri saat selesai — kamu boleh tinggalkan dan buka lagi nanti.</p>
+        </div>
+        <script>
+            (function poll() {
+                setTimeout(function () {
+                    fetch({{ \Illuminate\Support\Js::from(route('okr.status', $okr)) }})
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) { if (d && d.status && d.status !== 'generating') { location.reload(); } else { poll(); } })
+                        .catch(poll);
+                }, 5000);
+            })();
+        </script>
+    @elseif($okr->generationFailed())
+        <div class="bg-rose-50 border border-rose-200 rounded-2xl p-6">
+            <p class="text-sm font-bold text-rose-900">Gagal menyusun draf OKR</p>
+            <p class="text-xs text-rose-700 mt-1">{{ $okr->generation_error ?: 'Terjadi kesalahan saat memanggil AI. Coba lagi, atau periksa provider AI di Pengaturan.' }}</p>
+            @if($canManage)
+                <a href="{{ route('okr.create') }}" class="inline-block mt-3 px-4 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Susun ulang</a>
+            @endif
+        </div>
+    @else
     @if($okr->isDraft())
         <div class="{{ $legacyDraft ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200' }} border rounded-xl p-4 mb-4">
             @if($legacyDraft)
@@ -453,5 +479,6 @@
             }
         </script>
     @endif
+    @endif {{-- tutup blok generating / failed / else --}}
 </div>
 @endsection

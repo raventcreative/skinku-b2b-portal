@@ -50,3 +50,12 @@ Schedule::command('tiktok:describe')->hourly()->withoutOverlapping(20);
 // Sapu penuh sekali sehari: jaring pengaman kalau ada perubahan status yang lolos
 // dari jendela update_time (mis. cron sempat mati lama).
 Schedule::command('tiktok:sync --full')->dailyAt('03:30')->withoutOverlapping(30);
+
+/*
+ * Pekerja antrean OKR (generate draf di background). Numpang cron scheduler yang
+ * sudah ada — tanpa worker permanen. Tiap menit: proses job yang ada lalu berhenti
+ * (--stop-when-empty), dibatasi ~50 dtk (--max-time) supaya tak menabrak run
+ * berikutnya. withoutOverlapping mencegah dua worker jalan bersamaan.
+ */
+Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=1')
+    ->everyMinute()->name('okr-queue-worker')->withoutOverlapping();
