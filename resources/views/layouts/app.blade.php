@@ -156,16 +156,27 @@
                 {!! navItem('kols.index', 'KOL', 'kol*') !!}
             @endif
 
-            @if($u->canDo('kanban.view'))
-                {!! navItem('kanban.index', 'Kanban', 'kanban.*') !!}
-            @endif
-
-            @if($u->canDo('mindmap.view'))
-                {!! navItem('mindmaps.index', 'Mindmaps', 'mindmaps.*') !!}
-            @endif
-
-            @if($u->canDo('okr.view'))
-                {!! navItem('okr.index', 'OKR', 'okr.*') !!}
+            @php
+                // Grup accordion "Produktivitas": OKR + Kanban + Mindmaps.
+                $kerjaGroupOpen = request()->routeIs('okr.*') || request()->routeIs('kanban.*') || request()->routeIs('mindmaps.*');
+            @endphp
+            @if($u->canDo('okr.view') || $u->canDo('kanban.view') || $u->canDo('mindmap.view'))
+                <button type="button" onclick="toggleNavGroup('grpKerja')"
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $kerjaGroupOpen ? 'text-white' : '' }}">
+                    <span>Produktivitas</span>
+                    <svg id="grpKerjaChevron" class="w-3.5 h-3.5 transition-transform {{ $kerjaGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="grpKerja" class="{{ $kerjaGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                    @if($u->canDo('okr.view'))
+                        {!! navItem('okr.index', 'OKR', 'okr.*') !!}
+                    @endif
+                    @if($u->canDo('kanban.view'))
+                        {!! navItem('kanban.index', 'Kanban', 'kanban.*') !!}
+                    @endif
+                    @if($u->canDo('mindmap.view'))
+                        {!! navItem('mindmaps.index', 'Mindmaps', 'mindmaps.*') !!}
+                    @endif
+                </div>
             @endif
 
             @if($u->canDo('use_ai_assistant') && $u->isStaff())
