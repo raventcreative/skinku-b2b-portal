@@ -345,12 +345,15 @@ class OkrBusinessSnapshotService
     {
         $spec = [
             ['path' => 'cmo.penjualan.total_sales', 'label' => 'Omzet total (semua channel)'],
+            ['path' => 'cmo.distributor.omzet_selesai', 'label' => 'Omzet distributor (bulan berjalan)'],
             ['path' => 'cmo.distributor.mencapai_100_juta', 'label' => 'Distributor tembus Rp100 juta'],
             ['path' => 'cmo.distributor.aktif_30_hari', 'label' => 'Distributor aktif (30 hari)'],
             ['path' => 'cmo.distributor.onboarding', 'label' => 'Distributor onboarding (belum PO)'],
             ['path' => 'cmo.portofolio_produk.master_aktif', 'label' => 'Produk master aktif'],
             ['path' => 'cfo.laba_rugi_bulan_tutup_terakhir.penjualan_bersih', 'label' => 'Penjualan bersih (bulan buku tutup)'],
+            ['path' => 'cfo.laba_rugi.penjualan_bersih', 'label' => 'Penjualan bersih (bulan berjalan · MTD)'],
             ['path' => 'cfo.laba_rugi_bulan_tutup_terakhir.laba_bersih', 'label' => 'Laba bersih (bulan buku tutup)'],
+            ['path' => 'cfo.laba_rugi.net_income', 'label' => 'Laba/rugi bersih (bulan berjalan · MTD)'],
             ['path' => 'cfo.laba_rugi_bulan_tutup_terakhir.arus_kas_bersih', 'label' => 'Arus kas bersih (bulan buku tutup)'],
             ['path' => 'cfo.piutang_tempo.sisa_tagihan', 'label' => 'Piutang tempo (sisa tagihan)'],
             ['path' => 'coo.stok.total_hq', 'label' => 'Stok HQ'],

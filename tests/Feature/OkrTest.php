@@ -737,6 +737,11 @@ class OkrTest extends TestCase
         $this->assertSame('cmo.penjualan.total_sales', $first[0]['source_path']);
         // Bukan hasil kutipan AI: fakta tak punya interpretasi model.
         $this->assertArrayNotHasKey('interpretation', $first[0]);
+        // Metrik yang diminta ikut tampil di daftar tetap.
+        $paths = collect($first)->pluck('source_path');
+        $this->assertTrue($paths->contains('cmo.distributor.omzet_selesai'));
+        $this->assertTrue($paths->contains('cfo.laba_rugi.net_income'));
+        $this->assertTrue($paths->contains('cfo.laba_rugi.penjualan_bersih'));
     }
 
     public function test_delegasi_menang_untuk_affiliate_dan_pic_ambigu_tetap_kosong(): void
