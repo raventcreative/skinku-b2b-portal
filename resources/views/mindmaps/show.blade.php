@@ -100,7 +100,7 @@
             </svg>
             <div id="mmNodes"></div>
         </div>
-        <p id="mmHint" class="absolute bottom-3 left-3 text-[11px] text-stone-400">{{ $canEdit ? 'Dobel-klik/ketuk = sticky / ketik · seret = geser/pindah · scroll atau cubit = zoom · titik biru = sambung · Delete = hapus · Ctrl+Z = undo' : 'Mode lihat saja' }}</p>
+        <p id="mmHint" class="absolute bottom-3 left-3 text-[11px] text-stone-400">{{ $canEdit ? 'Dobel-klik = sticky/ketik · tombol + = cabang baru · titik biru = sambung manual · seret = pindah · scroll/cubit = zoom · Delete = hapus · Ctrl+Z = undo' : 'Mode lihat saja' }}</p>
     </div>
 </div>
 
@@ -156,7 +156,7 @@
         if (!el) {
             el = document.createElement('div');
             el.id = 'mmn-' + n.id;
-            el.className = 'absolute rounded-xl border border-stone-300 shadow-sm p-2 text-xs text-stone-800 overflow-hidden';
+            el.className = 'absolute rounded-xl border border-stone-300 shadow-sm p-2 text-xs text-stone-800';
             el.dataset.id = n.id;
             nodesLayer.appendChild(el);
             attachNode(el);
@@ -167,7 +167,7 @@
         if (document.activeElement !== el.querySelector('.mm-text')) {
             el.innerHTML = '';
             var t = document.createElement('div');
-            t.className = 'mm-text w-full h-full outline-none whitespace-pre-wrap break-words';
+            t.className = 'mm-text w-full h-full outline-none whitespace-pre-wrap break-words overflow-hidden';
             t.style.touchAction = 'auto';
             t.contentEditable = CAN_EDIT ? 'true' : 'false';
             t.textContent = n.text || '';
@@ -176,6 +176,11 @@
                 var h = document.createElement('div');
                 h.className = 'mm-port absolute -right-1.5 top-1/2 -mt-1.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white cursor-crosshair';
                 el.appendChild(h);
+                var plus = document.createElement('div');
+                plus.className = 'mm-plus absolute -right-2.5 -bottom-2.5 w-5 h-5 rounded-full bg-red-600 text-white text-sm leading-none flex items-center justify-center shadow cursor-pointer select-none';
+                plus.textContent = '+';
+                plus.title = 'Tambah cabang';
+                el.appendChild(plus);
             }
         }
         markNodeRing(el);
@@ -259,9 +264,10 @@
     // ---------- apa yang ada di titik ----------
     function hit(target) {
         var port = target && target.closest ? target.closest('.mm-port') : null;
+        var plus = target && target.closest ? target.closest('.mm-plus') : null;
         var box = target && target.closest ? target.closest('[data-id]') : null;
         if (box && box.parentNode === nodesLayer) {
-            return { kind: 'node', id: box.dataset.id, port: !!port,
+            return { kind: 'node', id: box.dataset.id, port: !!port, plus: !!plus,
                      typing: (target.classList && target.classList.contains('mm-text') && document.activeElement === target) };
         }
         if (box && box.parentNode === edgesLayer) return { kind: 'edge', id: box.dataset.id };
@@ -277,6 +283,7 @@
         var h = hit(target);
         if (h.kind === 'node') {
             if (h.typing) { mode = null; return; }           // biarkan kursor teks
+            if (h.plus) { mode = null; addChild(h.id); return; } // tombol + = tambah cabang
             if (h.port) {                                     // mulai tarik garis
                 mode = 'link'; link0 = { from: h.id };
                 tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -406,6 +413,26 @@
     document.getElementById('mmAddSticky').onclick = function () {
         var b = canvas.getBoundingClientRect(); var p = toWorld(b.left + 200, b.top + 150); createSticky(p.x, p.y);
     };
+
+    // ---------- tambah cabang: sticky baru di kanan induk, otomatis tersambung ----------
+    function addChild(parentId) {
+        var parent = nodes[parentId]; if (!parent) return;
+        var pw = parent.width || 200, ph = parent.height || 120;
+        var count = Object.values(edges).filter(function (e) { return e.from_node_id == parentId; }).length;
+        var nx = parent.x + pw + 70, ny = parent.y + count * (ph + 24);
+        api(R.nodes, 'POST', { type: 'sticky', x: Math.round(nx), y: Math.round(ny), color: parent.color || 'kuning', text: '' })
+            .then(function (res) {
+                var child = res.node; nodes[child.id] = child; renderNode(child); markDirty();
+                api(R.edges, 'POST', { from_node_id: Number(parentId), to_node_id: Number(child.id) })
+                    .then(function (er) {
+                        edges[er.edge.id] = er.edge; renderEdge(er.edge); markDirty();
+                        pushUndo(function () { return rawDeleteNode(child.id); }); // undo = hapus cabang (garis ikut)
+                        select({ kind: 'node', id: child.id });
+                        var el = document.getElementById('mmn-' + child.id), t = el && el.querySelector('.mm-text');
+                        if (t) t.focus();
+                    }).catch(function () {});
+            }).catch(function () {});
+    }
 
     // ---------- node: dobel-klik = ketik, blur = simpan (dengan undo) ----------
     function attachNode(el) {
