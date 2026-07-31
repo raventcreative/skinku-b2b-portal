@@ -46,8 +46,11 @@ class AiProviderFactory
             (string) config('services.ai.backup.base'),
             $model,
             $maxTokens,
-            (int) config('services.ai.request_timeout', 45),
+            (int) config('services.ai.backup.timeout', 120),
             (int) config('services.ai.connect_timeout', 10),
+            // Cadangan default SEKUENSIAL: router self-hosted sering tak kuat
+            // menerima 3 panel OKR paralel sekaligus. Timeout juga dilonggarkan.
+            sequential: (bool) config('services.ai.backup.sequential', true),
         );
     }
 

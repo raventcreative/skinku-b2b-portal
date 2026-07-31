@@ -10,6 +10,7 @@ use App\Services\Ai\ConcurrentAiProvider;
 use App\Services\Ai\FailoverAiProvider;
 use App\Services\Ai\OpenAiProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AiFailoverTest extends TestCase
@@ -114,6 +115,25 @@ class AiFailoverTest extends TestCase
         ]);
 
         $this->assertInstanceOf(OpenAiProvider::class, AiProviderFactory::make());
+    }
+
+    public function test_backup_sekuensial_chatmany_tidak_pakai_pool(): void
+    {
+        Http::fake([
+            '*/chat/completions' => Http::response([
+                'choices' => [['message' => ['role' => 'assistant', 'content' => 'ok', 'tool_calls' => []]]],
+            ], 200),
+        ]);
+
+        $provider = new OpenAiProvider('sk-x', 'https://9router.test/v1', 'model-x', 500, sequential: true);
+        $result = $provider->chatMany([
+            'cmo' => ['messages' => [], 'tools' => []],
+            'cfo' => ['messages' => [], 'tools' => []],
+            'coo' => ['messages' => [], 'tools' => []],
+        ]);
+
+        $this->assertSame(['cmo', 'cfo', 'coo'], array_keys($result));
+        Http::assertSentCount(3); // tiga request terpisah, satu per satu
     }
 
     public function test_factory_dengan_backup_bangun_rantai_failover(): void

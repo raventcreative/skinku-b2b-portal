@@ -21,6 +21,10 @@ class OpenAiProvider implements ConcurrentAiProvider
         private int $maxTokens,
         private int $timeout = 45,
         private int $connectTimeout = 10,
+        // Beberapa endpoint (mis. router self-hosted) kewalahan menerima banyak
+        // request paralel sekaligus. Mode sekuensial menjalankan chatMany satu
+        // per satu (lebih lambat tapi jauh lebih tahan).
+        private bool $sequential = false,
     ) {}
 
     public function chat(array $messages, array $tools): AiTurn
@@ -48,6 +52,17 @@ class OpenAiProvider implements ConcurrentAiProvider
     {
         if ($requests === []) {
             return [];
+        }
+
+        // Mode sekuensial: satu per satu lewat chat(). Dipakai untuk endpoint
+        // cadangan yang tak kuat menerima banyak request paralel.
+        if ($this->sequential) {
+            $turns = [];
+            foreach ($requests as $key => $request) {
+                $turns[$key] = $this->chat($request['messages'] ?? [], $request['tools'] ?? []);
+            }
+
+            return $turns;
         }
 
         try {

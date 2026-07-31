@@ -83,6 +83,10 @@ return [
             'key' => env('AI_BACKUP_KEY'),
             'base' => env('AI_BACKUP_BASE', 'https://openrouter.ai/api/v1'),
             'model' => env('AI_BACKUP_MODEL'),
+            // Router cadangan sering lebih lambat & tak kuat paralel → timeout
+            // lebih longgar + jalan sekuensial (default aktif).
+            'timeout' => (int) env('AI_BACKUP_TIMEOUT', 120),
+            'sequential' => (bool) env('AI_BACKUP_SEQUENTIAL', true),
         ],
     ],
 
