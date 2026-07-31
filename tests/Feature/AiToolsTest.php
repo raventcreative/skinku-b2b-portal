@@ -91,6 +91,15 @@ class AiToolsTest extends TestCase
         $this->assertFalse($names->contains('buat_kartu_kanban'));  // tulis Kanban = internal
     }
 
+    public function test_dashboard_staf_memuat_rincian_per_channel(): void
+    {
+        $out = $this->tool()->run([], $this->staff('rincianadm'));
+
+        $this->assertArrayHasKey('penjualan_per_channel', $out);
+        $this->assertArrayHasKey('omzet_ecommerce', $out);
+        $this->assertArrayHasKey('omzet_distributor', $out);
+    }
+
     public function test_staf_dapat_semua_alat(): void
     {
         $names = collect(app(ToolRegistry::class)->forUser($this->staff()))->map->name();

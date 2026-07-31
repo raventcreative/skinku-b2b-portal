@@ -49,6 +49,10 @@ class OkrBusinessSnapshotService
         $out = [];
         if ($this->allowed($user, 'view_reports')) {
             $out['penjualan'] = $this->reports->summary($user, $month, allChannels: true);
+            // Omzet e-commerce bulan berjalan (TikTok + Shopee) sebagai fakta inti,
+            // supaya pemisahan e-commerce vs distributor eksplisit di Fakta server.
+            $out['omzet_ecommerce_bulan'] = round((float) collect($this->reports->channelSales($month))
+                ->whereIn('key', ['tiktok', 'shopee'])->sum('confirmed'), 2);
             $out['channel'] = collect($this->reports->channelSales($month))
                 ->map(fn (array $row) => [
                     'channel' => $row['label'],
@@ -345,6 +349,7 @@ class OkrBusinessSnapshotService
     {
         $spec = [
             ['path' => 'cmo.penjualan.total_sales', 'label' => 'Omzet total (semua channel)'],
+            ['path' => 'cmo.omzet_ecommerce_bulan', 'label' => 'Omzet e-commerce (bulan berjalan)'],
             ['path' => 'cmo.distributor.omzet_selesai', 'label' => 'Omzet distributor (bulan berjalan)'],
             ['path' => 'cmo.distributor.mencapai_100_juta', 'label' => 'Distributor tembus Rp100 juta'],
             ['path' => 'cmo.distributor.aktif_30_hari', 'label' => 'Distributor aktif (30 hari)'],

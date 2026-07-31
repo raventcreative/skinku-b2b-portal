@@ -85,9 +85,19 @@ class RingkasDashboardTool extends BaseTool
             ];
         }
 
+        // Rincian per channel (biar bisa jawab "e-commerce vs distributor").
+        $channels = collect($this->reports->channelSales($bulan));
+
         return [
             'bulan' => $bulan->translatedFormat('F Y'),
             'penjualan_total' => $summary['total_sales'],
+            'omzet_ecommerce' => round((float) $channels->whereIn('key', ['tiktok', 'shopee'])->sum('confirmed'), 2),
+            'omzet_distributor' => round((float) $channels->where('key', 'reseller')->sum('confirmed'), 2),
+            'penjualan_per_channel' => $channels->map(fn (array $c) => [
+                'channel' => $c['label'],
+                'omzet' => $c['confirmed'] ?? 0,
+                'jumlah_order' => $c['confirmed_n'] ?? 0,
+            ])->values()->all(),
             'jumlah_po' => $summary['total_po'],
             'po_pending' => $summary['pending_po'],
             'po_selesai' => $summary['completed_po'],

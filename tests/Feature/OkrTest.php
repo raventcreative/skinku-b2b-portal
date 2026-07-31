@@ -740,6 +740,7 @@ class OkrTest extends TestCase
         // Metrik yang diminta ikut tampil di daftar tetap.
         $paths = collect($first)->pluck('source_path');
         $this->assertTrue($paths->contains('cmo.distributor.omzet_selesai'));
+        $this->assertTrue($paths->contains('cmo.omzet_ecommerce_bulan')); // e-commerce terpisah
         $this->assertTrue($paths->contains('cfo.laba_rugi.net_income'));
         $this->assertTrue($paths->contains('cfo.laba_rugi.penjualan_bersih'));
     }
