@@ -51,7 +51,7 @@
                 </details>
             </div>
 
-            <div class="px-2 pb-2 space-y-2 min-h-[2.5rem]" data-cards data-column-id="{{ $column->id }}">
+            <div class="px-2 pb-2 space-y-2 min-h-[2.5rem] max-h-[60vh] overflow-y-auto" data-cards data-column-id="{{ $column->id }}">
                 @foreach($column->cards as $card)
                     @php
                         $overdue = $card->due_date && $card->due_date->isPast();
