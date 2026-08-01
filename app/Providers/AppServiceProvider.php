@@ -6,8 +6,11 @@ use App\Models\CommunityLink;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderFactory;
 use App\Services\Ai\Tools\BuatKartuKanbanTool;
+use App\Services\Ai\Tools\BuatMindmapTool;
 use App\Services\Ai\Tools\RingkasDashboardTool;
 use App\Services\Ai\Tools\RingkasKpiKanbanTool;
+use App\Services\Ai\Tools\RingkasMindmapTool;
+use App\Services\Ai\Tools\TambahMindmapTool;
 use App\Services\Ai\Tools\ToolRegistry;
 use App\Services\ImpersonationService;
 use App\Services\KanbanKpiService;
@@ -31,6 +34,9 @@ class AppServiceProvider extends ServiceProvider
             new RingkasDashboardTool($app->make(ReportService::class)),
             new RingkasKpiKanbanTool($app->make(KanbanKpiService::class)),
             new BuatKartuKanbanTool,
+            new RingkasMindmapTool,
+            new BuatMindmapTool,
+            new TambahMindmapTool,
         ]));
     }
 
