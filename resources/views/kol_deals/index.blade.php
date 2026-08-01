@@ -13,6 +13,12 @@
         'selesai' => 'bg-emerald-100 text-emerald-700',
         'batal' => 'bg-rose-100 text-rose-700',
     ];
+    // Warna badge level (samakan dengan tabel Database KOL).
+    $levelBadge = [
+        'Nano' => 'bg-stone-100 text-stone-600', 'Mikro' => 'bg-sky-100 text-sky-700',
+        'Middle' => 'bg-indigo-100 text-indigo-700', 'Makro' => 'bg-violet-100 text-violet-700',
+        'Mega' => 'bg-amber-100 text-amber-700', 'Super Mega' => 'bg-rose-100 text-rose-700',
+    ];
     $cur = request('status');
 @endphp
 
@@ -61,7 +67,7 @@
                     <td>
                         <a href="{{ route('kols.show', $d->kol_id) }}" class="text-red-700 hover:underline font-semibold">{{ '@'.($d->kol->tiktok_username ?? '?') }}</a>
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
-                            <span class="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 text-[10px]">{{ $d->kol?->level ?? '—' }}</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold {{ $levelBadge[$d->kol?->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $d->kol?->level ?? '—' }}</span>
                             @if($sc)
                                 <span class="text-[10px] text-stone-500">{{ $sc->verdict_median }}</span>
                                 @if($sc->cpv_median !== null)<span class="text-[10px] text-stone-400">CPV {{ number_format($sc->cpv_median, 0, ',', '.') }}</span>@endif
@@ -80,11 +86,14 @@
                         <td class="px-3 text-stone-600">{{ $d->status_bayar }}</td>
                     @endif
                     <td>
-                        @if($d->hasil_terisi)
-                            <span class="text-[10px]" title="ROMI {{ $d->hasil_romi ?? '—' }} · CPM {{ $d->hasil_cpm ? $rp($d->hasil_cpm) : '—' }}">{{ $d->hasil_verdict }}</span>
-                        @else
-                            <span class="text-[10px] text-stone-300">—</span>
-                        @endif
+                        <a href="{{ route('kol-deals.edit', $d) }}" class="text-[10px] hover:underline"
+                            title="Buka laporan hasil (Edit → Laporan Hasil Endorse)">
+                            @if($d->hasil_terisi)
+                                {{ $d->hasil_verdict }}
+                            @else
+                                <span class="text-stone-400">+ isi laporan</span>
+                            @endif
+                        </a>
                     </td>
                     <td class="text-right px-4">
                         @if($d->status !== 'berjalan')<button type="button" onclick="submitBulk('berjalan', {{ $d->id }})" class="text-blue-600 hover:text-blue-800 font-semibold" title="Acc → jalan">Acc</button>@endif
