@@ -249,6 +249,7 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::get('/kol-deals', [KolDealController::class, 'index'])->name('kol-deals.index');
             Route::get('/kol-deals/create', [KolDealController::class, 'create'])->name('kol-deals.create');
             Route::post('/kol-deals', [KolDealController::class, 'store'])->name('kol-deals.store');
+            Route::post('/kol-deals/bulk-status', [KolDealController::class, 'bulkStatus'])->name('kol-deals.bulk-status');
             Route::get('/kol-deals/{deal}/edit', [KolDealController::class, 'edit'])->name('kol-deals.edit');
             Route::put('/kol-deals/{deal}', [KolDealController::class, 'update'])->name('kol-deals.update');
             Route::delete('/kol-deals/{deal}', [KolDealController::class, 'destroy'])->name('kol-deals.destroy');

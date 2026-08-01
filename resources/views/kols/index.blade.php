@@ -5,6 +5,7 @@
 @section('content')
 @php
     $u = auth()->user();
+    $canDeal = $u->canDo('kol.deal.manage');
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $levelBadge = [
         'Nano' => 'bg-stone-100 text-stone-600', 'Mikro' => 'bg-sky-100 text-sky-700',
@@ -180,8 +181,10 @@
                         <td class="text-right px-2 text-stone-600">{{ $ls->cpv_median !== null ? number_format($ls->cpv_median, $ls->cpv_median < 100 ? 1 : 0, ',', '.') : '—' }}</td>
                         <td class="text-right px-2 font-bold text-stone-700">{{ isset($ranks[$ls->id]) ? '#'.$ranks[$ls->id] : '—' }}</td>
                         {{-- Dua indikator seperti Excel: mean (5 tingkat) & median (3 tingkat). --}}
-                        <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($ls->verdict_rata) }}">{{ $ls->verdict_rata }}</td>
-                        <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($ls->verdict_median) }}">{{ $ls->verdict_median }}</td>
+                        <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($ls->verdict_rata) }} @if($canDeal) cursor-pointer hover:underline @endif"
+                            @if($canDeal) onclick="openDeal({{ $kol->id }}, @js('@'.$kol->tiktok_username), {{ (int) ($ls->ratecard ?? 0) }})" title="Klik = buat deal cepat" @endif>{{ $ls->verdict_rata }}</td>
+                        <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($ls->verdict_median) }} @if($canDeal) cursor-pointer hover:underline @endif"
+                            @if($canDeal) onclick="openDeal({{ $kol->id }}, @js('@'.$kol->tiktok_username), {{ (int) ($ls->ratecard ?? 0) }})" title="Klik = buat deal cepat" @endif>{{ $ls->verdict_median }}</td>
                         <td class="whitespace-nowrap">
                             <span class="font-semibold text-stone-800">🪙 {{ $rp($ls->gmv_estimate) }}</span>
                             <span class="block text-[10px] text-stone-500">🚀 {{ $ls->viral_label }} · 👤 {{ $ls->fake_label ?? '—' }}</span>
@@ -200,4 +203,53 @@
     </table>
     </div>
 </div>
+
+@if($canDeal)
+{{-- Modal deal cepat: buka dari klik kolom Penilaian. Zero-dep (native <dialog>).
+     KOL & ratecard terisi otomatis; PIC/finansial dilengkapi lewat Edit. --}}
+<dialog id="dealModal" class="rounded-2xl p-0 w-full max-w-md backdrop:bg-black/40">
+    <form method="POST" action="{{ route('kol-deals.store') }}" class="p-5">
+        @csrf
+        <input type="hidden" name="dari_kol" value="1">
+        <input type="hidden" name="kol_id" id="dm_kol_id">
+        <input type="hidden" name="status" value="draft">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-stone-900">Deal cepat — <span id="dm_kol_name" class="text-red-700"></span></h3>
+            <button type="button" onclick="document.getElementById('dealModal').close()" class="text-stone-400 hover:text-stone-700 text-lg leading-none">&times;</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+            <label class="text-[11px] font-semibold text-stone-500">Jenis
+                <select name="jenis" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    @foreach(\App\Models\KolDeal::JENIS as $j)<option value="{{ $j }}">{{ strtoupper($j) }}</option>@endforeach
+                </select>
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Jumlah slot (VT)
+                <input type="number" name="jumlah_slot" min="1" value="1" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500 col-span-2">Ratecard deal (Rp)
+                <input type="number" name="ratecard_deal" id="dm_ratecard" min="0" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Periode mulai
+                <input type="date" name="periode_mulai" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Periode selesai
+                <input type="date" name="periode_selesai" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+        </div>
+        <div class="flex items-center gap-2 mt-4">
+            <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Buat Deal</button>
+            <button type="button" onclick="document.getElementById('dealModal').close()" class="px-3 py-2 text-sm text-stone-500 hover:text-stone-800">Batal</button>
+            <span class="ml-auto text-[10px] text-stone-400">PIC & finansial via Edit</span>
+        </div>
+    </form>
+</dialog>
+<script>
+    function openDeal(id, name, ratecard) {
+        document.getElementById('dm_kol_id').value = id;
+        document.getElementById('dm_kol_name').textContent = name;
+        document.getElementById('dm_ratecard').value = ratecard || '';
+        document.getElementById('dealModal').showModal();
+    }
+</script>
+@endif
 @endsection

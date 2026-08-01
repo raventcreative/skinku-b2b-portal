@@ -7,48 +7,99 @@
     $u = auth()->user();
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $canFinance = $u->canDo('kol.deal.finance');
+    $statusBadge = [
+        'draft' => 'bg-stone-100 text-stone-600',
+        'berjalan' => 'bg-blue-100 text-blue-700',
+        'selesai' => 'bg-emerald-100 text-emerald-700',
+        'batal' => 'bg-rose-100 text-rose-700',
+    ];
+    $cur = request('status');
 @endphp
 
 <div class="flex flex-wrap items-center gap-3 mb-4">
     <a href="{{ route('kols.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Database KOL</a>
+    <form method="GET" class="flex items-center gap-1">
+        <select name="status" onchange="this.form.submit()" class="px-2 py-1.5 text-xs border border-stone-300 rounded-lg">
+            <option value="">Semua status</option>
+            @foreach(\App\Models\KolDeal::STATUSES as $s)
+                <option value="{{ $s }}" @selected($cur === $s)>{{ ucfirst($s) }}</option>
+            @endforeach
+        </select>
+    </form>
     <a href="{{ route('kol-deals.create') }}" class="ml-auto px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Deal Baru</a>
+</div>
+
+{{-- Bar aksi massal (muncul saat ada centang) --}}
+<div id="bulkBar" class="hidden items-center gap-2 mb-3 p-2 bg-stone-800 text-white rounded-xl text-xs">
+    <span id="bulkCount" class="px-2 font-semibold">0 dipilih</span>
+    <button type="button" onclick="submitBulk('berjalan')" class="px-3 py-1.5 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold">✓ Acc (jalan)</button>
+    <button type="button" onclick="submitBulk('selesai')" class="px-3 py-1.5 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-semibold">✓ Selesai</button>
+    <button type="button" onclick="submitBulk('batal')" class="px-3 py-1.5 bg-rose-600 rounded-lg hover:bg-rose-700 font-semibold">✕ Tolak</button>
+    <button type="button" onclick="clearChecks()" class="ml-auto px-2 text-stone-300 hover:text-white">batal pilih</button>
 </div>
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
     <div class="overflow-x-auto">
     <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
-            <tr><th class="text-left px-4 py-2">Kode</th><th class="text-left">KOL</th><th class="text-left">Jenis</th>
+            <tr>
+                <th class="px-3 py-2"><input type="checkbox" id="checkAll" onclick="toggleAll(this)"></th>
+                <th class="text-left px-2">Kode</th><th class="text-left">KOL &amp; Indikator</th><th class="text-left">Jenis</th>
                 <th class="text-right">Ratecard</th><th class="text-left px-3">Periode</th>
                 <th class="text-left">PIC</th><th class="text-left">Status</th>
                 @if($canFinance)<th class="text-right">Total Biaya</th><th class="text-left px-3">Bayar</th>@endif
-                <th class="text-right px-4">Aksi</th></tr>
+                <th class="text-left">Hasil</th>
+                <th class="text-right px-4">Aksi</th>
+            </tr>
         </thead>
         <tbody>
             @forelse($deals as $d)
+                @php $sc = $d->kol?->latestScreening; @endphp
                 <tr class="border-t border-stone-100 hover:bg-stone-50">
-                    <td class="px-4 py-2.5 font-semibold text-stone-700">{{ $d->kode }}</td>
-                    <td><a href="{{ route('kols.show', $d->kol_id) }}" class="text-red-700 hover:underline">{{ '@'.($d->kol->tiktok_username ?? '?') }}</a></td>
+                    <td class="px-3"><input type="checkbox" class="kolDealCheck" value="{{ $d->id }}" onchange="refreshBulk()"></td>
+                    <td class="px-2 py-2.5 font-semibold text-stone-700">{{ $d->kode }}</td>
+                    <td>
+                        <a href="{{ route('kols.show', $d->kol_id) }}" class="text-red-700 hover:underline font-semibold">{{ '@'.($d->kol->tiktok_username ?? '?') }}</a>
+                        <div class="flex flex-wrap items-center gap-1 mt-0.5">
+                            <span class="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 text-[10px]">{{ $d->kol?->level ?? '—' }}</span>
+                            @if($sc)
+                                <span class="text-[10px] text-stone-500">{{ $sc->verdict_median }}</span>
+                                @if($sc->cpv_median !== null)<span class="text-[10px] text-stone-400">CPV {{ number_format($sc->cpv_median, 0, ',', '.') }}</span>@endif
+                            @else
+                                <span class="text-[10px] text-stone-300">belum screening</span>
+                            @endif
+                        </div>
+                    </td>
                     <td class="uppercase text-stone-600">{{ $d->jenis }}{{ $d->jenis === 'vt' ? ' ×'.$d->jumlah_slot : '' }}</td>
                     <td class="text-right text-stone-700">{{ $rp($d->ratecard_deal) }}</td>
                     <td class="px-3 text-stone-600">{{ $d->periode_mulai?->format('d M') }} – {{ $d->periode_selesai?->format('d M Y') ?: '—' }}</td>
                     <td class="text-stone-600">{{ $d->pic->fullname ?? '—' }}</td>
-                    <td class="text-stone-600">{{ $d->status }}</td>
+                    <td><span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $statusBadge[$d->status] ?? 'bg-stone-100 text-stone-600' }}">{{ $d->status }}</span></td>
                     @if($canFinance)
                         <td class="text-right text-stone-700">{{ $rp($d->total_biaya) }}</td>
                         <td class="px-3 text-stone-600">{{ $d->status_bayar }}</td>
                     @endif
+                    <td>
+                        @if($d->hasil_terisi)
+                            <span class="text-[10px]" title="ROMI {{ $d->hasil_romi ?? '—' }} · CPM {{ $d->hasil_cpm ? $rp($d->hasil_cpm) : '—' }}">{{ $d->hasil_verdict }}</span>
+                        @else
+                            <span class="text-[10px] text-stone-300">—</span>
+                        @endif
+                    </td>
                     <td class="text-right px-4">
-                        <a href="{{ route('kol-deals.edit', $d) }}" class="text-stone-500 hover:text-stone-900 font-semibold">Edit</a>
+                        @if($d->status !== 'berjalan')<button type="button" onclick="submitBulk('berjalan', {{ $d->id }})" class="text-blue-600 hover:text-blue-800 font-semibold" title="Acc → jalan">Acc</button>@endif
+                        @if($d->status !== 'selesai')<button type="button" onclick="submitBulk('selesai', {{ $d->id }})" class="ml-1 text-emerald-600 hover:text-emerald-800 font-semibold" title="Tandai selesai">Selesai</button>@endif
+                        @if($d->status !== 'batal')<button type="button" onclick="submitBulk('batal', {{ $d->id }})" class="ml-1 text-rose-500 hover:text-rose-700 font-semibold" title="Tolak">Tolak</button>@endif
+                        <a href="{{ route('kol-deals.edit', $d) }}" class="ml-2 text-stone-500 hover:text-stone-900 font-semibold">Edit</a>
                         <form method="POST" action="{{ route('kol-deals.destroy', $d) }}" class="inline"
                             onsubmit="return confirm('Hapus deal {{ $d->kode }}? (soft delete, tercatat di Audit Log)')">
                             @csrf @method('DELETE')
-                            <button class="ml-2 text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                            <button class="ml-1 text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
                         </form>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="{{ $canFinance ? 10 : 8 }}" class="px-4 py-8 text-center text-stone-400">Belum ada deal.</td></tr>
+                <tr><td colspan="{{ $canFinance ? 12 : 10 }}" class="px-4 py-8 text-center text-stone-400">Belum ada deal.</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -57,4 +108,39 @@
         <div class="px-4 py-3 border-t border-stone-100">{{ $deals->links() }}</div>
     @endif
 </div>
+
+<script>
+    function checkedIds() {
+        return Array.from(document.querySelectorAll('.kolDealCheck:checked')).map(function (c) { return c.value; });
+    }
+    function refreshBulk() {
+        var ids = checkedIds();
+        var bar = document.getElementById('bulkBar');
+        document.getElementById('bulkCount').textContent = ids.length + ' dipilih';
+        bar.classList.toggle('hidden', ids.length === 0);
+        bar.classList.toggle('flex', ids.length > 0);
+    }
+    function toggleAll(box) {
+        document.querySelectorAll('.kolDealCheck').forEach(function (c) { c.checked = box.checked; });
+        refreshBulk();
+    }
+    function clearChecks() {
+        document.querySelectorAll('.kolDealCheck').forEach(function (c) { c.checked = false; });
+        var all = document.getElementById('checkAll'); if (all) all.checked = false;
+        refreshBulk();
+    }
+    function submitBulk(status, singleId) {
+        var ids = singleId ? [String(singleId)] : checkedIds();
+        if (!ids.length) { alert('Pilih dulu deal-nya (centang di kiri).'); return; }
+        var labels = { berjalan: 'Acc (jalankan)', selesai: 'tandai Selesai', batal: 'Tolak' };
+        if (!confirm((labels[status] || status) + ' ' + ids.length + ' deal?')) return;
+        var f = document.createElement('form');
+        f.method = 'POST'; f.action = '{{ route('kol-deals.bulk-status') }}';
+        f.innerHTML = '<input type="hidden" name="_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="' + status + '">';
+        ids.forEach(function (id) {
+            var i = document.createElement('input'); i.type = 'hidden'; i.name = 'ids[]'; i.value = id; f.appendChild(i);
+        });
+        document.body.appendChild(f); f.submit();
+    }
+</script>
 @endsection

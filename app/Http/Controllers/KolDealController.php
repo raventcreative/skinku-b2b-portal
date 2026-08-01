@@ -15,13 +15,45 @@ class KolDealController extends Controller
     public function index(Request $request)
     {
         $deals = KolDeal::query()
-            ->with(['kol', 'pic'])
+            ->with(['kol.latestScreening', 'pic'])
             ->when($request->query('status'), fn ($q, $v) => $q->where('status', $v))
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
 
         return view('kol_deals.index', ['deals' => $deals]);
+    }
+
+    /**
+     * Acc/Tolak/Selesai cepat — satu atau banyak deal sekaligus (pola PO
+     * bulkStatus). Set status langsung ke pilihan (4 status datar, tanpa aturan
+     * transisi rumit). Gated kol.deal.manage lewat route.
+     */
+    public function bulkStatus(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            'status' => ['required', Rule::in(KolDeal::STATUSES)],
+        ]);
+
+        $deals = KolDeal::whereIn('id', $data['ids'])->get();
+        $diubah = 0;
+        foreach ($deals as $deal) {
+            if ($deal->status === $data['status']) {
+                continue;
+            }
+            $deal->update(['status' => $data['status']]);
+            $diubah++;
+            AuditService::log(
+                action: 'update_kol_deal_status',
+                targetType: 'kol_deal',
+                targetId: $deal->id,
+                after: ['kode' => $deal->kode, 'status' => $data['status'], 'via' => 'massal'],
+            );
+        }
+
+        return back()->with('status', "{$diubah} deal diubah ke status \"{$data['status']}\".");
     }
 
     public function create(Request $request)
@@ -69,7 +101,12 @@ class KolDealController extends Controller
             after: ['kode' => $deal->kode, 'kol' => $deal->kol->tiktok_username, 'jenis' => $deal->jenis],
         );
 
-        return redirect()->route('kol-deals.index')->with('status', "Deal {$deal->kode} dibuat.");
+        // Deal dari modal cepat di tabel KOL → balik ke Database KOL (tak pindah halaman).
+        $redirect = $request->boolean('dari_kol')
+            ? redirect()->route('kols.index')
+            : redirect()->route('kol-deals.index');
+
+        return $redirect->with('status', "Deal {$deal->kode} dibuat.");
     }
 
     public function edit(KolDeal $deal)
@@ -166,6 +203,13 @@ class KolDealController extends Controller
             'no_rekening' => ['nullable', 'string', 'max:50'],
             'bank' => ['nullable', 'string', 'max:100'],
             'atas_nama' => ['nullable', 'string', 'max:150'],
+            // Laporan hasil endorse (evaluasi kinerja). CPM/ROMI/verdict dihitung di model.
+            'hasil_tujuan' => ['nullable', Rule::in(KolDeal::TUJUAN)],
+            'hasil_video_upload' => ['nullable', 'integer', 'min:0'],
+            'hasil_video_fyp' => ['nullable', 'integer', 'min:0'],
+            'hasil_views' => ['nullable', 'integer', 'min:0'],
+            'hasil_revenue' => ['nullable', 'integer', 'min:0'],
+            'hasil_catatan' => ['nullable', 'string', 'max:2000'],
             // Bukan kolom deal — No. HP KOL yang diisi di form deal, disimpan balik
             // ke data KOL (bukan finansial, jadi tak ikut gerbang finance).
             'kol_phone' => ['nullable', 'string', 'max:30'],
@@ -184,6 +228,13 @@ class KolDealController extends Controller
         }
         if (array_key_exists('status_bayar', $data)) {
             $data['status_bayar'] ??= 'belum';
+        }
+
+        // Laporan hasil: tandai waktu diisi bila ada isian (tujuan/metrik).
+        $hasilTerisi = filled($data['hasil_tujuan'] ?? null) || filled($data['hasil_views'] ?? null)
+            || filled($data['hasil_revenue'] ?? null) || filled($data['hasil_video_upload'] ?? null);
+        if ($hasilTerisi) {
+            $data['hasil_diisi_at'] = now();
         }
 
         return $data;

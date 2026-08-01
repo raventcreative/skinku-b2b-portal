@@ -118,6 +118,52 @@
             </div>
         @endif
 
+        @if($deal->exists)
+            {{-- Laporan Hasil Endorse (Evaluasi Kinerja) — diisi setelah endorse jalan.
+                 CPM/ROMI/verdict dihitung otomatis, verdict menyesuaikan tujuan. --}}
+            <div class="border-t border-stone-100 pt-4 mb-4">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-stone-400 mb-2">Laporan Hasil Endorse</p>
+                <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                    <label class="text-[11px] font-semibold text-stone-500">Tujuan endorse
+                        <select name="hasil_tujuan" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                            <option value="">— pilih tujuan —</option>
+                            <option value="penjualan" @selected(old('hasil_tujuan', $deal->hasil_tujuan) === 'penjualan')>Penjualan (dinilai dari ROMI)</option>
+                            <option value="awareness" @selected(old('hasil_tujuan', $deal->hasil_tujuan) === 'awareness')>Awareness / Views (dinilai dari CPM)</option>
+                        </select>
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">Total video ter-upload
+                        <input type="number" name="hasil_video_upload" min="0" value="{{ old('hasil_video_upload', $deal->hasil_video_upload) }}"
+                            class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">Jumlah video FYP
+                        <input type="number" name="hasil_video_fyp" min="0" value="{{ old('hasil_video_fyp', $deal->hasil_video_fyp) }}"
+                            class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">Total views
+                        <input type="number" name="hasil_views" min="0" value="{{ old('hasil_views', $deal->hasil_views) }}"
+                            class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">Total revenue (Rp) <span class="text-stone-400 font-normal">— boleh kosong bila tujuan awareness</span>
+                        <input type="number" name="hasil_revenue" min="0" value="{{ old('hasil_revenue', $deal->hasil_revenue) }}"
+                            class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500 sm:col-span-2">Catatan hasil
+                        <textarea name="hasil_catatan" rows="2" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ old('hasil_catatan', $deal->hasil_catatan) }}</textarea>
+                    </label>
+                </div>
+                @if($deal->hasil_terisi)
+                    <div class="mt-3 flex flex-wrap items-center gap-4 text-xs bg-stone-50 rounded-xl p-3">
+                        <span class="font-bold">Verdict: {{ $deal->hasil_verdict }}</span>
+                        <span class="text-stone-500">Rata-rata views/video: <b>{{ $deal->hasil_avg_views !== null ? number_format($deal->hasil_avg_views, 0, ',', '.') : '—' }}</b></span>
+                        @if($canFinance)
+                            <span class="text-stone-500">CPM: <b>{{ $deal->hasil_cpm !== null ? 'Rp '.number_format($deal->hasil_cpm, 0, ',', '.') : '—' }}</b></span>
+                            <span class="text-stone-500">ROMI: <b>{{ $deal->hasil_romi !== null ? $deal->hasil_romi.'×' : '—' }}</b></span>
+                        @endif
+                    </div>
+                @endif
+            </div>
+        @endif
+
         @if($errors->any())
             <p class="mb-3 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">{{ $errors->first() }}</p>
         @endif
