@@ -101,6 +101,25 @@ class KolDealEnhancementTest extends TestCase
         $this->actingAs($sa)->get(route('kols.index'))->assertOk()->assertSee('id="dealModal"', false);
     }
 
+    public function test_simpan_laporan_via_modal_endpoint(): void
+    {
+        $sa = $this->user(User::ROLE_SUPER_ADMIN);
+        $kol = $this->kol();
+        $deal = $this->deal($kol, ['total_biaya' => 1_000_000]);
+
+        $this->actingAs($sa)
+            ->postJson(route('kol-deals.hasil', $deal), ['hasil_tujuan' => 'penjualan', 'hasil_revenue' => 3_000_000])
+            ->assertOk()->assertJson(['ok' => true, 'verdict' => KolDeal::VERDICT_BAGUS]);
+
+        $deal->refresh();
+        $this->assertNotNull($deal->hasil_diisi_at);
+        $this->assertSame(3_000_000, $deal->hasil_revenue);
+
+        // Mitra tanpa izin → 403.
+        $this->actingAs($this->user(User::ROLE_DISTRIBUTOR))
+            ->postJson(route('kol-deals.hasil', $deal), ['hasil_tujuan' => 'awareness'])->assertForbidden();
+    }
+
     public function test_ringkasan_hanya_deal_yang_ada_laporan(): void
     {
         $sa = $this->user(User::ROLE_SUPER_ADMIN);

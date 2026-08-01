@@ -87,14 +87,9 @@
                         <td class="px-3 text-stone-600">{{ $d->status_bayar }}</td>
                     @endif
                     <td>
-                        <a href="{{ route('kol-deals.edit', $d) }}" class="text-[10px] hover:underline"
-                            title="Buka laporan hasil (Edit → Laporan Hasil Endorse)">
-                            @if($d->hasil_terisi)
-                                {{ $d->hasil_verdict }}
-                            @else
-                                <span class="text-stone-400">+ isi laporan</span>
-                            @endif
-                        </a>
+                        <button type="button" class="hasilBtn text-[10px] hover:underline @if(! $d->hasil_terisi) text-stone-400 @endif"
+                            data-hasil="{{ json_encode(['id' => $d->id, 'kode' => $d->kode, 'tujuan' => $d->hasil_tujuan, 'video_upload' => $d->hasil_video_upload, 'video_fyp' => $d->hasil_video_fyp, 'views' => $d->hasil_views, 'revenue' => $d->hasil_revenue, 'catatan' => $d->hasil_catatan]) }}"
+                            onclick="openHasil(this)" title="Isi/lihat laporan hasil (popup)">{{ $d->hasil_terisi ? $d->hasil_verdict : '+ isi laporan' }}</button>
                     </td>
                     <td class="text-right px-4">
                         @if($d->status !== 'berjalan')<button type="button" onclick="submitBulk('berjalan', {{ $d->id }})" class="text-blue-600 hover:text-blue-800 font-semibold" title="Acc → jalan">Acc</button>@endif
@@ -152,5 +147,80 @@
         });
         document.body.appendChild(f); f.submit();
     }
+</script>
+
+{{-- Modal Laporan Hasil — isi tanpa pindah halaman, submit AJAX (verdict update di baris). --}}
+<dialog id="hasilModal" class="rounded-2xl p-0 w-full max-w-lg backdrop:bg-black/40">
+    <form id="hasilForm" method="POST" class="p-5">
+        @csrf
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-stone-900">Laporan Hasil — <span id="hm_kode" class="text-red-700"></span></h3>
+            <button type="button" onclick="document.getElementById('hasilModal').close()" class="text-stone-400 hover:text-stone-700 text-lg leading-none">&times;</button>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3 text-sm">
+            <label class="text-[11px] font-semibold text-stone-500">Tujuan endorse
+                <select name="hasil_tujuan" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    <option value="">— pilih tujuan —</option>
+                    <option value="penjualan">Penjualan (dinilai ROMI)</option>
+                    <option value="awareness">Awareness / Views (dinilai CPM)</option>
+                </select>
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Total video ter-upload
+                <input type="number" name="hasil_video_upload" min="0" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Jumlah video FYP
+                <input type="number" name="hasil_video_fyp" min="0" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Total views
+                <input type="number" name="hasil_views" min="0" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500 sm:col-span-2">Total revenue (Rp) <span class="text-stone-400 font-normal">— boleh kosong bila awareness</span>
+                <input type="number" name="hasil_revenue" min="0" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500 sm:col-span-2">Catatan hasil
+                <textarea name="hasil_catatan" rows="2" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"></textarea>
+            </label>
+        </div>
+        <div class="flex items-center gap-2 mt-4">
+            <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Simpan Laporan</button>
+            <button type="button" onclick="document.getElementById('hasilModal').close()" class="px-3 py-2 text-sm text-stone-500 hover:text-stone-800">Tutup</button>
+            <span id="hm_status" class="ml-auto text-[11px] text-emerald-600 hidden">tersimpan ✓</span>
+        </div>
+    </form>
+</dialog>
+<script>
+    var hasilTarget = null;
+    function openHasil(btn) {
+        hasilTarget = btn;
+        var d = JSON.parse(btn.dataset.hasil);
+        var f = document.getElementById('hasilForm');
+        f.action = '{{ url('kol-deals') }}/' + d.id + '/hasil';
+        document.getElementById('hm_kode').textContent = d.kode;
+        f.hasil_tujuan.value = d.tujuan || '';
+        f.hasil_video_upload.value = (d.video_upload != null ? d.video_upload : '');
+        f.hasil_video_fyp.value = (d.video_fyp != null ? d.video_fyp : '');
+        f.hasil_views.value = (d.views != null ? d.views : '');
+        f.hasil_revenue.value = (d.revenue != null ? d.revenue : '');
+        f.hasil_catatan.value = d.catatan || '';
+        document.getElementById('hm_status').classList.add('hidden');
+        document.getElementById('hasilModal').showModal();
+    }
+    document.getElementById('hasilForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var f = e.target;
+        fetch(f.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: new FormData(f),
+        }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+          .then(function (data) {
+              if (hasilTarget) {
+                  hasilTarget.textContent = data.verdict;
+                  hasilTarget.classList.remove('text-stone-400');
+              }
+              document.getElementById('hm_status').classList.remove('hidden');
+              setTimeout(function () { document.getElementById('hasilModal').close(); }, 600);
+          }).catch(function () { alert('Gagal menyimpan laporan. Coba lagi.'); });
+    });
 </script>
 @endsection

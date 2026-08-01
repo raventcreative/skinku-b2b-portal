@@ -151,6 +151,38 @@ class KolDealController extends Controller
         return $redirect->with('status', "Deal {$deal->kode} dibuat.");
     }
 
+    /**
+     * Simpan HANYA laporan hasil endorse (dari modal di daftar deal) — tanpa
+     * validasi field deal lain. AJAX -> JSON {verdict} biar baris ter-update
+     * tanpa reload; non-AJAX -> redirect balik (tetap jalan tanpa JS).
+     */
+    public function saveHasil(Request $request, KolDeal $deal)
+    {
+        $data = $request->validate([
+            'hasil_tujuan' => ['nullable', Rule::in(KolDeal::TUJUAN)],
+            'hasil_video_upload' => ['nullable', 'integer', 'min:0'],
+            'hasil_video_fyp' => ['nullable', 'integer', 'min:0'],
+            'hasil_views' => ['nullable', 'integer', 'min:0'],
+            'hasil_revenue' => ['nullable', 'integer', 'min:0'],
+            'hasil_catatan' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $data['hasil_diisi_at'] = now();
+        $deal->update($data);
+
+        AuditService::log(
+            action: 'update_kol_deal_hasil',
+            targetType: 'kol_deal',
+            targetId: $deal->id,
+            after: ['kode' => $deal->kode, 'verdict' => $deal->hasil_verdict, 'via' => 'modal'],
+        );
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['ok' => true, 'verdict' => $deal->hasil_verdict]);
+        }
+
+        return back()->with('status', "Laporan hasil {$deal->kode} disimpan (verdict: {$deal->hasil_verdict}).");
+    }
+
     public function edit(KolDeal $deal)
     {
         return view('kol_deals.form', $this->formData($deal, $deal->kol_id));
