@@ -3,7 +3,10 @@
 @section('heading', $deal->exists ? 'Edit Deal — '.$deal->kode : 'Deal / Kerjasama Baru')
 
 @section('content')
-@php $canFinance = auth()->user()->canDo('kol.deal.finance'); @endphp
+@php
+    $canFinance = auth()->user()->canDo('kol.deal.finance');
+    $canApprove = auth()->user()->canDo('kol.deal.approve');   // boleh set berjalan/batal
+@endphp
 <div class="max-w-3xl">
     <a href="{{ route('kol-deals.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Daftar Deal</a>
 
@@ -77,9 +80,11 @@
             <label class="text-[11px] font-semibold text-stone-500">Status
                 <select name="status" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     @foreach(\App\Models\KolDeal::STATUSES as $st)
-                        <option value="{{ $st }}" @selected(old('status', $deal->status ?? 'draft') === $st)>{{ $st }}</option>
+                        @php $lockApproval = in_array($st, ['berjalan', 'batal'], true) && ! $canApprove && ($deal->status ?? 'draft') !== $st; @endphp
+                        <option value="{{ $st }}" @selected(old('status', $deal->status ?? 'draft') === $st) @disabled($lockApproval)>{{ $st }}@if($lockApproval) (perlu penyetuju)@endif</option>
                     @endforeach
                 </select>
+                @unless($canApprove)<span class="block mt-1 text-[10px] text-stone-400">Acc (berjalan) / Tolak (batal) hanya oleh penyetuju.</span>@endunless
             </label>
         </div>
 

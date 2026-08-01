@@ -41,7 +41,8 @@ class Permissions
         'manage_tiktok' => 'Integrasi TikTok Shop',
         'kol.view' => 'Lihat Database KOL & Hasil Kurasi',
         'kol.screening.manage' => 'Input/Edit Screening KOL',
-        'kol.deal.manage' => 'Kelola Deal KOL (buat/edit/hapus)',
+        'kol.deal.manage' => 'Kelola Deal KOL (buat/edit/hapus/urus)',
+        'kol.deal.approve' => 'Setujui/Tolak Deal KOL (penyetuju — bukan pengaju)',
         'kol.deal.finance' => 'Finansial Deal KOL (biaya, status bayar, rekening)',
         'kol.report.view' => 'Laporan KOL (fase berikutnya)',
         'kanban.view' => 'Papan Kanban (tugas tim ala Trello)',
@@ -80,7 +81,12 @@ class Permissions
         // kol.report.view baru berarti di fase 3.
         'kol.view' => ['kol_specialist'],
         'kol.screening.manage' => ['kol_specialist'],
-        'kol.deal.manage' => ['kol_specialist'],
+        // Pengaju/pengurus deal. Admin ikut (perlu akses halaman deal untuk
+        // menyetujui); kol_specialist = pengaju yang TAK bisa Acc/Tolak.
+        'kol.deal.manage' => ['kol_specialist', User::ROLE_ADMIN],
+        // Penyetuju Acc/Tolak — TERPISAH dari pengaju. Admin (+ super_admin
+        // selalu); kol_specialist sengaja TIDAK dapat (pengaju ≠ penyetuju).
+        'kol.deal.approve' => [User::ROLE_ADMIN],
         'kol.deal.finance' => [],
         'kol.report.view' => [],
         // Dipakai SEMUA tim internal (klarifikasi Freddie) — admin, gudang,

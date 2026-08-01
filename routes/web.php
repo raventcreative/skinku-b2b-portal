@@ -244,18 +244,21 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::post('/kols-import/preview', [KolImportController::class, 'preview'])->name('kols.import.preview');
             Route::post('/kols-import/commit', [KolImportController::class, 'commit'])->name('kols.import.commit');
         });
+    });
 
-        Route::middleware('permission:kol.deal.manage')->group(function () {
-            Route::get('/kol-deals', [KolDealController::class, 'index'])->name('kol-deals.index');
-            Route::get('/kol-deals/laporan', [KolDealController::class, 'laporan'])->name('kol-deals.laporan');
-            Route::get('/kol-deals/create', [KolDealController::class, 'create'])->name('kol-deals.create');
-            Route::post('/kol-deals', [KolDealController::class, 'store'])->name('kol-deals.store');
-            Route::post('/kol-deals/bulk-status', [KolDealController::class, 'bulkStatus'])->name('kol-deals.bulk-status');
-            Route::get('/kol-deals/{deal}/edit', [KolDealController::class, 'edit'])->name('kol-deals.edit');
-            Route::put('/kol-deals/{deal}', [KolDealController::class, 'update'])->name('kol-deals.update');
-            Route::post('/kol-deals/{deal}/hasil', [KolDealController::class, 'saveHasil'])->name('kol-deals.hasil');
-            Route::delete('/kol-deals/{deal}', [KolDealController::class, 'destroy'])->name('kol-deals.destroy');
-        });
+    // Deal KOL: gated kol.deal.manage SAJA (bukan kol.view) — penyetuju (admin)
+    // perlu akses ini tanpa harus lihat database kurasi KOL. Acc/Tolak dijaga
+    // lagi oleh kol.deal.approve di controller (pengaju != penyetuju).
+    Route::middleware('permission:kol.deal.manage')->group(function () {
+        Route::get('/kol-deals', [KolDealController::class, 'index'])->name('kol-deals.index');
+        Route::get('/kol-deals/laporan', [KolDealController::class, 'laporan'])->name('kol-deals.laporan');
+        Route::get('/kol-deals/create', [KolDealController::class, 'create'])->name('kol-deals.create');
+        Route::post('/kol-deals', [KolDealController::class, 'store'])->name('kol-deals.store');
+        Route::post('/kol-deals/bulk-status', [KolDealController::class, 'bulkStatus'])->name('kol-deals.bulk-status');
+        Route::get('/kol-deals/{deal}/edit', [KolDealController::class, 'edit'])->name('kol-deals.edit');
+        Route::put('/kol-deals/{deal}', [KolDealController::class, 'update'])->name('kol-deals.update');
+        Route::post('/kol-deals/{deal}/hasil', [KolDealController::class, 'saveHasil'])->name('kol-deals.hasil');
+        Route::delete('/kol-deals/{deal}', [KolDealController::class, 'destroy'])->name('kol-deals.destroy');
     });
 
     /* ---------------- Kanban (papan tugas tim ala Trello) ---------------- */

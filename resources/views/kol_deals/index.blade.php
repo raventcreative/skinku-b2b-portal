@@ -7,6 +7,7 @@
     $u = auth()->user();
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $canFinance = $u->canDo('kol.deal.finance');
+    $canApprove = $u->canDo('kol.deal.approve');   // Acc/Tolak — penyetuju saja
     $statusBadge = [
         'draft' => 'bg-stone-100 text-stone-600',
         'berjalan' => 'bg-blue-100 text-blue-700',
@@ -39,9 +40,9 @@
 {{-- Bar aksi massal (muncul saat ada centang) --}}
 <div id="bulkBar" class="hidden items-center gap-2 mb-3 p-2 bg-stone-800 text-white rounded-xl text-xs">
     <span id="bulkCount" class="px-2 font-semibold">0 dipilih</span>
-    <button type="button" onclick="submitBulk('berjalan')" class="px-3 py-1.5 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold">✓ Acc (jalan)</button>
+    @if($canApprove)<button type="button" onclick="submitBulk('berjalan')" class="px-3 py-1.5 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold">✓ Acc (jalan)</button>@endif
     <button type="button" onclick="submitBulk('selesai')" class="px-3 py-1.5 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-semibold">✓ Selesai</button>
-    <button type="button" onclick="submitBulk('batal')" class="px-3 py-1.5 bg-rose-600 rounded-lg hover:bg-rose-700 font-semibold">✕ Tolak</button>
+    @if($canApprove)<button type="button" onclick="submitBulk('batal')" class="px-3 py-1.5 bg-rose-600 rounded-lg hover:bg-rose-700 font-semibold">✕ Tolak</button>@endif
     <button type="button" onclick="clearChecks()" class="ml-auto px-2 text-stone-300 hover:text-white">batal pilih</button>
 </div>
 
@@ -92,9 +93,9 @@
                             onclick="openHasil(this)" title="Isi/lihat laporan hasil (popup)">{{ $d->hasil_terisi ? $d->hasil_verdict : '+ isi laporan' }}</button>
                     </td>
                     <td class="text-right px-4">
-                        @if($d->status !== 'berjalan')<button type="button" onclick="submitBulk('berjalan', {{ $d->id }})" class="text-blue-600 hover:text-blue-800 font-semibold" title="Acc → jalan">Acc</button>@endif
+                        @if($canApprove && $d->status !== 'berjalan')<button type="button" onclick="submitBulk('berjalan', {{ $d->id }})" class="text-blue-600 hover:text-blue-800 font-semibold" title="Acc → jalan">Acc</button>@endif
                         @if($d->status !== 'selesai')<button type="button" onclick="submitBulk('selesai', {{ $d->id }})" class="ml-1 text-emerald-600 hover:text-emerald-800 font-semibold" title="Tandai selesai">Selesai</button>@endif
-                        @if($d->status !== 'batal')<button type="button" onclick="submitBulk('batal', {{ $d->id }})" class="ml-1 text-rose-500 hover:text-rose-700 font-semibold" title="Tolak">Tolak</button>@endif
+                        @if($canApprove && $d->status !== 'batal')<button type="button" onclick="submitBulk('batal', {{ $d->id }})" class="ml-1 text-rose-500 hover:text-rose-700 font-semibold" title="Tolak">Tolak</button>@endif
                         <a href="{{ route('kol-deals.edit', $d) }}" class="ml-2 text-stone-500 hover:text-stone-900 font-semibold">Edit</a>
                         <form method="POST" action="{{ route('kol-deals.destroy', $d) }}" class="inline"
                             onsubmit="return confirm('Hapus deal {{ $d->kode }}? (soft delete, tercatat di Audit Log)')">

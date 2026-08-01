@@ -60,6 +60,42 @@ class KolDealEnhancementTest extends TestCase
             ->post(route('kol-deals.bulk-status'), ['ids' => [$d2->id], 'status' => 'batal'])->assertForbidden();
     }
 
+    public function test_pengaju_tak_bisa_acc_tolak_penyetuju_bisa(): void
+    {
+        $pengaju = $this->user('kol_specialist');    // manage, TANPA approve
+        $penyetuju = $this->user(User::ROLE_ADMIN);  // manage + approve
+        $kol = $this->kol();
+        $deal = $this->deal($kol);
+
+        // Pengaju: Acc & Tolak ditolak.
+        $this->actingAs($pengaju)->post(route('kol-deals.bulk-status'), ['ids' => [$deal->id], 'status' => 'berjalan'])->assertForbidden();
+        $this->actingAs($pengaju)->post(route('kol-deals.bulk-status'), ['ids' => [$deal->id], 'status' => 'batal'])->assertForbidden();
+
+        // Pengaju: Selesai BOLEH (operasional).
+        $this->actingAs($pengaju)->post(route('kol-deals.bulk-status'), ['ids' => [$deal->id], 'status' => 'selesai'])->assertRedirect();
+        $this->assertSame('selesai', $deal->fresh()->status);
+
+        // Penyetuju: Acc boleh.
+        $this->actingAs($penyetuju)->post(route('kol-deals.bulk-status'), ['ids' => [$deal->id], 'status' => 'berjalan'])->assertRedirect();
+        $this->assertSame('berjalan', $deal->fresh()->status);
+    }
+
+    public function test_pengaju_tak_bisa_acc_lewat_form_edit(): void
+    {
+        $pengaju = $this->user('kol_specialist');
+        $kol = $this->kol();
+        $deal = $this->deal($kol, ['status' => 'draft']);
+        $base = ['kol_id' => $kol->id, 'jenis' => 'vt', 'ratecard_deal' => 1_000_000, 'jumlah_slot' => 1];
+
+        // Ubah ke berjalan (acc) lewat form Edit → ditolak, status tetap draft.
+        $this->actingAs($pengaju)->put(route('kol-deals.update', $deal), array_merge($base, ['status' => 'berjalan']))->assertForbidden();
+        $this->assertSame('draft', $deal->fresh()->status);
+
+        // Edit field lain tanpa ubah status → boleh.
+        $this->actingAs($pengaju)->put(route('kol-deals.update', $deal), array_merge($base, ['status' => 'draft', 'ratecard_deal' => 1_500_000]))->assertRedirect();
+        $this->assertSame(1_500_000, $deal->fresh()->ratecard_deal);
+    }
+
     public function test_filter_status(): void
     {
         $sa = $this->user(User::ROLE_SUPER_ADMIN);

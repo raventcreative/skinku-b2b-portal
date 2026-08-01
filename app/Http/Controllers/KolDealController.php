@@ -36,6 +36,7 @@ class KolDealController extends Controller
             'ids.*' => ['integer'],
             'status' => ['required', Rule::in(KolDeal::STATUSES)],
         ]);
+        $this->guardApprovalStatus($data['status'], $request->user());
 
         $deals = KolDeal::whereIn('id', $data['ids'])->get();
         $diubah = 0;
@@ -191,6 +192,7 @@ class KolDealController extends Controller
     public function update(Request $request, KolDeal $deal): RedirectResponse
     {
         $data = $this->validated($request);
+        $this->guardApprovalStatus($data['status'] ?? null, $request->user(), $deal->status);
         $kolPhone = $data['kol_phone'] ?? null;
         unset($data['kol_phone']);
 
@@ -250,6 +252,22 @@ class KolDealController extends Controller
     {
         if (filled($phone)) {
             Kol::whereKey($kolId)->update(['phone' => $phone]);
+        }
+    }
+
+    /**
+     * Acc (berjalan) & Tolak (batal) = wewenang PENYETUJU, terpisah dari
+     * pengaju. Pengaju (kol.deal.manage tanpa approve) tak boleh mengubah status
+     * ke berjalan/batal di jalur mana pun (tombol, massal, atau form Edit).
+     * "Selesai" & "draft" tetap boleh pengaju (operasional).
+     */
+    private function guardApprovalStatus(?string $status, User $user, ?string $current = null): void
+    {
+        if ($status === $current) {
+            return; // status tak berubah — boleh (mis. edit field lain saat sudah berjalan)
+        }
+        if (in_array($status, ['berjalan', 'batal'], true) && ! $user->canDo('kol.deal.approve')) {
+            abort(403, 'Hanya penyetuju (izin kol.deal.approve) yang bisa Acc/Tolak deal KOL.');
         }
     }
 

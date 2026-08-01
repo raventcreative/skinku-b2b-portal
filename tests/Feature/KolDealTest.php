@@ -168,8 +168,10 @@ class KolDealTest extends TestCase
         $deal = KolDeal::first();
         $this->assertNotNull(AuditLog::where('action', 'create_kol_deal')->where('target_id', $deal->id)->first());
 
+        // 'selesai' (bukan 'berjalan'/'batal') — pengaju/specialist boleh; Acc/Tolak
+        // kini wewenang penyetuju (kol.deal.approve).
         $this->actingAs($spec)->put(route('kol-deals.update', $deal), $this->payload($kol, [
-            'status' => 'berjalan', 'no_rekening' => '555666777',
+            'status' => 'selesai', 'no_rekening' => '555666777',
         ]));
         $update = AuditLog::where('action', 'update_kol_deal')->first();
         $this->assertNotNull($update);
