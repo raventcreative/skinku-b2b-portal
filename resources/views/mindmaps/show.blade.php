@@ -100,7 +100,7 @@
             </svg>
             <div id="mmNodes"></div>
         </div>
-        <p id="mmHint" class="absolute bottom-3 left-3 text-[11px] text-stone-400">{{ $canEdit ? 'Dobel-klik = sticky/ketik · tombol + = cabang baru · titik biru = sambung manual · seret = pindah · scroll/cubit = zoom · Delete = hapus · Ctrl+Z = undo' : 'Mode lihat saja' }}</p>
+        <p id="mmHint" class="absolute bottom-3 left-3 text-[11px] text-stone-400">{{ $canEdit ? 'Dobel-klik = sticky/ketik · tombol + = cabang · titik biru = sambung · seret = pindah · seret pojok kanan-bawah = ubah ukuran · scroll/cubit = zoom · Delete = hapus · Ctrl+Z = undo' : 'Mode lihat saja' }}</p>
     </div>
 </div>
 
@@ -177,10 +177,14 @@
                 h.className = 'mm-port absolute -right-1.5 top-1/2 -mt-1.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white cursor-crosshair';
                 el.appendChild(h);
                 var plus = document.createElement('div');
-                plus.className = 'mm-plus absolute -right-2.5 -bottom-2.5 w-5 h-5 rounded-full bg-red-600 text-white text-sm leading-none flex items-center justify-center shadow cursor-pointer select-none';
+                plus.className = 'mm-plus absolute left-1/2 -ml-2.5 -bottom-2.5 w-5 h-5 rounded-full bg-red-600 text-white text-sm leading-none flex items-center justify-center shadow cursor-pointer select-none';
                 plus.textContent = '+';
                 plus.title = 'Tambah cabang';
                 el.appendChild(plus);
+                var rz = document.createElement('div');
+                rz.className = 'mm-resize absolute -right-1 -bottom-1 w-3 h-3 rounded-sm bg-stone-400 border border-white cursor-nwse-resize';
+                rz.title = 'Seret untuk ubah ukuran sticky';
+                el.appendChild(rz);
             }
         }
         markNodeRing(el);
@@ -265,9 +269,10 @@
     function hit(target) {
         var port = target && target.closest ? target.closest('.mm-port') : null;
         var plus = target && target.closest ? target.closest('.mm-plus') : null;
+        var resize = target && target.closest ? target.closest('.mm-resize') : null;
         var box = target && target.closest ? target.closest('[data-id]') : null;
         if (box && box.parentNode === nodesLayer) {
-            return { kind: 'node', id: box.dataset.id, port: !!port, plus: !!plus,
+            return { kind: 'node', id: box.dataset.id, port: !!port, plus: !!plus, resize: !!resize,
                      typing: (target.classList && target.classList.contains('mm-text') && document.activeElement === target) };
         }
         if (box && box.parentNode === edgesLayer) return { kind: 'edge', id: box.dataset.id };
@@ -275,7 +280,7 @@
     }
 
     // ---------- pointer (dipakai mouse & sentuh) ----------
-    var mode = null, pan0, node0, link0, tempPath = null, moved = false;
+    var mode = null, pan0, node0, link0, resize0, tempPath = null, moved = false;
 
     function pointerDown(cx, cy, target, ev) {
         moved = false;
@@ -284,6 +289,12 @@
         if (h.kind === 'node') {
             if (h.typing) { mode = null; return; }           // sedang edit: biarkan kursor teks
             if (ev && ev.cancelable) ev.preventDefault();    // klik biasa: pilih node TANPA fokus teks (biar Delete jalan)
+            if (h.resize) {                                   // seret pojok = ubah ukuran
+                select({ kind: 'node', id: h.id });
+                mode = 'resize';
+                resize0 = { id: h.id, sx: cx, sy: cy, ow: nodes[h.id].width || 200, oh: nodes[h.id].height || 120 };
+                return;
+            }
             if (h.plus) { mode = null; addChild(h.id); return; } // tombol + = tambah cabang
             if (h.port) {                                     // mulai tarik garis
                 mode = 'link'; link0 = { from: h.id };
@@ -318,6 +329,15 @@
             var p = toWorld(cx, cy);
             tempPath.setAttribute('d', 'M' + (f.x + f.width) + ',' + (f.y + f.height / 2) + ' L' + p.x + ',' + p.y);
         }
+        else if (mode === 'resize') {
+            var rid = resize0.id; if (!nodes[rid]) return;
+            var w = Math.min(2000, Math.max(60, resize0.ow + (cx - resize0.sx) / view.k));
+            var hgt = Math.min(2000, Math.max(40, resize0.oh + (cy - resize0.sy) / view.k));
+            nodes[rid].width = w; nodes[rid].height = hgt;
+            var rel = document.getElementById('mmn-' + rid);
+            if (rel) { rel.style.width = w + 'px'; rel.style.height = hgt + 'px'; }
+            redrawEdgesFor(rid);
+        }
     }
     function pointerUp(cx, cy) {
         canvas.style.cursor = 'grab';
@@ -328,6 +348,15 @@
                 if (!nodes[id]) return;
                 nodes[id].x = ox; nodes[id].y = oy; renderNode(nodes[id]); redrawEdgesFor(id);
                 return api(R.node + '/' + id, 'PATCH', { x: Math.round(ox), y: Math.round(oy) }).then(markDirty);
+            });
+        }
+        if (mode === 'resize' && moved && nodes[resize0.id]) {
+            var rid = resize0.id, row = resize0.ow, roh = resize0.oh;
+            api(R.node + '/' + rid, 'PATCH', { width: Math.round(nodes[rid].width), height: Math.round(nodes[rid].height) }).then(markDirty);
+            pushUndo(function () {
+                if (!nodes[rid]) return;
+                nodes[rid].width = row; nodes[rid].height = roh; renderNode(nodes[rid]); redrawEdgesFor(rid);
+                return api(R.node + '/' + rid, 'PATCH', { width: Math.round(row), height: Math.round(roh) }).then(markDirty);
             });
         }
         if (mode === 'link') {
