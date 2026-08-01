@@ -247,6 +247,7 @@ Route::middleware(['auth', 'role'])->group(function () {
 
         Route::middleware('permission:kol.deal.manage')->group(function () {
             Route::get('/kol-deals', [KolDealController::class, 'index'])->name('kol-deals.index');
+            Route::get('/kol-deals/laporan', [KolDealController::class, 'laporan'])->name('kol-deals.laporan');
             Route::get('/kol-deals/create', [KolDealController::class, 'create'])->name('kol-deals.create');
             Route::post('/kol-deals', [KolDealController::class, 'store'])->name('kol-deals.store');
             Route::post('/kol-deals/bulk-status', [KolDealController::class, 'bulkStatus'])->name('kol-deals.bulk-status');

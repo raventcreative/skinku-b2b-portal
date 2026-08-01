@@ -100,4 +100,18 @@ class KolDealEnhancementTest extends TestCase
         $this->kol();
         $this->actingAs($sa)->get(route('kols.index'))->assertOk()->assertSee('id="dealModal"', false);
     }
+
+    public function test_ringkasan_hanya_deal_yang_ada_laporan(): void
+    {
+        $sa = $this->user(User::ROLE_SUPER_ADMIN);
+        $kol = $this->kol();
+        $ada = $this->deal($kol, ['hasil_tujuan' => 'penjualan', 'hasil_views' => 100_000, 'hasil_revenue' => 3_000_000, 'hasil_diisi_at' => now()]);
+        $belum = $this->deal($kol); // tanpa laporan
+
+        $this->actingAs($sa)->get(route('kol-deals.laporan'))
+            ->assertOk()
+            ->assertSee($ada->kode)
+            ->assertDontSee($belum->kode)
+            ->assertSee('TOTAL');
+    }
 }

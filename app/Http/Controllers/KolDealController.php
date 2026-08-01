@@ -56,6 +56,48 @@ class KolDealController extends Controller
         return back()->with('status', "{$diubah} deal diubah ke status \"{$data['status']}\".");
     }
 
+    /**
+     * Ringkasan hasil endorse SEMUA deal yang sudah punya laporan — buat
+     * membandingkan performa dalam satu layar (mirip sheet "KOL Overview").
+     * Urut: verdict terbaik dulu, lalu terbaru. Baris total di view.
+     */
+    public function laporan(Request $request)
+    {
+        $tujuan = $request->query('tujuan');
+        $status = $request->query('status');
+
+        $deals = KolDeal::query()
+            ->with('kol')
+            ->whereNotNull('hasil_diisi_at')
+            ->when($tujuan, fn ($q, $v) => $q->where('hasil_tujuan', $v))
+            ->when($status, fn ($q, $v) => $q->where('status', $v))
+            ->get();
+
+        $rank = [KolDeal::VERDICT_BAGUS => 3, KolDeal::VERDICT_CUKUP => 2, KolDeal::VERDICT_JELEK => 1, KolDeal::VERDICT_BELUM => 0];
+        $deals = $deals->sortByDesc(
+            fn (KolDeal $d) => ($rank[$d->hasil_verdict] ?? 0) * 100_000_000_000 + (optional($d->hasil_diisi_at)->timestamp ?? 0)
+        )->values();
+
+        $totBiaya = (int) $deals->sum('total_biaya');
+        $totViews = (int) $deals->sum('hasil_views');
+        $totRevenue = (int) $deals->sum('hasil_revenue');
+
+        return view('kol_deals.laporan', [
+            'deals' => $deals,
+            'tujuan' => $tujuan,
+            'status' => $status,
+            'totals' => [
+                'biaya' => $totBiaya,
+                'views' => $totViews,
+                'revenue' => $totRevenue,
+                'video_upload' => (int) $deals->sum('hasil_video_upload'),
+                'video_fyp' => (int) $deals->sum('hasil_video_fyp'),
+                'cpm' => $totViews > 0 ? (int) round($totBiaya / $totViews * 1000) : null,
+                'romi' => $totBiaya > 0 ? round($totRevenue / $totBiaya, 2) : null,
+            ],
+        ]);
+    }
+
     public function create(Request $request)
     {
         return view('kol_deals.form', $this->formData(new KolDeal, (int) $request->query('kol', 0)));
