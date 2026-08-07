@@ -41,9 +41,16 @@ class PdfTextExtractor
     }
 
     /**
-     * true bila teks kosong ATAU rasio karakter non-printable/control tinggi (>0.3) —
+     * true bila teks kosong ATAU rasio karakter control/binary tinggi (>0.3) —
      * sinyal bahwa extract() gagal membaca PDF (font CID, hasil scan, dll) dan
      * pemanggil sebaiknya fallback ke AI multimodal.
+     *
+     * Whitespace struktural (spasi/tab/baris baru) DIBUANG dulu sebelum dihitung —
+     * extract() menambahkan satu "\n" per token/sel yang berhasil diekstrak, jadi
+     * laporan yang rapi tapi sangat tabular (banyak sel pendek) bisa punya proporsi
+     * "\n" tinggi walau isinya bersih sama sekali. \n sendiri masuk kategori Unicode
+     * Cc (control) — kalau ikut dihitung, rasio jadi ukuran "banyaknya sel", bukan
+     * "banyaknya sampah biner", dan PDF bersih-tapi-tabular bisa salah kena flag.
      */
     public static function looksUnreadable(string $text): bool
     {
@@ -51,15 +58,20 @@ class PdfTextExtractor
             return true;
         }
 
-        $nonPrintable = preg_match_all('/[^\P{C}]/u', $text);
-
-        // preg_match_all mengembalikan false kalau $text bukan UTF-8 valid —
-        // itu sendiri pertanda kuat teksnya berantakan (byte biner/CID font).
-        if ($nonPrintable === false) {
+        // preg_replace balikin null kalau $text bukan UTF-8 valid — itu sendiri
+        // pertanda kuat teksnya berantakan (byte biner/CID font), sama seperti
+        // preg_match_all yang balikin false untuk alasan yang sama di bawah.
+        $stripped = preg_replace('/[\t\n\r ]+/u', '', $text);
+        if ($stripped === null || $stripped === '') {
             return true;
         }
 
-        return ($nonPrintable / strlen($text)) > 0.3;
+        $junk = preg_match_all('/[^\P{Cc}]/u', $stripped);
+        if ($junk === false) {
+            return true;
+        }
+
+        return ($junk / strlen($stripped)) > 0.3;
     }
 
     /** Tarik teks dari satu content stream PDF yang sudah didekompresi. */
@@ -82,8 +94,10 @@ class PdfTextExtractor
                 }
                 $out .= "\n";
             } else {
-                // (teks) Tj — satu string literal.
-                $out .= self::unescape($token[2])."\n";
+                // (teks) Tj — satu string literal. token[2] bisa tak ada sama sekali
+                // (bukan cuma '') kalau yang match justru cabang `[] TJ` kosong —
+                // grup trailing yang tak ikut match dihilangkan PCRE dari hasil.
+                $out .= self::unescape($token[2] ?? '')."\n";
             }
         }
 
