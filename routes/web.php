@@ -33,6 +33,7 @@ use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockReceiptController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TelegramWebhookController;
 use App\Http\Controllers\TikTokController;
 use App\Http\Controllers\TikTokIncomeController;
 use App\Http\Controllers\UserController;
@@ -52,6 +53,16 @@ Route::middleware('guest')->group(function () {
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Report Bot Telegram webhook (publik — Telegram tidak login)
+|--------------------------------------------------------------------------
+| Keamanan dijaga oleh verifikasi X-Telegram-Bot-Api-Secret-Token di
+| TelegramWebhookController, bukan oleh middleware auth. Rute ini juga
+| dikecualikan dari CSRF di bootstrap/app.php.
+*/
+Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
 
 Route::get('/', fn () => redirect()->route('dashboard'));
 

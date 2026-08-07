@@ -20,6 +20,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'internal' => InternalOnlyMiddleware::class,
         ]);
+
+        // Webhook Telegram: request publik dari server Telegram, tak pernah
+        // membawa CSRF token. Keamanan dijaga oleh verifikasi secret token di
+        // TelegramWebhookController, bukan oleh CSRF.
+        $middleware->validateCsrfTokens(except: [
+            'telegram/webhook',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
