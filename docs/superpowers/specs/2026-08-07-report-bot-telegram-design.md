@@ -1,136 +1,133 @@
 # Report Bot Telegram (Migrasi n8n → SKINKU) — Design Spec
 
-**Tanggal:** 2026-08-07
+**Tanggal:** 2026-08-07 (diperbarui setelah validasi 3 file sample)
 **Status:** Design — menunggu review Freddie sebelum writing-plans
-**Sumber:** n8n workflow export "Daily Report FS(fix), Leads + Ads (Updgraded)" (56 node). Ekstraksi lengkap disimpan di scratchpad (`n8n_full.txt`) + file JSON asli.
+**Sumber:** n8n workflow export "Daily Report FS(fix), Leads + Ads (Updgraded)" (56 node) + 3 file sample nyata.
 
 ## Tujuan
-Memindahkan workflow n8n (bot Telegram penganalisis laporan harian) ke dalam SKINKU sebagai kode Laravel, supaya **tidak perlu langganan n8n**, jalan di infra yang sudah ada, **tanpa menu fitur yang kelihatan** (murni background/bot).
+Memindahkan workflow n8n (bot Telegram pengolah laporan harian) ke dalam SKINKU sebagai kode Laravel, supaya **tidak perlu langganan n8n**, jalan di infra yang ada, **tanpa menu fitur yang kelihatan** (murni background/bot).
 
-## Konteks bisnis (apa yang bot ini lakukan)
-Tim mengirim **file laporan ke bot Telegram**; bot mengunduh file, menganalisis dengan AI, membalas **file report HTML** (+ untuk Income: file xlsx). Tiga alur, dipilih dari **kata kunci di nama file**:
-- **Leads** — laporan harian CS/sales (leads, closing, closing rate, omzet per orang).
-- **Ads** — laporan performa iklan.
-- **FS** — Financial Statement (laporan keuangan, dengan KPI + kaidah PSAK).
-- (Jalur **Income** Excel & **CSV order** di workflow n8n = fitur yang **SUDAH dimigrasi** ke SKINKU sebagai `TikTokIncomeController` / `/tiktok/income`. **Tidak dibangun ulang** — lihat "Di luar cakupan".)
+## Cakupan final (3 flow)
+Kirim file ke bot Telegram; jenis flow dipilih dari **kata kunci nama file** + tipe file:
+1. **Leads** — laporan harian CS/sales (leads, closing, closing rate, omzet per orang) → **AI analisis** → report HTML.
+2. **Ads** — laporan performa iklan → **AI analisis** → report HTML.
+3. **TikTok Income** — gabung "Semua pesanan" (.csv) + income (.xlsx) join by Order ID → xlsx. **Pakai ulang `TikTokIncomeReportService` yang sudah ada** (bukan AI, bukan nulis ulang).
 
-## Keputusan yang sudah dikunci (hasil brainstorm)
-1. **Rebuild di SKINKU** (Laravel, zero-dependency), bukan self-host n8n.
-2. **Tanpa arsip** — Google Drive dibuang total. Output cukup dibalas via Telegram.
-3. **AI numpang infra SKINKU** — `AiProviderFactory` (OpenAI-compatible). Sudah mendukung **OpenRouter** (base URL configurable; bahkan default backup = OpenRouter → bisa pilih model Gemini/GPT). Tidak ada kredensial AI baru selain key yang sudah/akan diisi.
-4. **Gerbang 1 kode akses bersama** — bot menolak chat yang belum "login". Kirim kode sekali → chat ditandai aktif → seterusnya bebas. Kode dikelola dari kontrol admin kecil (bukan menu fitur).
-5. **Tanpa menu fitur** — hanya endpoint webhook + kontrol admin kecil di Pengaturan Sistem.
+**Di-drop / diparkir:**
+- **FS (Financial Statement)** — **di-drop** (belum ada sample; garap nanti kalau perlu, lihat "Di luar cakupan").
+- **Creator List (analisis creator TikTok)** — file sample sempat dikirim tapi **bukan** yang dimaksud "tiktok"; **diparkir** (bisa jadi flow terpisah kalau nanti diminta).
+
+## Keputusan yang dikunci
+1. **Rebuild di SKINKU** (Laravel, zero-dependency).
+2. **Tanpa arsip** — Google Drive dibuang. Output dibalas via Telegram.
+3. **AI numpang `AiProviderFactory`** (OpenAI-compatible; OpenRouter didukung → bisa pilih Gemini/GPT). **Model WAJIB multimodal** (lihat ekstraksi PDF).
+4. **Gerbang 1 kode akses bersama** — chat harus "login" sekali (kirim kode) → aktif → seterusnya bebas. Dikelola dari kontrol admin kecil (bukan menu fitur).
+5. **Tanpa menu fitur** — hanya webhook + kontrol admin kecil.
 
 ## ⚠️ Keamanan (WAJIB sebelum mulai)
-- File JSON n8n memuat **token bot Telegram yang masih aktif**. **Rotate/ganti token** di BotFather sebelum apa pun. Token baru masuk `.env` (`TELEGRAM_BOT_TOKEN`), tidak pernah di kode.
-- Webhook diverifikasi pakai **Telegram secret token** (header `X-Telegram-Bot-Api-Secret-Token`) → hanya Telegram yang boleh memicu endpoint. Secret di `.env`.
-- Gerbang kode akses melindungi kredit AI dari penyalahgunaan.
+- File JSON n8n memuat **token bot Telegram aktif** → **rotate di BotFather**, token baru ke `.env` (`TELEGRAM_BOT_TOKEN`), tak pernah di kode.
+- Webhook diverifikasi **Telegram secret token** (header `X-Telegram-Bot-Api-Secret-Token`) di `.env`.
+- Gerbang kode akses melindungi kredit AI.
 
-## 🔴 Titik teknis paling berisiko: ekstraksi PDF (koreksi dari diskusi awal)
-Sebelumnya aku bilang "PDF bisa langsung ke AI jadi hurdle-nya hilang". Itu **kurang tepat** — dan penting diluruskan:
+## 🔬 Ekstraksi PDF — SUDAH DIVALIDASI (bukan lagi risiko terbuka)
+Aku tes extractor PHP murni (FlateDecode via zlib) ke 3 file nyata:
 
-Filosofi workflow ini adalah **angka di-parse deterministik dulu**, lalu AI **hanya menarasikan** (prompt-nya keras: *"do NOT invent numbers, use ONLY provided input"*). Kalau PDF langsung dilempar ke AI untuk mengambil angka, kita melanggar filosofi itu dan berisiko AI salah baca angka keuangan.
+| File | Hasil ekstraksi PHP murni | Sebab |
+|---|---|---|
+| Leads (`Rave leads…`) | ❌ **0 teks** | font **CID/Type0** 2-byte, ToUnicode minim |
+| Ads (`…Report Ad…`) | ❌ **teks sampah** | font CID + **3 gambar**; sebenarnya **Excel→PDF** |
+| Creator List | ✅ **bersih** (tabel rapi) | font biasa, tanpa CID |
 
-Jadi untuk **setia** ke desain asli, kita tetap butuh **PDF → teks** lebih dulu, baru parser deterministik jalan. Opsi (diurutkan rekomendasi):
-
-- **A (rekomendasi): Minimal `PdfTextExtractor` PHP** — sesuai gaya SKINKU (`SpreadsheetReader`/`XlsxWriter` yang sudah ada). PDF report itu **berbasis teks** (bukan scan), jadi bisa dibaca dengan parser stream + `gzuncompress` (zlib **bawaan PHP**, tanpa package). Cukup untuk PDF generated; rapuh untuk PDF aneh/scan.
-- **B (fallback): AI multimodal sebagai OCR** — kalau extractor gagal pada file tertentu, kirim PDF ke model multimodal HANYA untuk mengubah jadi teks/tabel, lalu parser deterministik tetap jalan atas teks itu.
-- **C: Dorong input Excel/CSV** — jika sumber datanya memang dari spreadsheet, minta kirim Excel/CSV (lebih andal dari PDF). Jalur Income sudah begini.
-
-**De-risk lebih dulu:** butuh **contoh file PDF asli** (Leads/Ads/FS) dari Freddie untuk memvalidasi extractor di Fase 1 sebelum lanjut. Asumsi `zlib` aktif di server (standar — perlu dicek).
+**Kesimpulan → strategi HIBRIDA:**
+- **Coba `PdfTextExtractor` PHP murni dulu** (gratis) — cukup untuk PDF rapi & semua Excel/CSV.
+- **Kalau hasil kosong/sampah → fallback AI multimodal** yang membaca PDF langsung (Leads & Ads butuh ini). **Karena itu model AI wajib multimodal** (gpt-4o / gemini-flash via OpenRouter).
+- **Ads: minta kirim `.xlsx` aslinya** (sumbernya Excel) → dibaca `SpreadsheetReader`, paling andal & murah. PDF = jalur cadangan (multimodal).
+- **Reliabilitas angka:** AI hanya **mengekstrak ke JSON terstruktur**; tak ada hitungan yang dikarang AI (untuk Leads/Ads, agregasi dilakukan di PHP dari angka hasil ekstraksi).
+- Deteksi "hasil jelek → fallback": rasio karakter non-ASCII tinggi / panjang teks jauh di bawah wajar untuk ukuran file.
 
 ## Arsitektur
-
 ```
-Telegram  --POST-->  /telegram/webhook  (TelegramWebhookController)
-                          |
-              verifikasi secret token
-                          |
-                 GerbangKodeAkses  (chat aktif? kalau belum → minta kode)
-                          |
-                  Router (nama file mengandung leads/ads/fs? mime pdf/spreadsheet/csv?)
-                    |         |          |            |
-                  Leads     Ads         FS         Income/CSV
-                    |         |          |            |
-         (unduh file → ekstrak → transform deterministik → AI narasi → generate HTML/xlsx)
-                          |
-                 kirim balik ke Telegram (sendDocument / sendMessage)
+Telegram --POST--> /telegram/webhook (TelegramWebhookController)
+   → verifikasi secret token
+   → ReportBotGate (chat aktif? kalau belum → minta kode akses)
+   → ReportBotRouter (nama file: leads/ads/income? tipe: pdf/xlsx/csv?)
+        ├─ Leads  → extract(PHP→AI) → ReportAi analisis → Blade HTML → sendDocument
+        ├─ Ads    → extract(xlsx/PHP→AI) → ReportAi analisis → Blade HTML → sendDocument
+        └─ TikTok Income → cache .csv per chat; saat .xlsx datang → TikTokIncomeReportService::fromFiles → XlsxWriter → sendDocument
 ```
 
-Komponen (unit fokus, satu tanggung jawab):
+Komponen (satu tanggung jawab):
 - **`TelegramWebhookController`** — terima update, verifikasi secret, delegasi.
-- **`TelegramClient`** (service) — `getFile`, `downloadFile`, `sendMessage`, `sendDocument` (HTTP via Laravel `Http`, token dari config).
+- **`TelegramClient`** — `getFile`/`downloadFile`/`sendMessage`/`sendDocument` (Laravel `Http`, token dari config).
 - **`ReportBotGate`** — cek/otorisasi chat via kode akses; simpan chat aktif.
 - **`ReportBotRouter`** — tentukan flow dari nama file + mime.
-- **`PdfTextExtractor`** — minimal, zero-dep (lihat risiko di atas).
-- **Flow handlers**: `LeadsReportFlow`, `AdsReportFlow`, `FsReportFlow`, `IncomeFlow` — masing-masing: extract → transform → AI → render.
-- **`ReportAi`** — wrapper tipis di atas `AiProviderFactory` untuk panggilan report (system prompt + JSON input → teks/terstruktur). Tambah dukungan lampiran file untuk fallback multimodal.
-- **View Blade** untuk tiap report HTML (ganti "Code in Generate HTML" n8n).
+- **`PdfTextExtractor`** — PHP murni (zlib); dipakai untuk PDF rapi & jadi lapis pertama.
+- **`ReportAi`** — wrapper tipis di atas `AiProviderFactory`; **dukungan lampiran file** (multimodal) + structured output JSON.
+- **Flow handlers**: `LeadsReportFlow`, `AdsReportFlow`, `TikTokIncomeFlow`.
+- **View Blade** untuk report HTML Leads & Ads.
+- **Reuse**: `TikTokIncomeReportService` + `XlsxWriter` (sudah ada) untuk flow TikTok Income.
 
 ## Model data (minimal)
-Migrasi baru (nomor berikutnya yang bebas, mis. `2026_01_01_000073` — pastikan unik saat implementasi):
-- **`telegram_bot_chats`**: `id`, `chat_id` (unik), `name` (nullable), `authorized_at` (nullable), `last_used_at` (nullable), `is_blocked` (bool, default false).
-- **Kode akses** disimpan di `AppSetting` (`report_bot_access_code`) — bisa di-rotate dari kontrol admin. (Kode kecil, low-sensitivity; disimpan agar admin bisa lihat & bagikan.)
-- **(Opsional, disarankan) `report_bot_logs`**: `chat_id`, `flow`, `file_name`, `status`, `error`, `created_at` — untuk audit & debug biaya AI. Bisa masuk fase belakangan.
+Migrasi baru (nomor bebas berikutnya, mis. `2026_01_01_000073` — pastikan unik saat implementasi):
+- **`telegram_bot_chats`**: `id`, `chat_id` (unik), `name` (nullable), `authorized_at` (nullable), `last_used_at`, `is_blocked` (bool).
+- **`telegram_bot_pending_files`** (untuk pairing CSV+XLSX TikTok Income): `chat_id`, `kind` (csv/xlsx), `path`, `created_at`. Atau simpan file sementara di `storage` berkunci chat_id + TTL. (File dihapus setelah dipakai/kadaluarsa.)
+- **Kode akses** di `AppSetting` (`report_bot_access_code`) — bisa di-rotate dari kontrol admin.
+- **(Opsional) `report_bot_logs`**: `chat_id`, `flow`, `file_name`, `status`, `error`, `created_at` — audit & debug biaya AI.
 
 ## Detail per-flow
-Prompt AI & rumus di-**port verbatim** dari sumber (disalin utuh saat writing-plans). Ringkasan di sini:
+Prompt AI di-**port verbatim** dari sumber saat writing-plans.
 
 ### Leads (`nama file mengandung "leads"`, PDF)
-- Parse teks PDF jadi blok per-CS (baris tanggal + baris total). Port `Code Parse & Split` + `Code in parse` (H-1 harian + agregat periode).
-- AI (`AI Daily Report Analyzer`) → ringkasan per orang + summary periode, Bahasa Indonesia, tanpa mengarang angka.
-- **Business rule tertanam di prompt (perlu Freddie konfirmasi/masih berlaku?):** target harian CS Rp 2.800.000; closing rate sehat ≥10%; **pengecualian nama Bobby/Alfin/Surya/Danu** → target Rp 3.500.000 & closing rate ≥25%; target bulanan >Rp 85.000.000 (pengecualian nama di atas >Rp 100.000.000).
-- Render 1 file HTML berisi semua CS → `sendDocument`.
+- Ekstraksi: PHP murni gagal (CID) → **multimodal AI** baca PDF → JSON per-CS (tanggal harian + total periode).
+- Agregasi H-1 & periode dihitung **di PHP** dari JSON (bukan AI).
+- AI (`AI Daily Report Analyzer`) → ringkasan per orang + summary periode (Bahasa Indonesia, tanpa mengarang angka).
+- **Business rule dari prompt (perlu Freddie konfirmasi masih berlaku):** target CS Rp 2.800.000/hari; closing rate sehat ≥10%; **pengecualian Bobby/Alfin/Surya/Danu** → target Rp 3.500.000 & ≥25%; target bulanan >Rp 85.000.000 (pengecualian >Rp 100.000.000).
+- Render 1 file HTML semua CS → `sendDocument`.
 
-### Ads (`"ads"`, PDF)
-- Parse teks PDF Ads (`Code Parse & Split Ads`) → AI (`AI Daily ADS Analyzer`) → HTML → `sendDocument`.
+### Ads (`"ads"`, utamakan `.xlsx`; PDF = cadangan)
+- **Utama:** kirim `.xlsx` → `SpreadsheetReader` → JSON.
+- **Cadangan:** PDF → multimodal AI → JSON.
+- AI (`AI Daily ADS Analyzer`) → analisis → HTML → `sendDocument`.
 
-### FS — Financial Statement (`"fs"`, PDF) — TERBERAT
-Pipeline komputasi keuangan sebelum AI (port berurutan):
-`Code Parse Exctract Data` → `Code Parse Normalize` → `Working Capital KPI` → `PSAK Rule Engine` → `Code in KPI FS` → `Contributor Share` → `AI Daily FS Analyzer` (analis keuangan; pakai angka dari JSON apa adanya; definisi ketat: revenue/hpp/operating_expense/operating_income/gross_profit/net_income + breakdown salary/marketing/others + cabang Surabaya/Jakarta untuk pembanding) → HTML → `sendDocument`.
-- Ini praktis mesin analisis keuangan mini — layak jadi fase tersendiri.
+### TikTok Income (`.csv` + `.xlsx`) — REUSE
+- User kirim **`.csv` "Semua pesanan"** → bot **cache** per chat.
+- User kirim **`.xlsx` income** → bot panggil **`TikTokIncomeReportService::fromFiles(csvPath, xlsxPath)`** (join by Order ID) → susun xlsx via **`XlsxWriter`** → `sendDocument`.
+- **Refactor kecil:** pindahkan penyusunan baris/kolom xlsx dari `TikTokIncomeController::download()` ke service/helper agar dipakai bersama web + bot. Web `/tiktok/income` tetap ada.
+- Tanpa AI.
 
-### Income (Excel) & CSV — SUDAH ADA (tidak dibangun ulang)
-Identik dengan fitur yang **sudah dimigrasi** ke SKINKU: `TikTokIncomeController` (`/tiktok/income`) — upload CSV pesanan + xlsx income → gabung → unduh xlsx. Jadi **di luar cakupan bot ini**.
-- **Opsional (kalau diminta):** tambah pintu di bot Telegram yang **memanggil ulang logika `TikTokIncomeController` yang sudah ada** (bukan menulis ulang) supaya bisa lewat chat juga. Belum diputuskan.
-
-## Zero-dependency — pemetaan kemampuan
+## Zero-dependency — pemetaan
 | Kebutuhan | Cara (tanpa package) |
 |---|---|
 | Terima/kirim Telegram + panggil AI | Laravel `Http` |
-| Baca PDF | `PdfTextExtractor` minimal (zlib bawaan) — lihat risiko |
-| Baca Excel/CSV | `SpreadsheetReader` yang sudah ada |
-| Report HTML | Blade |
-| Report xlsx | `XlsxWriter` (hanya bila opsi pintu bot Income diaktifkan; Leads/Ads/FS keluar HTML) |
-| AI | `AiProviderFactory` yang sudah ada (+ dukungan lampiran file) |
+| Baca PDF rapi | `PdfTextExtractor` (zlib bawaan) |
+| Baca PDF CID/gambar | **AI multimodal** (lapis kedua) |
+| Baca Excel/CSV | `SpreadsheetReader` yang ada |
+| Report HTML (Leads/Ads) | Blade |
+| Report xlsx (TikTok Income) | `XlsxWriter` yang ada |
+| Join income TikTok | `TikTokIncomeReportService` yang ada |
 
-## Rencana bertahap (tiap fase = software jalan & teruji)
-- **Fase 1 — Plumbing + de-risk PDF:** webhook + verifikasi secret; `TelegramClient`; `ReportBotGate` (migrasi `telegram_bot_chats` + kode akses di AppSetting + kontrol admin rotate/lihat/cabut di Pengaturan Sistem); `ReportBotRouter` (deteksi flow); **`PdfTextExtractor` divalidasi ke PDF contoh asli**. *Deliverable:* bot minta kode → aktif → mengenali jenis file → bisa ekstrak teks PDF nyata.
-- **Fase 2 — Flow Leads** end-to-end (parser + prompt + HTML).
-- **Fase 3 — Flow Ads.**
-- **Fase 4 — Flow FS** (pipeline keuangan + PSAK + prompt + HTML).
-- *(Income Excel + CSV: DIHAPUS dari rencana — sudah ada di `/tiktok/income`. Kalau mau pintu bot-nya, jadi fase opsional yang memanggil ulang `TikTokIncomeController`.)*
+## Rencana bertahap (tiap fase = jalan & teruji)
+- **Fase 1 — Plumbing + gate + ekstraksi:** webhook + verifikasi secret; `TelegramClient`; `ReportBotGate` (migrasi `telegram_bot_chats` + kode akses + kontrol admin rotate/lihat/cabut di Pengaturan Sistem); `ReportBotRouter`; `PdfTextExtractor`; `ReportAi` + **spike validasi baca PDF Leads/Ads via multimodal** (pakai sample nyata). *Deliverable:* bot minta kode → aktif → kenali jenis file → bisa dapat teks dari Leads/Ads (via AI) & PDF rapi (via PHP).
+- **Fase 2 — Flow Leads** (JSON→agregasi PHP→AI→HTML).
+- **Fase 3 — Flow Ads** (xlsx utama / PDF cadangan → AI → HTML).
+- **Fase 4 — Flow TikTok Income** (cache CSV + merge XLSX via service reuse → xlsx).
 
 ## Rencana tes
-- **Unit**: `ReportBotRouter` (pemetaan nama file/mime → flow); `ReportBotGate` (kode salah/benar, chat aktif tak perlu kode lagi, blokir); `PdfTextExtractor` (fixture PDF teks → string benar); parser per flow (fixture teks → JSON angka benar); rumus FS (Working Capital/PSAK/Contributor/KPI dengan angka contoh).
-- **Feature**: POST webhook tanpa secret → 403; chat belum login → dibalas minta kode; kirim kode benar → aktif; kirim file "leads/ads/fs" → memanggil flow yang benar & membalas dokumen (Telegram di-`Http::fake`); AI di-fake.
-- **Regresi**: infra AI lama (asisten & OKR) tak terpengaruh oleh penambahan lampiran file.
+- **Unit**: `ReportBotRouter` (nama file/mime → flow); `ReportBotGate` (kode salah/benar, chat aktif tak perlu kode lagi, blokir); `PdfTextExtractor` (fixture PDF rapi → teks); heuristik "hasil jelek → fallback"; agregasi Leads (JSON → angka benar).
+- **Feature**: webhook tanpa secret → 403; chat belum login → diminta kode; kode benar → aktif; kirim file "leads/ads" → flow benar & balas dokumen (Telegram+AI di-`Http::fake`); TikTok Income: kirim csv lalu xlsx → balas xlsx (reuse service, tanpa fake AI).
+- **Regresi**: `/tiktok/income` web tetap jalan setelah refactor; infra AI lama tak terganggu penambahan lampiran file.
 
-## Prasyarat / setup (dikerjakan Freddie saat deploy)
-- **Rotate token bot** di BotFather → `TELEGRAM_BOT_TOKEN` di `.env`.
-- Set `TELEGRAM_WEBHOOK_SECRET` di `.env`; daftarkan webhook ke `https://system.skinku.id/telegram/webhook` dengan secret (satu kali, via artisan command yang kita sediakan).
-- Pastikan model AI yang dipilih **multimodal** hanya jika pakai fallback B; untuk jalur utama (extractor) tidak wajib.
-- **Kirim contoh file PDF asli** (Leads/Ads/FS) untuk validasi extractor.
-- `zlib` aktif di server.
+## Prasyarat / setup (Freddie saat deploy)
+- **Rotate token bot** → `TELEGRAM_BOT_TOKEN`.
+- `TELEGRAM_WEBHOOK_SECRET`; daftarkan webhook `https://system.skinku.id/telegram/webhook` (artisan command yang kita sediakan).
+- **Set model AI multimodal** (mis. `google/gemini-flash-1.5` / `gpt-4o-mini` via OpenRouter) di `.env`/Pengaturan.
+- (Ads) kebiasaan **kirim `.xlsx`** lebih diutamakan daripada PDF.
 
 ## Di luar cakupan (sengaja)
-- Jalur **Income (Excel) & CSV order** — sudah dimigrasi sebelumnya ke `TikTokIncomeController` (`/tiktok/income`); **tidak dibangun ulang**. (Opsional nanti: pintu bot Telegram yang memanggil ulang logika itu — bukan menulis ulang.)
-- Arsip ke Google Drive (dibuang).
-- Kode akses per-orang (pakai 1 kode bersama).
-- Penjadwalan cron (bot on-demand via Telegram, bukan terjadwal — walau namanya "Daily").
-- Menyimpan hasil report ke database SKINKU / dashboard (tidak diminta).
+- **FS (Financial Statement)** — di-drop untuk sekarang (belum ada sample). Kalau nanti perlu: flow tambahan dengan pipeline keuangan (normalize → working capital → PSAK → contributor → KPI) yang bisa diport dari n8n; butuh sample PDF/Excel FS.
+- **Creator List (analisis creator TikTok)** — diparkir; bisa jadi flow terpisah kalau diminta (ekstraksinya justru mudah — PHP murni sudah bisa baca).
+- Arsip Google Drive; kode akses per-orang; cron/terjadwal.
 
 ## Catatan terbuka
 - Konfirmasi angka business rule Leads (target & nama pengecualian) masih berlaku.
-- Perlu contoh PDF asli untuk memutuskan A vs B pada ekstraksi PDF.
-- Income TikTok: cukup tetap lewat form web `/tiktok/income` yang sudah ada, atau mau ditambah pintu bot Telegram (panggil ulang `TikTokIncomeController`)?
+- Fase 1 memvalidasi kualitas baca multimodal untuk Leads/Ads dengan sample nyata sebelum lanjut.
