@@ -51,6 +51,14 @@ class PdfTextExtractor
      * "\n" tinggi walau isinya bersih sama sekali. \n sendiri masuk kategori Unicode
      * Cc (control) — kalau ikut dihitung, rasio jadi ukuran "banyaknya sel", bukan
      * "banyaknya sampah biner", dan PDF bersih-tapi-tabular bisa salah kena flag.
+     *
+     * Setelah whitespace struktural dibuang, sisa isi dihitung pakai kategori Unicode
+     * "C" PENUH (Cc control + Cf format + Co private-use + Cs surrogate + Cn belum
+     * ditetapkan) — bukan cuma Cc. Byte CID-font yang berantakan tak selalu jadi Cc;
+     * bisa juga decode jadi Private-Use (Co) atau kategori C lain yang tetap UTF-8
+     * valid tapi jelas bukan teks asli. Cc saja pernah bikin string murni Private-Use
+     * (mis. str_repeat("\u{E000}", 20)) lolos sebagai "terbaca" (rasio 0), padahal
+     * jelas sampah.
      */
     public static function looksUnreadable(string $text): bool
     {
@@ -66,7 +74,7 @@ class PdfTextExtractor
             return true;
         }
 
-        $junk = preg_match_all('/[^\P{Cc}]/u', $stripped);
+        $junk = preg_match_all('/[^\P{C}]/u', $stripped);
         if ($junk === false) {
             return true;
         }

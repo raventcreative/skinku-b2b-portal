@@ -55,4 +55,17 @@ class PdfTextExtractorTest extends TestCase
         $this->assertStringContainsString('Hello', $t);
         $this->assertStringContainsString('World', $t);
     }
+
+    /**
+     * Regresi (fix round 2): fix round 1 sempat mempersempit hitungan sampah dari
+     * \p{C} penuh jadi \p{Cc} saja (biar whitespace struktural tak ikut kehitung) —
+     * tapi itu bikin sampah UTF-8 valid dari kategori Cf/Co/Cs/Cn (mis. Private-Use
+     * Area) lolos tak terdeteksi (rasio 0, padahal jelas bukan teks asli). String
+     * 20 karakter Private-Use Area (U+E000) valid UTF-8, jadi tak kena guard invalid-
+     * UTF-8 — harus tetap kena flag lewat rasio \p{C} (0.33, di atas cutoff 0.3).
+     */
+    public function test_deteksi_private_use_area_tak_terbaca(): void
+    {
+        $this->assertTrue(PdfTextExtractor::looksUnreadable(str_repeat("\u{E000}", 20)));
+    }
 }
