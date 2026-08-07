@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
+use App\Models\TelegramBotChat;
 use App\Services\Ai\AiProviderFactory;
 use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
@@ -41,6 +42,14 @@ class SettingController extends Controller
                 'available' => $available,
                 'provider' => AppSetting::get('ai_provider', (string) config('services.ai.provider')),
                 'model' => AppSetting::get('ai_model', (string) config('services.ai.default_model')),
+            ],
+            'reportBot' => [
+                'access_code' => AppSetting::get('report_bot_access_code'),
+                // Hanya chat yang SUDAH terotorisasi (authorized_at terisi) — chat yang
+                // masih menunggu kode akses belum relevan untuk dicabut adminnya.
+                'chats' => TelegramBotChat::whereNotNull('authorized_at')
+                    ->orderByDesc('authorized_at')
+                    ->get(),
             ],
         ]);
     }
