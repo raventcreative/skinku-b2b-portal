@@ -51,4 +51,22 @@ class ReportBotRouterTest extends TestCase
         $result = ReportBotRouter::detect('random.pdf', 'application/pdf');
         $this->assertNull($result);
     }
+
+    /**
+     * Test regression: 'download' should not match 'ad' rule, should return 'tiktok_income' for CSV
+     */
+    public function test_detect_download_csv_not_ads()
+    {
+        $result = ReportBotRouter::detect('download.csv', 'text/csv');
+        $this->assertEquals('tiktok_income', $result);
+    }
+
+    /**
+     * Test regression: 'Ramadan' should not match 'ad' rule, should return 'tiktok_income' for XLSX
+     */
+    public function test_detect_ramadan_xlsx_not_ads()
+    {
+        $result = ReportBotRouter::detect('Ramadan Sale.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertEquals('tiktok_income', $result);
+    }
 }

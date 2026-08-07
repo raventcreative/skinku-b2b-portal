@@ -9,7 +9,7 @@ class ReportBotRouter
      *
      * Detection order:
      * 1. If filename contains "leads" → 'leads'
-     * 2. Else if filename contains "ad" → 'ads'
+     * 2. Else if filename contains "ad"/"ads" as whole word → 'ads'
      * 3. Else if extension is .csv or .xlsx (or MIME indicates csv/spreadsheet) → 'tiktok_income'
      * 4. Else → null
      *
@@ -26,8 +26,8 @@ class ReportBotRouter
             return 'leads';
         }
 
-        // Rule 2: Check if filename contains "ad"
-        if (strpos($lowerName, 'ad') !== false) {
+        // Rule 2: Check if filename contains "ad" or "ads" as whole word
+        if (preg_match('/\bads?\b/', $lowerName)) {
             return 'ads';
         }
 
