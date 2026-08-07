@@ -12,7 +12,7 @@ Tim mengirim **file laporan ke bot Telegram**; bot mengunduh file, menganalisis 
 - **Leads** — laporan harian CS/sales (leads, closing, closing rate, omzet per orang).
 - **Ads** — laporan performa iklan.
 - **FS** — Financial Statement (laporan keuangan, dengan KPI + kaidah PSAK).
-- (+ jalur **Income** Excel & **CSV order** yang mengembalikan file xlsx.)
+- (Jalur **Income** Excel & **CSV order** di workflow n8n = fitur yang **SUDAH dimigrasi** ke SKINKU sebagai `TikTokIncomeController` / `/tiktok/income`. **Tidak dibangun ulang** — lihat "Di luar cakupan".)
 
 ## Keputusan yang sudah dikunci (hasil brainstorm)
 1. **Rebuild di SKINKU** (Laravel, zero-dependency), bukan self-host n8n.
@@ -90,9 +90,9 @@ Pipeline komputasi keuangan sebelum AI (port berurutan):
 `Code Parse Exctract Data` → `Code Parse Normalize` → `Working Capital KPI` → `PSAK Rule Engine` → `Code in KPI FS` → `Contributor Share` → `AI Daily FS Analyzer` (analis keuangan; pakai angka dari JSON apa adanya; definisi ketat: revenue/hpp/operating_expense/operating_income/gross_profit/net_income + breakdown salary/marketing/others + cabang Surabaya/Jakarta untuk pembanding) → HTML → `sendDocument`.
 - Ini praktis mesin analisis keuangan mini — layak jadi fase tersendiri.
 
-### Income (Excel) & CSV
-- Excel: `SpreadsheetReader` → `Code Parse income` → tulis xlsx (`XlsxWriter`) → `sendDocument`.
-- CSV: baca → cache/olah → `sendMessage`/kirim balik.
+### Income (Excel) & CSV — SUDAH ADA (tidak dibangun ulang)
+Identik dengan fitur yang **sudah dimigrasi** ke SKINKU: `TikTokIncomeController` (`/tiktok/income`) — upload CSV pesanan + xlsx income → gabung → unduh xlsx. Jadi **di luar cakupan bot ini**.
+- **Opsional (kalau diminta):** tambah pintu di bot Telegram yang **memanggil ulang logika `TikTokIncomeController` yang sudah ada** (bukan menulis ulang) supaya bisa lewat chat juga. Belum diputuskan.
 
 ## Zero-dependency — pemetaan kemampuan
 | Kebutuhan | Cara (tanpa package) |
@@ -101,7 +101,7 @@ Pipeline komputasi keuangan sebelum AI (port berurutan):
 | Baca PDF | `PdfTextExtractor` minimal (zlib bawaan) — lihat risiko |
 | Baca Excel/CSV | `SpreadsheetReader` yang sudah ada |
 | Report HTML | Blade |
-| Report xlsx | `XlsxWriter` yang sudah ada |
+| Report xlsx | `XlsxWriter` (hanya bila opsi pintu bot Income diaktifkan; Leads/Ads/FS keluar HTML) |
 | AI | `AiProviderFactory` yang sudah ada (+ dukungan lampiran file) |
 
 ## Rencana bertahap (tiap fase = software jalan & teruji)
@@ -109,7 +109,7 @@ Pipeline komputasi keuangan sebelum AI (port berurutan):
 - **Fase 2 — Flow Leads** end-to-end (parser + prompt + HTML).
 - **Fase 3 — Flow Ads.**
 - **Fase 4 — Flow FS** (pipeline keuangan + PSAK + prompt + HTML).
-- **Fase 5 — Income Excel + CSV** (xlsx keluar).
+- *(Income Excel + CSV: DIHAPUS dari rencana — sudah ada di `/tiktok/income`. Kalau mau pintu bot-nya, jadi fase opsional yang memanggil ulang `TikTokIncomeController`.)*
 
 ## Rencana tes
 - **Unit**: `ReportBotRouter` (pemetaan nama file/mime → flow); `ReportBotGate` (kode salah/benar, chat aktif tak perlu kode lagi, blokir); `PdfTextExtractor` (fixture PDF teks → string benar); parser per flow (fixture teks → JSON angka benar); rumus FS (Working Capital/PSAK/Contributor/KPI dengan angka contoh).
@@ -124,6 +124,7 @@ Pipeline komputasi keuangan sebelum AI (port berurutan):
 - `zlib` aktif di server.
 
 ## Di luar cakupan (sengaja)
+- Jalur **Income (Excel) & CSV order** — sudah dimigrasi sebelumnya ke `TikTokIncomeController` (`/tiktok/income`); **tidak dibangun ulang**. (Opsional nanti: pintu bot Telegram yang memanggil ulang logika itu — bukan menulis ulang.)
 - Arsip ke Google Drive (dibuang).
 - Kode akses per-orang (pakai 1 kode bersama).
 - Penjadwalan cron (bot on-demand via Telegram, bukan terjadwal — walau namanya "Daily").
@@ -132,3 +133,4 @@ Pipeline komputasi keuangan sebelum AI (port berurutan):
 ## Catatan terbuka
 - Konfirmasi angka business rule Leads (target & nama pengecualian) masih berlaku.
 - Perlu contoh PDF asli untuk memutuskan A vs B pada ekstraksi PDF.
+- Income TikTok: cukup tetap lewat form web `/tiktok/income` yang sudah ada, atau mau ditambah pintu bot Telegram (panggil ulang `TikTokIncomeController`)?
