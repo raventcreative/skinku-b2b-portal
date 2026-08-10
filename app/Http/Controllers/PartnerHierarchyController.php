@@ -15,18 +15,23 @@ class PartnerHierarchyController extends Controller
 
     public function index()
     {
-        $roots = User::where('role', User::ROLE_GRAND_DISTRIBUTOR)
-            ->whereNull('upline_id')
-            ->with('downlines.downlines') // distributor -> reseller
+        // Data node flat untuk kanvas (JS bangun pohon + kolam dari upline_id).
+        $partners = User::whereIn('role', array_keys(PartnerHierarchy::TIERS))
             ->orderBy('fullname')
-            ->get();
+            ->get()
+            ->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->fullname ?: $u->name,
+                'member_id' => $u->member_id,
+                'role' => $u->role,
+                'tier' => PartnerHierarchy::label($u->role),
+                'upline_id' => $u->upline_id,
+                'region' => $u->region,
+                'stockist' => PartnerHierarchy::holdsStock($u->role),
+            ])
+            ->values();
 
-        $unplaced = User::whereIn('role', [
-            User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER,
-            User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD,
-        ])->whereNull('upline_id')->orderBy('fullname')->get();
-
-        return view('struktur_jaringan.index', ['roots' => $roots, 'unplaced' => $unplaced]);
+        return view('struktur_jaringan.index', ['partners' => $partners]);
     }
 
     /**
