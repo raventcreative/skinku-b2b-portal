@@ -245,18 +245,25 @@ public function test_deteksi_teks_tak_terbaca(): void
 **Tests:** `.xlsx` fixture → `SpreadsheetReader` menghasilkan baris; `ReportAi` fake → `sendDocument` dgn HTML analisis. Assert jalur `.xlsx` TIDAK memanggil AI multimodal (lebih murah).
 **Commit:** `feat(report-bot): flow Ads (xlsx utama / PDF cadangan → AI → HTML)`
 
-## FASE 4 — Flow TikTok Income (task-level, REUSE)
+## FASE 4 — Flow TikTok Income (task-level, REPLIKASI n8n — BUKAN reuse)
+> **Perubahan (permintaan Freddie):** output HARUS sama seperti n8n; form `/tiktok/income` lama **kurang lengkap** (item dari kolom "Detail produk terjual" yang bolong). Jadi **replikasi VERBATIM** node n8n **"Code Parse income"** + **"Cache Order CSV"** dari `C:\Users\DELL\AppData\Local\Temp\claude\C--Users-DELL-Downloads-DATA-PRODUKSI--PPIC-INSPECT-EKSPEDISI--DUMMY\93311002-3fc8-4d0e-9e7b-175e2b249751\scratchpad\n8n_income_nodes.txt` (378 baris, termasuk **SKU_MAP penuh**). **JANGAN** pakai `TikTokIncomeReportService` lama. Web `/tiktok/income` dibiarkan apa adanya (upgrade web = pertanyaan terbuka, di luar cakupan tasks ini).
 
-### Task 11: Refactor penyusunan xlsx ke service
-**Files:** Modify `app/Services/TikTokIncomeReportService.php` (tambah `toXlsxSheets(array $report): array` mengembalikan `['Income'=>['headers'=>[...],'rows'=>[...]]]`), `app/Http/Controllers/TikTokIncomeController.php` (`download` panggil `XlsxWriter::download('Laporan Income TikTok.xlsx', $this->service->toXlsxSheets($report))`).
-**Tests:** `tests/Feature/TikTokIncomeTest.php` (yang ada) tetap hijau; tambah unit `toXlsxSheets` menghasilkan header `['Order ID','Waktu','Type','Total Pendapatan','Total Biaya','Settlement', ...columns]`.
-**Commit:** `refactor(tiktok): pindah penyusunan xlsx income ke service (dipakai web + bot)`
+### Task 11: TikTokIncomeN8nService (port logika n8n)
+**Files:** Create `app/Services/ReportBot/TikTokIncomeN8nService.php`; Test `tests/Unit/ReportBot/TikTokIncomeN8nServiceTest.php`.
+**Isi (port dari n8n_income_nodes.txt):**
+- Konstanta `SKU_MAP` — **VERBATIM** dari n8n: SKU → `{kategori => unit fisik}` (bundling dipecah ke tiap kategori; varian "N Pcs" dihitung fisik).
+- `parseOrderCsv(string $csv): array` — port "Cache Order CSV" (baca CSV quote-aware, buang BOM, index `Order ID → [SKU/qty...]`).
+- `build(array $incomeRows, array $orderIndex): array` — port "Code Parse income": join Income (xlsx) + Order CSV by **Order ID**, breakdown kategori via SKU_MAP; balikan rows XLSX dengan **kolom SAMA seperti versi n8n** (Order ID, Waktu, Type, Total Pendapatan, Total Biaya, Settlement, + kolom per-kategori). Baca node sumber untuk kolom & aturan persisnya.
+**Tests:** fixture kecil (beberapa Order CSV row termasuk 1 bundling + 1 varian N-Pcs, + income rows) → assert breakdown kategori benar (bundling terpecah, N-Pcs terhitung) & kolom output sesuai n8n.
+**Commit:** `feat(report-bot): TikTokIncomeN8nService (port Code Parse income + SKU_MAP verbatim)`
 
 ### Task 12: TikTokIncomeFlow (bot)
 **Files:** Create `app/Services/ReportBot/Flows/TikTokIncomeFlow.php`; Test `tests/Feature/ReportBot/TikTokIncomeFlowTest.php`.
-**Alur:** unduh file → simpan sementara + catat `telegram_bot_pending_files` (kind csv/xlsx) per chat. Bila pasangan (csv **dan** xlsx) sudah ada → `TikTokIncomeReportService::fromFiles($csvPath, $xlsxPath)` → `toXlsxSheets` → `XlsxWriter::toString(...)` (atau tulis file temp) → `TelegramClient::sendDocument($chatId,'Laporan Income TikTok.xlsx',$bytes)`; hapus pending + file temp. Bila baru satu → `sendMessage` "sudah terima {kind}, kirim file satunya (csv/xlsx)".
-**Tests:** kirim `.csv` → balasan "kirim xlsx"; lalu kirim `.xlsx` → `sendDocument` xlsx (reuse service, tanpa AI). Pakai fixture csv+xlsx kecil.
-**Commit:** `feat(report-bot): flow TikTok Income via bot (reuse TikTokIncomeReportService)`
+**Alur:** unduh file (getFile envelope → downloadFile). Pairing per chat via `telegram_bot_pending_files` (Task 3):
+- `.csv` (Order) → simpan bytes ke file temp + catat pending (kind=csv, path) per chat → `sendMessage` "Order CSV diterima ✅ — sekarang kirim file **Income (.xlsx)**".
+- `.xlsx` (Income) → cek pending csv chat ini; kalau belum ada → `sendMessage` "Kirim **Order CSV** dulu, baru file Income."; kalau ada → `SpreadsheetReader::rows(xlsxTemp,'xlsx')` (income) + `TikTokIncomeN8nService::parseOrderCsv(file_get_contents(csvPending))` → `TikTokIncomeN8nService::build(...)` → tulis xlsx (`XlsxWriter` — cek API; kalau cuma `download()`, tambah `toString()` atau tulis temp lalu baca bytes) → `TelegramClient::sendDocument($chatId,'Laporan Income TikTok.xlsx',$bytes)`; bersihkan pending + semua temp. **TANPA AI.**
+**Tests:** kirim `.csv` → balasan minta xlsx + pending tercatat; lalu kirim `.xlsx` → `sendDocument` xlsx dengan breakdown kategori benar. Fixture csv+xlsx kecil (reuse dari Task 11).
+**Commit:** `feat(report-bot): flow TikTok Income via bot (replikasi n8n, tanpa AI)`
 
 ### Task 13: Sambungkan flow ke dispatcher + suite hijau
 **Files:** Modify `app/Services/ReportBot/ReportBotDispatcher.php` (ganti stub → panggil `LeadsReportFlow/AdsReportFlow/TikTokIncomeFlow`).

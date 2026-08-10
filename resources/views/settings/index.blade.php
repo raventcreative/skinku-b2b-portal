@@ -77,6 +77,8 @@
         @endif
     </div>
 
+    @include('report_bot._admin')
+
     <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
         <h3 class="text-sm font-bold text-stone-900 mb-2">Catatan Keamanan</h3>
         <ul class="text-xs text-stone-600 space-y-1.5 list-disc list-inside">

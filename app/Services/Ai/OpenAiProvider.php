@@ -170,10 +170,12 @@ class OpenAiProvider implements ConcurrentAiProvider
                 ];
             }
 
-            // system / user / assistant biasa.
+            // system / user / assistant biasa. Konten array (multimodal: teks +
+            // file, dipakai ReportAi) diteruskan apa adanya; selain itu tetap
+            // di-cast string seperti semula.
             return [
                 'role' => $m['role'] ?? 'user',
-                'content' => (string) ($m['content'] ?? ''),
+                'content' => is_array($m['content'] ?? null) ? $m['content'] : (string) ($m['content'] ?? ''),
             ];
         }, $messages);
     }

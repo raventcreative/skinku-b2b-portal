@@ -27,12 +27,14 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\ReportBotAdminController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockReceiptController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TelegramWebhookController;
 use App\Http\Controllers\TikTokController;
 use App\Http\Controllers\TikTokIncomeController;
 use App\Http\Controllers\UserController;
@@ -52,6 +54,16 @@ Route::middleware('guest')->group(function () {
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Report Bot Telegram webhook (publik — Telegram tidak login)
+|--------------------------------------------------------------------------
+| Keamanan dijaga oleh verifikasi X-Telegram-Bot-Api-Secret-Token di
+| TelegramWebhookController, bukan oleh middleware auth. Rute ini juga
+| dikecualikan dari CSRF di bootstrap/app.php.
+*/
+Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
 
 Route::get('/', fn () => redirect()->route('dashboard'));
 
@@ -402,6 +414,10 @@ Route::middleware(['auth', 'role'])->group(function () {
         // Backup DB: jalankan manual + unduh (simpan di LUAR server).
         Route::post('/settings/backup', [SettingController::class, 'backupNow'])->name('settings.backup');
         Route::get('/settings/backup/{file}', [SettingController::class, 'backupDownload'])->name('settings.backup.download');
+
+        // Report Bot Telegram: rotasi kode akses global + cabut akses per-chat.
+        Route::post('/settings/report-bot/rotate', [ReportBotAdminController::class, 'rotate'])->name('report-bot.rotate');
+        Route::post('/settings/report-bot/chats/{chat}/revoke', [ReportBotAdminController::class, 'revokeChat'])->name('report-bot.chat.revoke');
     });
 
     // Pengumuman dashboard per role (box catatan + popup banner).

@@ -91,4 +91,13 @@ return [
         ],
     ],
 
+    // Report Bot Telegram (webhook + notifikasi laporan via chat). Token &
+    // webhook secret WAJIB diisi di .env server — jangan pernah commit.
+    // webhook_secret dipakai TelegramWebhookController untuk verifikasi
+    // header X-Telegram-Bot-Api-Secret-Token pada tiap update masuk.
+    'telegram' => [
+        'token' => env('TELEGRAM_BOT_TOKEN'),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+    ],
+
 ];
