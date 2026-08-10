@@ -16,10 +16,10 @@ class Role extends Model
         ];
     }
 
-    /** System roles first, then by sort order. */
+    /** Urut sesuai sort_order (lihat migrasi reorder role), lalu id. */
     public function scopeOrdered($query)
     {
-        return $query->orderByDesc('is_system')->orderBy('sort_order')->orderBy('id');
+        return $query->orderBy('sort_order')->orderBy('id');
     }
 
     public function users()
