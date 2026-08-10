@@ -7,6 +7,7 @@ use App\Models\RolePermission;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Support\Permissions;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,6 +30,25 @@ class PermissionController extends Controller
         AuditService::log(action: 'update_permissions', targetType: 'system', after: ['updated' => true]);
 
         return back()->with('status', 'Hak akses tiap role berhasil diperbarui.');
+    }
+
+    /** Simpan urutan role (drag & drop chip) → sort_order. Persist, tahan reload. */
+    public function reorder(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'order' => ['required', 'array', 'min:1'],
+            'order.*' => ['string'],
+        ]);
+
+        $i = 1;
+        foreach ($data['order'] as $name) {
+            Role::where('name', $name)->update(['sort_order' => $i++]);
+        }
+        Permissions::flushCache();
+
+        AuditService::log(action: 'reorder_roles', targetType: 'system', after: ['order' => $data['order']]);
+
+        return response()->json(['ok' => true]);
     }
 
     /** Create a custom role. */
