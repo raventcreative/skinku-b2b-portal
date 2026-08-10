@@ -8,10 +8,11 @@
     <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
             <h3 class="text-sm font-bold text-stone-800">Daftar Role</h3>
-            <p class="text-[11px] text-stone-400 mt-0.5 mb-3">Role bawaan tidak bisa dihapus. Tambah role custom (mis. affiliator) sesuai kebutuhan.</p>
-            <div class="flex flex-wrap gap-2">
+            <p class="text-[11px] text-stone-400 mt-0.5 mb-3">Role bawaan tidak bisa dihapus. Tambah role custom (mis. affiliator) sesuai kebutuhan. <b>Seret chip</b> untuk atur urutan kolom — tersimpan otomatis.</p>
+            <div id="roleChips" class="flex flex-wrap gap-2">
                 @foreach($roles as $role)
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs {{ $role->is_system ? 'bg-stone-100 text-stone-600' : 'bg-red-50 text-red-700 border border-red-200' }}">
+                    <span draggable="true" data-role-name="{{ $role->name }}"
+                        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs cursor-move select-none {{ $role->is_system ? 'bg-stone-100 text-stone-600' : 'bg-red-50 text-red-700 border border-red-200' }}">
                         {{ $role->label }}
                         @if($role->is_system)
                             <span class="text-[9px] text-stone-400">(bawaan)</span>
@@ -88,3 +89,56 @@
     </div>
 </form>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    const container = document.getElementById('roleChips');
+    if (!container) return;
+    const CSRF = '{{ csrf_token() }}';
+    const URL = "{{ route('roles.reorder') }}";
+    let dragEl = null;
+
+    container.addEventListener('dragstart', function (e) {
+        dragEl = e.target.closest('[data-role-name]');
+        if (dragEl) { e.dataTransfer.effectAllowed = 'move'; dragEl.classList.add('opacity-40'); }
+    });
+    container.addEventListener('dragover', function (e) {
+        if (!dragEl) return;
+        e.preventDefault();
+        const after = afterElement(e.clientX);
+        if (after == null) container.appendChild(dragEl);
+        else container.insertBefore(dragEl, after);
+    });
+    container.addEventListener('dragend', function () {
+        if (!dragEl) return;
+        dragEl.classList.remove('opacity-40');
+        dragEl = null;
+        save();
+    });
+
+    function afterElement(x) {
+        const els = Array.prototype.slice.call(container.querySelectorAll('[data-role-name]:not(.opacity-40)'));
+        let closest = { offset: Number.NEGATIVE_INFINITY, el: null };
+        els.forEach(function (child) {
+            const box = child.getBoundingClientRect();
+            const offset = x - box.left - box.width / 2;
+            if (offset < 0 && offset > closest.offset) closest = { offset: offset, el: child };
+        });
+        return closest.el;
+    }
+
+    function save() {
+        const order = Array.prototype.slice.call(container.querySelectorAll('[data-role-name]'))
+            .map(function (el) { return el.dataset.roleName; });
+        fetch(URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+            body: JSON.stringify({ order: order }),
+        }).then(function (r) { return r.json(); })
+          .then(function (j) { if (j.ok) { location.reload(); } else { alert('Gagal simpan urutan.'); } })
+          .catch(function () { alert('Gagal simpan urutan (jaringan).'); });
+    }
+})();
+</script>
+@endpush
