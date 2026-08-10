@@ -58,8 +58,8 @@ class Product extends Model
     public function priceForRole(string $role): float
     {
         return match ($role) {
-            User::ROLE_DISTRIBUTOR => (float) $this->price_distributor,
-            User::ROLE_RESELLER => (float) $this->price_reseller,
+            User::ROLE_DISTRIBUTOR, User::ROLE_GRAND_DISTRIBUTOR => (float) $this->price_distributor,
+            User::ROLE_RESELLER, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD => (float) $this->price_reseller,
             default => (float) $this->price_retail,
         };
     }

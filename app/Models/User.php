@@ -126,7 +126,7 @@ class User extends Authenticatable
 
     public function isPartner(): bool
     {
-        return in_array($this->role, [self::ROLE_DISTRIBUTOR, self::ROLE_RESELLER], true);
+        return in_array($this->role, self::PARTNER_ROLES, true);
     }
 
     public function hasRole(string|array $roles): bool
@@ -153,6 +153,7 @@ class User extends Authenticatable
     /** Unit price field that applies to this partner's role. */
     public function priceField(): string
     {
-        return $this->role === self::ROLE_DISTRIBUTOR ? 'price_distributor' : 'price_reseller';
+        return in_array($this->role, [self::ROLE_DISTRIBUTOR, self::ROLE_GRAND_DISTRIBUTOR], true)
+            ? 'price_distributor' : 'price_reseller';
     }
 }
