@@ -54,7 +54,7 @@ class Permissions
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
     public const DEFAULTS = [
-        'create_po' => [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER],
+        'create_po' => [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER, User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD],
         'update_po_status' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
         'delete_po' => [User::ROLE_ADMIN],
         'manage_products' => [User::ROLE_ADMIN],
@@ -63,7 +63,7 @@ class Permissions
         'manage_hq_stock' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
         'receive_stock' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
         'manage_production' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
-        'view_reports' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR],
+        'view_reports' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_GRAND_DISTRIBUTOR],
         'view_accounting' => [User::ROLE_ADMIN],
         // Sengaja kosong: hapus jurnal itu permanen. Hanya super_admin (selalu punya
         // semua izin) yang bisa — admin biasa tidak boleh menghapus pembukuan.
@@ -72,7 +72,7 @@ class Permissions
         'system_settings' => [],
         'manage_announcements' => [],
         'manage_permissions' => [],
-        'view_learning' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER],
+        'view_learning' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER, User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD],
         'manage_learning' => [User::ROLE_ADMIN],
         'manage_tiktok' => [User::ROLE_ADMIN],
         // kol_specialist = role dinamis (di-seed migrasi 000045), jadi string
@@ -104,7 +104,7 @@ class Permissions
         // (ToolRegistry pakai izin): staf lihat data perusahaan sesuai izinnya,
         // mitra (distributor/reseller) HANYA data akunnya sendiri (ter-scope
         // user_id di dalam alat). Edit Pengetahuan AI tetap internal saja.
-        'use_ai_assistant' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER],
+        'use_ai_assistant' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER, User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */
