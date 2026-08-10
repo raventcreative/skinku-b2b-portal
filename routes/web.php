@@ -389,6 +389,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
 
         Route::get('/struktur-jaringan', [PartnerHierarchyController::class, 'index'])->name('struktur-jaringan.index');
+        Route::post('/struktur-jaringan/{user}/place', [PartnerHierarchyController::class, 'place'])->name('struktur-jaringan.place');
     });
 
     Route::middleware('permission:delete_users')->group(function () {
