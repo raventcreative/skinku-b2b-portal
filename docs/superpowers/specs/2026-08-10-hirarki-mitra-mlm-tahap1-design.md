@@ -194,6 +194,11 @@ Pembedaan izin per tier = **Tahap 2**.
 - **Tahap 2:** query subtree (atasan lihat downline-nya); **pemakaian**
   `holds_stock` (sembunyikan fitur stok untuk reseller, arahkan penjualan
   reseller ke stok distributor induk); izin per tier lewat matriks.
+- **Alur beli/pasok (Tahap 2/3):** mitra beli dari **upline stockist**-nya —
+  Distributor beli ke Grand Distributor, Reseller beli ke Distributor.
+  **Fallback**: kalau belum punya upline (belum ditempatkan di pohon), boleh
+  beli **langsung ke HQ**. Menentukan sumber PO, stok siapa yang terpotong, dan
+  dasar komisi.
 - **Tahap 3:** aturan & tabel komisi/insentif; hitung komisi **naik** pohon;
   laporan jaringan; harga spesifik per tier (Grand 8% off, Bronze/Gold beda) —
   perluas `priceForRole`.
