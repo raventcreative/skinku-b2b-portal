@@ -1,5 +1,8 @@
 <li class="mt-1">
-    <div class="inline-flex items-center gap-2 rounded border border-stone-200 bg-white px-2 py-1 text-sm">
+    <div draggable="true"
+        data-drag-user="{{ $node->id }}" data-drag-role="{{ $node->role }}"
+        data-drop-node="{{ $node->id }}" data-drop-role="{{ $node->role }}"
+        class="inline-flex items-center gap-2 rounded border border-stone-200 bg-white px-2 py-1 text-sm cursor-move">
         <span class="font-medium text-stone-800">{{ $node->fullname }}</span>
         <span class="text-xs text-stone-500 font-mono">{{ $node->member_id ?? '—' }}</span>
         <span class="text-xs px-1.5 rounded bg-emerald-100 text-emerald-800">{{ \App\Support\PartnerHierarchy::label($node->role) }}</span>
