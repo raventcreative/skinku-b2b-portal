@@ -12,6 +12,7 @@ use App\Services\ReportBot\TelegramClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Mockery\MockInterface;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class DispatcherTest extends TestCase
@@ -188,6 +189,31 @@ class DispatcherTest extends TestCase
                 && str_contains(strtolower($text), 'kirim file'));
 
         app(ReportBotDispatcher::class)->handle($this->update(777, 'BUKA123'));
+    }
+
+    /**
+     * FINAL REVIEW Finding 5: `default` arm di runFlow()'s match() murni
+     * DEFENSIF — ReportBotRouter::detect() hari ini cuma mengembalikan
+     * 'leads'|'ads'|'tiktok_income'|null (null sudah disaring handleDocument()
+     * sebelum runFlow() dipanggil), jadi TIDAK ADA cara mencapai arm ini lewat
+     * handle() publik. Panggil runFlow() langsung via Reflection dgn nilai flow
+     * yang sengaja tak terduga, buktikan default arm mengirim MSG_UNKNOWN_FILE
+     * (bukan melempar UnhandledMatchError yang bikin user diam tanpa balasan).
+     */
+    public function test_runflow_default_arm_kirim_pesan_tak_dikenal_utk_flow_tak_terduga(): void
+    {
+        $mock = $this->fakeTelegram();
+        $mock->shouldReceive('sendMessage')
+            ->once()
+            ->withArgs(fn ($chatId, $text) => $chatId === 999 && str_contains(strtolower($text), 'belum dikenali'));
+
+        $this->fakeFlow(LeadsReportFlow::class)->shouldNotReceive('handle');
+        $this->fakeFlow(AdsReportFlow::class)->shouldNotReceive('handle');
+        $this->fakeFlow(TikTokIncomeFlow::class)->shouldNotReceive('handle');
+
+        $dispatcher = app(ReportBotDispatcher::class);
+        $method = new ReflectionMethod(ReportBotDispatcher::class, 'runFlow');
+        $method->invoke($dispatcher, 'unknown_future_flow', 999, ['file_name' => 'whatever.bin']);
     }
 
     public function test_webhook_end_to_end_memicu_dispatcher(): void

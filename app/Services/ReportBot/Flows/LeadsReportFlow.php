@@ -4,6 +4,7 @@ namespace App\Services\ReportBot\Flows;
 
 use App\Services\ReportBot\ReportAi;
 use App\Services\ReportBot\TelegramClient;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -18,13 +19,31 @@ use Throwable;
  * TelegramClient::sendDocument.
  *
  * ReportAi TIDAK menangkap App\Services\Ai\AiException sendiri (lihat
- * dokblok ReportAi) — di sinilah try/catch-nya, dua titik panggilan AI
- * (readFile & analyze) masing2 dibungkus, gagal di titik manapun -> pesan
- * ramah ke user via sendMessage, TIDAK ada sendDocument.
+ * dokblok ReportAi) — di sinilah try/catch-nya. DUA try/catch: (1) unduh
+ * (getFile/downloadFile) + readFile, (2) loop analyze + render HTML +
+ * sendDocument — gagal di titik manapun -> pesan GENERIK ke user via
+ * sendMessage (FINAL REVIEW Finding 3: unduh & sendDocument dulu di LUAR
+ * try/catch, sekarang ikut dibungkus supaya kegagalan network saat unduh/
+ * kirim juga dapat balasan, bukan diam), TIDAK ada sendDocument kalau gagal.
+ * Detail exception (bisa memuat data sensitif, mis. token — lihat
+ * TelegramClient::send()) di-Log::error() SERVER-SIDE saja, TIDAK PERNAH
+ * diteruskan ke user (FINAL REVIEW Finding 2, sebelumnya $e->getMessage()
+ * mentah ikut terkirim ke chat).
  */
 class LeadsReportFlow
 {
+    /** Prefix pesan VALIDASI (bukan exception) — dipakai apa adanya, aman ditampilkan ke user. */
     private const ERROR_PREFIX = 'Maaf, gagal memproses laporan: ';
+
+    /**
+     * Pesan generik utk SEMUA kegagalan tak terduga (exception apa pun di
+     * kedua try/catch handle()) — SENGAJA tidak menyertakan $e->getMessage()
+     * (FINAL REVIEW Finding 2): detail asli exception bisa memuat info
+     * sensitif (mis. token Telegram lewat ConnectionException, lihat
+     * TelegramClient::send()) atau sekadar membingungkan user non-teknis.
+     * Detail lengkap tetap tercatat via Log::error() di titik lempar.
+     */
+    private const ERROR_GENERIC = 'Maaf, gagal memproses laporan. Coba lagi, atau hubungi admin.';
 
     /**
      * Marker yang membelah output naratif satu CS jadi bagian harian vs
@@ -227,15 +246,16 @@ LEADS_SYSTEM_PROMPT_EOT;
         $fileId = (string) ($document['file_id'] ?? '');
         $mime = (string) ($document['mime_type'] ?? 'application/pdf');
 
-        $filePath = (string) ($this->telegram->getFile($fileId)['result']['file_path'] ?? '');
-        $bytes = $this->telegram->downloadFile($filePath);
-
         $ai = app(ReportAi::class);
 
         try {
+            $filePath = (string) ($this->telegram->getFile($fileId)['result']['file_path'] ?? '');
+            $bytes = $this->telegram->downloadFile($filePath);
+
             $csList = $ai->readFile($bytes, $mime, self::READ_INSTRUCTION);
         } catch (Throwable $e) {
-            $this->telegram->sendMessage($chatId, self::ERROR_PREFIX.$e->getMessage());
+            Log::error('report-bot leads: unduh/readFile gagal', ['e' => $e->getMessage()]);
+            $this->telegram->sendMessage($chatId, self::ERROR_GENERIC);
 
             return;
         }
@@ -255,15 +275,14 @@ LEADS_SYSTEM_PROMPT_EOT;
 
                 $sections[] = ['csName' => $payload['csName'] ?? null] + $this->splitReport($text);
             }
+
+            $html = view('report_bot.leads', ['sections' => $sections])->render();
+
+            $this->telegram->sendDocument($chatId, 'Laporan Leads.html', $html);
         } catch (Throwable $e) {
-            $this->telegram->sendMessage($chatId, self::ERROR_PREFIX.$e->getMessage());
-
-            return;
+            Log::error('report-bot leads: analisis/kirim gagal', ['e' => $e->getMessage()]);
+            $this->telegram->sendMessage($chatId, self::ERROR_GENERIC);
         }
-
-        $html = view('report_bot.leads', ['sections' => $sections])->render();
-
-        $this->telegram->sendDocument($chatId, 'Laporan Leads.html', $html);
     }
 
     /**

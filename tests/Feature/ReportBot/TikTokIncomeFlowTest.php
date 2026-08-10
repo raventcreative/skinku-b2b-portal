@@ -227,14 +227,20 @@ class TikTokIncomeFlowTest extends TestCase
         ]);
     }
 
-    public function test_unduh_file_gagal_kirim_pesan_ramah_tanpa_efek_samping(): void
+    /**
+     * FINAL REVIEW Finding 2: pesan ke user harus GENERIK — TIDAK boleh
+     * memuat teks exception asli ('boom'/status 500). Assert exact match
+     * (bukan cuma str_contains prefix) supaya kebocoran teks apa pun sesudah
+     * prefix otomatis ketahuan gagal.
+     */
+    public function test_unduh_file_gagal_kirim_pesan_generik_tanpa_efek_samping(): void
     {
         $telegram = $this->bindTelegram();
         $telegram->shouldReceive('getFile')->once()->with('CSVFILE1')
             ->andThrow(new RuntimeException('Telegram getFile gagal (500): boom'));
         $telegram->shouldNotReceive('downloadFile');
         $telegram->shouldReceive('sendMessage')->once()
-            ->withArgs(fn ($chatId, $text) => $chatId === self::CHAT_ID && str_contains($text, 'Maaf, gagal memproses laporan'));
+            ->with(self::CHAT_ID, 'Maaf, gagal memproses laporan. Coba lagi, atau hubungi admin.');
         $telegram->shouldNotReceive('sendDocument');
 
         app(TikTokIncomeFlow::class)->handle(self::CHAT_ID, $this->csvDocument());

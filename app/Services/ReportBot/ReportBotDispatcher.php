@@ -22,7 +22,7 @@ use App\Services\ReportBot\Flows\TikTokIncomeFlow;
  */
 class ReportBotDispatcher
 {
-    private const MSG_NEED_CODE = 'Kirim *kode akses* dulu untuk memakai bot ini.';
+    private const MSG_NEED_CODE = 'Kirim kode akses dulu untuk memakai bot ini.';
 
     private const MSG_WRONG_CODE = 'Kode akses salah. Coba lagi.';
 
@@ -114,6 +114,16 @@ class ReportBotDispatcher
      * gate selalu kosong saat ada dokumen -> status 'authorized_now' tidak
      * pernah bersamaan dengan document — lihat handle()).
      *
+     * FINAL REVIEW Finding 5: `default` arm murni DEFENSIF, bukan jalur yang
+     * dapat dicapai lewat handleDocument() hari ini — ReportBotRouter::detect()
+     * cuma mengembalikan 'leads'|'ads'|'tiktok_income'|null, dan handleDocument()
+     * sudah menyaring null (kirim MSG_UNKNOWN_FILE) SEBELUM runFlow() dipanggil.
+     * Jaga-jaga andai router berkembang (nilai flow baru) tanpa match() ini
+     * ikut diperbarui: tanpa default, match() akan melempar UnhandledMatchError
+     * yang lolos ke TelegramWebhookController::handle() (jadi Log::error diam2,
+     * user TIDAK dapat balasan apa pun) — dengan default, user tetap dapat
+     * pesan yang sama seperti flow benar2 tak dikenal.
+     *
      * @param  array<string,mixed>  $document
      */
     private function runFlow(string $flow, int|string $chatId, array $document): void
@@ -122,6 +132,7 @@ class ReportBotDispatcher
             'leads' => app(LeadsReportFlow::class)->handle($chatId, $document),
             'ads' => app(AdsReportFlow::class)->handle($chatId, $document),
             'tiktok_income' => app(TikTokIncomeFlow::class)->handle($chatId, $document),
+            default => $this->telegram->sendMessage($chatId, self::MSG_UNKNOWN_FILE),
         };
     }
 }

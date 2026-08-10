@@ -7,6 +7,7 @@ use App\Services\ReportBot\TelegramClient;
 use App\Services\ReportBot\TikTokIncomeN8nService;
 use App\Support\SpreadsheetReader;
 use App\Support\XlsxWriter;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -45,8 +46,11 @@ use Throwable;
  *        TelegramClient::sendDocument() -> BERSIHKAN (hapus baris pending +
  *        KEDUA file permanen: csv & xlsx).
  *   3. TANPA AI. Satu try/catch TUNGGAL membungkus SELURUH langkah di atas
- *      (unduh s/d kirim dokumen) — gagal di titik manapun -> sendMessage
- *      pesan ramah, webhook TIDAK boleh throw ke pemanggil.
+ *      (unduh s/d kirim dokumen) — gagal di titik manapun -> Log::error()
+ *      detail lengkap SERVER-SIDE + sendMessage pesan GENERIK ke user (FINAL
+ *      REVIEW Finding 2: sebelumnya $e->getMessage() mentah ikut terkirim ke
+ *      chat — bisa memuat data sensitif, mis. token lewat TelegramClient::
+ *      send()), webhook TIDAK boleh throw ke pemanggil.
  *
  * CATATAN API XlsxWriter::write(): brief tugas awal mengira method ini
  * balikin BYTES langsung. Setelah dicek sumbernya: ia balikin PATH file .xlsx
@@ -64,7 +68,15 @@ use Throwable;
  */
 class TikTokIncomeFlow
 {
-    private const ERROR_PREFIX = 'Maaf, gagal memproses laporan: ';
+    /**
+     * Pesan generik utk SEMUA kegagalan tak terduga di handle() — SENGAJA
+     * tidak menyertakan $e->getMessage() (FINAL REVIEW Finding 2): detail
+     * asli exception bisa memuat info sensitif (mis. token Telegram lewat
+     * ConnectionException, lihat TelegramClient::send()) atau sekadar
+     * membingungkan user non-teknis. Detail lengkap tetap tercatat via
+     * Log::error() di titik tangkap (lihat catch di handle()).
+     */
+    private const ERROR_GENERIC = 'Maaf, gagal memproses laporan. Coba lagi, atau hubungi admin.';
 
     private const MSG_CSV_RECEIVED = 'Order CSV diterima ✅ — sekarang kirim file Income (.xlsx).';
 
@@ -92,7 +104,8 @@ class TikTokIncomeFlow
                 default => $this->telegram->sendMessage($chatId, self::MSG_UNKNOWN_TYPE),
             };
         } catch (Throwable $e) {
-            $this->telegram->sendMessage($chatId, self::ERROR_PREFIX.$e->getMessage());
+            Log::error('report-bot tiktok-income gagal', ['e' => $e->getMessage()]);
+            $this->telegram->sendMessage($chatId, self::ERROR_GENERIC);
         }
     }
 

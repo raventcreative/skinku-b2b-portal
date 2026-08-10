@@ -6,6 +6,7 @@ use App\Services\ReportBot\ReportAi;
 use App\Services\ReportBot\TelegramClient;
 use App\Support\PdfTextExtractor;
 use App\Support\SpreadsheetReader;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -56,15 +57,28 @@ use Throwable;
  * byte-identik ke sumber n8n — lihat catatan & verifikasi di ADS_SYSTEM_PROMPT.
  *
  * ReportAi TIDAK menangkap App\Services\Ai\AiException sendiri (lihat ReportAi
- * & LeadsReportFlow) — try/catch di sini membungkus (a) langkah "susun JSON"
- * (mencakup titik panggilan AI readFile PLUS SpreadsheetReader/PdfTextExtractor
- * yg sepaket dgnnya — gagal file rusak/tak terbaca pun pantas dapat pesan
- * ramah yg sama, bukan cuma AiException) dan (b) analyze(). Gagal di titik
- * manapun -> pesan ramah ke user via sendMessage, TIDAK ada sendDocument.
+ * & LeadsReportFlow) — try/catch di sini membungkus (a) unduh (getFile/
+ * downloadFile) + langkah "susun JSON" (mencakup titik panggilan AI readFile
+ * PLUS SpreadsheetReader/PdfTextExtractor yg sepaket dgnnya — gagal file
+ * rusak/tak terbaca pun pantas dapat pesan ramah yg sama, bukan cuma
+ * AiException) dan (b) analyze() + render HTML + sendDocument (FINAL REVIEW
+ * Finding 3: unduh & sendDocument dulu di LUAR try/catch, sekarang ikut
+ * dibungkus). Gagal di titik manapun -> pesan GENERIK ke user via sendMessage
+ * (FINAL REVIEW Finding 2: detail exception asli — bisa memuat data sensitif,
+ * mis. token via TelegramClient::send() — di-Log::error() SERVER-SIDE saja,
+ * TIDAK PERNAH diteruskan ke user), TIDAK ada sendDocument kalau gagal.
  */
 class AdsReportFlow
 {
+    /** Prefix pesan VALIDASI (bukan exception) — dipakai apa adanya, aman ditampilkan ke user. */
     private const ERROR_PREFIX = 'Maaf, gagal memproses laporan: ';
+
+    /**
+     * Pesan generik utk SEMUA kegagalan tak terduga (exception apa pun di
+     * kedua try/catch handle()) — SENGAJA tidak menyertakan $e->getMessage()
+     * (FINAL REVIEW Finding 2), lihat catatan sama di LeadsReportFlow.
+     */
+    private const ERROR_GENERIC = 'Maaf, gagal memproses laporan. Coba lagi, atau hubungi admin.';
 
     /**
      * Alias header kolom .xlsx (dinormalisasi lower-case + spasi tunggal) ->
@@ -325,18 +339,19 @@ ADS_SYSTEM_PROMPT_EOT;
         $fileName = (string) ($document['file_name'] ?? '');
         $mime = (string) ($document['mime_type'] ?? 'application/pdf');
 
-        $filePath = (string) ($this->telegram->getFile($fileId)['result']['file_path'] ?? '');
-        $bytes = $this->telegram->downloadFile($filePath);
-
         $ai = app(ReportAi::class);
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
 
         try {
+            $filePath = (string) ($this->telegram->getFile($fileId)['result']['file_path'] ?? '');
+            $bytes = $this->telegram->downloadFile($filePath);
+
             $json = $ext === 'xlsx'
                 ? $this->fromXlsxRows($this->withTempFile($bytes, fn (string $path) => SpreadsheetReader::rows($path, 'xlsx')))
                 : $this->jsonFromPdf($bytes, $mime, $ai);
         } catch (Throwable $e) {
-            $this->telegram->sendMessage($chatId, self::ERROR_PREFIX.$e->getMessage());
+            Log::error('report-bot ads: unduh/susun-json gagal', ['e' => $e->getMessage()]);
+            $this->telegram->sendMessage($chatId, self::ERROR_GENERIC);
 
             return;
         }
@@ -356,15 +371,14 @@ ADS_SYSTEM_PROMPT_EOT;
 
         try {
             $text = $ai->analyze(self::ADS_SYSTEM_PROMPT, $json);
+
+            $html = view('report_bot.ads', $this->splitReport($text))->render();
+
+            $this->telegram->sendDocument($chatId, 'Laporan Ads.html', $html);
         } catch (Throwable $e) {
-            $this->telegram->sendMessage($chatId, self::ERROR_PREFIX.$e->getMessage());
-
-            return;
+            Log::error('report-bot ads: analisis/kirim gagal', ['e' => $e->getMessage()]);
+            $this->telegram->sendMessage($chatId, self::ERROR_GENERIC);
         }
-
-        $html = view('report_bot.ads', $this->splitReport($text))->render();
-
-        $this->telegram->sendDocument($chatId, 'Laporan Ads.html', $html);
     }
 
     /**

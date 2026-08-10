@@ -3,6 +3,7 @@
 namespace Tests\Feature\ReportBot;
 
 use App\Services\ReportBot\TelegramClient;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Tests\TestCase;
@@ -115,5 +116,42 @@ class TelegramClientTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         $this->client()->sendDocument(456, 'file.xlsx', 'BYTES');
+    }
+
+    /**
+     * FINDING 1 (final review, security): pada kegagalan level KONEKSI (timeout/
+     * DNS/TLS/refused — beda dari status HTTP biasa spt 400/404 di atas), Laravel
+     * melempar Illuminate\Http\Client\ConnectionException yang PESANNYA memuat
+     * URL request LENGKAP apa adanya, termasuk token bot di path
+     * (".../bot{token}/...") — Guzzle cuma me-redact "user:pass@", tidak pernah
+     * path. Tanpa TelegramClient::send() menangkap ini, token bocor verbatim ke
+     * log (TelegramWebhookController::handle()) & ke chat user (flow2, sebelum
+     * Finding 2). Simulasikan persis skenario itu: fake Http:: melempar
+     * ConnectionException berisi token di URL-nya, pastikan RuntimeException
+     * yang benar2 keluar dari sendMessage() GENERIK & TIDAK memuat token.
+     */
+    public function test_send_message_wraps_connection_exception_without_leaking_token(): void
+    {
+        $leakyMessage = 'cURL error 28: Failed to connect to api.telegram.org port 443 after 10000 ms: '
+            .'Timeout was reached for https://api.telegram.org/bot8553766151:AAH_SECRET_TOKEN_VALUE/getFile';
+
+        Http::fake(['api.telegram.org/*' => fn () => throw new ConnectionException($leakyMessage)]);
+
+        $thrown = null;
+
+        try {
+            $this->client()->sendMessage(123, 'halo');
+        } catch (RuntimeException $e) {
+            $thrown = $e;
+        }
+
+        $this->assertNotNull($thrown, 'sendMessage() harus tetap melempar RuntimeException saat koneksi gagal.');
+        $this->assertSame('Gagal menghubungi Telegram (koneksi).', $thrown->getMessage());
+        $this->assertStringNotContainsString('AAH_SECRET_TOKEN_VALUE', $thrown->getMessage());
+        $this->assertStringNotContainsString('bot8553766151', $thrown->getMessage());
+        // Exception asli (berisi URL/token) TETAP disimpan sbg $previous utk
+        // debugging via exception chain di level KODE, bukan lewat teks log/chat.
+        $this->assertInstanceOf(ConnectionException::class, $thrown->getPrevious());
+        $this->assertStringContainsString('AAH_SECRET_TOKEN_VALUE', $thrown->getPrevious()->getMessage());
     }
 }

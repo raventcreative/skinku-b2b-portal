@@ -9,6 +9,7 @@ use App\Services\ReportBot\TelegramClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Mockery\MockInterface;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -138,13 +139,19 @@ class LeadsFlowTest extends TestCase
         $this->assertSame(22, $siti['period']['leads']);
     }
 
-    public function test_ai_readfile_lempar_aiexception_kirim_pesan_ramah_tanpa_kirim_dokumen(): void
+    /**
+     * FINAL REVIEW Finding 2: pesan ke user harus GENERIK — TIDAK boleh
+     * memuat teks exception asli ('model API key kosong'). Assert exact match
+     * (bukan cuma str_contains prefix) supaya kebocoran teks apa pun sesudah
+     * prefix otomatis ketahuan gagal.
+     */
+    public function test_ai_readfile_lempar_aiexception_kirim_pesan_generik_tanpa_kirim_dokumen(): void
     {
         $telegram = $this->fakeTelegram();
         $telegram->shouldNotReceive('sendDocument');
         $telegram->shouldReceive('sendMessage')
             ->once()
-            ->withArgs(fn ($chatId, $text) => $chatId === 555 && str_contains($text, 'Maaf, gagal memproses laporan'));
+            ->with(555, 'Maaf, gagal memproses laporan. Coba lagi, atau hubungi admin.');
 
         $ai = Mockery::mock(ReportAi::class);
         $ai->shouldReceive('readFile')->once()->andThrow(new AiException('model API key kosong'));
@@ -154,17 +161,42 @@ class LeadsFlowTest extends TestCase
         app(LeadsReportFlow::class)->handle(555, $this->document());
     }
 
-    public function test_ai_analyze_lempar_exception_kirim_pesan_ramah_tanpa_kirim_dokumen(): void
+    /** FINAL REVIEW Finding 2: sama seperti di atas, utk exception dari analyze() ('rate limit tercapai'). */
+    public function test_ai_analyze_lempar_exception_kirim_pesan_generik_tanpa_kirim_dokumen(): void
     {
         $telegram = $this->fakeTelegram();
         $telegram->shouldNotReceive('sendDocument');
         $telegram->shouldReceive('sendMessage')
             ->once()
-            ->withArgs(fn ($chatId, $text) => $chatId === 555 && str_contains($text, 'Maaf, gagal memproses laporan'));
+            ->with(555, 'Maaf, gagal memproses laporan. Coba lagi, atau hubungi admin.');
 
         $ai = Mockery::mock(ReportAi::class);
         $ai->shouldReceive('readFile')->once()->andReturn($this->twoCsJson());
         $ai->shouldReceive('analyze')->once()->andThrow(new AiException('rate limit tercapai'));
+        $this->app->instance(ReportAi::class, $ai);
+
+        app(LeadsReportFlow::class)->handle(555, $this->document());
+    }
+
+    /**
+     * FINAL REVIEW Finding 3: getFile()/downloadFile() dulu di LUAR try/catch
+     * flow (gagal unduh = user diam tanpa balasan) — sekarang ikut dibungkus.
+     * Gagal PALING AWAL (getFile) sebelum readFile/analyze sempat dipanggil.
+     */
+    public function test_unduh_file_gagal_kirim_pesan_generik_tanpa_kirim_dokumen(): void
+    {
+        $telegram = Mockery::mock(TelegramClient::class);
+        $telegram->shouldReceive('getFile')->once()->with('FILE123')
+            ->andThrow(new RuntimeException('Telegram getFile gagal (500): boom'));
+        $telegram->shouldNotReceive('downloadFile');
+        $telegram->shouldNotReceive('sendDocument');
+        $telegram->shouldReceive('sendMessage')->once()
+            ->with(555, 'Maaf, gagal memproses laporan. Coba lagi, atau hubungi admin.');
+        $this->app->instance(TelegramClient::class, $telegram);
+
+        $ai = Mockery::mock(ReportAi::class);
+        $ai->shouldNotReceive('readFile');
+        $ai->shouldNotReceive('analyze');
         $this->app->instance(ReportAi::class, $ai);
 
         app(LeadsReportFlow::class)->handle(555, $this->document());
