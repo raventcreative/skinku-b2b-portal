@@ -165,9 +165,45 @@ class TikTokIncomeN8nService
      */
     public static function parseOrderCsv(string $csv): array
     {
+        return self::parseOrderCsvFull($csv)['index'];
+    }
+
+    /**
+     * Ringkasan diagnostik CSV Order — port pesan Telegram node n8n "Cache
+     * Order CSV" (baris ~368-377 sumber): jumlah baris data valid (oid+sku
+     * terisi), jumlah Order unik (yang punya >=1 SKU dikenal), & daftar SKU di
+     * luar SKU_MAP. Dipakai TikTokIncomeFlow untuk balasan saat CSV diterima
+     * (parity n8n: "Baris CSV terbaca / Order unik / SKU dikenali").
+     *
+     * @return array{lineCount:int, orders:int, unmapped:array<int,string>}
+     */
+    public static function orderCsvSummary(string $csv): array
+    {
+        $full = self::parseOrderCsvFull($csv);
+
+        return [
+            'lineCount' => $full['lineCount'],
+            'orders' => count($full['index']),
+            'unmapped' => array_keys($full['unmapped']),
+        ];
+    }
+
+    /**
+     * Parser inti dipakai parseOrderCsv() (ambil ['index']) & orderCsvSummary()
+     * (ambil statistik). Selain $index (orderId => [kategori => unit]), juga
+     * menghitung $lineCount & mengumpulkan $unmapped — PERSIS lineCount/unmapped
+     * node n8n "Cache Order CSV". Logika pembangunan $index TIDAK berubah dari
+     * versi sebelumnya (statistik murni tambahan).
+     *
+     * @return array{index:array<string,array<string,int>>, lineCount:int, unmapped:array<string,bool>}
+     */
+    private static function parseOrderCsvFull(string $csv): array
+    {
         $csv = preg_replace('/^\xEF\xBB\xBF/', '', $csv) ?? $csv; // buang BOM UTF-8
 
         $index = [];
+        $unmapped = [];        // SKU di luar SKU_MAP (PERSIS `unmapped` n8n)
+        $lineCount = 0;        // baris data dgn oid+sku terisi (PERSIS `lineCount` n8n)
         $field = '';
         $col = 0;
         $inQuotes = false;
@@ -204,7 +240,7 @@ class TikTokIncomeN8nService
                 if ($field !== '' || $col > 0) {
                     [$field, $col] = self::pushCsvField($rec, $field, $col);
                 }
-                $headerSkipped = self::commitCsvRecord($rec, $headerSkipped, $index);
+                $headerSkipped = self::commitCsvRecord($rec, $headerSkipped, $index, $lineCount, $unmapped);
                 $rec = [];
                 $col = 0;
             } elseif ($ch === "\r") {
@@ -218,10 +254,10 @@ class TikTokIncomeN8nService
         // `if (field !== "" || col > 0) endRecord();` di akhir sumber n8n.
         if ($field !== '' || $col > 0) {
             [$field, $col] = self::pushCsvField($rec, $field, $col);
-            self::commitCsvRecord($rec, $headerSkipped, $index);
+            self::commitCsvRecord($rec, $headerSkipped, $index, $lineCount, $unmapped);
         }
 
-        return $index;
+        return ['index' => $index, 'lineCount' => $lineCount, 'unmapped' => $unmapped];
     }
 
     /**
@@ -250,9 +286,10 @@ class TikTokIncomeN8nService
      *
      * @param  array<int,string>  $rec
      * @param  array<string,array<string,int>>  $index
+     * @param  array<string,bool>  $unmapped  akumulasi SKU di luar SKU_MAP (utk pesan diagnostik n8n)
      * @return bool $headerSkipped baru (selalu true setelah baris pertama)
      */
-    private static function commitCsvRecord(array $rec, bool $headerSkipped, array &$index): bool
+    private static function commitCsvRecord(array $rec, bool $headerSkipped, array &$index, int &$lineCount, array &$unmapped): bool
     {
         if (! $headerSkipped) {
             return true;
@@ -266,9 +303,13 @@ class TikTokIncomeN8nService
             return true;
         }
 
+        $lineCount++;   // PERSIS n8n: dihitung SETELAH cek oid/sku, SEBELUM cek SKU_MAP
+
         $comp = self::SKU_MAP[$sku] ?? null;
         if ($comp === null) {
-            return true;   // SKU tak dikenal -> diabaikan (n8n: catat ke `unmapped`, tak throw)
+            $unmapped[$sku] = true;   // PERSIS n8n: catat SKU tak dikenal (tak throw)
+
+            return true;
         }
 
         if (! isset($index[$oid])) {

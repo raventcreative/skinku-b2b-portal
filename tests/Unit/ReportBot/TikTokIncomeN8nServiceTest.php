@@ -76,6 +76,19 @@ class TikTokIncomeN8nServiceTest extends TestCase
         $this->assertSame(0, $index['ORDER-002']['Scrub']);
     }
 
+    public function test_order_csv_summary_hitung_baris_order_unik_dan_sku_tak_dikenal(): void
+    {
+        // ORDER_CSV: 4 baris data (semua oid+sku terisi) -> lineCount 4;
+        // 2 order punya >=1 SKU dikenal (ORDER-001, ORDER-002) -> orders 2;
+        // SKU "9999999999999999999" tak ada di SKU_MAP -> unmapped 1 (utk pesan
+        // "SKU belum dikenal" ala n8n).
+        $summary = TikTokIncomeN8nService::orderCsvSummary(self::ORDER_CSV);
+
+        $this->assertSame(4, $summary['lineCount']);
+        $this->assertSame(2, $summary['orders']);
+        $this->assertSame(['9999999999999999999'], $summary['unmapped']);
+    }
+
     public function test_parse_order_csv_index_has_all_ten_categories_defaulted_to_zero(): void
     {
         $index = TikTokIncomeN8nService::parseOrderCsv(self::ORDER_CSV);

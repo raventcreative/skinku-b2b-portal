@@ -78,8 +78,6 @@ class TikTokIncomeFlow
      */
     private const ERROR_GENERIC = 'Maaf, gagal memproses laporan. Coba lagi, atau hubungi admin.';
 
-    private const MSG_CSV_RECEIVED = 'Order CSV diterima ✅ — sekarang kirim file Income (.xlsx).';
-
     private const MSG_NEED_CSV_FIRST = 'Kirim Order CSV ("Semua pesanan") dulu, baru file Income .xlsx.';
 
     private const MSG_UNKNOWN_TYPE = 'File tidak dikenali — kirim Order CSV ("Semua pesanan") atau file Income .xlsx.';
@@ -138,7 +136,31 @@ class TikTokIncomeFlow
             ['path' => $path],
         );
 
-        $this->telegram->sendMessage($chatId, self::MSG_CSV_RECEIVED);
+        $summary = TikTokIncomeN8nService::orderCsvSummary($bytes);
+        $this->telegram->sendMessage($chatId, self::csvReceivedMessage($summary));
+    }
+
+    /**
+     * Pesan konfirmasi CSV — VERBATIM node n8n "Cache Order CSV" (baris ~369-377
+     * sumber): baris terbaca + order unik + status SKU dikenali / daftar (maks 5)
+     * SKU belum dikenal. Parity persis n8n biar user tahu kalau ada SKU yang
+     * belum kepetakan (order-nya jadi 0 di laporan) — bukan sekadar "diterima".
+     *
+     * @param  array{lineCount:int, orders:int, unmapped:array<int,string>}  $summary
+     */
+    private static function csvReceivedMessage(array $summary): string
+    {
+        $unmapped = $summary['unmapped'];
+        $skuLine = $unmapped === []
+            ? '• Semua SKU dikenali 👍'
+            : '⚠️ SKU belum dikenal: '.count($unmapped)."\n"
+                .implode("\n", array_map(static fn (string $s): string => '   - '.$s, array_slice($unmapped, 0, 5)));
+
+        return "✅ Data order tersimpan.\n"
+            .'• Baris CSV terbaca: '.$summary['lineCount']."\n"
+            .'• Order unik: '.$summary['orders']."\n"
+            .$skuLine
+            ."\n\nSekarang kirim file income (.xlsx) untuk digabung.";
     }
 
     private function handleIncomeXlsx(int|string $chatId, string $bytes): void

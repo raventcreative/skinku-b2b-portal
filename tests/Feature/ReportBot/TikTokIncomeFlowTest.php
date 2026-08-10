@@ -117,7 +117,7 @@ class TikTokIncomeFlowTest extends TestCase
         $telegram->shouldReceive('downloadFile')->once()->with('documents/orders.csv')
             ->andReturn(self::ORDER_CSV);
         $telegram->shouldReceive('sendMessage')->once()
-            ->with(self::CHAT_ID, 'Order CSV diterima ✅ — sekarang kirim file Income (.xlsx).');
+            ->with(self::CHAT_ID, "✅ Data order tersimpan.\n• Baris CSV terbaca: 2\n• Order unik: 2\n• Semua SKU dikenali 👍\n\nSekarang kirim file income (.xlsx) untuk digabung.");
         $telegram->shouldNotReceive('sendDocument');
 
         app(TikTokIncomeFlow::class)->handle(self::CHAT_ID, $this->csvDocument());
