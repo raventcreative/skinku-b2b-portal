@@ -2,6 +2,10 @@
 
 namespace App\Services\ReportBot;
 
+use App\Services\ReportBot\Flows\AdsReportFlow;
+use App\Services\ReportBot\Flows\LeadsReportFlow;
+use App\Services\ReportBot\Flows\TikTokIncomeFlow;
+
 /**
  * Titik rangkai webhook Telegram: gate (kode akses) -> router (deteksi flow
  * dari dokumen) -> flow. Dipanggil oleh TelegramWebhookController SETELAH
@@ -9,10 +13,12 @@ namespace App\Services\ReportBot;
  * (dan tidak boleh) memedulikan format response HTTP — cuma balas lewat
  * TelegramClient::sendMessage/sendDocument.
  *
- * Flow Leads/Ads/TikTok Income (Fase 2-4) masih stub di sini — Task 13
- * mengganti isi tiap cabang match() di runFlow() dengan pemanggilan
- * LeadsReportFlow/AdsReportFlow/TikTokIncomeFlow sungguhan tanpa mengubah
- * struktur gate->router->flow di atasnya.
+ * Task 13: match() di runFlow() menyambungkan tiap flow yang terdeteksi
+ * router ke kelas Leads/Ads/TikTokIncomeReportFlow sungguhan (Fase 2-4).
+ * Tiap flow bertanggung jawab PENUH atas balasannya sendiri (sendMessage
+ * error/sendDocument laporan) lewat TelegramClient miliknya masing-masing —
+ * ReportBotDispatcher sendiri TIDAK menyentuh $this->telegram lagi begitu
+ * sebuah flow terdeteksi (beda dari cabang null-flow di handleDocument()).
  */
 class ReportBotDispatcher
 {
@@ -95,23 +101,27 @@ class ReportBotDispatcher
             return;
         }
 
-        $this->runFlow($flow, $chatId, $document, $prefix);
+        $this->runFlow($flow, $chatId, $document);
     }
 
     /**
-     * Stub tiap flow (Fase 2-4 mengimplementasikannya sungguhan, Task 13
-     * menyambungkannya ke sini). Sengaja satu arm per flow (bukan satu
-     * string generik dari $flow) supaya tiap arm bisa diganti sendiri-sendiri
-     * dengan pemanggilan flow yang isinya berbeda-beda (unduh+ekstraksi+AI+HTML).
+     * Satu arm per flow (bukan satu string generik dari $flow) supaya tiap
+     * arm memanggil flow yang isinya berbeda-beda (unduh+ekstraksi+AI+HTML).
+     * $prefix ("Kode benar, aktif ✅") SENGAJA tidak diteruskan ke sini: tiap
+     * flow mengirim balasannya sendiri, dan kombinasi kode akses + dokumen
+     * dalam SATU update Telegram tidak mungkin terjadi di dunia nyata
+     * (dokumen memakai field `caption`, bukan `text`, jadi $text yang dicek
+     * gate selalu kosong saat ada dokumen -> status 'authorized_now' tidak
+     * pernah bersamaan dengan document — lihat handle()).
      *
      * @param  array<string,mixed>  $document
      */
-    private function runFlow(string $flow, int|string $chatId, array $document, string $prefix): void
+    private function runFlow(string $flow, int|string $chatId, array $document): void
     {
         match ($flow) {
-            'leads' => $this->telegram->sendMessage($chatId, $prefix.'Flow leads belum aktif — segera.'),
-            'ads' => $this->telegram->sendMessage($chatId, $prefix.'Flow ads belum aktif — segera.'),
-            'tiktok_income' => $this->telegram->sendMessage($chatId, $prefix.'Flow tiktok_income belum aktif — segera.'),
+            'leads' => app(LeadsReportFlow::class)->handle($chatId, $document),
+            'ads' => app(AdsReportFlow::class)->handle($chatId, $document),
+            'tiktok_income' => app(TikTokIncomeFlow::class)->handle($chatId, $document),
         };
     }
 }

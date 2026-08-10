@@ -4,10 +4,14 @@ namespace Tests\Feature\ReportBot;
 
 use App\Models\AppSetting;
 use App\Models\TelegramBotChat;
+use App\Services\ReportBot\Flows\AdsReportFlow;
+use App\Services\ReportBot\Flows\LeadsReportFlow;
+use App\Services\ReportBot\Flows\TikTokIncomeFlow;
 use App\Services\ReportBot\ReportBotDispatcher;
 use App\Services\ReportBot\TelegramClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class DispatcherTest extends TestCase
@@ -39,20 +43,71 @@ class DispatcherTest extends TestCase
         return $mock;
     }
 
+    /** Bind mock ke container utk kelas flow $class (Leads/Ads/TikTokIncome); balikin mock-nya utk shouldReceive/shouldNotReceive. */
+    private function fakeFlow(string $class): MockInterface
+    {
+        $mock = Mockery::mock($class);
+        $this->app->instance($class, $mock);
+
+        return $mock;
+    }
+
     public function test_chat_aktif_kirim_dokumen_leads_memicu_flow_leads(): void
     {
         TelegramBotChat::create(['chat_id' => '111', 'name' => 'Budi', 'authorized_at' => now()]);
+        $this->fakeTelegram();
 
-        $mock = $this->fakeTelegram();
-        $mock->shouldReceive('sendMessage')
+        $document = ['file_name' => 'leads.pdf', 'mime_type' => 'application/pdf', 'file_id' => 'FILE123'];
+
+        $this->fakeFlow(LeadsReportFlow::class)
+            ->shouldReceive('handle')
             ->once()
-            ->withArgs(fn ($chatId, $text) => (string) $chatId === '111' && str_contains(strtolower($text), 'leads'));
+            ->withArgs(fn ($chatId, $doc) => (string) $chatId === '111' && $doc === $document);
 
-        app(ReportBotDispatcher::class)->handle($this->update(111, null, [
-            'file_name' => 'leads.pdf',
-            'mime_type' => 'application/pdf',
-            'file_id' => 'FILE123',
-        ]));
+        $this->fakeFlow(AdsReportFlow::class)->shouldNotReceive('handle');
+        $this->fakeFlow(TikTokIncomeFlow::class)->shouldNotReceive('handle');
+
+        app(ReportBotDispatcher::class)->handle($this->update(111, null, $document));
+    }
+
+    public function test_chat_aktif_kirim_dokumen_ads_memicu_flow_ads(): void
+    {
+        TelegramBotChat::create(['chat_id' => '112', 'name' => 'Budi', 'authorized_at' => now()]);
+        $this->fakeTelegram();
+
+        $document = [
+            'file_name' => 'ads.xlsx',
+            'mime_type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'file_id' => 'FILE124',
+        ];
+
+        $this->fakeFlow(AdsReportFlow::class)
+            ->shouldReceive('handle')
+            ->once()
+            ->withArgs(fn ($chatId, $doc) => (string) $chatId === '112' && $doc === $document);
+
+        $this->fakeFlow(LeadsReportFlow::class)->shouldNotReceive('handle');
+        $this->fakeFlow(TikTokIncomeFlow::class)->shouldNotReceive('handle');
+
+        app(ReportBotDispatcher::class)->handle($this->update(112, null, $document));
+    }
+
+    public function test_chat_aktif_kirim_dokumen_csv_memicu_flow_tiktok_income(): void
+    {
+        TelegramBotChat::create(['chat_id' => '113', 'name' => 'Budi', 'authorized_at' => now()]);
+        $this->fakeTelegram();
+
+        $document = ['file_name' => 'pesanan.csv', 'mime_type' => 'text/csv', 'file_id' => 'FILE125'];
+
+        $this->fakeFlow(TikTokIncomeFlow::class)
+            ->shouldReceive('handle')
+            ->once()
+            ->withArgs(fn ($chatId, $doc) => (string) $chatId === '113' && $doc === $document);
+
+        $this->fakeFlow(LeadsReportFlow::class)->shouldNotReceive('handle');
+        $this->fakeFlow(AdsReportFlow::class)->shouldNotReceive('handle');
+
+        app(ReportBotDispatcher::class)->handle($this->update(113, null, $document));
     }
 
     public function test_chat_baru_kirim_halo_diminta_kode_akses(): void
