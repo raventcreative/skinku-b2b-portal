@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\PartnerHierarchyService;
+use App\Support\PartnerHierarchy;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -61,5 +62,49 @@ class PartnerHierarchyController extends Controller
         );
 
         return response()->json(['ok' => true, 'member_id' => $user->member_id]);
+    }
+
+    /**
+     * Ubah tier (role) seorang mitra. Diblok bila masih punya downline aktif
+     * (cegah struktur pecah). Upline lama di-reset bila tak valid utk tier baru.
+     */
+    public function changeTier(Request $request, User $user)
+    {
+        $role = (string) $request->input('role');
+        if (! PartnerHierarchy::isTierRole($role)) {
+            return response()->json(['ok' => false, 'error' => 'Tier tidak valid.'], 422);
+        }
+
+        if ($this->hierarchy->hasActiveDownline($user)) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Mitra ini masih punya downline. Lepas/pindahkan downline-nya dulu sebelum ubah tier.',
+            ], 422);
+        }
+
+        $user->role = $role;
+
+        // Upline lama mungkin tak lagi sah untuk tier baru → lepaskan.
+        if ($user->upline_id) {
+            $upline = User::find($user->upline_id);
+            $allowed = PartnerHierarchy::allowedParentRoles($user->role);
+            if (! $upline || ! in_array($upline->role, $allowed, true)) {
+                $user->upline_id = null;
+            }
+        }
+
+        $this->hierarchy->ensureMemberId($user);
+        $user->save();
+
+        AuditService::log(
+            action: 'change_tier',
+            targetType: 'user',
+            targetId: $user->id,
+            after: ['role' => $user->role, 'upline_id' => $user->upline_id],
+            targetUserId: $user->id,
+            targetEmail: $user->email,
+        );
+
+        return response()->json(['ok' => true]);
     }
 }

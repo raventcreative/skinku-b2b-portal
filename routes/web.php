@@ -390,6 +390,7 @@ Route::middleware(['auth', 'role'])->group(function () {
 
         Route::get('/struktur-jaringan', [PartnerHierarchyController::class, 'index'])->name('struktur-jaringan.index');
         Route::post('/struktur-jaringan/{user}/place', [PartnerHierarchyController::class, 'place'])->name('struktur-jaringan.place');
+        Route::post('/struktur-jaringan/{user}/tier', [PartnerHierarchyController::class, 'changeTier'])->name('struktur-jaringan.tier');
     });
 
     Route::middleware('permission:delete_users')->group(function () {
