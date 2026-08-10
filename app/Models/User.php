@@ -23,6 +23,18 @@ class User extends Authenticatable
 
     public const ROLE_RESELLER = 'reseller';
 
+    public const ROLE_GRAND_DISTRIBUTOR = 'grand_distributor';
+
+    public const ROLE_RESELLER_BRONZE = 'reseller_bronze';
+
+    public const ROLE_RESELLER_GOLD = 'reseller_gold';
+
+    /** Semua role yang dianggap "mitra" (lama + tier MLM). */
+    public const PARTNER_ROLES = [
+        self::ROLE_DISTRIBUTOR, self::ROLE_RESELLER,
+        self::ROLE_GRAND_DISTRIBUTOR, self::ROLE_RESELLER_BRONZE, self::ROLE_RESELLER_GOLD,
+    ];
+
     public const ROLES = [
         self::ROLE_SUPER_ADMIN,
         self::ROLE_ADMIN,
@@ -40,6 +52,7 @@ class User extends Authenticatable
     protected $fillable = [
         'uid', 'name', 'fullname', 'email', 'username', 'password',
         'role', 'company_name', 'phone', 'address', 'status', 'region',
+        'upline_id', 'member_id',
         'email_verified_at', 'disabled_at', 'created_by', 'updated_by',
     ];
 
@@ -68,6 +81,16 @@ class User extends Authenticatable
     public function inventory()
     {
         return $this->hasMany(Inventory::class, 'user_id');
+    }
+
+    public function upline()
+    {
+        return $this->belongsTo(User::class, 'upline_id');
+    }
+
+    public function downlines()
+    {
+        return $this->hasMany(User::class, 'upline_id');
     }
 
     /* --------------------------------------------------------------------- */
