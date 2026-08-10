@@ -15,7 +15,8 @@ class PartnerHierarchyService
     /** Validasi + set upline_id (TIDAK save). null = belum ditempatkan (boleh). */
     public function assignUpline(User $user, ?int $uplineId): void
     {
-        if ($uplineId === null) {
+        // Role bukan tier (staf / reseller generik) tak punya posisi di pohon.
+        if (! PartnerHierarchy::isTierRole($user->role) || $uplineId === null) {
             $user->upline_id = null;
 
             return;

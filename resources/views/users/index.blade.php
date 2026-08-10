@@ -31,6 +31,7 @@
                 <th class="text-left">Username</th>
                 <th class="text-left">Email</th>
                 <th class="text-left">Role</th>
+                <th class="text-left">Member ID</th>
                 <th class="text-left">Perusahaan</th>
                 <th class="text-left">Status</th>
                 <th class="text-right px-4">Aksi</th>
@@ -43,6 +44,7 @@
                     <td class="text-stone-600">{{ $row->username }}</td>
                     <td class="text-stone-600">{{ $row->email }}</td>
                     <td><span class="px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">{{ $row->role }}</span></td>
+                    <td class="text-stone-600 font-mono">{{ $row->member_id ?? '—' }}</td>
                     <td class="text-stone-600">{{ $row->company_name ?? '-' }}</td>
                     <td>
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
@@ -53,7 +55,7 @@
                     <td class="px-4 py-3 text-right whitespace-nowrap">
                         @if($row->status !== 'deleted')
                             <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","status"])) }})'>Edit</button>
+                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","status","upline_id"])) }})'>Edit</button>
                             <form method="POST" action="{{ route('users.toggle-status', $row) }}" class="inline">
                                 @csrf
                                 <button class="ml-2 text-amber-600 hover:text-amber-800 font-semibold">{{ $row->status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}</button>
@@ -82,7 +84,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-6 text-center text-stone-400">Tidak ada user.</td></tr>
+                <tr><td colspan="8" class="px-4 py-6 text-center text-stone-400">Tidak ada user.</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -174,6 +176,9 @@
         f.querySelector('[name=address]').value = u.address ?? '';
         f.querySelector('[name=region]').value = u.region ?? '';
         f.querySelector('[name=status]').value = u.status ?? 'active';
+        refreshUplineOptions(f);
+        const uplEl = f.querySelector('[name=upline_id]');
+        if (uplEl) uplEl.value = u.upline_id ?? '';
         toggleModal('editUserModal');
     }
     function openResetPw(id, name) {
@@ -182,6 +187,40 @@
         document.getElementById('resetPwName').textContent = name;
         toggleModal('resetPwModal');
     }
+
+    // ---- Upline picker: saring kandidat induk sesuai role terpilih ----
+    @php
+        $allowedParents = collect(\App\Support\PartnerHierarchy::TIERS)->keys()
+            ->mapWithKeys(fn ($role) => [$role => \App\Support\PartnerHierarchy::allowedParentRoles($role)])->all();
+    @endphp
+    const ALLOWED_PARENTS = {!! json_encode($allowedParents) !!};
+    function refreshUplineOptions(form) {
+        const roleSel = form.querySelector('[name=role]');
+        const uplineSel = form.querySelector('[name=upline_id]');
+        if (!roleSel || !uplineSel) return;
+        const wrap = uplineSel.closest('[data-upline-wrap]');
+        const role = roleSel.value;
+        const isTier = Object.prototype.hasOwnProperty.call(ALLOWED_PARENTS, role);
+        const allowed = ALLOWED_PARENTS[role] || [];
+        if (!isTier || allowed.length === 0) {
+            if (wrap) wrap.style.display = 'none';
+            uplineSel.value = '';
+            return;
+        }
+        if (wrap) wrap.style.display = '';
+        Array.from(uplineSel.options).forEach(function (opt) {
+            if (opt.value === '') { opt.hidden = false; return; }
+            const ok = allowed.indexOf(opt.dataset.role) !== -1;
+            opt.hidden = !ok;
+            if (!ok && uplineSel.value === opt.value) uplineSel.value = '';
+        });
+    }
+    ['createUserForm', 'editUserForm'].forEach(function (id) {
+        const form = document.getElementById(id);
+        if (!form) return;
+        const roleSel = form.querySelector('[name=role]');
+        if (roleSel) roleSel.addEventListener('change', function () { refreshUplineOptions(form); });
+    });
 
     // ---- Auto-generate username from full name on the CREATE form ----
     function slugUsername(s) {
@@ -228,6 +267,7 @@
         window.openCreateUser = function () {
             cf.reset();
             userInput.dataset.touched = '';
+            refreshUplineOptions(cf);
             regenPw();                 // fresh auto-generated password
             if (pw) pw.type = 'text';  // visible by default so it can be copied
             if (pwEyeBtn) pwEyeBtn.textContent = '👁';

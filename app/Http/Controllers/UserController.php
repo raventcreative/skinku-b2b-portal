@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\PartnerHierarchyService;
+use App\Support\PartnerHierarchy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -18,6 +21,8 @@ class UserController extends Controller
     private const ADMIN_MANAGEABLE_ROLES = [
         User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER,
     ];
+
+    public function __construct(private PartnerHierarchyService $hierarchy) {}
 
     public function index(Request $request)
     {
@@ -43,6 +48,10 @@ class UserController extends Controller
             'users' => $users,
             'filters' => $filters,
             'roles' => Role::ordered()->get(),
+            'uplineCandidates' => User::whereIn('role', array_keys(PartnerHierarchy::TIERS))
+                ->where('status', User::STATUS_ACTIVE)
+                ->orderBy('fullname')
+                ->get(['id', 'fullname', 'role', 'region', 'member_id']),
         ]);
     }
 
@@ -61,24 +70,33 @@ class UserController extends Controller
             'address' => ['nullable', 'string', 'max:500'],
             'region' => ['nullable', 'string', 'max:100'],
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
+            'upline_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
 
         $this->assertCanAssignRole($actor, $data['role']);
 
-        $user = User::create([
-            'name' => $data['fullname'],
-            'fullname' => $data['fullname'],
-            'email' => mb_strtolower($data['email']),
-            'username' => mb_strtolower($data['username']),
-            'password' => Hash::make($data['password']),
-            'role' => $data['role'],
-            'company_name' => $data['company_name'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'address' => $data['address'] ?? null,
-            'region' => $data['region'] ?? null,
-            'status' => $data['status'],
-            'created_by' => $actor->id,
-        ]);
+        $user = DB::transaction(function () use ($data, $actor) {
+            $user = User::create([
+                'name' => $data['fullname'],
+                'fullname' => $data['fullname'],
+                'email' => mb_strtolower($data['email']),
+                'username' => mb_strtolower($data['username']),
+                'password' => Hash::make($data['password']),
+                'role' => $data['role'],
+                'company_name' => $data['company_name'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'address' => $data['address'] ?? null,
+                'region' => $data['region'] ?? null,
+                'status' => $data['status'],
+                'created_by' => $actor->id,
+            ]);
+
+            $this->hierarchy->assignUpline($user, $data['upline_id'] ?? null);
+            $this->hierarchy->ensureMemberId($user);
+            $user->save();
+
+            return $user;
+        });
 
         AuditService::log(
             action: 'create_user',
@@ -107,6 +125,7 @@ class UserController extends Controller
             'address' => ['nullable', 'string', 'max:500'],
             'region' => ['nullable', 'string', 'max:100'],
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
+            'upline_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
 
         // Changing TO a privileged role requires super_admin.
@@ -130,6 +149,9 @@ class UserController extends Controller
             'updated_by' => $actor->id,
         ]);
         $user->disabled_at = $data['status'] === User::STATUS_INACTIVE ? ($user->disabled_at ?? now()) : null;
+
+        $this->hierarchy->assignUpline($user, $data['upline_id'] ?? null);
+        $this->hierarchy->ensureMemberId($user);
         $user->save();
 
         AuditService::log(
@@ -152,6 +174,11 @@ class UserController extends Controller
 
         if ($user->status === User::STATUS_DELETED) {
             return back()->withErrors(['user' => 'User yang sudah dihapus tidak dapat diaktifkan.']);
+        }
+
+        // Jangan nonaktifkan upline yang masih punya downline aktif (cegah "anak yatim").
+        if ($user->status === User::STATUS_ACTIVE && $this->hierarchy->hasActiveDownline($user)) {
+            return back()->withErrors(['user' => 'Mitra ini masih punya downline aktif. Pindahkan downline-nya dulu sebelum menonaktifkan.']);
         }
 
         $before = $user->status;
@@ -211,6 +238,11 @@ class UserController extends Controller
         }
         if ($user->isSuperAdmin()) {
             return back()->withErrors(['user' => 'Akun Super Admin tidak dapat dihapus.']);
+        }
+
+        // Jangan hapus upline yang masih punya downline aktif (cegah "anak yatim").
+        if ($this->hierarchy->hasActiveDownline($user)) {
+            return back()->withErrors(['user' => 'Mitra ini masih punya downline aktif. Pindahkan downline-nya dulu.']);
         }
 
         $before = $user->only(['fullname', 'email', 'role', 'status']);

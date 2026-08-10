@@ -39,6 +39,16 @@
     <label class="block text-xs font-semibold text-stone-700 mb-1">Region</label>
     <input name="region" value="{{ old('region') }}" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
 </div>
+<div class="col-span-2" data-upline-wrap style="display:none">
+    <label class="block text-xs font-semibold text-stone-700 mb-1">Upline (induk di pohon)</label>
+    <select name="upline_id" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+        <option value="">— belum ditempatkan —</option>
+        @foreach(($uplineCandidates ?? collect()) as $cand)
+            <option value="{{ $cand->id }}" data-role="{{ $cand->role }}">{{ $cand->fullname }} · {{ \App\Support\PartnerHierarchy::label($cand->role) }}{{ $cand->region ? ' · '.$cand->region : '' }}{{ $cand->member_id ? ' · '.$cand->member_id : '' }}</option>
+        @endforeach
+    </select>
+    <p class="text-[10px] text-stone-400 mt-1">Otomatis disaring 1 tingkat di atas role terpilih. Kosongkan bila belum ada pohon di atasnya.</p>
+</div>
 <div class="col-span-2">
     <label class="block text-xs font-semibold text-stone-700 mb-1">Alamat</label>
     <textarea name="address" rows="2" class="w-full px-3 py-2 border border-stone-300 rounded-lg">{{ old('address') }}</textarea>
