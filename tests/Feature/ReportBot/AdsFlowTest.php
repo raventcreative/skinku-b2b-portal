@@ -10,6 +10,7 @@ use App\Support\XlsxWriter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Mockery\MockInterface;
+use ReflectionClass;
 use Tests\TestCase;
 
 /**
@@ -187,6 +188,10 @@ class AdsFlowTest extends TestCase
         $this->assertSame(['day' => 2, 'views' => 520, 'clicks' => 340, 'ctr' => 65.4, 'linkClicks' => 220, 'spend' => 150000, 'reach' => 480, 'reachTrend' => 12, 'jabar' => 50000, 'jatim' => 30000, 'lain' => 20000], $capturedJson['periodData'][1]);
         $this->assertSame(['views' => 1020, 'clicks' => 640, 'ctr' => 62.7, 'linkClicks' => 420, 'spend' => 250000, 'reach' => 930], $capturedJson['summary']);
         $this->assertSame(2, $capturedJson['lastDay']);
+        // FIX ROUND 1: "brand" (turunan nama file, lihat AdsReportFlow::deriveBrand())
+        // harus ikut sampai ke $json yang dikirim ke analyze() -> menggantikan
+        // ekspresi n8n mati "Brand: {{ $('Switch')...}}" yang dulu tak pernah ter-ground.
+        $this->assertSame('Report Ads Skinku', $capturedJson['brand']);
     }
 
     public function test_flow_ads_pdf_tak_terbaca_fallback_ai_readfile(): void
@@ -201,6 +206,7 @@ class AdsFlowTest extends TestCase
                 && str_contains($html, 'Ringkasan periode di sini.'));
 
         $canned = ['periodData' => [['day' => 1, 'views' => 500, 'clicks' => 300, 'ctr' => 60, 'linkClicks' => 200, 'spend' => 100000, 'reach' => 450, 'reachTrend' => 5, 'jabar' => null, 'jatim' => null, 'lain' => null]], 'summary' => null, 'lastDay' => 1];
+        $capturedJson = null;
 
         $ai = Mockery::mock(ReportAi::class);
         $ai->shouldReceive('readFile')
@@ -209,11 +215,24 @@ class AdsFlowTest extends TestCase
             ->andReturn($canned);
         $ai->shouldReceive('analyze')
             ->once()
-            ->with(Mockery::type('string'), $canned)
-            ->andReturn($this->narratedText());
+            ->andReturnUsing(function (string $systemPrompt, array $json) use (&$capturedJson) {
+                $capturedJson = $json;
+
+                return $this->narratedText();
+            });
         $this->app->instance(ReportAi::class, $ai);
 
         app(AdsReportFlow::class)->handle(777, $this->pdfDocument());
+
+        // readFile() cuma balikin periodData/summary/lastDay; "brand" DITAMBAHKAN
+        // PHP-side sesudahnya (FIX ROUND 1, lihat handle()) -> analyze() harus
+        // menerima keduanya sekaligus (bukan exact-match ke $canned mentah lagi,
+        // krn sekarang beda satu key).
+        $this->assertNotNull($capturedJson);
+        $this->assertSame($canned['periodData'], $capturedJson['periodData']);
+        $this->assertSame($canned['summary'], $capturedJson['summary']);
+        $this->assertSame($canned['lastDay'], $capturedJson['lastDay']);
+        $this->assertSame('Report Ads Skinku', $capturedJson['brand']);
     }
 
     public function test_flow_ads_pdf_terbaca_parse_manual_tanpa_ai_readfile(): void
@@ -242,6 +261,7 @@ class AdsFlowTest extends TestCase
         $this->assertSame(['day' => 1, 'views' => 520, 'clicks' => 340, 'ctr' => 65.4, 'linkClicks' => 220, 'spend' => 150000, 'reach' => 480, 'reachTrend' => 12, 'jabar' => 50000, 'jatim' => 30000, 'lain' => 20000], $capturedJson['periodData'][0]);
         $this->assertSame(['views' => 520, 'clicks' => 340, 'ctr' => 65.4, 'linkClicks' => 220, 'spend' => 150000, 'reach' => 480], $capturedJson['summary']);
         $this->assertSame(1, $capturedJson['lastDay']);
+        $this->assertSame('Report Ads Skinku', $capturedJson['brand']);
     }
 
     public function test_ai_analyze_lempar_exception_kirim_pesan_ramah_tanpa_kirim_dokumen(): void
@@ -290,5 +310,58 @@ class AdsFlowTest extends TestCase
         $this->app->instance(ReportAi::class, $ai);
 
         app(AdsReportFlow::class)->handle(777, $this->xlsxDocument());
+    }
+
+    /**
+     * FIX ROUND 1 (review): buktikan deriveBrand() BUKAN cuma "kata pertama"
+     * ala n8n (`.split(' ').slice(0,1)`, yang utk nama file ini cuma akan
+     * menghasilkan "5." yang rusak) — melainkan batang nama file yang sudah
+     * dibersihkan dari prefiks penomoran list ("5. ") & ekstensi, lalu dikirim
+     * sbg field "brand" pada $json ke analyze().
+     */
+    public function test_brand_diturunkan_dari_nama_file_bukan_first_word_crude(): void
+    {
+        $document = [
+            'file_id' => 'FILE_XLSX',
+            'file_name' => '5. Rave Tailor Mei Report Ad.xlsx',
+            'mime_type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ];
+        $telegram = $this->fakeTelegram('FILE_XLSX', 'documents/ads.xlsx', $this->xlsxBytes());
+        $telegram->shouldReceive('sendDocument')->once();
+
+        $capturedJson = null;
+
+        $ai = Mockery::mock(ReportAi::class);
+        $ai->shouldReceive('analyze')
+            ->once()
+            ->andReturnUsing(function (string $systemPrompt, array $json) use (&$capturedJson) {
+                $capturedJson = $json;
+
+                return $this->narratedText();
+            });
+        $this->app->instance(ReportAi::class, $ai);
+
+        app(AdsReportFlow::class)->handle(777, $document);
+
+        $this->assertNotNull($capturedJson);
+        $this->assertSame('Rave Tailor Mei Report Ad', $capturedJson['brand']);
+    }
+
+    /**
+     * FIX ROUND 1 (review): system prompt sebelum diperbaiki memuat ekspresi
+     * n8n mati "{{ $('Switch')...}}"/"{{ $json }}" (pola "{{ " — dgn spasi
+     * setelah kurung kurawal ganda) yang tak pernah ter-resolve di arsitektur
+     * PHP ini. Guard ini memastikan pola itu tak muncul lagi di konstanta yang
+     * SUNGGUH2 dikirim ke AI. Placeholder OUTPUT FORMAT "{{brand}}"/"{{lastDay}}"
+     * (tanpa spasi setelah "{{") SENGAJA tetap ada — itu bukan token mati,
+     * "brand" & "lastDay" genuinely field JSON asli yang dikirim ke analyze().
+     */
+    public function test_ads_system_prompt_tidak_lagi_memuat_token_mustache_mati(): void
+    {
+        $prompt = (new ReflectionClass(AdsReportFlow::class))->getConstant('ADS_SYSTEM_PROMPT');
+
+        $this->assertStringNotContainsString('{{ ', $prompt);
+        $this->assertStringContainsString('{{brand}}', $prompt);
+        $this->assertStringContainsString('{{lastDay}}', $prompt);
     }
 }

@@ -21,11 +21,13 @@ use Throwable;
  *     utk PDF Ads ASLI ber-font CID, lihat tests/fixtures/report_bot/ads_cid.pdf)
  *     -> ReportAi::readFile (multimodal); kalau ternyata teksnya terbaca bersih
  *     -> parse manual, PORT dari node n8n "Code Parse & Split Ads" (fromAdsText()).
- * -> KEDUA cabang menghasilkan bentuk JSON yang SAMA -> ReportAi::analyze (system
- * prompt VERBATIM node "AI Daily ADS Analyzer") -> satu teks naratif -> pecah
- * daily/summary (PORT token-split node "Code in Generate HTML1", lihat
- * splitReport()) -> render satu halaman HTML (resources/views/report_bot/ads.blade.php,
- * struktur ala leads.blade.php) -> TelegramClient::sendDocument.
+ * -> KEDUA cabang menghasilkan bentuk JSON yang SAMA, lalu deriveBrand() menyisipkan
+ * field "brand" (lihat FIX ROUND 1 di bawah) -> ReportAi::analyze (system prompt
+ * VERBATIM node "AI Daily ADS Analyzer", lihat catatan di ADS_SYSTEM_PROMPT) ->
+ * satu teks naratif -> pecah daily/summary (PORT token-split node "Code in
+ * Generate HTML1", lihat splitReport()) -> render satu halaman HTML
+ * (resources/views/report_bot/ads.blade.php, struktur ala leads.blade.php) ->
+ * TelegramClient::sendDocument.
  *
  * Sengaja TIDAK diport dari "Code in Generate HTML1": auto-detect brand dari
  * teks balasan AI (regex atas frasa "Laporan Iklan Harian ...") & deteksi
@@ -33,11 +35,25 @@ use Throwable;
  * Keduanya murni kosmetik judul (bukan isi laporan), TIDAK disebut di alur
  * bernomor task ini ("mirror leads.blade.php structure"), dan leads.blade.php
  * sendiri — struktur yang eksplisit diminta ditiru — juga tidak melakukan hal
- * serupa (judulnya statis apa pun isi laporannya). Lihat juga catatan verbatim
- * ADS_SYSTEM_PROMPT di bawah: prompt TETAP byte-identik ke sumber termasuk
- * ekspresi n8n "{{ $('Switch')... }}"/"{{ $json }}" yang tak lagi relevan di
- * arsitektur PHP ini (data JSON aslinya tetap sampai ke AI lewat argumen $json
- * ReportAi::analyze() yang terpisah, bukan lewat interpolasi ke prompt).
+ * serupa (judulnya statis apa pun isi laporannya).
+ *
+ * FIX ROUND 1 (review, brand ungrounded): system prompt hasil porting verbatim
+ * awal MEMUAT 3 baris ekspresi n8n yang SUDAH MATI di arsitektur PHP ini —
+ * "Brand: {{ $('Switch')...file_name... }}" (2x) & "{{ $json }}" — n8n
+ * me-resolve ekspresi itu SEBELUM system message sampai ke AI; PHP tidak, jadi
+ * teks ekspresi mentah itu terkirim apa adanya ke AI ("{{ $json }}" sendiri tak
+ * masalah — datanya tetap sampai lewat argumen $json ReportAi::analyze() yang
+ * terpisah — tapi "Brand: ..." fatal: OUTPUT FORMAT yang WAJIB,
+ * "📅 **Laporan Iklan Harian {{brand}}**", jadi tak pernah ter-ground, AI akan
+ * echo literal "{{brand}}" atau mengarang nama brand di judul TIAP laporan).
+ * Diperbaiki dgn deriveBrand() (murni PHP, dari $document['file_name'] — BUKAN
+ * first-word crude ala n8n) yang hasilnya disisipkan ke $json['brand'] SEBELUM
+ * analyze() (lihat handle()); prompt disunting MINIMAL — 3 baris ekspresi mati
+ * dibuang & diganti SATU instruksi eksplisit "pakai field brand dari input
+ * JSON", PERSIS konvensi "{{lastDay}}" yang sudah lebih dulu valid krn lastDay
+ * memang field JSON asli. SISANYA (business rule, rumus CPC/CPM, seluruh
+ * OUTPUT FORMAT termasuk token "{{brand}}"/"{{lastDay}}" itu sendiri) tetap
+ * byte-identik ke sumber n8n — lihat catatan & verifikasi di ADS_SYSTEM_PROMPT.
  *
  * ReportAi TIDAK menangkap App\Services\Ai\AiException sendiri (lihat ReportAi
  * & LeadsReportFlow) — try/catch di sini membungkus (a) langkah "susun JSON"
@@ -146,25 +162,30 @@ Aturan:
 READ_INSTRUCTION_EOT;
 
     /**
-     * DI-PORT VERBATIM dari system message node n8n "AI Daily ADS Analyzer"
-     * (scratchpad/n8n_full.txt baris ~588-722). JANGAN diparafrase — termasuk
-     * ekspresi n8n "{{ $('Switch').item.json.message.document.file_name... }}"
-     * dan "{{ $json }}" yang di sumber ASLINYA di-resolve n8n sebelum sampai ke
-     * AI, tapi di sini SENGAJA dibiarkan sbg teks statis apa adanya (nowdoc,
-     * jadi PHP tak coba men-interpolasi "$('Switch')"/"$json" sbg variabel PHP)
-     * — konsisten dgn instruksi "copy verbatim (nowdoc; verify byte-identical
-     * like Leads did)". Data JSON asli tetap sampai ke AI lewat argumen $json
-     * ReportAi::analyze() yang terpisah dari string prompt ini.
+     * DI-PORT DARI system message node n8n "AI Daily ADS Analyzer"
+     * (scratchpad/n8n_full.txt baris ~588-722) — VERBATIM byte-identik KECUALI
+     * satu edit bertarget dari FIX ROUND 1 (review, lihat dokblok kelas):
+     *   - 2x baris "Brand: {{ $('Switch').item.json.message.document.file_name
+     *     .replace('.pdf','').split(' ').slice(0,1).join(' ') }}" & 1x baris
+     *     "{{ $json }}" (ekspresi n8n yang MATI di PHP — tak pernah ter-resolve,
+     *     jadi dulu terkirim mentah2 ke AI sbg teks tak bermakna) DIBUANG,
+     *     diganti SATU kalimat instruksi eksplisit: 'Gunakan nilai field
+     *     "brand" dari input JSON sebagai nama brand di judul.' — brand kini
+     *     genuinely field JSON asli (lihat handle()/deriveBrand()), PERSIS pola
+     *     "{{lastDay}}" yang sudah lebih dulu valid krn lastDay memang field
+     *     JSON asli.
+     * SISANYA — seluruh business rule, rumus CPC/CPM, & OUTPUT FORMAT (termasuk
+     * token "{{brand}}"/"{{lastDay}}" itu sendiri, TIDAK disentuh) — tetap
+     * byte-identik ke sumber n8n, JANGAN diparafrase lebih jauh dari edit di
+     * atas. Nowdoc dipakai spy PHP tak coba men-interpolasi apa pun sbg
+     * variabel PHP.
      */
     private const ADS_SYSTEM_PROMPT = <<<'ADS_SYSTEM_PROMPT_EOT'
 Kamu adalah analis digital marketing berfokus pada optimasi kampanye iklan.
 
-Brand: {{ $('Switch').item.json.message.document.file_name.replace('.pdf','').split(' ').slice(0,1).join(' ') }}
+Gunakan nilai field "brand" dari input JSON sebagai nama brand di judul.
 
-Berikut adalah dataset performa iklan 
-{{ $('Switch').item.json.message.document.file_name.replace('.pdf','').split(' ').slice(0,1).join(' ') }} 
-bulan ini dalam JSON:
-{{ $json }}
+Berikut adalah dataset performa iklan bulan ini dalam bentuk JSON.
 
 Gunakan hanya data pada "periodData".
 Hari terakhir update = Day {{lastDay}}.
@@ -326,6 +347,13 @@ ADS_SYSTEM_PROMPT_EOT;
             return;
         }
 
+        // FIX ROUND 1: satu titik, dipasang SETELAH percabangan xlsx/pdf (bukan
+        // per-return-site di tiap method susun-JSON) supaya SEMUA jalur otomatis
+        // kebagian field "brand" tanpa perlu mengubah signature fromXlsxRows()/
+        // fromAdsText()/jsonFromPdf() (yang murni soal data laporan, tak perlu
+        // tahu soal nama file) — lihat dokblok kelas & ADS_SYSTEM_PROMPT.
+        $json['brand'] = $this->deriveBrand($fileName);
+
         try {
             $text = $ai->analyze(self::ADS_SYSTEM_PROMPT, $json);
         } catch (Throwable $e) {
@@ -381,6 +409,32 @@ ADS_SYSTEM_PROMPT_EOT;
         } finally {
             @unlink($path);
         }
+    }
+
+    /**
+     * FIX ROUND 1: turunkan "brand" dari nama file, bukan lewat ekspresi n8n
+     * mati (lihat dokblok kelas). n8n aslinya cuma ambil KATA PERTAMA nama
+     * file (`.split(' ').slice(0,1)`) — utk nama file spt "5. Rave Tailor Mei
+     * Report Ad.xlsx" itu cuma menghasilkan "5." (rusak, bukan cuma "mati").
+     * Di sini: buang ekstensi, buang prefiks penomoran list di depan (mis.
+     * "5. "/"12) " — artefak urutan file, bukan bagian nama brand), buang
+     * akhiran " - <noise>" tunggal di belakang (mis. " - Linktree AI" — noise
+     * vendor/tool export; kalau ada BEBERAPA " - ", cuma segmen TERAKHIR yang
+     * dibuang, bukan digreedy-strip dari kemunculan pertama), lalu trim —
+     * hasilnya "batang nama file" yang sudah bersih dipakai APA ADANYA (BUKAN
+     * usaha lebih jauh menebak "kata mana persis nama brand-nya" — itu butuh
+     * heuristik NLP yang tak bisa diverifikasi tanpa sampel nama file Ads
+     * nyata; lihat Concerns di task-10-report.md). Fallback "Brand" (nama sama
+     * dgn fallback n8n sendiri) bila hasil pembersihan kosong.
+     */
+    private function deriveBrand(string $fileName): string
+    {
+        $stem = pathinfo($fileName, PATHINFO_FILENAME);
+        $stem = (string) preg_replace('/^\s*\d+[.\)]\s*/', '', $stem);
+        $stem = (string) preg_replace('/\s+-\s+[^-]*$/', '', $stem);
+        $stem = trim($stem, " \t\n\r\0\x0B.-");
+
+        return $stem !== '' ? $stem : 'Brand';
     }
 
     /**
