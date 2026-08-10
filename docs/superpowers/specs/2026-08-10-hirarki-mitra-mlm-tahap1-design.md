@@ -16,7 +16,7 @@ Dibangun **bertahap**; tiap tahap = software yang jalan & teruji sendiri:
 
 | Tahap | Nama | Deliverable |
 |---|---|---|
-| **1 (spec ini)** | Pondasi Hirarki | Pohon upline-downline + tier (role) + halaman Struktur Jaringan |
+| **1 (spec ini)** | Pondasi Hirarki | Pohon upline-downline + tier (role) + Member ID/login + halaman Struktur Jaringan |
 | 2 | Akses Bertingkat | Atasan lihat/kelola subtree; gating stok per tier (reseller tanpa stok) |
 | 3 | Harga & Komisi | Harga spesifik per tier + komisi mengalir ke atas + laporan jaringan |
 
@@ -40,6 +40,10 @@ berikutnya, masing-masing dengan tesnya sendiri.
   pertahankan sistem izin & harga yang **sudah** per-role. + kolom `upline_id`.
 - **Data mitra lama:** **kosong dulu** — TIDAK ada migrasi paksa; admin
   menempatkan mitra bertahap lewat halaman.
+- **Member ID + login:** tiap mitra dapat `member_id` unik & **tetap** (format
+  `SKN-000123`, netral — tak berubah walau naik tier). Login bisa pakai **Member
+  ID / username / email** + password. (`uid` = kolom warisan Firebase yang mati,
+  tak dipakai.)
 - **Region:** **disarankan** (utamakan region sama saat pilih upline), **tidak
   dipaksa**.
 - **Model stok:** **campur** — Grand Distributor & Distributor = **stockist**
@@ -58,6 +62,9 @@ Migrasi `2026_01_01_000074_add_hierarchy_to_users.php`:
 - Tambah `users.upline_id` — `unsignedBigInteger`, **nullable**, **index**, FK
   self-ref → `users.id` **nullOnDelete** (fallback aman; app-guard mencegah hapus
   upline yang masih punya downline).
+- Tambah `users.member_id` — `string`, **unique**, **nullable**, index (ID member
+  tetap, format `SKN-000123`). Nullable + unique: user lama tanpa ID tak
+  bertabrakan.
 - Seed 3 role baru ke tabel `roles`: `grand_distributor`, `reseller_bronze`,
   `reseller_gold` (agar muncul di matriks Hak Akses; `distributor` & `reseller`
   sudah ada).
@@ -130,14 +137,15 @@ set/ubah role+upline seorang mitra:
 - Kalau role = tier mitra → muncul pemilih **Upline** (cari-ketik) berisi **hanya
   kandidat induk yang sah** (level tepat di atas), region sama diutamakan (bisa
   ditimpa). Grand Distributor → upline = HQ/none.
+- **Member ID** tampil read-only (terisi otomatis setelah dibuat).
 - Simpan lewat `PartnerHierarchyService` (aturan 3.4).
 
 **(b) Halaman baru "Struktur Jaringan"** — menu sidebar internal di bawah "Kelola
 Anggota", gate `manage_users`:
 
 - **Pohon indentasi bisa dilipat** (Blade rekursif + JS vanilla, zero-dep):
-  Grand Distributor → Distributor → Reseller. Tiap node: nama, badge tier
-  (warna), region, jumlah downline, badge **stockist / non-stok**.
+  Grand Distributor → Distributor → Reseller. Tiap node: nama, **Member ID**,
+  badge tier (warna), region, jumlah downline, badge **stockist / non-stok**.
 - Panel **"Mitra belum ditempatkan"** (semua distributor/reseller generik) untuk
   penempatan cepat. **Kosong di awal** (sesuai keputusan data lama).
 
@@ -148,7 +156,24 @@ Default izin role baru = **sama dengan basisnya** (grand & distributor seperti
 `Permissions::DEFAULTS` di tiap izin tempat `distributor`/`reseller` muncul.
 Pembedaan izin per tier = **Tahap 2**.
 
-### 3.7 Rencana Tes
+### 3.7 Member ID & Login
+
+- **Member ID** (`users.member_id`): kode unik & **tetap**, format `SKN-000123`
+  (prefix `SKN-` + urut 6 digit, zero-pad). **Tidak** meng-encode tier (aman buat
+  login; tier tampil sebagai badge terpisah).
+- **Generate**: saat mitra dibuat/ditempatkan (punya tier), kalau `member_id`
+  kosong → isi `SKN-` + `str_pad(seq, 6, '0')`, `seq` = (suffix numerik terbesar
+  yang ada) + 1, dijalankan **dalam transaksi**. Hanya mitra (grand/dist/reseller);
+  staf tak perlu (bisa ditambah bila diinginkan). Aditif — user lama tanpa
+  member_id tetap login seperti biasa.
+- **Login** (`AuthController::login`): kolom `login` yang kini menerima
+  username/email **diperluas** → **Member ID / username / email**. Non-email
+  di-resolve ke user via `username` ATAU `member_id`; cek password & status aktif
+  **tak berubah**. Label form: "Member ID / Username / Email".
+- **Tampil**: member_id di form Anggota (read-only), node Struktur Jaringan, dan
+  dashboard/profil mitra (biar mitra tahu ID login-nya).
+
+### 3.8 Rencana Tes
 
 - **Unit `PartnerHierarchy`**: `levelOf`, `allowedParentRoles`, `isTierRole`,
   `holdsStock`.
@@ -158,6 +183,10 @@ Pembedaan izin per tier = **Tahap 2**.
   hapus jika punya downline; region diutamakan di kandidat.
 - **Feature Struktur Jaringan**: render pohon + panel belum-ditempatkan; gate
   (mitra kena 403 di Tahap 1).
+- **Feature Member ID**: mitra baru dapat `member_id` unik & berurutan
+  (`SKN-000123`); **tetap sama** walau tier berubah.
+- **Feature Login**: berhasil via `member_id` (dan tetap via username/email);
+  member_id/password salah ditolak; akun non-aktif tetap diblok.
 - **Regresi**: harga PO distributor/reseller lama tak berubah.
 
 ## 4. Di Luar Lingkup Tahap 1 (untuk tahap berikut)
@@ -168,7 +197,7 @@ Pembedaan izin per tier = **Tahap 2**.
 - **Tahap 3:** aturan & tabel komisi/insentif; hitung komisi **naik** pohon;
   laporan jaringan; harga spesifik per tier (Grand 8% off, Bronze/Gold beda) —
   perluas `priceForRole`.
-- Self-service onboarding via ID sponsor.
+- Self-service onboarding via **ID sponsor** (pakai `member_id` upline).
 - (Opsional, terpisah) direktori "perusahaan distributor" jika suatu saat perlu.
 
 ## 5. Catatan Teknis
