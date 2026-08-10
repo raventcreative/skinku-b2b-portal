@@ -37,7 +37,7 @@ class AuthController extends Controller
             'login' => ['required', 'string'],
             'password' => ['required', 'string'],
         ], [], [
-            'login' => 'Username/Email',
+            'login' => 'Member ID/Username/Email',
         ]);
 
         $identifier = trim($data['login']);
@@ -48,7 +48,10 @@ class AuthController extends Controller
         if (str_contains($identifier, '@')) {
             $query->where('email', mb_strtolower($identifier));
         } else {
-            $query->where('username', mb_strtolower($identifier));
+            $query->where(function ($q) use ($identifier) {
+                $q->where('username', mb_strtolower($identifier))
+                    ->orWhere('member_id', strtoupper($identifier));
+            });
         }
 
         /** @var User|null $user */
