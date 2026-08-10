@@ -185,6 +185,7 @@
 
             @if($u->canDo('manage_users'))
                 {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
+                {!! navItem('struktur-jaringan.index', 'Struktur Jaringan', 'struktur-jaringan.index') !!}
             @endif
 
             @if($u->canDo('view_audit_log'))

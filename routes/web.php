@@ -22,6 +22,7 @@ use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MindmapController;
 use App\Http\Controllers\OkrController;
+use App\Http\Controllers\PartnerHierarchyController;
 use App\Http\Controllers\PartnerSaleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
@@ -386,6 +387,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::post('/users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+
+        Route::get('/struktur-jaringan', [PartnerHierarchyController::class, 'index'])->name('struktur-jaringan.index');
     });
 
     Route::middleware('permission:delete_users')->group(function () {
