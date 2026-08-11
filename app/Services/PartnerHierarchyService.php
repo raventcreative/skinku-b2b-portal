@@ -69,6 +69,27 @@ class PartnerHierarchyService
             ->exists();
     }
 
+    /** Semua turunan (semua level) di bawah $root, BFS per tingkat, aman-loop. Tidak termasuk $root. */
+    public function descendants(User $root): Collection
+    {
+        $all = collect();
+        $frontierIds = collect([$root->id]);
+        $depthGuard = 0;
+
+        while ($frontierIds->isNotEmpty() && $depthGuard++ < 20) {
+            $children = User::whereIn('upline_id', $frontierIds->all())
+                ->orderBy('fullname')
+                ->get();
+            if ($children->isEmpty()) {
+                break;
+            }
+            $all = $all->concat($children);
+            $frontierIds = $children->pluck('id');
+        }
+
+        return $all;
+    }
+
     /** Kandidat upline untuk sebuah role; region sama diutamakan. */
     public function eligibleUplines(string $role, ?string $region): Collection
     {
