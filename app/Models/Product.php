@@ -22,13 +22,14 @@ class Product extends Model
 
     protected $fillable = [
         'name', 'sku', 'category', 'description', 'image',
-        'price_distributor', 'price_reseller', 'price_retail', 'cogs',
+        'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs',
         'hq_stock', 'status',
     ];
 
     protected function casts(): array
     {
         return [
+            'price_grand' => 'decimal:2',
             'price_distributor' => 'decimal:2',
             'price_reseller' => 'decimal:2',
             'price_retail' => 'decimal:2',
@@ -58,7 +59,8 @@ class Product extends Model
     public function priceForRole(string $role): float
     {
         return match ($role) {
-            User::ROLE_DISTRIBUTOR, User::ROLE_GRAND_DISTRIBUTOR => (float) $this->price_distributor,
+            User::ROLE_GRAND_DISTRIBUTOR => (float) ($this->price_grand ?? $this->price_distributor),
+            User::ROLE_DISTRIBUTOR => (float) $this->price_distributor,
             User::ROLE_RESELLER, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD => (float) $this->price_reseller,
             default => (float) $this->price_retail,
         };
