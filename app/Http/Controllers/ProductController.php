@@ -120,6 +120,7 @@ class ProductController extends Controller
             'sku' => ['required', 'string', 'max:80', Rule::unique('products', 'sku')->ignore($product?->id)],
             'category' => ['nullable', 'string', 'max:80'],
             'description' => ['nullable', 'string', 'max:1000'],
+            'price_grand' => ['nullable', 'numeric', 'min:0'],
             'price_distributor' => ['required', 'numeric', 'min:0'],
             'price_reseller' => ['required', 'numeric', 'min:0'],
             'price_retail' => ['required', 'numeric', 'min:0'],

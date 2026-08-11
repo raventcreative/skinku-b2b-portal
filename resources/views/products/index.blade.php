@@ -73,7 +73,7 @@
                         @if($p->status !== 'deleted')
                             @php $gallery = $p->fileGallery(\App\Models\Product::GALLERY); @endphp
                             <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                                onclick='openProduct({{ json_encode($p->only(["id","name","sku","category","description","price_distributor","price_reseller","price_retail","cogs","hq_stock","status"]) + ["gallery" => $gallery]) }})'>Edit</button>
+                                onclick='openProduct({{ json_encode($p->only(["id","name","sku","category","description","price_grand","price_distributor","price_reseller","price_retail","cogs","hq_stock","status"]) + ["gallery" => $gallery]) }})'>Edit</button>
                             <form method="POST" action="{{ route('products.destroy', $p) }}" class="inline" onsubmit="return confirm('Hapus produk ini (soft delete)?')">
                                 @csrf @method('DELETE')
                                 <button class="ml-2 text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
@@ -104,6 +104,7 @@
             <div><label class="block text-xs font-semibold mb-1">SKU *</label><input name="sku" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">Kategori</label><input name="category" class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">Harga Distributor *</label><input type="number" step="0.01" name="price_distributor" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
+            <div><label class="block text-xs font-semibold mb-1">Harga Grand Distributor</label><input type="number" step="0.01" name="price_grand" class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="kosong = ikut distributor"></div>
             <div><label class="block text-xs font-semibold mb-1">Harga Reseller *</label><input type="number" step="0.01" name="price_reseller" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">Harga Retail *</label><input type="number" step="0.01" name="price_retail" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">HPP / COGS *</label><input type="number" step="0.01" name="cogs" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
@@ -137,7 +138,7 @@
             f.action = '/products/' + p.id;
             document.getElementById('productMethod').value = 'PUT';
             document.getElementById('productModalTitle').textContent = 'Edit Produk';
-            for (const k of ['name','sku','category','description','price_distributor','price_reseller','price_retail','cogs','hq_stock','status']) {
+            for (const k of ['name','sku','category','description','price_grand','price_distributor','price_reseller','price_retail','cogs','hq_stock','status']) {
                 if (f.querySelector('[name='+k+']')) f.querySelector('[name='+k+']').value = p[k] ?? '';
             }
             // render existing gallery with "hapus" checkboxes
