@@ -35,4 +35,26 @@ class GrandPriceList
                 ->update(['price_grand' => $price]);
         }
     }
+
+    /** SKU produk (dari master prod) => harga grand. Dipakai migrasi 000078. */
+    public const PRICES_BY_SKU = [
+        'SOAP-1' => 22000,
+        'SK-YK' => 34000,
+        'JPE-100ML' => 22000,
+        'HG-FC-20ml' => 32000,
+        'MZ-500ML' => 26000,
+        'REI-30G' => 23000,
+        'HG-1' => 13500,
+        'HK-1' => 13500,
+        'AG-DC-1' => 35000,
+        'YR-NC-1' => 41000,
+    ];
+
+    /** Set price_grand berdasar SKU (cocok persis). No-op untuk SKU tak dikenal. */
+    public static function applyBySku(): void
+    {
+        foreach (self::PRICES_BY_SKU as $sku => $price) {
+            DB::table('products')->where('sku', $sku)->update(['price_grand' => $price]);
+        }
+    }
 }
