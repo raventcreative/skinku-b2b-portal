@@ -30,7 +30,7 @@ class ProductGrandColumnTest extends TestCase
 
         $this->actingAs($this->admin())->get(route('products.index'))
             ->assertOk()
-            ->assertSee('Grand')       // header kolom
+            ->assertSee('<th class="text-right">Grand</th>', false)       // header kolom (kunci <th>)
             ->assertSee('26.000');     // nilai harga Grand
     }
 
