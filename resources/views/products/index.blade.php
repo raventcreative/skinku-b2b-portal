@@ -23,8 +23,8 @@
                 <th class="text-left px-4 py-3">Produk</th>
                 <th class="text-left">SKU</th>
                 <th class="text-left">Kategori</th>
-                <th class="text-right">Distributor</th>
                 <th class="text-right">Grand</th>
+                <th class="text-right">Distributor</th>
                 <th class="text-right">Reseller</th>
                 <th class="text-right">Retail</th>
                 <th class="text-right">HPP</th>
@@ -55,8 +55,8 @@
                     </td>
                     <td class="text-stone-600">{{ $p->sku }}</td>
                     <td class="text-stone-600">{{ $p->category ?? '-' }}</td>
-                    <td class="text-right">Rp {{ number_format($p->price_distributor, 0, ',', '.') }}</td>
                     <td class="text-right">{{ $p->price_grand !== null ? 'Rp '.number_format($p->price_grand, 0, ',', '.') : '—' }}</td>
+                    <td class="text-right">Rp {{ number_format($p->price_distributor, 0, ',', '.') }}</td>
                     <td class="text-right">Rp {{ number_format($p->price_reseller, 0, ',', '.') }}</td>
                     <td class="text-right">Rp {{ number_format($p->price_retail, 0, ',', '.') }}</td>
                     <td class="text-right text-stone-500">

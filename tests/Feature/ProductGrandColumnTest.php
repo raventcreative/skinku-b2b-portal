@@ -31,7 +31,8 @@ class ProductGrandColumnTest extends TestCase
         $this->actingAs($this->admin())->get(route('products.index'))
             ->assertOk()
             ->assertSee('<th class="text-right">Grand</th>', false)       // header kolom (kunci <th>)
-            ->assertSee('26.000');     // nilai harga Grand
+            ->assertSee('26.000')     // nilai harga Grand
+            ->assertSeeInOrder(['<th class="text-right">Grand</th>', '<th class="text-right">Distributor</th>'], false); // Grand di KIRI, sebelum Distributor
     }
 
     public function test_produk_tanpa_price_grand_tampil_strip(): void
