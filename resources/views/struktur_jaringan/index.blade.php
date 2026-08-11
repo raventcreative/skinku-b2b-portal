@@ -68,23 +68,31 @@ $tierOptions = collect(\App\Support\PartnerHierarchy::TIERS)
     });
 
     // ---- auto-layout: banyak matahari (tiap Grand = pusat, downline melingkar) ----
-    const RING = 135;
+    // RING > lebar node biar anak tak numpuk induk; radius tiap ring auto-melebar
+    // sesuai jumlah node di ring itu (anti-numpuk walau downline banyak).
+    const RING = 240, NODE_SPACE = NODE_W + 45;
     function leaves(n) { return n._leaves = (n.children.length ? n.children.reduce(function (s, c) { return s + leaves(c); }, 0) : 1); }
-    function radial(n, depth, a0, a1) {
-        const ang = (a0 + a1) / 2, rad = depth * RING;
-        n._lx = rad * Math.cos(ang); n._ly = rad * Math.sin(ang);
+    function angles(n, a0, a1) {
+        n._ang = (a0 + a1) / 2;
         let a = a0;
-        n.children.forEach(function (c) { const span = (a1 - a0) * (c._leaves / n._leaves); radial(c, depth + 1, a, a + span); a += span; });
+        n.children.forEach(function (c) { const span = (a1 - a0) * (c._leaves / n._leaves); angles(c, a, a + span); a += span; });
     }
     let offsetX = 0;
     roots.forEach(function (r) {
         leaves(r);
-        radial(r, 0, -Math.PI / 2, Math.PI * 1.5); // penuh 360°, mulai dari atas
+        angles(r, -Math.PI / 2, Math.PI * 1.5); // penuh 360°, mulai dari atas
+        const perDepth = {};
+        (function d(n, depth) { perDepth[depth] = (perDepth[depth] || 0) + 1; n._depth = depth; n.children.forEach(function (c) { d(c, depth + 1); }); })(r, 0);
+        const radAt = {}; let prev = 0;
+        Object.keys(perDepth).map(Number).sort(function (a, b) { return a - b; }).forEach(function (depth) {
+            if (depth === 0) { radAt[0] = 0; return; }
+            radAt[depth] = prev = Math.max(depth * RING, (perDepth[depth] * NODE_SPACE) / (2 * Math.PI), prev + RING);
+        });
         let maxR = 0;
-        (function walk(n) { const rr = Math.hypot(n._lx, n._ly); if (rr > maxR) maxR = rr; n.children.forEach(walk); })(r);
+        (function pos(n) { const rad = radAt[n._depth]; n._lx = rad * Math.cos(n._ang); n._ly = rad * Math.sin(n._ang); if (rad > maxR) maxR = rad; n.children.forEach(pos); })(r);
         const cx = offsetX + maxR + NODE_W, cy = maxR + NODE_H;
         (function place(n) { n.x = cx + n._lx - NODE_W / 2; n.y = cy + n._ly - NODE_H / 2; n.children.forEach(place); })(r);
-        offsetX = cx + maxR + NODE_W + 100;
+        offsetX = cx + maxR + NODE_W + 120;
     });
 
     // ---- render node + garis + kolam ----
