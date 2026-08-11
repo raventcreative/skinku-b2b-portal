@@ -32,6 +32,9 @@ $tierOptions = collect(\App\Support\PartnerHierarchy::TIERS)
         <div id="sjWorld" style="position:absolute; left:0; top:0; transform-origin:0 0;">
             <svg id="sjEdges" style="position:absolute; left:0; top:0; overflow:visible; pointer-events:none;"></svg>
         </div>
+        <div id="sjEmpty" class="absolute inset-0 flex items-center justify-center text-center text-sm text-stone-400 p-6 pointer-events-none" style="display:none;">
+            <div>Belum ada <b>Grand Distributor</b> — kanvas butuh minimal 1 sebagai <b>pusat matahari</b>.<br>Klik tombol <b>⋯</b> pada mitra di panel atas → <b>Ubah Tier → Grand Distributor</b>, lalu seret distributor lain ke dia.</div>
+        </div>
     </div>
 </div>
 @endsection
@@ -128,6 +131,7 @@ $tierOptions = collect(\App\Support\PartnerHierarchy::TIERS)
                 + '<button data-tier-btn="' + n.id + '" class="text-stone-400 hover:text-stone-800 leading-none" title="Ubah tier">⋯</button>'
                 + '</span>';
         }).join('') : '<span class="text-xs text-stone-400">Semua mitra sudah ditempatkan.</span>';
+        document.getElementById('sjEmpty').style.display = roots.length ? 'none' : 'flex';
     }
     render();
 
