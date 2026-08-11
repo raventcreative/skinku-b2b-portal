@@ -207,6 +207,7 @@ class ShopeeOrderService
                     $this->inventory->adjustHqStock(
                         $c['product'], -1 * (int) $c['deduct'], StockMovement::TYPE_OUT,
                         "Penjualan Shopee {$order->order_sn}", 'shopee_order', $order->id,
+                        occurredAt: $order->order_created_at,
                     );
                 }
             }
@@ -269,6 +270,7 @@ class ShopeeOrderService
                     $this->inventory->adjustHqStock(
                         $c['product'], (int) $c['deduct'], StockMovement::TYPE_IN,
                         "Batal penjualan Shopee {$order->order_sn}", 'shopee_order', $order->id,
+                        occurredAt: $order->order_created_at,
                     );
                 }
             }

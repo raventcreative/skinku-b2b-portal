@@ -242,6 +242,7 @@ class TikTokOrderService
                     $this->inventory->adjustHqStock(
                         $c['product'], -1 * (int) $c['deduct'], StockMovement::TYPE_OUT,
                         "Penjualan TikTok {$order->tiktok_order_id}", 'tiktok_order', $order->id,
+                        occurredAt: $order->order_created_at,
                     );
                 }
             }
@@ -303,6 +304,7 @@ class TikTokOrderService
                     $this->inventory->adjustHqStock(
                         $c['product'], (int) $c['deduct'], StockMovement::TYPE_IN,
                         "Batal penjualan TikTok {$order->tiktok_order_id}", 'tiktok_order', $order->id,
+                        occurredAt: $order->order_created_at,
                     );
                 }
             }
