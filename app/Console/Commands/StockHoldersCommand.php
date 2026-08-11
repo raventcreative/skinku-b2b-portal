@@ -122,10 +122,14 @@ class StockHoldersCommand extends Command
      */
     private function traceHq(Product $product): void
     {
+        // Urut berdasar id (urutan TULIS), bukan created_at: kolom saldo (before->after)
+        // itu snapshot saat penulisan, dan gerakan HQ bisa di-backdate (created_at lampau).
+        // Hanya urutan tulis yang membuat kartu stok nyambung & "$moves->last()" = gerakan
+        // terakhir ditulis (saldo sistem sekarang).
         $moves = StockMovement::query()
             ->whereNull('user_id')
             ->where('product_id', $product->id)
-            ->orderBy('created_at')
+            ->orderBy('id')
             ->get();
 
         $this->newLine();

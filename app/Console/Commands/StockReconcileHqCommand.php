@@ -61,10 +61,14 @@ class StockReconcileHqCommand extends Command
         $temuan = [];
 
         foreach ($products as $product) {
+            // Gerakan TERAKHIR DITULIS (id terbesar), BUKAN created_at terbesar:
+            // after_qty adalah snapshot saldo saat gerakan ditulis, dan gerakan bisa
+            // di-backdate (created_at lebih lampau dari urutan tulisnya, mis. penjualan
+            // marketplace dipotong hari ini tapi bertanggal order kemarin). id auto-increment
+            // = urutan tulis sebenarnya, jadi after_qty-nya = saldo sistem sekarang.
             $terakhir = StockMovement::query()
                 ->whereNull('user_id')
                 ->where('product_id', $product->id)
-                ->orderByDesc('created_at')
                 ->orderByDesc('id')
                 ->first();
 

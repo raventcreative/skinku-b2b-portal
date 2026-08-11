@@ -139,4 +139,63 @@ class StockReconcileHqTest extends TestCase
         ]));
         $this->assertSame(646, (int) $p->fresh()->hq_stock);
     }
+
+    /**
+     * Backdate: gerakan bisa dicap created_at lampau (penjualan marketplace dipotong
+     * hari ini tapi bertanggal order kemarin). Yang otoritatif = gerakan TERAKHIR DITULIS
+     * (id terbesar), bukan created_at terbesar — after_qty itu snapshot saat tulis.
+     */
+    public function test_saldo_diambil_dari_gerakan_terakhir_ditulis_bukan_created_at_terbaru(): void
+    {
+        $p = Product::create([
+            'name' => 'SABUN BACKDATE', 'sku' => 'SB-1', 'hq_stock' => 107,
+            'status' => 'active', 'cogs' => 1000, 'price_distributor' => 2000, 'price_reseller' => 2500,
+        ]);
+        // Ditulis PERTAMA (id kecil), tanggal LEBIH BARU: produksi -> after 110.
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_IN,
+            'quantity' => 10, 'before_qty' => 100, 'after_qty' => 110,
+            'reference_type' => 'production', 'reference_id' => 1, 'created_at' => '2026-08-19 09:00:00',
+        ]);
+        // Ditulis KEDUA (id besar), tanggal BACKDATE lampau: penjualan -> after 107.
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_OUT,
+            'quantity' => 3, 'before_qty' => 110, 'after_qty' => 107,
+            'reference_type' => 'tiktok_order', 'reference_id' => 2, 'created_at' => '2026-08-18 09:00:00',
+        ]);
+
+        // Saldo 107 = after_qty gerakan terakhir DITULIS -> tak ada selisih palsu.
+        $this->assertSame(0, Artisan::call('stock:reconcile-hq', ['cari' => 'SABUN BACKDATE']));
+        $this->assertStringContainsString('sudah cocok', Artisan::output());
+        $this->assertSame(107, (int) $p->fresh()->hq_stock);
+    }
+
+    /**
+     * --force menyetel ke saldo gerakan terakhir DITULIS, bukan gerakan ber-created_at
+     * terbesar — kalau salah, backdate bisa membuat --force mengembalikan penjualan nyata.
+     */
+    public function test_force_menyetel_ke_gerakan_terakhir_ditulis_bukan_created_at_terbaru(): void
+    {
+        // Ada perubahan tak berjejak: hq_stock 200. Gerakan terakhir ditulis after 107.
+        $p = Product::create([
+            'name' => 'SABUN DRIFT', 'sku' => 'SD-1', 'hq_stock' => 200,
+            'status' => 'active', 'cogs' => 1000, 'price_distributor' => 2000, 'price_reseller' => 2500,
+        ]);
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_IN,
+            'quantity' => 10, 'before_qty' => 100, 'after_qty' => 110,
+            'reference_type' => 'production', 'reference_id' => 1, 'created_at' => '2026-08-19 09:00:00',
+        ]);
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_OUT,
+            'quantity' => 3, 'before_qty' => 110, 'after_qty' => 107,
+            'reference_type' => 'tiktok_order', 'reference_id' => 2, 'created_at' => '2026-08-18 09:00:00',
+        ]);
+        $sa = $this->superAdmin();
+
+        Artisan::call('stock:reconcile-hq', ['cari' => 'SABUN DRIFT', '--force' => true, '--as' => $sa->username]);
+
+        // Disetel ke 107 (write-order), BUKAN 110 (created_at terbaru).
+        $this->assertSame(107, (int) $p->fresh()->hq_stock);
+    }
 }

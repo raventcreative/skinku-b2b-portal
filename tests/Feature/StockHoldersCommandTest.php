@@ -232,4 +232,30 @@ class StockHoldersCommandTest extends TestCase
         $this->assertStringContainsString('STOK PUSAT (HQ)', $out);
         $this->assertStringContainsString('tidak ada stok mitra', $out);
     }
+
+    /**
+     * Gerakan HQ bisa di-backdate (created_at lampau dari urutan tulis). Kartu stok &
+     * cek "gerakan terakhir" harus pakai urutan TULIS (id), jadi saldo yang cocok tak
+     * memicu peringatan "perubahan tanpa jejak" palsu.
+     */
+    public function test_trace_hq_tidak_salah_lapor_pada_gerakan_backdate(): void
+    {
+        $p = $this->product();
+        // Ditulis pertama (id kecil) tanggal lebih baru; ditulis kedua (id besar) backdate.
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_IN,
+            'quantity' => 10, 'before_qty' => 990, 'after_qty' => 1000,
+            'reference_type' => 'production', 'reference_id' => 1, 'created_at' => '2026-08-19 09:00:00',
+        ]);
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_OUT,
+            'quantity' => 3, 'before_qty' => 1000, 'after_qty' => 997,
+            'reference_type' => 'tiktok_order', 'reference_id' => 2, 'created_at' => '2026-08-18 09:00:00',
+        ]);
+        $p->hq_stock = 997;   // = after_qty gerakan terakhir DITULIS
+        $p->save();
+
+        $this->assertSame(0, Artisan::call('stock:holders', ['cari' => 'MIZU', '--trace' => true]));
+        $this->assertStringNotContainsString('ada perubahan tanpa jejak', Artisan::output());
+    }
 }
