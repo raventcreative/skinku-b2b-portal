@@ -64,15 +64,25 @@ $tierOptions = collect(\App\Support\PartnerHierarchy::TIERS)
         else unplaced.push(node);                                          // non-grand tanpa upline
     });
 
-    // ---- auto-layout (tidy tree) ----
-    let leaf = 0;
-    function layout(node, depth) {
-        node.y = depth * (NODE_H + V_GAP);
-        if (!node.children.length) { node.x = leaf * (NODE_W + H_GAP); leaf++; return; }
-        node.children.forEach(function (c) { layout(c, depth + 1); });
-        node.x = (node.children[0].x + node.children[node.children.length - 1].x) / 2;
+    // ---- auto-layout: banyak matahari (tiap Grand = pusat, downline melingkar) ----
+    const RING = 135;
+    function leaves(n) { return n._leaves = (n.children.length ? n.children.reduce(function (s, c) { return s + leaves(c); }, 0) : 1); }
+    function radial(n, depth, a0, a1) {
+        const ang = (a0 + a1) / 2, rad = depth * RING;
+        n._lx = rad * Math.cos(ang); n._ly = rad * Math.sin(ang);
+        let a = a0;
+        n.children.forEach(function (c) { const span = (a1 - a0) * (c._leaves / n._leaves); radial(c, depth + 1, a, a + span); a += span; });
     }
-    roots.forEach(function (r) { layout(r, 0); leaf += 1; });
+    let offsetX = 0;
+    roots.forEach(function (r) {
+        leaves(r);
+        radial(r, 0, -Math.PI / 2, Math.PI * 1.5); // penuh 360°, mulai dari atas
+        let maxR = 0;
+        (function walk(n) { const rr = Math.hypot(n._lx, n._ly); if (rr > maxR) maxR = rr; n.children.forEach(walk); })(r);
+        const cx = offsetX + maxR + NODE_W, cy = maxR + NODE_H;
+        (function place(n) { n.x = cx + n._lx - NODE_W / 2; n.y = cy + n._ly - NODE_H / 2; n.children.forEach(place); })(r);
+        offsetX = cx + maxR + NODE_W + 100;
+    });
 
     // ---- render node + garis + kolam ----
     function nodeHtml(n) {
@@ -104,8 +114,8 @@ $tierOptions = collect(\App\Support\PartnerHierarchy::TIERS)
             world.appendChild(el);
             maxX = Math.max(maxX, n.x + NODE_W); maxY = Math.max(maxY, n.y + NODE_H);
             n.children.forEach(function (c) {
-                const x1 = n.x + NODE_W / 2, y1 = n.y + NODE_H, x2 = c.x + NODE_W / 2, y2 = c.y, my = (y1 + y2) / 2;
-                edges += '<path d="M' + x1 + ',' + y1 + ' C' + x1 + ',' + my + ' ' + x2 + ',' + my + ' ' + x2 + ',' + y2 + '" fill="none" stroke="#d6d3d1" stroke-width="1.5"/>';
+                const x1 = n.x + NODE_W / 2, y1 = n.y + NODE_H / 2, x2 = c.x + NODE_W / 2, y2 = c.y + NODE_H / 2;
+                edges += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#d6d3d1" stroke-width="1.5"/>';
             });
         });
         svg.setAttribute('width', maxX + 40); svg.setAttribute('height', maxY + 40);
