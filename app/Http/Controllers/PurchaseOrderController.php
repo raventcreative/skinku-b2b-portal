@@ -72,13 +72,12 @@ class PurchaseOrderController extends Controller
         $user = $request->user();
         abort_unless($user->canDo('create_po'), 403, 'Anda tidak memiliki hak akses untuk membuat PO.');
 
-        $priceField = $user->priceField();
         $products = Product::query()
             ->where('status', Product::STATUS_ACTIVE)
             ->orderBy('name')
             ->get();
 
-        return view('purchase_orders.create', compact('products', 'priceField', 'user'));
+        return view('purchase_orders.create', compact('products', 'user'));
     }
 
     public function store(Request $request): RedirectResponse

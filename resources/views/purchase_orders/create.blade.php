@@ -15,7 +15,7 @@
                 </thead>
                 <tbody>
                     @forelse($products as $i => $p)
-                        @php $price = $p->{$priceField}; $urls = $p->imageUrls(); @endphp
+                        @php $price = $p->priceForRole($user->role); $urls = $p->imageUrls(); @endphp
                         <tr class="border-t border-stone-100">
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-3">
