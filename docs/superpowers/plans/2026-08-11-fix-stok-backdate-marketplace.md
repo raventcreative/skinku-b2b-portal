@@ -531,9 +531,176 @@ git commit -m "fix(stok): backfill tanggal gerakan marketplace lama ke tanggal o
 
 ---
 
+## Task 3: Perbaiki tooling yang mengasumsikan urutan-tulis = urutan-tanggal
+
+**Kenapa:** `after_qty`/`before_qty` gerakan adalah snapshot saldo SAAT DITULIS. Setelah backdate (Task 1/2 + 000077 lama), `created_at` bisa lebih lampau dari urutan tulis, jadi tooling yang memilih gerakan by `created_at` terbesar salah menganggap snapshot lama = saldo sekarang. `stock:reconcile-hq --force` bisa MENIMPA `hq_stock` (mengembalikan penjualan nyata); `stock:holders --trace` (traceHq) memunculkan peringatan "perubahan tanpa jejak" PALSU + kartu stok tak nyambung. Perbaikan: pilih/urutkan berdasar `id` (urutan tulis; id auto-increment monoton dgn penulisan). `traceMovements` (stok MITRA, `user_id` diisi) SENGAJA tak diubah — gerakan mitra tak pernah di-backdate.
+
+**Files:**
+- Modify: `app/Console/Commands/StockReconcileHqCommand.php` (query `$terakhir`, ~b.64-69)
+- Modify: `app/Console/Commands/StockHoldersCommand.php` (query `traceHq`, ~b.125-129)
+- Test: `tests/Feature/StockReconcileHqTest.php` (append 2 test), `tests/Feature/StockHoldersCommandTest.php` (append 1 test)
+
+**Interfaces:**
+- Consumes: `stock_movements` (`id`, `after_qty`, `user_id`). Tak ada interface baru.
+
+- [ ] **Step 1: Tulis test yang gagal (append ke 2 file test yang ADA)**
+
+Tambah ke `tests/Feature/StockReconcileHqTest.php` (dalam class, pakai helper `superAdmin()` yang sudah ada):
+
+```php
+    /**
+     * Backdate: gerakan bisa dicap created_at lampau (penjualan marketplace dipotong
+     * hari ini tapi bertanggal order kemarin). Yang otoritatif = gerakan TERAKHIR DITULIS
+     * (id terbesar), bukan created_at terbesar — after_qty itu snapshot saat tulis.
+     */
+    public function test_saldo_diambil_dari_gerakan_terakhir_ditulis_bukan_created_at_terbaru(): void
+    {
+        $p = Product::create([
+            'name' => 'SABUN BACKDATE', 'sku' => 'SB-1', 'hq_stock' => 107,
+            'status' => 'active', 'cogs' => 1000, 'price_distributor' => 2000, 'price_reseller' => 2500,
+        ]);
+        // Ditulis PERTAMA (id kecil), tanggal LEBIH BARU: produksi -> after 110.
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_IN,
+            'quantity' => 10, 'before_qty' => 100, 'after_qty' => 110,
+            'reference_type' => 'production', 'reference_id' => 1, 'created_at' => '2026-08-19 09:00:00',
+        ]);
+        // Ditulis KEDUA (id besar), tanggal BACKDATE lampau: penjualan -> after 107.
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_OUT,
+            'quantity' => 3, 'before_qty' => 110, 'after_qty' => 107,
+            'reference_type' => 'tiktok_order', 'reference_id' => 2, 'created_at' => '2026-08-18 09:00:00',
+        ]);
+
+        // Saldo 107 = after_qty gerakan terakhir DITULIS -> tak ada selisih palsu.
+        $this->assertSame(0, Artisan::call('stock:reconcile-hq', ['cari' => 'SABUN BACKDATE']));
+        $this->assertStringContainsString('sudah cocok', Artisan::output());
+        $this->assertSame(107, (int) $p->fresh()->hq_stock);
+    }
+
+    /**
+     * --force menyetel ke saldo gerakan terakhir DITULIS, bukan gerakan ber-created_at
+     * terbesar — kalau salah, backdate bisa membuat --force mengembalikan penjualan nyata.
+     */
+    public function test_force_menyetel_ke_gerakan_terakhir_ditulis_bukan_created_at_terbaru(): void
+    {
+        // Ada perubahan tak berjejak: hq_stock 200. Gerakan terakhir ditulis after 107.
+        $p = Product::create([
+            'name' => 'SABUN DRIFT', 'sku' => 'SD-1', 'hq_stock' => 200,
+            'status' => 'active', 'cogs' => 1000, 'price_distributor' => 2000, 'price_reseller' => 2500,
+        ]);
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_IN,
+            'quantity' => 10, 'before_qty' => 100, 'after_qty' => 110,
+            'reference_type' => 'production', 'reference_id' => 1, 'created_at' => '2026-08-19 09:00:00',
+        ]);
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_OUT,
+            'quantity' => 3, 'before_qty' => 110, 'after_qty' => 107,
+            'reference_type' => 'tiktok_order', 'reference_id' => 2, 'created_at' => '2026-08-18 09:00:00',
+        ]);
+        $sa = $this->superAdmin();
+
+        Artisan::call('stock:reconcile-hq', ['cari' => 'SABUN DRIFT', '--force' => true, '--as' => $sa->username]);
+
+        // Disetel ke 107 (write-order), BUKAN 110 (created_at terbaru).
+        $this->assertSame(107, (int) $p->fresh()->hq_stock);
+    }
+```
+
+Tambah ke `tests/Feature/StockHoldersCommandTest.php` (dalam class, pakai helper `product()` yang sudah ada):
+
+```php
+    /**
+     * Gerakan HQ bisa di-backdate (created_at lampau dari urutan tulis). Kartu stok &
+     * cek "gerakan terakhir" harus pakai urutan TULIS (id), jadi saldo yang cocok tak
+     * memicu peringatan "perubahan tanpa jejak" palsu.
+     */
+    public function test_trace_hq_tidak_salah_lapor_pada_gerakan_backdate(): void
+    {
+        $p = $this->product();
+        // Ditulis pertama (id kecil) tanggal lebih baru; ditulis kedua (id besar) backdate.
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_IN,
+            'quantity' => 10, 'before_qty' => 990, 'after_qty' => 1000,
+            'reference_type' => 'production', 'reference_id' => 1, 'created_at' => '2026-08-19 09:00:00',
+        ]);
+        StockMovement::create([
+            'product_id' => $p->id, 'user_id' => null, 'movement_type' => StockMovement::TYPE_OUT,
+            'quantity' => 3, 'before_qty' => 1000, 'after_qty' => 997,
+            'reference_type' => 'tiktok_order', 'reference_id' => 2, 'created_at' => '2026-08-18 09:00:00',
+        ]);
+        $p->hq_stock = 997;   // = after_qty gerakan terakhir DITULIS
+        $p->save();
+
+        $this->assertSame(0, Artisan::call('stock:holders', ['cari' => 'MIZU', '--trace' => true]));
+        $this->assertStringNotContainsString('ada perubahan tanpa jejak', Artisan::output());
+    }
+```
+
+- [ ] **Step 2: Jalankan test — pastikan GAGAL**
+
+Run: `C:\php83\php.exe artisan test --filter=StockReconcileHqTest` dan `--filter=StockHoldersCommandTest`
+Expected: 3 test baru GAGAL — kode lama pilih gerakan by `created_at` terbesar (produksi after 110 / IN after 1000), jadi lapor selisih/peringatan palsu.
+
+- [ ] **Step 3: Perbaiki StockReconcileHqCommand (urut by id)**
+
+Di `app/Console/Commands/StockReconcileHqCommand.php`, ganti query `$terakhir`:
+
+```php
+            // Gerakan TERAKHIR DITULIS (id terbesar), BUKAN created_at terbesar:
+            // after_qty adalah snapshot saldo saat gerakan ditulis, dan gerakan bisa
+            // di-backdate (created_at lebih lampau dari urutan tulisnya, mis. penjualan
+            // marketplace dipotong hari ini tapi bertanggal order kemarin). id auto-increment
+            // = urutan tulis sebenarnya, jadi after_qty-nya = saldo sistem sekarang.
+            $terakhir = StockMovement::query()
+                ->whereNull('user_id')
+                ->where('product_id', $product->id)
+                ->orderByDesc('id')
+                ->first();
+```
+
+- [ ] **Step 4: Perbaiki StockHoldersCommand::traceHq (urut by id)**
+
+Di `app/Console/Commands/StockHoldersCommand.php`, pada `traceHq()`, ganti query `$moves`:
+
+```php
+        // Urut berdasar id (urutan TULIS), bukan created_at: kolom saldo (before->after)
+        // itu snapshot saat penulisan, dan gerakan HQ bisa di-backdate (created_at lampau).
+        // Hanya urutan tulis yang membuat kartu stok nyambung & "$moves->last()" = gerakan
+        // terakhir ditulis (saldo sistem sekarang).
+        $moves = StockMovement::query()
+            ->whereNull('user_id')
+            ->where('product_id', $product->id)
+            ->orderBy('id')
+            ->get();
+```
+
+(JANGAN ubah `traceMovements()` — itu stok mitra, tak pernah di-backdate.)
+
+- [ ] **Step 5: Jalankan test — pastikan LULUS**
+
+Run: `C:\php83\php.exe artisan test --filter=StockReconcileHqTest` dan `--filter=StockHoldersCommandTest`
+Expected: PASS semua (lama + 3 baru).
+
+- [ ] **Step 6: Jalankan SELURUH suite (regresi)**
+
+Run: `C:\php83\php.exe artisan test`
+Expected: PASS semua.
+
+- [ ] **Step 7: Pint + Commit**
+
+```bash
+C:\php83\php.exe vendor/bin/pint --dirty
+git add app/Console/Commands/StockReconcileHqCommand.php app/Console/Commands/StockHoldersCommand.php tests/Feature/StockReconcileHqTest.php tests/Feature/StockHoldersCommandTest.php
+git commit -m "fix(stok): reconcile & trace HQ pakai urutan tulis (id), bukan created_at" -m "Gerakan yang di-backdate membuat after_qty (snapshot saat tulis) tak lagi selaras urutan created_at; --force reconcile bisa menimpa hq_stock. Pilih gerakan terakhir by id." -m "Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+```
+
+---
+
 ## Penyelesaian
 
-Setelah 2 task selesai & suite hijau:
+Setelah 3 task selesai & suite hijau:
 - **REQUIRED SUB-SKILL:** superpowers:finishing-a-development-branch.
 - **Deploy prod (ADA 1 migrasi 000079):**
   ```
