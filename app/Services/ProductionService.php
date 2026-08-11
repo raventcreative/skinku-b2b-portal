@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Production;
 use App\Models\StockMovement;
 use App\Support\Costing;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -97,6 +98,7 @@ class ProductionService
                 notes: 'Hasil produksi '.$production->production_number,
                 referenceType: Production::REFERENCE_TYPE,
                 referenceId: $production->id,
+                occurredAt: Carbon::parse($header['produced_at']),
             );
 
             $newCogs = Costing::movingAverage($beforeQty, $beforeCogs, $outputQty, $hpp);

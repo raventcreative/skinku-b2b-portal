@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\StockReceipt;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -64,6 +65,7 @@ class StockReceiptService
                     notes: 'Stok masuk '.$receipt->receipt_number.' @ Rp '.number_format($unitCost, 0, ',', '.'),
                     referenceType: StockReceipt::REFERENCE_TYPE,
                     referenceId: $receipt->id,
+                    occurredAt: Carbon::parse($header['received_at']),
                 );
 
                 // Update the average HPP on the product.
