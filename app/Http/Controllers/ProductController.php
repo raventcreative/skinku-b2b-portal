@@ -56,7 +56,7 @@ class ProductController extends Controller
             action: 'create_product',
             targetType: 'product',
             targetId: $product->id,
-            after: $product->only(['name', 'sku', 'price_distributor', 'price_reseller', 'price_retail', 'hq_stock', 'status']),
+            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'hq_stock', 'status']),
         );
 
         return back()->with('status', "Produk {$product->name} berhasil ditambahkan.");
@@ -66,7 +66,7 @@ class ProductController extends Controller
     {
         $data = $this->validateData($request, $product);
 
-        $before = $product->only(['name', 'sku', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'hq_stock', 'status']);
+        $before = $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'hq_stock', 'status']);
 
         $product->update(Arr::except($data, ['images', 'remove_files']));
 
@@ -90,7 +90,7 @@ class ProductController extends Controller
             targetType: 'product',
             targetId: $product->id,
             before: $before,
-            after: $product->only(['name', 'sku', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'hq_stock', 'status']),
+            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'hq_stock', 'status']),
         );
 
         return back()->with('status', "Produk {$product->name} berhasil diperbarui.");

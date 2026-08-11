@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -53,5 +54,25 @@ class ProductGrandPriceFormTest extends TestCase
             ->assertRedirect();
 
         $this->assertEqualsWithDelta(21000, (float) $p->fresh()->price_grand, 0.01);
+    }
+
+    public function test_price_grand_tercatat_di_audit_log_saat_simpan(): void
+    {
+        $this->actingAs($this->admin())->post(route('products.store'), $this->payload(['price_grand' => 22000]));
+
+        $log = AuditLog::where('action', 'create_product')->first();
+        $this->assertNotNull($log);
+        $this->assertEqualsWithDelta(22000, (float) $log->after_data['price_grand'], 0.01);
+    }
+
+    public function test_price_grand_tercatat_di_audit_log_saat_update(): void
+    {
+        $p = Product::create($this->payload(['sku' => 'SB2', 'price_grand' => 22000]));
+
+        $this->actingAs($this->admin())->put(route('products.update', $p), $this->payload(['sku' => 'SB2', 'price_grand' => 21000]));
+
+        $log = AuditLog::where('action', 'update_product')->first();
+        $this->assertNotNull($log);
+        $this->assertEqualsWithDelta(21000, (float) $log->after_data['price_grand'], 0.01);
     }
 }
