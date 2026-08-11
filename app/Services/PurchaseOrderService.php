@@ -47,9 +47,7 @@ class PurchaseOrderService
             ]);
         }
 
-        $priceField = $buyer->priceField();
-
-        return DB::transaction(function () use ($buyer, $clean, $priceField, $shippingAddress, $notes, $priceOverrides) {
+        return DB::transaction(function () use ($buyer, $clean, $shippingAddress, $notes, $priceOverrides) {
             $products = Product::whereIn('id', array_keys($clean))
                 ->where('status', Product::STATUS_ACTIVE)
                 ->lockForUpdate()
@@ -69,7 +67,7 @@ class PurchaseOrderService
 
                 $unitPrice = isset($priceOverrides[$productId])
                     ? (float) $priceOverrides[$productId]
-                    : (float) $product->{$priceField};
+                    : (float) $product->priceForRole($buyer->role);
                 $lineTotal = $unitPrice * $qty;
                 $subtotal += $lineTotal;
 
