@@ -13,6 +13,7 @@ use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\JaringanSayaController;
 use App\Http\Controllers\KanbanController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDealController;
@@ -127,6 +128,9 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::get('/inventory/sales', [PartnerSaleController::class, 'index'])->name('partner-sales.index');
     Route::get('/inventory/sales/export', [ExportController::class, 'partnerSales'])->name('partner-sales.export');
     Route::post('/inventory/sales', [PartnerSaleController::class, 'store'])->name('partner-sales.store');
+
+    // "Jaringan Saya" — mitra upline pantau subtree (read-only). Gate isPartner di controller.
+    Route::get('/jaringan-saya', [JaringanSayaController::class, 'index'])->name('jaringan-saya.index');
     Route::post('/inventory/minimum', [InventoryController::class, 'setMinimum'])->name('inventory.minimum');
 
     Route::middleware('permission:manage_hq_stock')->group(function () {
