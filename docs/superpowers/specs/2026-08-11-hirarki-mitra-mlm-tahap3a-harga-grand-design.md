@@ -157,4 +157,9 @@ git pull origin main && /opt/alt/php83/usr/bin/php artisan migrate --force && /o
 ---
 
 ## 9. Jalur ke sub-fase berikut
-Setelah 3a: **biaya daftar tier** (149/459, onboarding+pembayaran) · **Tahap 3b komisi** · **Tahap 3c rantai pasok**. Harga Grand di 3a jadi dasar hitung margin/komisi nanti.
+Setelah 3a:
+- **Paket join / starter bundle** — bayar 149rb (Bronze) / 459rb (Gold) → **dapat PRODUK buat dijual**, BUKAN fee kosong. Ibarat beli paket promo untuk gabung jadi reseller. Jadi sub-fase ini = **jual paket produk (harga khusus) + jadikan reseller**, bukan sekadar catat pembayaran. (Perlu brainstorm sendiri: isi paket, potong stok, jadi PO/penjualan apa.)
+- **Tahap 3b — komisi naik pohon.**
+- **Tahap 3c — rantai pasok** (reseller no-stock + beli-dari-upline).
+
+Harga Grand di 3a jadi dasar hitung margin/komisi nanti.
