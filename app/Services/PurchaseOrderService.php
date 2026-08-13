@@ -85,6 +85,7 @@ class PurchaseOrderService
                 'po_number' => $this->generatePoNumber(),
                 'created_by' => $buyer->id,
                 'user_id' => $buyer->id,
+                'seller_id' => $buyer->upline_id,
                 'company_name' => $buyer->company_name,
                 'user_role' => $buyer->role,
                 'status' => PurchaseOrder::STATUS_PENDING,
