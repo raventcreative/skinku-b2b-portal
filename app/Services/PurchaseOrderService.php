@@ -196,7 +196,9 @@ class PurchaseOrderService
     /**
      * Atomically fulfil a PO:
      *   1. Guard against double completion.
-     *   2. Decrement products.hq_stock (fails if insufficient).
+     *   2. Deduct stock from the source implied by seller_id — HQ PO (seller_id
+     *      null) decrements products.hq_stock; inter-partner PO decrements the
+     *      seller/upline inventory. Either fails (and rolls back) if insufficient.
      *   3. Add stock to the buyer's inventory line.
      *   4. Write OUT (HQ) + PO_FULFILLMENT (partner) stock movements.
      *   5. Flip status to completed + stamp completed_at.

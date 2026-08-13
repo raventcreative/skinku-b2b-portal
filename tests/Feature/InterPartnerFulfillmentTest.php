@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AppSetting;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\User;
@@ -98,5 +99,56 @@ class InterPartnerFulfillmentTest extends TestCase
 
         $this->assertSame(90, (int) $p->fresh()->hq_stock);  // HQ turun 10 (jalur existing)
         $this->assertSame(10, $this->qty($grand, $p));       // pembeli naik 10
+    }
+
+    public function test_inter_partner_abaikan_opname_hq_tetap_transfer_stok(): void
+    {
+        // Cutoff opname jauh di depan → SEMUA PO "pra-opname". Utk PO HQ ini bikin
+        // stok di-skip; utk inter-partner guard seller_id===null mem-bypass-nya,
+        // jadi stok WAJIB tetap dipindah (bukti guard opname HQ-only).
+        AppSetting::put(AppSetting::PO_DEDUCT_FROM, '2099-01-01');
+
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+        $p = $this->product(hqStock: 100);
+        $this->stock($grand, $p, 50);
+
+        $po = $this->svc()->createForPartner($dist, [['product_id' => $p->id, 'qty' => 10]], null, null);
+        $this->svc()->complete($po);
+
+        $this->assertSame(40, $this->qty($grand, $p));          // upline tetap turun 10
+        $this->assertSame(10, $this->qty($dist, $p));           // downline tetap naik 10
+        $this->assertFalse((bool) $po->fresh()->stock_skipped); // TIDAK ambil jalur skip opname
+    }
+
+    public function test_rollback_atomik_multi_item_saat_stok_upline_kurang(): void
+    {
+        // 2 item: A cukup, B kurang. Loop proses A dulu (tulis potong upline +
+        // tambah downline) LALU item B melempar. Transaksi bersama HARUS
+        // membatalkan tulisan item A juga — inilah bukti atomik yang load-bearing.
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+        $pA = $this->product(hqStock: 100);
+        $pB = $this->product(hqStock: 100);
+        $this->stock($grand, $pA, 50); // cukup utk A (butuh 10)
+        $this->stock($grand, $pB, 5);  // KURANG utk B (butuh 10)
+
+        $po = $this->svc()->createForPartner($dist, [
+            ['product_id' => $pA->id, 'qty' => 10],
+            ['product_id' => $pB->id, 'qty' => 10],
+        ], null, null);
+
+        try {
+            $this->svc()->complete($po);
+            $this->fail('Seharusnya melempar karena stok upline utk item B kurang.');
+        } catch (RuntimeException $e) {
+            // diharapkan
+        }
+
+        $this->assertSame(50, $this->qty($grand, $pA)); // A: potongan upline dibatalkan (rollback)
+        $this->assertSame(5, $this->qty($grand, $pB));  // B: tak berubah
+        $this->assertSame(0, $this->qty($dist, $pA));   // A: tambahan downline ikut dibatalkan
+        $this->assertSame(0, $this->qty($dist, $pB));   // B: downline tak dapat
+        $this->assertNull($po->fresh()->completed_at);  // PO tak selesai
     }
 }
