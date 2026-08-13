@@ -104,7 +104,7 @@ class PurchaseOrder extends Model
     public const PAYMENT_REJECTED = 'rejected';
 
     protected $fillable = [
-        'po_number', 'created_by', 'user_id', 'company_name', 'user_role', 'order_date',
+        'po_number', 'created_by', 'user_id', 'seller_id', 'company_name', 'user_role', 'order_date',
         'is_tempo', 'tempo_due_date', 'tempo_notes',
         'status', 'subtotal', 'discount', 'shipping_cost', 'total_amount',
         'payment_status', 'payment_note', 'paid_at', 'payment_verified_by',
@@ -148,6 +148,11 @@ class PurchaseOrder extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function seller()
+    {
+        return $this->belongsTo(User::class, 'seller_id');
     }
 
     public function creator()
