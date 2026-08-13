@@ -214,7 +214,8 @@ class PurchaseOrderService
             // Barang untuk order pra-opname sudah keluar SEBELUM stok dihitung —
             // hitungan opname sudah memperhitungkannya. Memotong lagi = hilang dua
             // kali. Jadi PO-nya tetap dicatat (omzet), tapi stok tidak disentuh.
-            if ($this->isBeforeStockCutoff($po)) {
+            // Opname hanya berlaku untuk PO dari HQ (seller_id = null).
+            if ($po->seller_id === null && $this->isBeforeStockCutoff($po)) {
                 $po->status = PurchaseOrder::STATUS_COMPLETED;
                 $po->completed_at = now();
                 $po->stock_skipped = true;
@@ -239,23 +240,36 @@ class PurchaseOrderService
                     throw new RuntimeException("Produk untuk item '{$item->product_name}' tidak ditemukan.");
                 }
 
-                if ((int) $product->hq_stock < (int) $item->qty) {
-                    throw new RuntimeException(
-                        "Stok pusat untuk {$product->name} tidak mencukupi (tersedia {$product->hq_stock}, dibutuhkan {$item->qty}). Penyelesaian PO dibatalkan."
+                if ($po->seller_id === null) {
+                    // Jalur HQ (existing) — nol perubahan perilaku.
+                    if ((int) $product->hq_stock < (int) $item->qty) {
+                        throw new RuntimeException(
+                            "Stok pusat untuk {$product->name} tidak mencukupi (tersedia {$product->hq_stock}, dibutuhkan {$item->qty}). Penyelesaian PO dibatalkan."
+                        );
+                    }
+                    $this->inventory->adjustHqStock(
+                        product: $product,
+                        delta: -1 * (int) $item->qty,
+                        movementType: StockMovement::TYPE_OUT,
+                        notes: "Pemenuhan PO {$po->po_number}",
+                        referenceType: 'purchase_order',
+                        referenceId: $po->id,
+                    );
+                } else {
+                    // Inter-partner: potong stok UPLINE (seller). adjustPartnerStock
+                    // melempar bila saldo negatif → stok upline tak cukup → rollback.
+                    $this->inventory->adjustPartnerStock(
+                        userId: $po->seller_id,
+                        productId: $product->id,
+                        delta: -1 * (int) $item->qty,
+                        movementType: StockMovement::TYPE_OUT,
+                        notes: "Kirim ke downline — PO {$po->po_number}",
+                        referenceType: 'purchase_order',
+                        referenceId: $po->id,
                     );
                 }
 
-                // 3 + 4a: OUT from HQ
-                $this->inventory->adjustHqStock(
-                    product: $product,
-                    delta: -1 * (int) $item->qty,
-                    movementType: StockMovement::TYPE_OUT,
-                    notes: "Pemenuhan PO {$po->po_number}",
-                    referenceType: 'purchase_order',
-                    referenceId: $po->id,
-                );
-
-                // 4 + 4b: PO_FULFILLMENT into partner inventory
+                // Tambah stok PEMBELI (sama untuk kedua jalur).
                 $this->inventory->adjustPartnerStock(
                     userId: $po->user_id,
                     productId: $product->id,
