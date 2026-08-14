@@ -120,6 +120,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     // (seller_id, lihat createForPartner). Route show/aksi ditambah di Task 2 & 3.
     Route::middleware('permission:process_downline_po')->group(function () {
         Route::get('/pesanan-downline', [DownlineOrderController::class, 'index'])->name('pesanan-downline.index');
+        Route::get('/pesanan-downline/{purchaseOrder}', [DownlineOrderController::class, 'show'])->name('pesanan-downline.show');
     });
 
     /* ---------------- Inventory & Stock Movements ---------------- */
