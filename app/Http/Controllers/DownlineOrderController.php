@@ -74,6 +74,14 @@ class DownlineOrderController extends Controller
     {
         $this->guardOwner($purchaseOrder, $request->user());
 
+        // Short-circuit SEBELUM advanceStatus: tanpa ini, PO unpaid tetap maju
+        // pending→approved dulu (gerbang lunas hanya berlaku mulai processing)
+        // baru berhenti — status kebawa walau tak sampai completed. Dicegah di
+        // sini supaya PO unpaid benar-benar tak bergerak sama sekali.
+        if (! $purchaseOrder->isPaid() && ! $purchaseOrder->is_tempo) {
+            return back()->with('error', 'Pesanan belum lunas — verifikasi pembayaran dulu sebelum kirim.');
+        }
+
         try {
             $service->advanceStatus($purchaseOrder, PurchaseOrder::STATUS_COMPLETED, $request->input('notes'));
         } catch (RuntimeException $e) {
@@ -92,7 +100,11 @@ class DownlineOrderController extends Controller
             'reason' => ['required', 'string', 'max:500'],
         ]);
 
-        $service->cancel($purchaseOrder, $data['reason']);
+        try {
+            $service->cancel($purchaseOrder, $data['reason']);
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('status', 'Pesanan ditolak.');
     }

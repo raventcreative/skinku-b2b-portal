@@ -88,7 +88,22 @@ class DownlineOrderActionTest extends TestCase
         $resp = $this->actingAs($grand)->post(route('pesanan-downline.fulfill', $po));
         $po->refresh();
         $this->assertNotSame(PurchaseOrder::STATUS_COMPLETED, $po->status); // gate bayar menahan
+        $this->assertSame(PurchaseOrder::STATUS_PENDING, $po->status);      // short-circuit: TAK maju sama sekali
         $this->assertSame(50, $this->qty($grand, $p));        // stok tak berubah
+    }
+
+    public function test_tolak_pesanan_sudah_selesai_tak_error_500(): void
+    {
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+        $p = $this->product();
+        $this->stock($grand, $p, 50);
+        $po = $this->poFor($dist, $p, 10);
+        $this->actingAs($grand)->post(route('pesanan-downline.verify-payment', $po), ['approve' => '1']);
+        $this->actingAs($grand)->post(route('pesanan-downline.fulfill', $po));   // → completed
+        $resp = $this->actingAs($grand)->post(route('pesanan-downline.reject', $po), ['reason' => 'coba batal']);
+        $resp->assertRedirect();                 // graceful, bukan 500
+        $this->assertSame(PurchaseOrder::STATUS_COMPLETED, $po->fresh()->status); // tetap completed
     }
 
     public function test_upline_tolak_pesanan_dengan_alasan(): void
