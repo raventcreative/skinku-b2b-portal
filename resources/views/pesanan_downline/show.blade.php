@@ -126,19 +126,60 @@
             @endif
         </div>
 
-        {{-- Aksi: placeholder — form aktif ditambahkan di Task 3. --}}
-        <div class="bg-white rounded-2xl border border-stone-200 p-5">
-            <h3 class="text-sm font-bold text-stone-800 mb-3">Aksi</h3>
-            <button type="button" disabled
-                class="w-full py-2.5 bg-stone-200 text-stone-400 text-sm font-semibold rounded-xl cursor-not-allowed">
-                Kirim / Selesaikan Pesanan
-            </button>
-            @if(count($stokKurang) > 0)
-                <p class="text-[10px] text-rose-600 mt-2">Terkunci — lengkapi stok yang kurang di atas terlebih dahulu.</p>
-            @else
-                <p class="text-[10px] text-stone-400 mt-2">Tombol ini akan aktif pada pembaruan berikutnya.</p>
+        {{-- Aksi upline: verifikasi bayar / kirim & selesaikan / tolak pesanan.
+             Disembunyikan total begitu PO sudah final (completed/cancelled). --}}
+        @if(!in_array($po->status, ['completed', 'cancelled']))
+        <div class="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
+            <h3 class="text-sm font-bold text-stone-800 mb-1">Aksi</h3>
+
+            {{-- Verifikasi bukti transfer — hanya muncul saat memang ada bukti menunggu. --}}
+            @if($po->payment_status === 'awaiting_verification')
+                <div class="space-y-2 pb-3 border-b border-stone-100">
+                    <p class="text-[11px] text-stone-500">Bukti transfer menunggu diverifikasi.</p>
+                    <form method="POST" action="{{ route('pesanan-downline.verify-payment', $po) }}">
+                        @csrf
+                        <input type="hidden" name="approve" value="1">
+                        <button class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl"
+                            onclick="return confirm('Tandai pembayaran LUNAS?')">✓ Verifikasi Bayar</button>
+                    </form>
+                    <form method="POST" action="{{ route('pesanan-downline.verify-payment', $po) }}">
+                        @csrf
+                        <input type="hidden" name="approve" value="0">
+                        <button class="w-full py-2 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl hover:bg-rose-50"
+                            onclick="return confirm('Tolak bukti transfer ini?')">Tolak Bukti Bayar</button>
+                    </form>
+                </div>
             @endif
+
+            {{-- Kirim / Selesaikan — terkunci sampai lunas (atau TEMPO) DAN stok cukup. --}}
+            @php $bisaKirim = ($po->isPaid() || $po->is_tempo) && count($stokKurang) === 0; @endphp
+            <form method="POST" action="{{ route('pesanan-downline.fulfill', $po) }}"
+                @if($bisaKirim) onsubmit="return confirm('Kirim & selesaikan pesanan ini? Stok Anda akan berkurang.')" @endif>
+                @csrf
+                <button type="submit" @disabled(!$bisaKirim)
+                    class="w-full py-2.5 text-sm font-semibold rounded-xl {{ $bisaKirim ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed' }}">
+                    Kirim / Selesaikan Pesanan
+                </button>
+            </form>
+            @if(count($stokKurang) > 0)
+                <p class="text-[10px] text-rose-600">Terkunci — lengkapi stok yang kurang di atas terlebih dahulu.</p>
+            @elseif(!$po->isPaid() && !$po->is_tempo)
+                <p class="text-[10px] text-rose-600">Terkunci — menunggu pembayaran diverifikasi LUNAS (atau ditandai TEMPO).</p>
+            @endif
+
+            {{-- Tolak pesanan — alasan wajib diisi. --}}
+            <details class="pt-2 border-t border-stone-100">
+                <summary class="text-xs font-semibold text-stone-500 hover:text-rose-600 cursor-pointer select-none">Tolak Pesanan</summary>
+                <form method="POST" action="{{ route('pesanan-downline.reject', $po) }}" class="mt-2 space-y-2"
+                    onsubmit="return confirm('Tolak pesanan ini? Tindakan tidak dapat dibatalkan.')">
+                    @csrf
+                    <textarea name="reason" rows="2" required maxlength="500" placeholder="Alasan penolakan (wajib diisi)"
+                        class="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg"></textarea>
+                    <button class="w-full py-2 border border-rose-300 text-rose-700 text-xs font-semibold rounded-xl hover:bg-rose-50">Tolak Pesanan Ini</button>
+                </form>
+            </details>
         </div>
+        @endif
 
         <a href="{{ route('pesanan-downline.index') }}" class="block text-center text-xs text-stone-500 hover:text-stone-800">← Kembali ke daftar Pesanan Downline</a>
     </div>

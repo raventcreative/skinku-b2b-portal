@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Inventory;
 use App\Models\PurchaseOrder;
+use App\Services\PurchaseOrderService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 class DownlineOrderController extends Controller
 {
@@ -46,5 +49,57 @@ class DownlineOrderController extends Controller
             'po' => $purchaseOrder,
             'stokKurang' => $kurang,      // [] = cukup
         ]);
+    }
+
+    /** Upline menyetujui/menolak bukti transfer downline — sama seperti PurchaseOrderController::verifyPayment (verifierId = user yang login), lewat service yang sama. */
+    public function verifyPayment(Request $request, PurchaseOrder $purchaseOrder, PurchaseOrderService $service): RedirectResponse
+    {
+        $this->guardOwner($purchaseOrder, $request->user());
+
+        $approve = $request->boolean('approve');
+        $service->verifyPayment($purchaseOrder, $approve, $request->user()->id, $request->input('note'));
+
+        return back()->with('status', $approve ? 'Pembayaran diverifikasi — PO ditandai LUNAS.' : 'Bukti pembayaran ditolak.');
+    }
+
+    /**
+     * Kirim/selesaikan pesanan. PO downline mulai dari 'pending' — updateStatus()
+     * tak mengizinkan lompat pending→completed langsung (lihat PurchaseOrder::TRANSITIONS),
+     * jadi dipakai advanceStatus() (mekanisme yang sama dipakai aksi massal HQ) supaya
+     * berjalan lewat tiap status antara. Gerbang lunas/tempo & transfer stok upline→downline
+     * (complete()) tetap berlaku di tiap langkah — fulfill sebelum lunas akan berhenti di
+     * status antara terakhir yang sah, tanpa menyentuh stok.
+     */
+    public function fulfill(Request $request, PurchaseOrder $purchaseOrder, PurchaseOrderService $service): RedirectResponse
+    {
+        $this->guardOwner($purchaseOrder, $request->user());
+
+        try {
+            $service->advanceStatus($purchaseOrder, PurchaseOrder::STATUS_COMPLETED, $request->input('notes'));
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('status', 'Pesanan dikirim & diselesaikan.');
+    }
+
+    /** Upline menolak pesanan downline — alasan wajib diisi (beda dari cancel HQ yang opsional). */
+    public function reject(Request $request, PurchaseOrder $purchaseOrder, PurchaseOrderService $service): RedirectResponse
+    {
+        $this->guardOwner($purchaseOrder, $request->user());
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $service->cancel($purchaseOrder, $data['reason']);
+
+        return back()->with('status', 'Pesanan ditolak.');
+    }
+
+    /** INTI KEAMANAN aksi: hanya upline yang JADI PENJUAL di PO ini boleh bertindak. */
+    private function guardOwner(PurchaseOrder $po, $user): void
+    {
+        abort_unless($po->seller_id === $user->id, 403, 'Ini bukan pesanan downline Anda.');
     }
 }

@@ -117,10 +117,14 @@ Route::middleware(['auth', 'role'])->group(function () {
     });
 
     // Pesanan Downline — upline memproses PO yang dia sendiri jadi penjualnya
-    // (seller_id, lihat createForPartner). Route show/aksi ditambah di Task 2 & 3.
+    // (seller_id, lihat createForPartner). Guard kepemilikan (seller_id===me) ada
+    // di tiap method controller, bukan di sini — middleware ini cuma soal peran.
     Route::middleware('permission:process_downline_po')->group(function () {
         Route::get('/pesanan-downline', [DownlineOrderController::class, 'index'])->name('pesanan-downline.index');
         Route::get('/pesanan-downline/{purchaseOrder}', [DownlineOrderController::class, 'show'])->name('pesanan-downline.show');
+        Route::post('/pesanan-downline/{purchaseOrder}/verify-payment', [DownlineOrderController::class, 'verifyPayment'])->name('pesanan-downline.verify-payment');
+        Route::post('/pesanan-downline/{purchaseOrder}/fulfill', [DownlineOrderController::class, 'fulfill'])->name('pesanan-downline.fulfill');
+        Route::post('/pesanan-downline/{purchaseOrder}/reject', [DownlineOrderController::class, 'reject'])->name('pesanan-downline.reject');
     });
 
     /* ---------------- Inventory & Stock Movements ---------------- */
