@@ -51,9 +51,12 @@ class OmzetMitraPageTest extends TestCase
     {
         $staff = $this->admin();
         $mitra = $this->mitra();
-        $this->partnerSale($mitra, 150000); // masuk bulan berjalan (default filter)
+        $this->partnerSale($mitra, 150000);
 
-        $resp = $this->actingAs($staff)->get(route('reports.omzet-mitra'));
+        // bulan=all → parseMonth() null → omzetPerMitra tanpa filter bulan, jadi
+        // tes ini bebas-tanggal (tidak lagi bergantung pada bulan berjalan =
+        // Agustus 2026 seperti sebelumnya, yang akan gagal palsu mulai Sept 2026).
+        $resp = $this->actingAs($staff)->get(route('reports.omzet-mitra', ['bulan' => 'all']));
 
         $resp->assertOk();
         $resp->assertSee('Omzet Mitra');

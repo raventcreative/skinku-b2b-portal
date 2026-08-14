@@ -485,6 +485,7 @@ class OkrBusinessSnapshotService
                 ->where('status', User::STATUS_ACTIVE)->count(),
             'onboarding' => max(0, $terdaftar - $pernahPo),
             'aktif_30_hari' => $aktif30Hari,
+            // engagement: mitra aktif beli dari upline tetap dihitung (spec A4)
             'aktif_bertransaksi' => (clone $base)->whereIn('status', $committedStatuses)
                 ->whereNotNull('user_id')->distinct()->count('user_id'),
             'mencapai_100_juta' => $revenueByDistributor->where('omzet', '>=', 100_000_000)->count(),

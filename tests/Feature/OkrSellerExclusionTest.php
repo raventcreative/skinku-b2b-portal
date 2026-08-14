@@ -109,4 +109,53 @@ class OkrSellerExclusionTest extends TestCase
         $this->assertSame($expectedCompleted, (int) ($snapCoo['purchase_order'][PurchaseOrder::STATUS_COMPLETED] ?? 0));
         $this->assertLessThan($allCompletedCount, $snapCoo['purchase_order'][PurchaseOrder::STATUS_COMPLETED]);
     }
+
+    /** Varian completedPo(): selesai TAPI ditandai TEMPO & tetap belum lunas (piutang). */
+    private function completedTempoPo(User $buyer, Product $p, int $qty): PurchaseOrder
+    {
+        if ($buyer->upline_id) {
+            $seller = User::find($buyer->upline_id);
+            $this->stock($seller, $p, $qty);
+        }
+        $po = $this->svc()->createForPartner($buyer, [['product_id' => $p->id, 'qty' => $qty]], null, null);
+        $this->svc()->complete($po);
+        $this->svc()->setTempo($po->fresh(), true, 'tes piutang tempo', now()->addDays(14)->toDateString());
+
+        return $po->fresh();
+    }
+
+    public function test_okr_piutang_tempo_cfo_kecualikan_po_tempo_inter_partner(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+        $p = $this->product();
+
+        // Urutan WAJIB sama seperti test di atas: inter-partner dulu, baru HQ→grand
+        // (completedTempoPo() men-seed stok upline via Inventory::create raw insert —
+        // lihat komentar completedPo() soal tabrakan unique(user_id, product_id)).
+        $poInterPartner = $this->completedTempoPo($dist, $p, 2);   // dist beli dari grand: seller_id = grand->id
+        $poHq = $this->completedTempoPo($grand, $p, 1);            // grand beli dari HQ: seller_id null
+
+        $input = ['start_date' => now()->toDateString(), 'end_date' => now()->toDateString()];
+        $cfo = $this->snapshotService()->for('cfo', $admin, $input);
+        $piutang = $cfo['piutang_tempo'];
+
+        // Ada 2 PO tempo & belum lunas total — tapi HANYA satu (HQ, seller_id null)
+        // yang boleh dihitung sebagai piutang HQ. Uang inter-partner dibuang (spec A4),
+        // sama seperti omzet_selesai/status-count PO di test sebelumnya.
+        $allTempoUnpaidCount = (int) PurchaseOrder::where('is_tempo', true)
+            ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DELETED])
+            ->count();
+        $this->assertSame(2, $allTempoUnpaidCount);
+        $this->assertSame(1, $piutang['jumlah_po']);
+        $this->assertLessThan($allTempoUnpaidCount, $piutang['jumlah_po']);
+
+        // sisa_tagihan HARUS sama persis dengan PO HQ saja (belum ada cicilan sama
+        // sekali → sisa = total_amount), BUKAN gabungan kedua PO tempo.
+        $totalSemuaTempoUnpaid = (float) $poInterPartner->total_amount + (float) $poHq->total_amount;
+        $this->assertGreaterThan((float) $poHq->total_amount, $totalSemuaTempoUnpaid); // ada nominal inter-partner yg harus dibuang
+        $this->assertEqualsWithDelta((float) $poHq->total_amount, $piutang['sisa_tagihan'], 0.01);
+        $this->assertLessThan($totalSemuaTempoUnpaid, $piutang['sisa_tagihan']);
+    }
 }
