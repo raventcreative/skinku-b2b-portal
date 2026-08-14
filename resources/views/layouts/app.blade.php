@@ -94,6 +94,10 @@
                 {!! navItem('jaringan-saya.index', 'Jaringan Saya', 'jaringan-saya.index') !!}
             @endif
 
+            @if($u->isPartner() && $u->downlines()->exists())
+                {!! navItem('pesanan-downline.index', 'Pesanan Downline', 'pesanan-downline.index') !!}
+            @endif
+
             @php
                 // Staff yang mengelola produk/stok/produksi → tampilkan grup accordion "Manajemen Produk".
                 $isProdukManager = $u->canDo('manage_products') || $u->canDo('manage_production') || $u->canDo('manage_hq_stock');
