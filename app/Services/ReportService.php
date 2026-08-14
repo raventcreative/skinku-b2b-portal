@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use App\Models\Inventory;
+use App\Models\PartnerSale;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\ShopeeOrder;
 use App\Models\TiktokOrder;
 use App\Models\User;
+use App\Support\PartnerHierarchy;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -351,6 +353,65 @@ class ReportService
                 'revenue' => (float) $r->revenue,
                 'orders' => (int) $r->orders,
             ])->toArray();
+    }
+
+    /**
+     * Omzet per mitra — gabungan dua jalur jualan mitra itu sendiri (sebagai
+     * penjual, bukan pembeli): jual ke downline (PO completed dengan
+     * seller_id = mitra) dan jual ke customer akhir (PartnerSale). Mitra
+     * tanpa jualan sama sekali (mis. cuma beli dari upline) tak muncul.
+     *
+     * @return array<int, array{user_id:int, nama:string, tier:string, jual_downline:float, jual_customer:float, total:float}>
+     */
+    public function omzetPerMitra(?Carbon $month = null): array
+    {
+        // Jual ke downline: PO completed di mana mitra jadi seller.
+        $poQuery = PurchaseOrder::query()
+            ->where('status', self::REVENUE_STATUS)
+            ->whereNotNull('seller_id');
+        if ($month) {
+            $this->inMonth($poQuery, $month);
+        }
+        $downline = $poQuery->groupBy('seller_id')
+            ->selectRaw('seller_id as uid, SUM(total_amount) as total')
+            ->pluck('total', 'uid');
+
+        // Jual ke customer akhir: PartnerSale by user.
+        $psQuery = PartnerSale::query();
+        if ($month) {
+            $psQuery->whereBetween('sold_at', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()]);
+        }
+        $customer = $psQuery->groupBy('user_id')
+            ->selectRaw('user_id as uid, SUM(total_amount) as total')
+            ->pluck('total', 'uid');
+
+        $ids = $downline->keys()->merge($customer->keys())->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+        $users = User::whereIn('id', $ids)->get(['id', 'fullname', 'name', 'role'])->keyBy('id');
+
+        $rows = [];
+        foreach ($ids as $id) {
+            $jd = (float) ($downline[$id] ?? 0);
+            $jc = (float) ($customer[$id] ?? 0);
+            $total = $jd + $jc;
+            if ($total <= 0) {
+                continue;
+            }
+            $u = $users[$id] ?? null;
+            $rows[] = [
+                'user_id' => (int) $id,
+                'nama' => $u?->fullname ?: ($u?->name ?? '—'),
+                'tier' => $u ? PartnerHierarchy::label($u->role) : '—',
+                'jual_downline' => $jd,
+                'jual_customer' => $jc,
+                'total' => $total,
+            ];
+        }
+        usort($rows, fn ($a, $b) => $b['total'] <=> $a['total']);
+
+        return $rows;
     }
 
     /** Sales grouped by region (fallback to "Lainnya" when null). */
