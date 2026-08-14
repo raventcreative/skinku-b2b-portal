@@ -52,6 +52,7 @@ class UserController extends Controller
                 ->where('status', User::STATUS_ACTIVE)
                 ->orderBy('fullname')
                 ->get(['id', 'fullname', 'role', 'region', 'member_id']),
+            'nextMemberId' => $this->hierarchy->generateMemberId(),
         ]);
     }
 
@@ -107,7 +108,12 @@ class UserController extends Controller
             targetEmail: $user->email,
         );
 
-        return back()->with('status', "Akun {$user->fullname} berhasil dibuat.");
+        $msg = "Akun {$user->fullname} berhasil dibuat.";
+        if ($user->member_id) {
+            $msg .= " Member ID: {$user->member_id}.";
+        }
+
+        return back()->with('status', $msg);
     }
 
     public function update(Request $request, User $user): RedirectResponse

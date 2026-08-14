@@ -55,7 +55,7 @@
                     <td class="px-4 py-3 text-right whitespace-nowrap">
                         @if($row->status !== 'deleted')
                             <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","status","upline_id"])) }})'>Edit</button>
+                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","status","upline_id","member_id"])) }})'>Edit</button>
                             <form method="POST" action="{{ route('users.toggle-status', $row) }}" class="inline">
                                 @csrf
                                 <button class="ml-2 text-amber-600 hover:text-amber-800 font-semibold">{{ $row->status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}</button>
@@ -179,6 +179,9 @@
         refreshUplineOptions(f);
         const uplEl = f.querySelector('[name=upline_id]');
         if (uplEl) uplEl.value = u.upline_id ?? '';
+        const midEl = f.querySelector('[data-memberid-display]');
+        if (midEl) midEl.value = u.member_id ?? '';
+        refreshMemberId(f);
         toggleModal('editUserModal');
     }
     function openResetPw(id, name) {
@@ -194,6 +197,13 @@
             ->mapWithKeys(fn ($role) => [$role => \App\Support\PartnerHierarchy::allowedParentRoles($role)])->all();
     @endphp
     const ALLOWED_PARENTS = {!! json_encode($allowedParents) !!};
+    const PARTNER_ROLES = {!! json_encode(\App\Models\User::PARTNER_ROLES) !!};
+    function refreshMemberId(form) {
+        const roleSel = form.querySelector('[name=role]');
+        const wrap = form.querySelector('[data-memberid-wrap]');
+        if (!roleSel || !wrap) return;
+        wrap.style.display = PARTNER_ROLES.indexOf(roleSel.value) !== -1 ? '' : 'none';
+    }
     function refreshUplineOptions(form) {
         const roleSel = form.querySelector('[name=role]');
         const uplineSel = form.querySelector('[name=upline_id]');
@@ -219,7 +229,7 @@
         const form = document.getElementById(id);
         if (!form) return;
         const roleSel = form.querySelector('[name=role]');
-        if (roleSel) roleSel.addEventListener('change', function () { refreshUplineOptions(form); });
+        if (roleSel) roleSel.addEventListener('change', function () { refreshUplineOptions(form); refreshMemberId(form); });
     });
 
     // ---- Auto-generate username from full name on the CREATE form ----
@@ -268,6 +278,7 @@
             cf.reset();
             userInput.dataset.touched = '';
             refreshUplineOptions(cf);
+            refreshMemberId(cf);
             regenPw();                 // fresh auto-generated password
             if (pw) pw.type = 'text';  // visible by default so it can be copied
             if (pwEyeBtn) pwEyeBtn.textContent = '👁';
