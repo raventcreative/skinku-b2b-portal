@@ -140,6 +140,9 @@
 
             @if($u->canDo('view_reports'))
                 {!! navItem('reports.index', $u->isPartner() ? 'Laporan Pembelian' : 'Laporan Penjualan', 'reports.index') !!}
+                @if($u->isStaff())
+                    {!! navItem('reports.omzet-mitra', 'Omzet Mitra', 'reports.omzet-mitra') !!}
+                @endif
             @endif
 
             @if($u->canDo('view_accounting'))

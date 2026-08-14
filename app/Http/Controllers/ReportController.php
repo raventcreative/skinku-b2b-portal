@@ -54,6 +54,23 @@ class ReportController extends Controller
         return view('reports.index', $data);
     }
 
+    /** Omzet per mitra (HQ-only): jual ke downline (PO) + jual ke customer akhir, digabung per mitra. */
+    public function omzetMitra(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user->isStaff(), 403);
+
+        $bulan = $this->parseMonth($request->query('bulan'));
+        $rows = $this->reports->omzetPerMitra($bulan);
+        $grandTotal = array_sum(array_column($rows, 'total'));
+
+        return view('reports.omzet_mitra', [
+            'rows' => $rows,
+            'grandTotal' => $grandTotal,
+            'bulan' => $bulan,
+        ]);
+    }
+
     /**
      * ?bulan=YYYY-MM → Carbon. 'all' = semua periode (null). Kosong/ngawur =
      * bulan berjalan — itulah yang hampir selalu ingin dilihat, jadi jadi default.
