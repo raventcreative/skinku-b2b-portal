@@ -202,6 +202,7 @@ class OkrBusinessSnapshotService
             $tempo = PurchaseOrder::query()
                 ->where('is_tempo', true)
                 ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DELETED])
+                ->whereNull('seller_id')
                 ->withSum('payments', 'amount')
                 ->get();
             $out['piutang_tempo'] = [
@@ -291,6 +292,7 @@ class OkrBusinessSnapshotService
 
         if ($this->allowed($user, 'update_po_status') || $this->allowed($user, 'view_reports')) {
             $out['purchase_order'] = PurchaseOrder::query()
+                ->whereNull('seller_id')
                 ->selectRaw('status, COUNT(*) as total')
                 ->groupBy('status')
                 ->pluck('total', 'status')
@@ -449,6 +451,9 @@ class OkrBusinessSnapshotService
         $committedStatuses = array_merge([PurchaseOrder::STATUS_COMPLETED], PurchaseOrder::PIPELINE_STATUSES);
         $revenueByDistributor = (clone $base)
             ->where('status', PurchaseOrder::STATUS_COMPLETED)
+            // Omzet HQ murni: buang PO inter-partner (seller_id != null) supaya uang
+            // antar-mitra tak ikut terhitung sebagai omzet HQ (spec A4).
+            ->whereNull('seller_id')
             ->selectRaw('user_id, company_name, SUM(total_amount) as omzet, COUNT(*) as jumlah_po')
             ->groupBy('user_id', 'company_name')
             ->orderByDesc('omzet')
@@ -458,11 +463,13 @@ class OkrBusinessSnapshotService
         // pakai ambang default yang disetujui — tanpa field manual baru.
         $terdaftar = User::where('role', User::ROLE_DISTRIBUTOR)->count();
         // Onboarding = terdaftar tapi BELUM pernah ada PO sama sekali (kapan pun).
+        // engagement: mitra aktif beli dari upline tetap dihitung (spec A4)
         $pernahPo = PurchaseOrder::query()
             ->where('user_role', User::ROLE_DISTRIBUTOR)
             ->whereNotNull('user_id')
             ->distinct()->count('user_id');
         // Aktif = ada PO (committed) dalam 30 hari terakhir (rolling) sampai akhir bulan referensi.
+        // engagement: mitra aktif beli dari upline tetap dihitung (spec A4)
         $aktifSejak = $month->copy()->endOfMonth()->subDays(30)->toDateString();
         $aktifSampai = $month->copy()->endOfMonth()->toDateString();
         $aktif30Hari = PurchaseOrder::query()
