@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\PurchaseOrderService;
 use App\Services\ReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -86,6 +87,7 @@ class OmzetMitraServiceTest extends TestCase
         $this->assertEqualsWithDelta($downlineRp, $grandRow['jual_downline'], 0.01);
         $this->assertEqualsWithDelta(40000, $grandRow['jual_customer'], 0.01);
         $this->assertEqualsWithDelta($downlineRp + 40000, $grandRow['total'], 0.01);
+        $this->assertSame('Grand Distributor', $grandRow['tier']);
     }
 
     public function test_omzet_per_mitra_abaikan_po_hq_dan_mitra_tanpa_jualan(): void
@@ -95,5 +97,18 @@ class OmzetMitraServiceTest extends TestCase
         $this->completedPo($grand, $p, 3);       // HQ→grand: grand sbg PEMBELI, bukan seller → bukan jualan grand
         $rows = app(ReportService::class)->omzetPerMitra(null);
         $this->assertNull(collect($rows)->firstWhere('user_id', $grand->id)); // grand tak punya jualan → tak muncul
+    }
+
+    public function test_omzet_per_mitra_filter_bulan_termasuk_tanggal_1(): void
+    {
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $this->partnerSale($grand, 50000, '2026-08-01'); // tepat tanggal 1 — HARUS ikut
+        $this->partnerSale($grand, 30000, '2026-07-20'); // bulan lain — HARUS keluar
+
+        $rows = app(ReportService::class)->omzetPerMitra(Carbon::parse('2026-08-15'));
+        $grandRow = collect($rows)->firstWhere('user_id', $grand->id);
+
+        $this->assertNotNull($grandRow, 'Mitra dgn penjualan Agustus harus muncul (tgl-1 tak boleh kedrop).');
+        $this->assertEqualsWithDelta(50000, $grandRow['jual_customer'], 0.01); // hanya Agustus
     }
 }

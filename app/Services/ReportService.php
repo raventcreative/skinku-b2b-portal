@@ -379,7 +379,7 @@ class ReportService
         // Jual ke customer akhir: PartnerSale by user.
         $psQuery = PartnerSale::query();
         if ($month) {
-            $psQuery->whereBetween('sold_at', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()]);
+            $psQuery->whereBetween('sold_at', [$month->copy()->startOfMonth()->toDateString(), $month->copy()->endOfMonth()->toDateString()]);
         }
         $customer = $psQuery->groupBy('user_id')
             ->selectRaw('user_id as uid, SUM(total_amount) as total')
