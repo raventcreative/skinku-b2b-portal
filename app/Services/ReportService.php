@@ -41,11 +41,16 @@ class ReportService
         );
     }
 
-    /** Scope helper: partners only see their own data. */
+    /**
+     * Scope helper: partners only see their own data; HQ view excludes
+     * inter-partner PO (seller_id set) — those aren't HQ's sales.
+     */
     private function scopePo($query, ?User $viewer)
     {
         if ($viewer && $viewer->isPartner()) {
             $query->where('user_id', $viewer->id);
+        } else {
+            $query->whereNull('seller_id');
         }
 
         return $query;
@@ -116,7 +121,8 @@ class ReportService
         // Marketplace: order_created_at.
         $po = fn (array $statuses) => PurchaseOrder::query()
             ->whereIn('status', $statuses)
-            ->whereRaw('COALESCE(order_date, DATE(created_at)) BETWEEN ? AND ?', [$start->toDateString(), $end->toDateString()]);
+            ->whereRaw('COALESCE(order_date, DATE(created_at)) BETWEEN ? AND ?', [$start->toDateString(), $end->toDateString()])
+            ->whereNull('seller_id');
 
         $mp = fn (string $table, string $model, array $statuses) => Schema::hasTable($table)
             ? $model::whereIn('status', $statuses)->whereBetween('order_created_at', [$start, $end])
@@ -188,7 +194,8 @@ class ReportService
             ->join('purchase_orders as po', 'po.id', '=', 'poi.purchase_order_id')
             ->join('products as p', 'p.id', '=', 'poi.product_id')
             ->where('po.status', self::REVENUE_STATUS)
-            ->whereNull('po.deleted_at');
+            ->whereNull('po.deleted_at')
+            ->whereNull('po.seller_id');
 
         $rows = $this->inMonth($q, $month, 'po')
             ->selectRaw('COALESCE(SUM(poi.total_price), 0) as revenue, COALESCE(SUM(poi.qty * p.cogs), 0) as cogs')
@@ -282,6 +289,8 @@ class ReportService
 
         if ($viewer && $viewer->isPartner()) {
             $q->where('po.user_id', $viewer->id);
+        } else {
+            $q->whereNull('po.seller_id');
         }
 
         return $this->inMonth($q, $month, 'po')
@@ -310,7 +319,7 @@ class ReportService
     public function partnerSalesDetail(?Carbon $month = null): array
     {
         return $this->inMonth(
-            PurchaseOrder::query()->where('status', self::REVENUE_STATUS), $month,
+            PurchaseOrder::query()->where('status', self::REVENUE_STATUS)->whereNull('seller_id'), $month,
         )
             ->selectRaw('company_name, user_role, COUNT(*) as orders, SUM(total_amount) as revenue')
             ->groupBy('company_name', 'user_role')
@@ -330,7 +339,8 @@ class ReportService
     {
         return $this->inMonth(PurchaseOrder::query()
             ->where('status', self::REVENUE_STATUS)
-            ->where('user_role', $role), $month)
+            ->where('user_role', $role)
+            ->whereNull('seller_id'), $month)
             ->selectRaw('company_name, SUM(total_amount) as revenue, COUNT(*) as orders')
             ->groupBy('company_name')
             ->orderByDesc('revenue')
@@ -348,7 +358,8 @@ class ReportService
     {
         return $this->inMonth(PurchaseOrder::query()
             ->leftJoin('users', 'users.id', '=', 'purchase_orders.user_id')
-            ->where('purchase_orders.status', self::REVENUE_STATUS), $month, 'purchase_orders')
+            ->where('purchase_orders.status', self::REVENUE_STATUS)
+            ->whereNull('purchase_orders.seller_id'), $month, 'purchase_orders')
             ->selectRaw('COALESCE(NULLIF(users.region, ""), "Lainnya") as region, SUM(purchase_orders.total_amount) as revenue')
             ->groupBy('region')
             ->orderByDesc('revenue')
