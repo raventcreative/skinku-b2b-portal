@@ -245,6 +245,9 @@
                     </a>
                 @endif
             @endif
+            @if($u->isPartner())
+                <a href="{{ route('account.rekening') }}" class="block px-4 py-2 text-[11px] text-red-100 hover:text-white rounded-lg hover:bg-red-900/50">Rekening</a>
+            @endif
             <a href="{{ route('account.password') }}" class="block px-4 py-2 text-[11px] text-red-100 hover:text-white rounded-lg hover:bg-red-900/50">Ubah Password</a>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf

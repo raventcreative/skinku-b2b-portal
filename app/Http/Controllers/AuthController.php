@@ -208,4 +208,24 @@ class AuthController extends Controller
 
         return back()->with('status', 'Password Anda berhasil diperbarui.');
     }
+
+    /* ---------------- Rekening bank milik sendiri (logged in) ---------------- */
+
+    public function showBankAccount(Request $request)
+    {
+        return view('auth.bank-account', ['user' => $request->user()]);
+    }
+
+    public function updateBankAccount(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'bank' => ['nullable', 'string', 'max:50'],
+            'no_rekening' => ['nullable', 'string', 'max:40'],
+            'atas_nama' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $request->user()->update($data);
+
+        return back()->with('status', 'Rekening berhasil disimpan.');
+    }
 }

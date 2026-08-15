@@ -83,6 +83,10 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::get('/account/password', [AuthController::class, 'showChangePassword'])->name('account.password');
     Route::post('/account/password', [AuthController::class, 'changePassword']);
 
+    // Rekening bank milik sendiri (any authenticated user)
+    Route::get('/account/rekening', [AuthController::class, 'showBankAccount'])->name('account.rekening');
+    Route::post('/account/rekening', [AuthController::class, 'updateBankAccount']);
+
     /* ---------------- Purchase Orders ---------------- */
     Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
 

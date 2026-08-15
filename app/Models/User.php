@@ -53,6 +53,7 @@ class User extends Authenticatable
         'uid', 'name', 'fullname', 'email', 'username', 'password',
         'role', 'company_name', 'phone', 'address', 'status', 'region',
         'upline_id', 'member_id',
+        'bank', 'no_rekening', 'atas_nama',
         'email_verified_at', 'disabled_at', 'created_by', 'updated_by',
     ];
 
