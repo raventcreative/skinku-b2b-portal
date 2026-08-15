@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\CommissionService;
 use App\Services\PurchaseOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -170,5 +171,24 @@ class CommissionEngineTest extends TestCase
         $expected = (float) Commission::where('user_id', $grand->id)->where('status', 'saldo')->sum('amount');
         $this->assertGreaterThan(0, $expected);
         $this->assertEqualsWithDelta($expected, $this->commissionSvc()->balance($grand), 0.01);
+    }
+
+    public function test_backdated_sale_tak_hasilkan_komisi(): void
+    {
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+        $p = $this->product();
+
+        // Tanpa cutoff di-set → lewat jalur NORMAL complete() (bukan skip-stok
+        // pra-opname), jadi tes ini benar-benar menguji flag recordCommission=false,
+        // bukan kebetulan lolos lewat guard lain.
+        $po = $this->svc()->recordBackdatedSale(
+            $dist, [['product_id' => $p->id, 'qty' => 2]], Carbon::parse('2026-08-01'), 'backfill', $admin->id,
+        );
+
+        $this->assertSame(PurchaseOrder::STATUS_COMPLETED, $po->status);
+        $this->assertFalse((bool) $po->fresh()->stock_skipped); // konfirmasi: memang jalur normal
+        $this->assertSame(0, Commission::where('source_po_id', $po->id)->count());
     }
 }

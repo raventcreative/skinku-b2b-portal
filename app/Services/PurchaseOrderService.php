@@ -203,10 +203,13 @@ class PurchaseOrderService
      *   4. Write OUT (HQ) + PO_FULFILLMENT (partner) stock movements.
      *   5. Flip status to completed + stamp completed_at.
      *   6. Audit log.
+     *   7. Catat komisi (CommissionService) — KECUALI $recordCommission=false.
+     *      Dipakai recordBackdatedSale(): penjualan historis/backfill bukan
+     *      transaksi baru, jangan sampai memicu komisi upline.
      */
-    public function complete(PurchaseOrder $po, ?string $notes = null): PurchaseOrder
+    public function complete(PurchaseOrder $po, ?string $notes = null, bool $recordCommission = true): PurchaseOrder
     {
-        return DB::transaction(function () use ($po, $notes) {
+        return DB::transaction(function () use ($po, $notes, $recordCommission) {
             $po = PurchaseOrder::with('items')->lockForUpdate()->findOrFail($po->id);
 
             if ($po->status === PurchaseOrder::STATUS_COMPLETED || $po->completed_at !== null) {
@@ -299,7 +302,9 @@ class PurchaseOrderService
                 after: ['status' => PurchaseOrder::STATUS_COMPLETED, 'completed_at' => (string) $po->completed_at],
             );
 
-            app(CommissionService::class)->recordForCompletedPo($po);
+            if ($recordCommission) {
+                app(CommissionService::class)->recordForCompletedPo($po);
+            }
 
             return $po;
         });
@@ -358,7 +363,7 @@ class PurchaseOrderService
         }
         $po->update($attrs);
 
-        return $this->complete($po->fresh(), $notes);
+        return $this->complete($po->fresh(), $notes, recordCommission: false);
     }
 
     public function cancel(PurchaseOrder $po, ?string $reason = null): PurchaseOrder

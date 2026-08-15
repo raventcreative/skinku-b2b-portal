@@ -51,7 +51,9 @@ class CommissionService
             $upline = $buyer->upline;
             if ($upline && $upline->isPartner()) {
                 $rate = AppSetting::float('komisi_persen_join', 10.0);
-                $this->write($upline, $po, $buyer, 'join', 1, $rate, $base);
+                if ($rate > 0) {
+                    $this->write($upline, $po, $buyer, 'join', 1, $rate, $base);
+                }
             }
 
             return;
