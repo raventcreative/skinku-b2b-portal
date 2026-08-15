@@ -8,6 +8,7 @@ use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackdatedSaleController;
+use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HqStockReportController;
@@ -136,6 +137,11 @@ Route::middleware(['auth', 'role'])->group(function () {
     // "Jaringan Saya" — mitra upline pantau subtree (read-only). Gate isPartner di controller.
     Route::get('/jaringan-saya', [JaringanSayaController::class, 'index'])->name('jaringan-saya.index');
     Route::post('/inventory/minimum', [InventoryController::class, 'setMinimum'])->name('inventory.minimum');
+
+    // "Saldo Komisi" — mitra lihat saldo tersedia + ajukan penarikan. Gate isPartner di controller.
+    Route::get('/komisi-saya', [CommissionController::class, 'index'])->name('commissions.index');
+    Route::post('/komisi-saya/tarik', [CommissionController::class, 'withdraw'])->name('commissions.withdraw');
+    Route::post('/komisi-saya/tarik/{withdrawal}/batal', [CommissionController::class, 'cancel'])->name('commissions.withdraw-cancel');
 
     Route::middleware('permission:manage_hq_stock')->group(function () {
         Route::post('/inventory/hq-adjust', [InventoryController::class, 'adjustHq'])->name('inventory.hq-adjust');

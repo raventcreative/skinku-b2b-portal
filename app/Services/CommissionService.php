@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\Commission;
 use App\Models\PurchaseOrder;
 use App\Models\User;
+use App\Models\Withdrawal;
 
 /**
  * Mesin komisi MLM: join (order pertama, ke upline langsung) vs override
@@ -76,6 +77,19 @@ class CommissionService
     public function balance(User $mitra): float
     {
         return (float) Commission::where('user_id', $mitra->id)->where('status', 'saldo')->sum('amount');
+    }
+
+    /**
+     * Saldo yang masih bisa ditarik: saldo komisi dikurangi withdrawal yang
+     * belum ditolak (diajukan/disetujui/cair semua mengunci saldo). Commission
+     * TETAP append-only — status-nya tidak pernah diubah jadi 'ditarik'.
+     */
+    public function availableBalance(User $mitra): float
+    {
+        $ditarik = (float) Withdrawal::where('user_id', $mitra->id)
+            ->where('status', '!=', 'ditolak')->sum('amount');
+
+        return $this->balance($mitra) - $ditarik;
     }
 
     private function overrideRate(string $role): float
