@@ -48,4 +48,12 @@ class AppSetting extends Model
             return null;
         }
     }
+
+    /** Setelan angka desimal → float (default kalau kosong/null). */
+    public static function float(string $key, float $default = 0.0): float
+    {
+        $v = self::get($key);
+
+        return $v === null || $v === '' ? $default : (float) $v;
+    }
 }
