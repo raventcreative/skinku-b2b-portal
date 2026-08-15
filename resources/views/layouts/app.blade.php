@@ -153,6 +153,10 @@
                 {!! navItem('accounting.index', 'Akuntansi', 'accounting.*') !!}
             @endif
 
+            @if($u->canDo('process_withdrawal'))
+                {!! navItem('withdrawals.index', 'Penarikan', 'withdrawals.*') !!}
+            @endif
+
             @if($u->canDo('manage_tiktok'))
                 {!! navItem('tiktok.index', 'Integrasi TikTok', 'tiktok.*') !!}
             @endif

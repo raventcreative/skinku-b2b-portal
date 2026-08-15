@@ -32,6 +32,7 @@ class Permissions
         'view_reports' => 'Lihat Laporan Penjualan',
         'view_accounting' => 'Akuntansi & Laporan Keuangan',
         'delete_accounting' => 'Hapus Jurnal / Data Akuntansi (BAHAYA)',
+        'process_withdrawal' => 'Proses Penarikan Komisi',
         'view_audit_log' => 'Lihat Audit Log',
         'system_settings' => 'Pengaturan Sistem',
         'manage_announcements' => 'Kelola Pengumuman & Komunitas',
@@ -68,6 +69,9 @@ class Permissions
         // Sengaja kosong: hapus jurnal itu permanen. Hanya super_admin (selalu punya
         // semua izin) yang bisa — admin biasa tidak boleh menghapus pembukuan.
         'delete_accounting' => [],
+        // Samakan risiko dengan view_accounting: uang keluar sungguhan (mencairkan
+        // penarikan mitra), jadi admin-only lewat DEFAULTS (super_admin selalu ikut).
+        'process_withdrawal' => [User::ROLE_ADMIN],
         'view_audit_log' => [],
         'system_settings' => [],
         'manage_announcements' => [],

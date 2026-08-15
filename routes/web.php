@@ -41,6 +41,7 @@ use App\Http\Controllers\TelegramWebhookController;
 use App\Http\Controllers\TikTokController;
 use App\Http\Controllers\TikTokIncomeController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WithdrawalController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -142,6 +143,12 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::get('/komisi-saya', [CommissionController::class, 'index'])->name('commissions.index');
     Route::post('/komisi-saya/tarik', [CommissionController::class, 'withdraw'])->name('commissions.withdraw');
     Route::post('/komisi-saya/tarik/{withdrawal}/batal', [CommissionController::class, 'cancel'])->name('commissions.withdraw-cancel');
+
+    // "Penarikan" — HQ proses antrean penarikan komisi mitra (setujui/tolak/cairkan).
+    Route::middleware('permission:process_withdrawal')->group(function () {
+        Route::get('/penarikan', [WithdrawalController::class, 'index'])->name('withdrawals.index');
+        Route::post('/penarikan/{withdrawal}/proses', [WithdrawalController::class, 'process'])->name('withdrawals.process');
+    });
 
     Route::middleware('permission:manage_hq_stock')->group(function () {
         Route::post('/inventory/hq-adjust', [InventoryController::class, 'adjustHq'])->name('inventory.hq-adjust');
