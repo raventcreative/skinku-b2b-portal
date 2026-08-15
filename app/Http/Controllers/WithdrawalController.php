@@ -32,8 +32,10 @@ class WithdrawalController extends Controller
 
     /**
      * Transisi valid: diajukan→disetujui/ditolak; disetujui→cair/ditolak.
-     * Longgar di luar itu, TAPI 'cair' selalu final — tak boleh diproses lagi
-     * (dana sudah keluar sungguhan).
+     * Longgar di luar itu, TAPI 'cair' dan 'ditolak' = status final, tak bisa
+     * diproses ulang (dana 'cair' sudah keluar sungguhan; 'ditolak' sudah
+     * melepas kunci saldo — menghidupkannya kembali akan menahan ulang saldo
+     * yang sudah dilepas dan bisa memicu over-withdrawal).
      */
     public function process(Request $request, Withdrawal $withdrawal): RedirectResponse
     {
@@ -42,8 +44,8 @@ class WithdrawalController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        if ($withdrawal->status === 'cair') {
-            return back()->with('error', "Penarikan #{$withdrawal->id} sudah cair — tidak bisa diproses ulang.");
+        if (in_array($withdrawal->status, ['cair', 'ditolak'], true)) {
+            return back()->with('error', "Penarikan #{$withdrawal->id} sudah final ({$withdrawal->status}) — tidak bisa diproses ulang.");
         }
 
         $before = ['status' => $withdrawal->status];

@@ -118,6 +118,38 @@ class WithdrawalProcessTest extends TestCase
         $this->assertSame('cair', $w->fresh()->status); // tak berubah — sudah final
     }
 
+    /**
+     * Skenario over-withdrawal: A(300k) ditolak sudah melepas kunci, mitra
+     * mengajukan lagi B(500k) yang menghabiskan sisa saldo. HQ (tab basi)
+     * mencoba "menghidupkan" A yang sudah ditolak jadi disetujui — HARUS
+     * diblokir, kalau tidak Σ(non-ditolak) = A+B = 800k > saldo 500k.
+     */
+    public function test_ditolak_tak_bisa_dihidupkan_ulang(): void
+    {
+        $admin = $this->admin();
+        $m = $this->partnerWithBank();
+        $this->giveCommission($m, 500000);
+        $svc = app(CommissionService::class);
+
+        $a = Withdrawal::create([
+            'user_id' => $m->id, 'amount' => 300000, 'status' => 'ditolak',
+            'bank' => $m->bank, 'no_rekening' => $m->no_rekening, 'atas_nama' => $m->atas_nama,
+            'requested_at' => now(),
+        ]);
+        Withdrawal::create([
+            'user_id' => $m->id, 'amount' => 500000, 'status' => 'diajukan',
+            'bank' => $m->bank, 'no_rekening' => $m->no_rekening, 'atas_nama' => $m->atas_nama,
+            'requested_at' => now(),
+        ]);
+        $this->assertEqualsWithDelta(0.0, $svc->availableBalance($m->fresh()), 0.01); // sisa habis oleh B
+
+        $this->actingAs($admin)->post(route('withdrawals.process', $a), ['status' => 'disetujui'])
+            ->assertRedirect()->assertSessionHas('error');
+
+        $this->assertSame('ditolak', $a->fresh()->status); // tetap final, tak dihidupkan ulang
+        $this->assertEqualsWithDelta(0.0, $svc->availableBalance($m->fresh()), 0.01); // BUKAN -300000
+    }
+
     public function test_index_render_ok(): void
     {
         $admin = $this->admin();
