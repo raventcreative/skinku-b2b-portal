@@ -93,13 +93,31 @@ class CommissionEngineTest extends TestCase
         $this->assertSame(0.0, $this->commissionFor($reseller, $po)); // pembeli tak dapat
     }
 
-    public function test_order_pertama_join_upline_langsung_10persen(): void
+    public function test_order_pertama_join_hanya_upline_langsung(): void
     {
         $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
         $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
-        $po = $this->completedPoValue($dist, $this->product(), 200000); // order pertama dist
-        // Join: upline langsung (grand) 10% = 20.000; TIDAK ada override lain di order pertama
-        $this->assertEqualsWithDelta(20000, $this->commissionFor($grand, $po), 0.01);
+        $reseller = $this->user(User::ROLE_RESELLER_BRONZE, $dist->id);
+        $po = $this->completedPoValue($reseller, $this->product(), 200000); // order PERTAMA reseller
+
+        // Join: HANYA upline langsung (dist) dapat 10% = 20.000. Grand (2 tingkat di atas) TIDAK.
+        $this->assertEqualsWithDelta(20000, $this->commissionFor($dist, $po), 0.01);
+        $this->assertSame(0.0, $this->commissionFor($grand, $po)); // join tak naik-pohon
+        $this->assertSame(1, Commission::where('source_po_id', $po->id)->count()); // tepat 1 baris
+        $this->assertSame('join', Commission::where('source_po_id', $po->id)->value('type'));
+    }
+
+    public function test_po_inter_partner_tak_hasilkan_komisi(): void
+    {
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+        $po = $this->completedPoValue($dist, $this->product(), 100000);
+        // Jadikan PO ini "inter-partner" (dorman) lalu panggil ulang service → guard harus tolak
+        $po->seller_id = $grand->id;
+        $po->save();
+        Commission::where('source_po_id', $po->id)->delete(); // bersihkan komisi dari complete() sebelumnya
+        $this->commissionSvc()->recordForCompletedPo($po->fresh());
+        $this->assertSame(0, Commission::where('source_po_id', $po->id)->count());
     }
 
     public function test_rate_dari_appsetting(): void
