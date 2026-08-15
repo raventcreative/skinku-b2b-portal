@@ -40,15 +40,16 @@ class PurchaseOrderSellerRoutingTest extends TestCase
         return app(PurchaseOrderService::class);
     }
 
-    public function test_po_seller_id_adalah_upline_pembeli(): void
+    public function test_po_seller_selalu_null_semua_ke_hq(): void
     {
         $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
-        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id); // upline = grand
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id); // punya upline
+
         $p = $this->product();
 
         $po = $this->svc()->createForPartner($dist, [['product_id' => $p->id, 'qty' => 2]], null, null);
 
-        $this->assertSame($grand->id, (int) $po->seller_id);
+        $this->assertNull($po->seller_id); // routing Model X mati — semua ke HQ
     }
 
     public function test_po_tanpa_upline_seller_null_hq(): void

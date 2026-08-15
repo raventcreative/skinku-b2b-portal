@@ -21,7 +21,6 @@ class Permissions
     /** key => human label (also defines the rows shown in the matrix, in order). */
     public const DEFINITIONS = [
         'create_po' => 'Buat Purchase Order',
-        'process_downline_po' => 'Proses Pesanan Downline',
         'update_po_status' => 'Update Status PO',
         'delete_po' => 'Hapus PO',
         'manage_products' => 'Kelola Produk',
@@ -56,7 +55,6 @@ class Permissions
     /** Default roles that hold each permission (super_admin is implicit/locked). */
     public const DEFAULTS = [
         'create_po' => [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER, User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD],
-        'process_downline_po' => [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER, User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD],
         'update_po_status' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
         'delete_po' => [User::ROLE_ADMIN],
         'manage_products' => [User::ROLE_ADMIN],

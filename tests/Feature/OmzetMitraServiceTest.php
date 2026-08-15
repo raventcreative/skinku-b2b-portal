@@ -58,6 +58,13 @@ class OmzetMitraServiceTest extends TestCase
             $this->stock($seller, $p, $qty);
         }
         $po = $this->svc()->createForPartner($buyer, [['product_id' => $p->id, 'qty' => $qty]], null, null);
+        if ($buyer->upline_id) {
+            // Routing Model X mati — createForPartner tak lagi set seller_id.
+            // Set manual di sini biar skenario inter-partner (dorman) tetap
+            // teruji (lihat InterPartnerFulfillmentTest, Task 1).
+            $po->seller_id = $buyer->upline_id;
+            $po->save();
+        }
         $this->svc()->complete($po);
     }
 

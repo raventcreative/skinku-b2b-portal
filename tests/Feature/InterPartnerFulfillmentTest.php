@@ -61,6 +61,11 @@ class InterPartnerFulfillmentTest extends TestCase
         $this->stock($grand, $p, 50); // upline punya stok
 
         $po = $this->svc()->createForPartner($dist, [['product_id' => $p->id, 'qty' => 10]], null, null);
+        // Routing Model X mati — createForPartner tak lagi set seller_id. Cabang
+        // inter-partner complete() tetap ADA di kode (dorman), jadi seller_id
+        // diset MANUAL di sini supaya cabang itu tetap teruji dalam isolasi.
+        $po->seller_id = $grand->id;
+        $po->save();
         $this->svc()->complete($po);
 
         $this->assertSame(40, $this->qty($grand, $p));   // upline turun 10
@@ -76,6 +81,9 @@ class InterPartnerFulfillmentTest extends TestCase
         $this->stock($grand, $p, 5); // cuma 5
 
         $po = $this->svc()->createForPartner($dist, [['product_id' => $p->id, 'qty' => 10]], null, null);
+        // Routing Model X mati — set seller_id manual biar cabang inter-partner tetap teruji.
+        $po->seller_id = $grand->id;
+        $po->save();
 
         try {
             $this->svc()->complete($po);
@@ -114,6 +122,9 @@ class InterPartnerFulfillmentTest extends TestCase
         $this->stock($grand, $p, 50);
 
         $po = $this->svc()->createForPartner($dist, [['product_id' => $p->id, 'qty' => 10]], null, null);
+        // Routing Model X mati — set seller_id manual biar cabang inter-partner tetap teruji.
+        $po->seller_id = $grand->id;
+        $po->save();
         $this->svc()->complete($po);
 
         $this->assertSame(40, $this->qty($grand, $p));          // upline tetap turun 10
@@ -137,6 +148,9 @@ class InterPartnerFulfillmentTest extends TestCase
             ['product_id' => $pA->id, 'qty' => 10],
             ['product_id' => $pB->id, 'qty' => 10],
         ], null, null);
+        // Routing Model X mati — set seller_id manual biar cabang inter-partner tetap teruji.
+        $po->seller_id = $grand->id;
+        $po->save();
 
         try {
             $this->svc()->complete($po);
