@@ -299,6 +299,8 @@ class PurchaseOrderService
                 after: ['status' => PurchaseOrder::STATUS_COMPLETED, 'completed_at' => (string) $po->completed_at],
             );
 
+            app(CommissionService::class)->recordForCompletedPo($po);
+
             return $po;
         });
     }
