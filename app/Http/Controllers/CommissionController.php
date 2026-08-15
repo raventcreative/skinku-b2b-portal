@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Commission;
+use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\CommissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * "Saldo Komisi" — halaman mitra: lihat saldo tersedia + riwayat komisi, dan
@@ -51,19 +53,32 @@ class CommissionController extends Controller
             return back()->with('error', 'Isi rekening dulu di menu Rekening.');
         }
 
-        if ($amount > $this->commissions->availableBalance($user)) {
+        // Kunci baris user + cek-saldo + create dalam SATU transaction: dua
+        // pengajuan bersamaan (double-klik/tab ganda/retry) akan serial lewat
+        // lock ini, jadi transaction kedua selalu melihat withdrawal transaction
+        // pertama yang sudah commit sebelum ikut mengecek availableBalance —
+        // tak ada dua pengajuan yang sama-sama lolos cek dan over-lock saldo.
+        $withdrawal = DB::transaction(function () use ($user, $amount) {
+            User::whereKey($user->id)->lockForUpdate()->first();
+
+            if ($amount > $this->commissions->availableBalance($user)) {
+                return null;
+            }
+
+            return Withdrawal::create([
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'bank' => $user->bank,
+                'no_rekening' => $user->no_rekening,
+                'atas_nama' => $user->atas_nama,
+                'status' => 'diajukan',
+                'requested_at' => now(),
+            ]);
+        });
+
+        if ($withdrawal === null) {
             return back()->with('error', 'Saldo tersedia tidak cukup untuk pengajuan ini.');
         }
-
-        Withdrawal::create([
-            'user_id' => $user->id,
-            'amount' => $amount,
-            'bank' => $user->bank,
-            'no_rekening' => $user->no_rekening,
-            'atas_nama' => $user->atas_nama,
-            'status' => 'diajukan',
-            'requested_at' => now(),
-        ]);
 
         return redirect()->route('commissions.index')
             ->with('status', 'Pengajuan penarikan terkirim, menunggu diproses HQ.');

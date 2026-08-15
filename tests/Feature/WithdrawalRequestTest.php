@@ -159,4 +159,33 @@ class WithdrawalRequestTest extends TestCase
         $this->assertSame('ditolak', $w->fresh()->status);
         $this->assertEqualsWithDelta(500000, $svc->availableBalance($m->fresh()), 0.01); // kunci lepas
     }
+
+    /**
+     * Bukan tes concurrency sungguhan (request tetap berurutan dalam satu
+     * proses) — tapi memastikan pengajuan KEDUA menghormati saldo yang sudah
+     * dikunci pengajuan PERTAMA, yaitu perilaku yang ditegakkan oleh
+     * transaction+lock di withdraw().
+     */
+    public function test_dua_pengajuan_berturut_hormati_sisa_saldo(): void
+    {
+        $m = $this->partnerWithBank();
+        $this->giveCommission($m, 500000);
+        $this->actingAs($m)->post(route('commissions.withdraw'), ['amount' => 300000])->assertRedirect();
+        // sisa available 200.000 → ajukan 300.000 lagi HARUS ditolak
+        $this->actingAs($m)->post(route('commissions.withdraw'), ['amount' => 300000]);
+        $this->assertSame(1, Withdrawal::where('user_id', $m->id)->count()); // cuma 1 berhasil
+    }
+
+    public function test_snapshot_rekening_tak_ikut_berubah(): void
+    {
+        $m = $this->partnerWithBank(); // bank awal 'BCA'
+        $this->giveCommission($m, 500000);
+        $this->actingAs($m)->post(route('commissions.withdraw'), ['amount' => 200000]);
+        $w = Withdrawal::where('user_id', $m->id)->first();
+
+        $m->update(['bank' => 'MANDIRI', 'no_rekening' => '999']);
+
+        $this->assertSame('BCA', $w->fresh()->bank); // snapshot tetap, tak ikut profil terbaru
+        $this->assertSame('1234567890', $w->fresh()->no_rekening);
+    }
 }
