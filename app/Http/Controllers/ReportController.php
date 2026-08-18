@@ -84,6 +84,20 @@ class ReportController extends Controller
         ]);
     }
 
+    /** Drill-down: rincian baris komisi satu mitra, filter periode (grup izin sama dgn komisi()). */
+    public function komisiDetail(Request $request, User $mitra)
+    {
+        $bulan = $this->parseMonth($request->query('bulan'));
+        $rows = $this->commissions->mitraCommissions($mitra, $bulan);
+
+        return view('reports.komisi_detail', [
+            'mitra' => $mitra,
+            'rows' => $rows,
+            'bulan' => $bulan,
+            'totalKomisi' => (float) $rows->sum('amount'),
+        ]);
+    }
+
     /**
      * ?bulan=YYYY-MM → Carbon. 'all' = semua periode (null). Kosong/ngawur =
      * bulan berjalan — itulah yang hampir selalu ingin dilihat, jadi jadi default.
