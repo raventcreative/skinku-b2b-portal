@@ -15,6 +15,7 @@ use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\JaringanSayaController;
+use App\Http\Controllers\JoinPackageController;
 use App\Http\Controllers\KanbanController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDealController;
@@ -407,6 +408,11 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
         Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+    });
+
+    /* ---------------- Katalog Paket Join (Onboarding) ---------------- */
+    Route::middleware('permission:manage_join_packages')->group(function () {
+        Route::resource('join-packages', JoinPackageController::class)->except('show');
     });
 
     /* ---------------- User management ---------------- */
