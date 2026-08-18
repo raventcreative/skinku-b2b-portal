@@ -49,33 +49,18 @@ class CommissionService
             return;
         }
 
-        $isFirst = ! PurchaseOrder::where('user_id', $po->user_id)
-            ->where('status', PurchaseOrder::STATUS_COMPLETED)
-            ->where('id', '!=', $po->id)->exists();
-
-        if ($isFirst) {
-            $upline = $buyer->upline;
-            if ($upline && $upline->isPartner()) {
-                $rate = AppSetting::float('komisi_persen_join', self::RATE_DEFAULTS['komisi_persen_join']);
-                if ($rate > 0) {
-                    $this->write($upline, $po, $buyer, 'join', 1, $rate, $base);
-                }
+        // Override 1 TINGKAT: hanya upline LANGSUNG yang dapat komisi, rate sesuai
+        // rank-nya — TIDAK naik-pohon ke atasan yang lebih tinggi. Contoh: Distributor
+        // order ke HQ → Grand (upline langsung) dapat 6%; kalau Reseller yang order →
+        // Distributor (upline langsung) dapat 4%, Grand tidak.
+        // (Bonus join 10% dari nilai PAKET menyusul bareng fitur Onboarding — bukan
+        // dari order ke HQ.)
+        $upline = $buyer->upline;
+        if ($upline && $upline->isPartner()) {
+            $rate = $this->overrideRate($upline->role);
+            if ($rate > 0) {
+                $this->write($upline, $po, $buyer, 'override', 1, $rate, $base);
             }
-
-            return;
-        }
-
-        $node = $buyer->upline;
-        $level = 1;
-        while ($node && $level <= 10) {
-            if ($node->isPartner()) {
-                $rate = $this->overrideRate($node->role);
-                if ($rate > 0) {
-                    $this->write($node, $po, $buyer, 'override', $level, $rate, $base);
-                }
-            }
-            $node = $node->upline;
-            $level++;
         }
     }
 

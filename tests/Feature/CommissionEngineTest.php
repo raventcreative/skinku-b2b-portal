@@ -50,14 +50,6 @@ class CommissionEngineTest extends TestCase
         return app(CommissionService::class);
     }
 
-    /** PO selesai dengan harga tier normal (qty × harga tier) — dipakai buat "habiskan slot order pertama". */
-    private function completedPo(User $buyer, Product $p, int $qty): PurchaseOrder
-    {
-        $po = $this->svc()->createForPartner($buyer, [['product_id' => $p->id, 'qty' => $qty]], null, null);
-
-        return $this->svc()->complete($po);
-    }
-
     /** PO selesai dengan subtotal PERSIS senilai $subtotal (qty=1, harga di-override). */
     private function completedPoValue(User $buyer, Product $p, float $subtotal): PurchaseOrder
     {
@@ -77,35 +69,45 @@ class CommissionEngineTest extends TestCase
         return (float) Commission::where('user_id', $u->id)->where('source_po_id', $po->id)->sum('amount');
     }
 
-    public function test_override_differensial_naik_pohon_saat_repeat(): void
+    public function test_override_1_tingkat_ke_upline_langsung(): void
     {
         $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
         $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
         $reseller = $this->user(User::ROLE_RESELLER_BRONZE, $dist->id);
-        $p = $this->product();
-        // Order PERTAMA reseller = join (biar order berikutnya = override)
-        $this->completedPo($reseller, $p, 1);
-        // Order KEDUA reseller (repeat) senilai barang 100.000
-        $po = $this->completedPoValue($reseller, $p, 100000);
 
-        // Override: Dist 4% = 4000, Grand 6% = 6000 (dari base 100.000)
+        // Reseller order 100.000 ke HQ → HANYA Distributor (upline langsung) dapat 4% = 4000.
+        $po = $this->completedPoValue($reseller, $this->product(), 100000);
+
         $this->assertEqualsWithDelta(4000, $this->commissionFor($dist, $po), 0.01);
-        $this->assertEqualsWithDelta(6000, $this->commissionFor($grand, $po), 0.01);
+        $this->assertSame(0.0, $this->commissionFor($grand, $po)); // TIDAK naik ke Grand
         $this->assertSame(0.0, $this->commissionFor($reseller, $po)); // pembeli tak dapat
+        $this->assertSame(1, Commission::where('source_po_id', $po->id)->count()); // tepat 1 baris
+        $this->assertSame('override', Commission::where('source_po_id', $po->id)->value('type'));
     }
 
-    public function test_order_pertama_join_hanya_upline_langsung(): void
+    public function test_grand_dapat_6_persen_dari_order_distributor(): void
     {
+        // Skenario inti model: Distributor pesan ke HQ 1jt → Grand (upline langsung) dapat 6% = 60.000.
         $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
         $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
-        $reseller = $this->user(User::ROLE_RESELLER_BRONZE, $dist->id);
-        $po = $this->completedPoValue($reseller, $this->product(), 200000); // order PERTAMA reseller
 
-        // Join: HANYA upline langsung (dist) dapat 10% = 20.000. Grand (2 tingkat di atas) TIDAK.
-        $this->assertEqualsWithDelta(20000, $this->commissionFor($dist, $po), 0.01);
-        $this->assertSame(0.0, $this->commissionFor($grand, $po)); // join tak naik-pohon
-        $this->assertSame(1, Commission::where('source_po_id', $po->id)->count()); // tepat 1 baris
-        $this->assertSame('join', Commission::where('source_po_id', $po->id)->value('type'));
+        $po = $this->completedPoValue($dist, $this->product(), 1000000);
+
+        $this->assertEqualsWithDelta(60000, $this->commissionFor($grand, $po), 0.01);
+        $this->assertSame(0.0, $this->commissionFor($dist, $po)); // pembeli tak dapat
+    }
+
+    public function test_order_pertama_pun_override_bukan_join(): void
+    {
+        // Tak ada lagi perlakuan khusus "order pertama = join". Order pertama pun = override.
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+
+        $po = $this->completedPoValue($dist, $this->product(), 100000); // order PERTAMA dist
+
+        $this->assertEqualsWithDelta(6000, $this->commissionFor($grand, $po), 0.01); // 6% override, bukan 10% join
+        $this->assertSame('override', Commission::where('source_po_id', $po->id)->value('type'));
+        $this->assertSame(0, Commission::where('type', 'join')->count()); // tak ada join sama sekali
     }
 
     public function test_po_inter_partner_tak_hasilkan_komisi(): void
@@ -127,12 +129,10 @@ class CommissionEngineTest extends TestCase
 
         $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
         $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
-        $reseller = $this->user(User::ROLE_RESELLER_BRONZE, $dist->id);
-        $p = $this->product();
-        $this->completedPo($reseller, $p, 1); // habiskan slot order pertama (join)
-        $po = $this->completedPoValue($reseller, $p, 100000); // repeat → override, base 100.000
 
-        // Rate custom grand 10% → 10.000 (bukan default 6%)
+        // Dist order → upline langsung = Grand. Rate custom grand 10% → 10.000 (bukan default 6%).
+        $po = $this->completedPoValue($dist, $this->product(), 100000);
+
         $this->assertEqualsWithDelta(10000, $this->commissionFor($grand, $po), 0.01);
     }
 
@@ -147,9 +147,7 @@ class CommissionEngineTest extends TestCase
     {
         $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
         $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
-        $p = $this->product();
-        $this->completedPo($dist, $p, 1); // habiskan slot order pertama
-        $po = $this->completedPoValue($dist, $p, 100000); // repeat → override → grand dapat baris
+        $po = $this->completedPoValue($dist, $this->product(), 100000); // override ke grand
 
         $before = Commission::where('source_po_id', $po->id)->count();
         $this->assertGreaterThan(0, $before); // sanity: complete() sudah menulis komisi via hook
@@ -164,9 +162,7 @@ class CommissionEngineTest extends TestCase
     {
         $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
         $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
-        $p = $this->product();
-        $this->completedPo($dist, $p, 1); // order pertama dist → join ke grand
-        $this->completedPoValue($dist, $p, 100000); // repeat → override ke grand (level 1)
+        $this->completedPoValue($dist, $this->product(), 100000); // override ke grand
 
         $expected = (float) Commission::where('user_id', $grand->id)->where('status', 'saldo')->sum('amount');
         $this->assertGreaterThan(0, $expected);
