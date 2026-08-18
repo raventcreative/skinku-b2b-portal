@@ -65,6 +65,15 @@ class PartnerHierarchyServiceTest extends TestCase
         $this->svc->assignUpline($grand, $other->id); // allowedParents grand = [] → tolak
     }
 
+    public function test_tolak_distributor_jadi_upline_distributor(): void
+    {
+        $distA = $this->mk('da', 'distributor');
+        $distB = $this->mk('db', 'distributor');
+
+        $this->expectException(ValidationException::class);
+        $this->svc->assignUpline($distB, $distA->id); // allowedParents distributor = [grand_distributor] → tolak
+    }
+
     public function test_member_id_urut_unik_dan_stabil(): void
     {
         $a = $this->mk('a', 'distributor');
