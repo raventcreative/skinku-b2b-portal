@@ -46,6 +46,38 @@
         @endif
     </div>
 
+    {{-- Rate Komisi — satu input Reseller sinkron ke bronze/gold/legacy di backend. --}}
+    <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
+        <h3 class="text-sm font-bold text-stone-900 mb-1">Rate Komisi</h3>
+        <p class="text-xs text-stone-500 mb-4">Persen komisi override per tier (naik-pohon saat repeat order) + bonus join (order pertama). Berlaku untuk komisi ke depan; yang sudah tercatat tak berubah.</p>
+        <form method="POST" action="{{ route('settings.komisi.save') }}" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+            @csrf
+            <label class="text-[11px] font-semibold text-stone-500">Override Grand (%)
+                <input type="number" name="grand" step="0.01" min="0" max="100" value="{{ $komisiRates['grand'] }}"
+                    class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Override Distributor (%)
+                <input type="number" name="distributor" step="0.01" min="0" max="100" value="{{ $komisiRates['distributor'] }}"
+                    class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Override Reseller (%)
+                <input type="number" name="reseller" step="0.01" min="0" max="100" value="{{ $komisiRates['reseller'] }}"
+                    class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Bonus Join (%)
+                <input type="number" name="join" step="0.01" min="0" max="100" value="{{ $komisiRates['join'] }}"
+                    class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <div class="sm:col-span-2 lg:col-span-4">
+                <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Simpan Rate</button>
+            </div>
+        </form>
+        @error('grand')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
+        @error('distributor')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
+        @error('reseller')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
+        @error('join')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
+    </div>
+
     {{-- Backup DB — jaring pengaman terakhir --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
         <div class="flex flex-wrap items-center gap-3 mb-3">

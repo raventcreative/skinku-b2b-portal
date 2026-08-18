@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\TelegramBotChat;
 use App\Services\Ai\AiProviderFactory;
 use App\Services\AuditService;
+use App\Services\CommissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -51,6 +52,12 @@ class SettingController extends Controller
                     ->orderByDesc('authorized_at')
                     ->get(),
             ],
+            'komisiRates' => [
+                'grand' => AppSetting::float('komisi_persen_grand_distributor', CommissionService::RATE_DEFAULTS['komisi_persen_grand_distributor']),
+                'distributor' => AppSetting::float('komisi_persen_distributor', CommissionService::RATE_DEFAULTS['komisi_persen_distributor']),
+                'reseller' => AppSetting::float('komisi_persen_reseller_bronze', CommissionService::RATE_DEFAULTS['komisi_persen_reseller_bronze']),
+                'join' => AppSetting::float('komisi_persen_join', CommissionService::RATE_DEFAULTS['komisi_persen_join']),
+            ],
         ]);
     }
 
@@ -76,6 +83,33 @@ class SettingController extends Controller
         AuditService::log(action: 'save_ai_settings', targetType: 'app_setting', after: ['provider' => $data['ai_provider'], 'model' => $data['ai_model']]);
 
         return back()->with('status', 'Pengaturan Asisten AI disimpan.');
+    }
+
+    /**
+     * Atur rate komisi (persen) per tier + bonus join. Satu input "Reseller"
+     * menulis ke KETIGA key reseller (_bronze, _gold, legacy) supaya sinkron —
+     * tak ada fallback diam-diam ke default hardcoded di CommissionService.
+     */
+    public function saveKomisi(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'grand' => ['required', 'numeric', 'min:0', 'max:100'],
+            'distributor' => ['required', 'numeric', 'min:0', 'max:100'],
+            'reseller' => ['required', 'numeric', 'min:0', 'max:100'],
+            'join' => ['required', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        AppSetting::put('komisi_persen_grand_distributor', (string) $data['grand']);
+        AppSetting::put('komisi_persen_distributor', (string) $data['distributor']);
+        // satu input "Reseller" → tulis ketiga key reseller supaya bronze/gold/legacy sinkron (tak ada fallback diam-diam)
+        AppSetting::put('komisi_persen_reseller_bronze', (string) $data['reseller']);
+        AppSetting::put('komisi_persen_reseller_gold', (string) $data['reseller']);
+        AppSetting::put('komisi_persen_reseller', (string) $data['reseller']);
+        AppSetting::put('komisi_persen_join', (string) $data['join']);
+
+        AuditService::log(action: 'save_komisi_settings', targetType: 'app_setting', after: $data);
+
+        return back()->with('status', 'Rate komisi disimpan.');
     }
 
     /** Jalankan backup sekarang (selain jadwal harian 02:30). */
