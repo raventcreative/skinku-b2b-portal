@@ -149,6 +149,10 @@
                 @endif
             @endif
 
+            @if($u->canDo('view_commission_report'))
+                {!! navItem('reports.komisi', 'Laporan Komisi', 'reports.komisi') !!}
+            @endif
+
             @if($u->canDo('view_accounting'))
                 {!! navItem('accounting.index', 'Akuntansi', 'accounting.*') !!}
             @endif

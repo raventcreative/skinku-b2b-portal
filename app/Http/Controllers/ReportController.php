@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\CommissionService;
 use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ class ReportController extends Controller
     /** Nilai ?bulan= yang berarti "jangan batasi periode". */
     public const ALL_PERIODS = 'all';
 
-    public function __construct(private ReportService $reports) {}
+    public function __construct(private ReportService $reports, private CommissionService $commissions) {}
 
     public function index(Request $request)
     {
@@ -67,6 +68,18 @@ class ReportController extends Controller
         return view('reports.omzet_mitra', [
             'rows' => $rows,
             'grandTotal' => $grandTotal,
+            'bulan' => $bulan,
+        ]);
+    }
+
+    /** Laporan Komisi HQ: ringkasan + per-mitra, filter periode (izin sendiri, admin-only). */
+    public function komisi(Request $request)
+    {
+        $bulan = $this->parseMonth($request->query('bulan'));
+
+        return view('reports.komisi', [
+            'summary' => $this->commissions->reportSummary($bulan),
+            'rows' => $this->commissions->reportPerMitra($bulan),
             'bulan' => $bulan,
         ]);
     }

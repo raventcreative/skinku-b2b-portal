@@ -209,6 +209,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/reports/chart-data', [ReportController::class, 'chartData'])->name('reports.chart-data');
     });
 
+    // Laporan Komisi: izin sendiri (view_commission_report), TERPISAH dari
+    // view_reports — data payout mitra lebih sensitif daripada laporan penjualan.
+    Route::middleware('permission:view_commission_report')->group(function () {
+        Route::get('/reports/komisi', [ReportController::class, 'komisi'])->name('reports.komisi');
+    });
+
     /* ---------------- Accounting (laporan keuangan) ---------------- */
     Route::middleware('permission:view_accounting')->group(function () {
         Route::get('/accounting', fn () => redirect()->route('accounting.report'))->name('accounting.index');
