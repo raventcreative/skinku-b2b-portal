@@ -12,10 +12,15 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Mesin komisi MLM: join (order pertama, ke upline langsung) vs override
- * differensial naik-pohon (order berikutnya, tiap level partner di atas
- * pembeli dapat rate sesuai role-nya sendiri). Hanya PO HQ langsung
- * (seller_id null) yang memicu komisi — Model X/inter-partner dorman.
+ * Mesin komisi MLM: override 1 TINGKAT. Tiap PO HQ selesai, HANYA upline
+ * LANGSUNG pembeli yang dapat komisi, rate sesuai rank upline itu (Distributor
+ * order → Grand 6%; Reseller order → Distributor 4%). TIDAK naik-pohon ke
+ * atasan yang lebih tinggi. Hanya PO HQ langsung (seller_id null) yang memicu
+ * komisi — Model X/inter-partner dorman.
+ *
+ * Bonus join (10% dari nilai paket) TIDAK dihitung di sini — menyusul bareng
+ * fitur Onboarding, dipicu saat member beli paket, bukan saat order ke HQ.
+ * Key `komisi_persen_join` di RATE_DEFAULTS/Pengaturan disiapkan untuk fitur itu.
  */
 class CommissionService
 {
