@@ -25,6 +25,7 @@ use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MindmapController;
 use App\Http\Controllers\OkrController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PartnerHierarchyController;
 use App\Http\Controllers\PartnerSaleController;
 use App\Http\Controllers\PermissionController;
@@ -426,6 +427,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/struktur-jaringan', [PartnerHierarchyController::class, 'index'])->name('struktur-jaringan.index');
         Route::post('/struktur-jaringan/{user}/place', [PartnerHierarchyController::class, 'place'])->name('struktur-jaringan.place');
         Route::post('/struktur-jaringan/{user}/tier', [PartnerHierarchyController::class, 'changeTier'])->name('struktur-jaringan.tier');
+
+        Route::get('/onboarding', [OnboardingController::class, 'create'])->name('onboarding.create');
+        Route::post('/onboarding', [OnboardingController::class, 'store'])->name('onboarding.store');
     });
 
     Route::middleware('permission:delete_users')->group(function () {

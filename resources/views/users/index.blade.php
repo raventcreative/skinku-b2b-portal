@@ -19,7 +19,12 @@
         </select>
         <button class="px-4 py-2 text-sm bg-stone-200 rounded-lg hover:bg-stone-300">Filter</button>
     </form>
-    <button onclick="openCreateUser()" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah User</button>
+    <div class="flex gap-2">
+        @if(auth()->user()->canDo('manage_users'))
+            <a href="{{ route('onboarding.create') }}" class="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold">+ Onboarding via Paket Join</a>
+        @endif
+        <button onclick="openCreateUser()" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah User</button>
+    </div>
 </div>
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
