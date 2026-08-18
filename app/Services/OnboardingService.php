@@ -32,6 +32,9 @@ class OnboardingService
             // Pre-check stok HQ (pesan paket-level yang jelas; adjustHqStock tetap
             // jadi guard sungguhan dgn lockForUpdate saat memotong).
             foreach ($paket->items as $item) {
+                if (! $item->product) {
+                    throw new RuntimeException("Produk dalam paket {$paket->name} sudah tidak tersedia — perbarui isi paket dulu.");
+                }
                 if ((int) $item->product->hq_stock < $item->qty) {
                     throw new RuntimeException("Stok HQ tidak cukup untuk paket {$paket->name} (produk {$item->product->name}).");
                 }

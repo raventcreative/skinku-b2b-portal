@@ -92,6 +92,27 @@ class OnboardingServiceTest extends TestCase
         $this->assertSame(0, Commission::count());
     }
 
+    public function test_produk_soft_deleted_lempar_runtime_exception_dan_rollback(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+        $upline = $this->user(User::ROLE_DISTRIBUTOR);
+        $p = $this->product(100);
+        $paket = $this->paket($p, 2);
+        $p->delete(); // produk dalam paket soft-deleted setelah paket dibuat
+
+        try {
+            app(OnboardingService::class)->onboard($this->data(), $paket, $upline->id, $admin->id);
+            $this->fail('harusnya lempar RuntimeException, bukan ErrorException/500');
+        } catch (RuntimeException $e) {
+            // expected — bukan null pointer/ErrorException
+        }
+
+        // Rollback total: user tak dibuat, nol transaksi, nol komisi
+        $this->assertSame(0, User::where('role', User::ROLE_RESELLER_BRONZE)->count());
+        $this->assertSame(0, JoinTransaction::count());
+        $this->assertSame(0, Commission::count());
+    }
+
     public function test_tanpa_upline_user_dibuat_tanpa_bonus(): void
     {
         $admin = $this->user(User::ROLE_SUPER_ADMIN);

@@ -18,9 +18,9 @@ use Illuminate\Support\Collection;
  * atasan yang lebih tinggi. Hanya PO HQ langsung (seller_id null) yang memicu
  * komisi — Model X/inter-partner dorman.
  *
- * Bonus join (10% dari nilai paket) TIDAK dihitung di sini — menyusul bareng
- * fitur Onboarding, dipicu saat member beli paket, bukan saat order ke HQ.
- * Key `komisi_persen_join` di RATE_DEFAULTS/Pengaturan disiapkan untuk fitur itu.
+ * Bonus join (10% dari nilai paket) DIHITUNG di sini via recordJoinBonus():
+ * dipicu saat member beli paket (bukan saat order ke HQ), masuk ke saldo
+ * upline LANGSUNG pembeli paket — appended, bukan auto-paid.
  */
 class CommissionService
 {

@@ -5,10 +5,6 @@
 @section('content')
 <a href="{{ route('users.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Kelola Anggota</a>
 
-@if(session('error'))
-    <div class="mt-3 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">{{ session('error') }}</div>
-@endif
-
 @php $uplines = $hierarchy->eligibleUplines(\App\Models\User::ROLE_RESELLER_BRONZE, null); @endphp
 
 <form method="POST" action="{{ route('onboarding.store') }}" class="mt-3 space-y-5">
