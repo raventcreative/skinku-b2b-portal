@@ -10,6 +10,7 @@ use App\Services\CommissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -99,13 +100,17 @@ class SettingController extends Controller
             'join' => ['required', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        AppSetting::put('komisi_persen_grand_distributor', (string) $data['grand']);
-        AppSetting::put('komisi_persen_distributor', (string) $data['distributor']);
-        // satu input "Reseller" → tulis ketiga key reseller supaya bronze/gold/legacy sinkron (tak ada fallback diam-diam)
-        AppSetting::put('komisi_persen_reseller_bronze', (string) $data['reseller']);
-        AppSetting::put('komisi_persen_reseller_gold', (string) $data['reseller']);
-        AppSetting::put('komisi_persen_reseller', (string) $data['reseller']);
-        AppSetting::put('komisi_persen_join', (string) $data['join']);
+        // Semua rate ditulis dalam satu transaksi supaya trio reseller (bronze/gold/legacy)
+        // tak pernah desync kalau ada kegagalan di tengah — semua tersimpan atau tak sama sekali.
+        DB::transaction(function () use ($data) {
+            AppSetting::put('komisi_persen_grand_distributor', (string) $data['grand']);
+            AppSetting::put('komisi_persen_distributor', (string) $data['distributor']);
+            // satu input "Reseller" → tulis ketiga key reseller supaya bronze/gold/legacy sinkron (tak ada fallback diam-diam)
+            AppSetting::put('komisi_persen_reseller_bronze', (string) $data['reseller']);
+            AppSetting::put('komisi_persen_reseller_gold', (string) $data['reseller']);
+            AppSetting::put('komisi_persen_reseller', (string) $data['reseller']);
+            AppSetting::put('komisi_persen_join', (string) $data['join']);
+        });
 
         AuditService::log(action: 'save_komisi_settings', targetType: 'app_setting', after: $data);
 
