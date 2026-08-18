@@ -3,6 +3,15 @@
 @section('heading', 'Ajukan Purchase Order Baru')
 
 @section('content')
+@if($isDemo ?? false)
+    <div class="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
+        <svg class="w-5 h-5 shrink-0 text-amber-600 mt-0.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>
+        <div>
+            <p class="text-sm font-bold text-amber-900">Mode lihat saja (demo)</p>
+            <p class="text-sm text-amber-800 mt-0.5">Purchase Order hanya bisa dilakukan untuk <b>Distributor</b> &amp; <b>Grand Distributor</b>. Sebagai Reseller, pemesanan stok dilakukan langsung ke distributor Anda.</p>
+        </div>
+    </div>
+@endif
 <form method="POST" action="{{ route('purchase-orders.store') }}">
     @csrf
     <div class="grid lg:grid-cols-3 gap-6">
@@ -69,7 +78,7 @@
                     <label class="block text-xs font-semibold text-stone-700 mb-1">Catatan</label>
                     <textarea name="notes" rows="2" class="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg">{{ old('notes') }}</textarea>
                 </div>
-                <button class="w-full py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Ajukan PO</button>
+                <button {{ ($isDemo ?? false) ? 'disabled' : '' }} class="w-full py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600">{{ ($isDemo ?? false) ? 'PO hanya untuk Distributor & Grand' : 'Ajukan PO' }}</button>
             </div>
         </div>
     </div>

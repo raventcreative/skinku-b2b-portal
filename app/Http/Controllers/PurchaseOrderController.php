@@ -7,6 +7,7 @@ use App\Models\PurchaseOrder;
 use App\Services\AuditService;
 use App\Services\ImageService;
 use App\Services\PurchaseOrderService;
+use App\Support\PartnerHierarchy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -77,13 +78,25 @@ class PurchaseOrderController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('purchase_orders.create', compact('products', 'user'));
+        // Reseller (tak pegang stok HQ) hanya boleh MELIHAT form PO (demo/read-only)
+        // — pemesanan stok dilakukan manual ke distributor. Distributor & Grand order normal.
+        $isDemo = $user->isPartner() && ! PartnerHierarchy::holdsStock($user->role);
+
+        return view('purchase_orders.create', compact('products', 'user', 'isDemo'));
     }
 
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
         abort_unless($user->canDo('create_po'), 403);
+
+        // Reseller tak boleh benar-benar submit PO (form-nya demo/read-only) — jaring
+        // pengaman kalau ada yang coba POST langsung tanpa lewat tombol.
+        abort_if(
+            $user->isPartner() && ! PartnerHierarchy::holdsStock($user->role),
+            403,
+            'PO hanya bisa dilakukan untuk Distributor & Grand Distributor.',
+        );
 
         $data = $request->validate([
             'items' => ['required', 'array', 'min:1'],

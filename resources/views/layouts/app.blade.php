@@ -178,8 +178,11 @@
                     @endif
                 </div>
             @else
-                {{-- Partner: cukup "Stok Saya" datar (bukan manajer produk). --}}
-                {!! navItem('inventory.index', 'Stok Saya', 'inventory.index') !!}
+                {{-- Partner stockist (distributor/grand) lihat "Stok Saya"; reseller tak pegang
+                     stok HQ (beli manual ke distributor) jadi menu ini disembunyikan. --}}
+                @if(\App\Support\PartnerHierarchy::holdsStock($u->role))
+                    {!! navItem('inventory.index', 'Stok Saya', 'inventory.index') !!}
+                @endif
             @endif
 
             {{-- "Stok Masuk (beli jadi)" disembunyikan atas permintaan (SKINKU selalu produksi/repack sendiri).
