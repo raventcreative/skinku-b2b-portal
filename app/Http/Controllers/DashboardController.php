@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Announcement;
 use App\Models\Inventory;
 use App\Models\PurchaseOrder;
+use App\Models\Withdrawal;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -71,7 +72,14 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'bulan', 'recentPo', 'lowStock') + ['limited' => false] + $announce);
+        // "Perlu Tindakan" — penarikan komisi yang menunggu diproses. Hanya untuk
+        // staf yang berwenang memproses (izin process_withdrawal). Selain itu kosong
+        // → panel tak tampil.
+        $pendingWithdrawals = $user->canDo('process_withdrawal')
+            ? Withdrawal::where('status', 'diajukan')->with('mitra')->orderByDesc('id')->limit(8)->get()
+            : collect();
+
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'bulan', 'recentPo', 'lowStock', 'pendingWithdrawals') + ['limited' => false] + $announce);
     }
 
     /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */
