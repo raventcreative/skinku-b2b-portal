@@ -112,6 +112,11 @@
                             'grp-produk' => '<path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>',
                             'grp-kerja' => '<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z"/>',
                             'grp-laporan' => '<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>',
+                            // Ikon grup baru pakai ulang path arm yang sudah ada (zero fetch baru):
+                            // grp-mitra = users.index, grp-keuangan = withdrawals.index, grp-sistem = settings.index.
+                            'grp-mitra' => '<path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/>',
+                            'grp-keuangan' => '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"/>',
+                            'grp-sistem' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"/>',
                             'rekening' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z"/>',
                             'password' => '<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/>',
                             'logout' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/>',
@@ -217,12 +222,24 @@
                 </div>
             @endif
 
-            @if($u->canDo('view_accounting'))
-                {!! navItem('accounting.index', 'Akuntansi', 'accounting.*') !!}
-            @endif
-
-            @if($u->canDo('process_withdrawal'))
-                {!! navItem('withdrawals.index', 'Penarikan', 'withdrawals.*') !!}
+            @php
+                // Grup accordion "Keuangan": Akuntansi + Penarikan.
+                $keuanganGroupOpen = request()->routeIs('accounting.*') || request()->routeIs('withdrawals.*');
+            @endphp
+            @if($u->canDo('view_accounting') || $u->canDo('process_withdrawal'))
+                <button type="button" onclick="toggleNavGroup('grpKeuangan')"
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $keuanganGroupOpen ? 'text-white' : '' }}">
+                    <span class="flex items-center gap-3">{!! navIcon('grp-keuangan') !!}<span>Keuangan</span></span>
+                    <svg id="grpKeuanganChevron" class="w-3.5 h-3.5 transition-transform {{ $keuanganGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="grpKeuangan" class="{{ $keuanganGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                    @if($u->canDo('view_accounting'))
+                        {!! navItem('accounting.index', 'Akuntansi', 'accounting.*') !!}
+                    @endif
+                    @if($u->canDo('process_withdrawal'))
+                        {!! navItem('withdrawals.index', 'Penarikan', 'withdrawals.*') !!}
+                    @endif
+                </div>
             @endif
 
             @if($u->canDo('manage_tiktok'))
@@ -266,35 +283,57 @@
                 {!! navItem('ai.knowledge', 'Pengetahuan AI', 'ai.knowledge') !!}
             @endif
 
-            @if($u->canDo('manage_users'))
-                {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
-                {!! navItem('struktur-jaringan.index', 'Struktur Jaringan', 'struktur-jaringan.index') !!}
-            @endif
-
-            @if($u->canDo('manage_join_packages'))
-                {!! navItem('join-packages.index', 'Paket Join', 'join-packages.*') !!}
-            @endif
-
-            @if($u->canDo('view_audit_log'))
-                {!! navItem('audit-logs.index', 'Audit Log', 'audit-logs.index') !!}
+            @php
+                // Grup accordion "Mitra & Jaringan": Kelola Anggota + Struktur Jaringan + Paket Join.
+                $mitraGroupOpen = request()->routeIs('users.index') || request()->routeIs('struktur-jaringan.*') || request()->routeIs('join-packages.*');
+            @endphp
+            @if($u->canDo('manage_users') || $u->canDo('manage_join_packages'))
+                <button type="button" onclick="toggleNavGroup('grpMitra')"
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $mitraGroupOpen ? 'text-white' : '' }}">
+                    <span class="flex items-center gap-3">{!! navIcon('grp-mitra') !!}<span>Mitra &amp; Jaringan</span></span>
+                    <svg id="grpMitraChevron" class="w-3.5 h-3.5 transition-transform {{ $mitraGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="grpMitra" class="{{ $mitraGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                    @if($u->canDo('manage_users'))
+                        {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
+                        {!! navItem('struktur-jaringan.index', 'Struktur Jaringan', 'struktur-jaringan.index') !!}
+                    @endif
+                    @if($u->canDo('manage_join_packages'))
+                        {!! navItem('join-packages.index', 'Paket Join', 'join-packages.*') !!}
+                    @endif
+                </div>
             @endif
 
             @if($u->canDo('manage_production'))
                 {!! navItem('suppliers.index', 'Supplier', 'suppliers.*') !!}
             @endif
 
-            @if($u->canDo('manage_announcements'))
-                {!! navItem('announcements.manage', 'Pengumuman', 'announcements.manage') !!}
-            @endif
-
-            @if($u->canDo('manage_permissions'))
-                {!! navItem('permissions.index', 'Manajemen Hak Akses', 'permissions.index') !!}
-            @endif
-
-            {{-- Pengaturan Sistem sengaja di paling bawah nav (dekat Ubah Password):
-                 jarang dibuka, jadi tak menuh-menuhi menu atas. --}}
-            @if($u->canDo('system_settings'))
-                {!! navItem('settings.index', 'Pengaturan Sistem', 'settings.index') !!}
+            @php
+                // Grup accordion "Sistem": menu admin yang jarang dibuka (Hak Akses, Audit
+                // Log, Pengumuman, Pengaturan) — sengaja di paling bawah nav, dekat Ubah Password.
+                $sistemGroupOpen = request()->routeIs('permissions.index') || request()->routeIs('audit-logs.index')
+                    || request()->routeIs('announcements.manage') || request()->routeIs('settings.index');
+            @endphp
+            @if($u->canDo('manage_permissions') || $u->canDo('view_audit_log') || $u->canDo('manage_announcements') || $u->canDo('system_settings'))
+                <button type="button" onclick="toggleNavGroup('grpSistem')"
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $sistemGroupOpen ? 'text-white' : '' }}">
+                    <span class="flex items-center gap-3">{!! navIcon('grp-sistem') !!}<span>Sistem</span></span>
+                    <svg id="grpSistemChevron" class="w-3.5 h-3.5 transition-transform {{ $sistemGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="grpSistem" class="{{ $sistemGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                    @if($u->canDo('manage_permissions'))
+                        {!! navItem('permissions.index', 'Manajemen Hak Akses', 'permissions.index') !!}
+                    @endif
+                    @if($u->canDo('view_audit_log'))
+                        {!! navItem('audit-logs.index', 'Audit Log', 'audit-logs.index') !!}
+                    @endif
+                    @if($u->canDo('manage_announcements'))
+                        {!! navItem('announcements.manage', 'Pengumuman', 'announcements.manage') !!}
+                    @endif
+                    @if($u->canDo('system_settings'))
+                        {!! navItem('settings.index', 'Pengaturan Sistem', 'settings.index') !!}
+                    @endif
+                </div>
             @endif
         </nav>
 

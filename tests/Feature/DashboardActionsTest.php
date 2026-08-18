@@ -35,6 +35,23 @@ class DashboardActionsTest extends TestCase
             ->assertSee('Laporan Komisi');   // anak grup (admin punya view_commission_report)
     }
 
+    public function test_grup_menu_baru_tampil_di_nav(): void
+    {
+        // super_admin: semua izin implisit true, jadi ketiga grup baru pasti render —
+        // termasuk Sistem, yang gate-nya (manage_permissions/view_audit_log/dst) DEFAULTS
+        // kosong untuk role 'admin' biasa (baru menyala lewat override role_permissions).
+        $superAdmin = $this->user(User::ROLE_SUPER_ADMIN);
+
+        $this->actingAs($superAdmin)->get('/dashboard')
+            ->assertOk()
+            ->assertSee('grpMitra')
+            ->assertSee('Mitra & Jaringan')
+            ->assertSee('grpKeuangan')
+            ->assertSee('Keuangan')
+            ->assertSee('grpSistem')
+            ->assertSee('Sistem');
+    }
+
     public function test_dashboard_tampil_panel_penarikan_menunggu(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);
@@ -50,25 +67,43 @@ class DashboardActionsTest extends TestCase
             ->assertSee($mitra->fullname);   // nama mitra tampil
     }
 
-    public function test_panel_tak_tampil_kalau_tak_ada_penarikan(): void
+    public function test_panel_tampil_dengan_empty_state_kalau_tak_ada_penarikan(): void
     {
+        // Panel "Perlu Tindakan" sekarang selalu tampil untuk pemroses withdraw —
+        // tidak hilang total waktu kosong, tapi menunjukkan empty state.
         $admin = $this->user(User::ROLE_ADMIN);
 
         $this->actingAs($admin)->get('/dashboard')
             ->assertOk()
-            ->assertDontSee('Perlu Tindakan');
+            ->assertSee('Perlu Tindakan')
+            ->assertSee('Belum ada penarikan menunggu')
+            ->assertSee('Lihat semua di Penarikan');
     }
 
     public function test_penarikan_cair_tak_muncul_di_panel(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);
         $mitra = $this->user(User::ROLE_DISTRIBUTOR);
-        // Hanya status 'diajukan' yang menunggu; 'cair' sudah selesai → tak tampil.
+        // Hanya status 'diajukan' yang menunggu; 'cair' sudah selesai → tak masuk
+        // daftar. Panel tetap tampil (selalu tampil untuk pemroses withdraw) tapi
+        // menunjukkan empty state, bukan baris 777.000.
         Withdrawal::create(['user_id' => $mitra->id, 'amount' => 777000, 'status' => 'cair', 'requested_at' => now()]);
 
         $this->actingAs($admin)->get('/dashboard')
             ->assertOk()
-            ->assertDontSee('Perlu Tindakan')
+            ->assertSee('Perlu Tindakan')
+            ->assertSee('Belum ada penarikan menunggu')
             ->assertDontSee('777.000');
+    }
+
+    public function test_panel_tak_tampil_untuk_mitra_tanpa_izin(): void
+    {
+        // Mitra (distributor) tak punya izin process_withdrawal → panel "Perlu
+        // Tindakan" sama sekali tak tampil, bukan cuma kosong.
+        $mitra = $this->user(User::ROLE_DISTRIBUTOR);
+
+        $this->actingAs($mitra)->get('/dashboard')
+            ->assertOk()
+            ->assertDontSee('Perlu Tindakan');
     }
 }
