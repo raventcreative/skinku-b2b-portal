@@ -31,14 +31,18 @@ class JoinPackageModelTest extends TestCase
 
     public function test_transaksi_join_relasi(): void
     {
+        $paket = JoinPackage::create(['name' => 'Bronze', 'target_role' => User::ROLE_RESELLER_BRONZE,
+            'price' => 149000, 'is_active' => true]);
         $mitra = User::create(['name' => 'm', 'fullname' => 'M', 'username' => 'm1', 'email' => 'm1@t.test',
             'password' => Hash::make('secret123'), 'role' => User::ROLE_RESELLER_BRONZE, 'status' => User::STATUS_ACTIVE]);
         $inviter = User::create(['name' => 'd', 'fullname' => 'D', 'username' => 'd1', 'email' => 'd1@t.test',
             'password' => Hash::make('secret123'), 'role' => User::ROLE_DISTRIBUTOR, 'status' => User::STATUS_ACTIVE]);
-        $trx = JoinTransaction::create(['user_id' => $mitra->id, 'join_package_id' => null,
+        $trx = JoinTransaction::create(['user_id' => $mitra->id, 'join_package_id' => $paket->id,
             'inviter_id' => $inviter->id, 'price' => 149000, 'created_by' => null]);
 
         $this->assertSame($mitra->id, $trx->member->id);
         $this->assertSame($inviter->id, $trx->inviter->id);
+        $this->assertSame($paket->id, $trx->package->id);
+        $this->assertSame('Bronze', $trx->package->name);
     }
 }

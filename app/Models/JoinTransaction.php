@@ -18,7 +18,7 @@ class JoinTransaction extends Model
 
     public function package(): BelongsTo
     {
-        return $this->belongsTo(JoinPackage::class);
+        return $this->belongsTo(JoinPackage::class, 'join_package_id');
     }
 
     public function inviter(): BelongsTo
