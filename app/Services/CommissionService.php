@@ -69,6 +69,25 @@ class CommissionService
         }
     }
 
+    /**
+     * Bonus join: saat member baru daftar via paket, upline LANGSUNG (inviter)
+     * dapat `komisi_persen_join`% dari nilai paket → saldo komisi (append-only,
+     * TIDAK auto-cair). 1 tingkat, tanpa PO (source_po_id null).
+     */
+    public function recordJoinBonus(User $inviter, User $member, float $paketPrice): void
+    {
+        $rate = AppSetting::float('komisi_persen_join', self::RATE_DEFAULTS['komisi_persen_join']);
+        if (! $inviter->isPartner() || $rate <= 0 || $paketPrice <= 0) {
+            return;
+        }
+
+        Commission::create([
+            'user_id' => $inviter->id, 'source_po_id' => null, 'source_user_id' => $member->id,
+            'type' => 'join', 'level' => 1, 'rate' => $rate, 'base_amount' => $paketPrice,
+            'amount' => round($paketPrice * $rate / 100, 2), 'status' => 'saldo',
+        ]);
+    }
+
     public function balance(User $mitra): float
     {
         return (float) Commission::where('user_id', $mitra->id)->where('status', 'saldo')->sum('amount');
