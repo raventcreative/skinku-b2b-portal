@@ -7,6 +7,9 @@ use App\Models\Commission;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\Withdrawal;
+use App\Support\PartnerHierarchy;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Mesin komisi MLM: join (order pertama, ke upline langsung) vs override
@@ -16,12 +19,14 @@ use App\Models\Withdrawal;
  */
 class CommissionService
 {
-    private const DEFAULT_RATES = [
-        User::ROLE_GRAND_DISTRIBUTOR => 6.0,
-        User::ROLE_DISTRIBUTOR => 4.0,
-        User::ROLE_RESELLER_BRONZE => 2.0,
-        User::ROLE_RESELLER_GOLD => 2.0,
-        User::ROLE_RESELLER => 2.0,
+    /** Rate komisi (persen) per key AppSetting → default. SATU sumber utk engine + UI Pengaturan. */
+    public const RATE_DEFAULTS = [
+        'komisi_persen_grand_distributor' => 6.0,
+        'komisi_persen_distributor' => 4.0,
+        'komisi_persen_reseller_bronze' => 2.0,
+        'komisi_persen_reseller_gold' => 2.0,
+        'komisi_persen_reseller' => 2.0, // legacy generic reseller (masih assignable)
+        'komisi_persen_join' => 10.0,
     ];
 
     public function recordForCompletedPo(PurchaseOrder $po): void
@@ -51,7 +56,7 @@ class CommissionService
         if ($isFirst) {
             $upline = $buyer->upline;
             if ($upline && $upline->isPartner()) {
-                $rate = AppSetting::float('komisi_persen_join', 10.0);
+                $rate = AppSetting::float('komisi_persen_join', self::RATE_DEFAULTS['komisi_persen_join']);
                 if ($rate > 0) {
                     $this->write($upline, $po, $buyer, 'join', 1, $rate, $base);
                 }
@@ -92,11 +97,85 @@ class CommissionService
         return $this->balance($mitra) - $ditarik;
     }
 
+    /**
+     * Ringkasan HQ (baca-saja, commissions APPEND-ONLY): komisi periode +
+     * saldo/tersedia/tertahan/cair all-time. Identitas: saldo = tersedia +
+     * tertahan + cair.
+     */
+    public function reportSummary(?Carbon $month = null): array
+    {
+        $periodQ = Commission::where('status', 'saldo');
+        $this->scopeMonth($periodQ, $month);
+
+        $totalSaldo = (float) Commission::where('status', 'saldo')->sum('amount');
+        $totalDitarik = (float) Withdrawal::where('status', '!=', 'ditolak')->sum('amount');
+
+        return [
+            'komisi_periode' => (float) $periodQ->sum('amount'),
+            'total_saldo' => $totalSaldo,
+            'total_tersedia' => $totalSaldo - $totalDitarik,
+            'total_tertahan' => (float) Withdrawal::whereIn('status', ['diajukan', 'disetujui'])->sum('amount'),
+            'total_cair' => (float) Withdrawal::where('status', 'cair')->sum('amount'),
+            'jumlah_mitra' => (int) Commission::where('status', 'saldo')->distinct('user_id')->count('user_id'),
+        ];
+    }
+
+    /** Baris per mitra (hanya yang pernah dapat komisi), urut nama. */
+    public function reportPerMitra(?Carbon $month = null): array
+    {
+        $saldo = Commission::where('status', 'saldo')
+            ->selectRaw('user_id, SUM(amount) as total')->groupBy('user_id')->pluck('total', 'user_id');
+
+        $periodQ = Commission::where('status', 'saldo');
+        $this->scopeMonth($periodQ, $month);
+        $period = $periodQ->selectRaw('user_id, SUM(amount) as komisi, COUNT(*) as transaksi')
+            ->groupBy('user_id')->get()->keyBy('user_id');
+
+        $ditarik = Withdrawal::where('status', '!=', 'ditolak')
+            ->selectRaw('user_id, SUM(amount) as total')->groupBy('user_id')->pluck('total', 'user_id');
+        $tertahan = Withdrawal::whereIn('status', ['diajukan', 'disetujui'])
+            ->selectRaw('user_id, SUM(amount) as total')->groupBy('user_id')->pluck('total', 'user_id');
+
+        $rows = [];
+        foreach (User::whereIn('id', $saldo->keys())->orderBy('name')->get() as $u) {
+            $s = (float) ($saldo[$u->id] ?? 0);
+            $rows[] = [
+                'user' => $u,
+                'tier' => PartnerHierarchy::label($u->role),
+                'komisi' => (float) ($period[$u->id]->komisi ?? 0),
+                'transaksi' => (int) ($period[$u->id]->transaksi ?? 0),
+                'saldo' => $s,
+                'tertahan' => (float) ($tertahan[$u->id] ?? 0),
+                'tersedia' => $s - (float) ($ditarik[$u->id] ?? 0),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** Baris Commission mitra tsb dalam periode, terbaru dulu (drill-down). */
+    public function mitraCommissions(User $mitra, ?Carbon $month = null): Collection
+    {
+        $q = Commission::where('user_id', $mitra->id)->where('status', 'saldo')->with(['downline', 'sourcePo']);
+        $this->scopeMonth($q, $month);
+
+        return $q->orderByDesc('created_at')->orderByDesc('id')->get();
+    }
+
     private function overrideRate(string $role): float
     {
-        $default = self::DEFAULT_RATES[$role] ?? 0.0;
+        $key = 'komisi_persen_'.$role;
 
-        return AppSetting::float('komisi_persen_'.$role, $default);
+        return AppSetting::float($key, self::RATE_DEFAULTS[$key] ?? 0.0);
+    }
+
+    private function scopeMonth($query, ?Carbon $month, string $col = 'created_at')
+    {
+        if (! $month) {
+            return $query;
+        }
+
+        return $query->whereBetween($col, [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()]);
     }
 
     private function write(User $penerima, PurchaseOrder $po, User $downline, string $type, int $level, float $rate, float $base): void
