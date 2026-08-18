@@ -70,4 +70,31 @@ class JoinPackageCrudTest extends TestCase
         $this->actingAs($admin)->get(route('join-packages.create'))->assertOk();
         $this->actingAs($admin)->get(route('join-packages.edit', $paket))->assertOk()->assertSee($p->name);
     }
+
+    public function test_admin_update_dan_hapus_paket(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $p1 = $this->product();
+        $p2 = $this->product();
+
+        $paket = JoinPackage::create(['name' => 'Bronze', 'target_role' => User::ROLE_RESELLER_BRONZE, 'price' => 149000, 'is_active' => true]);
+        $oldItem = $paket->items()->create(['product_id' => $p1->id, 'qty' => 2]);
+
+        $this->actingAs($admin)->put(route('join-packages.update', $paket), [
+            'name' => 'Bronze Plus', 'target_role' => User::ROLE_RESELLER_BRONZE, 'price' => 179000, 'is_active' => 1,
+            'items' => [['product_id' => $p2->id, 'qty' => 5]],
+        ])->assertRedirect();
+
+        $paket->refresh();
+        $this->assertSame('Bronze Plus', $paket->name);
+        $this->assertCount(1, $paket->items);
+        $this->assertSame($p2->id, $paket->items->first()->product_id);
+        $this->assertSame(5, $paket->items->first()->qty);
+        $this->assertDatabaseMissing('join_package_items', ['id' => $oldItem->id]);
+
+        $this->actingAs($admin)->delete(route('join-packages.destroy', $paket))->assertRedirect();
+
+        $this->assertDatabaseMissing('join_packages', ['id' => $paket->id]);
+        $this->assertDatabaseMissing('join_package_items', ['join_package_id' => $paket->id]);
+    }
 }

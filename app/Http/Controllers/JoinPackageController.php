@@ -62,12 +62,14 @@ class JoinPackageController extends Controller
                 $joinPackage->items()->create(['product_id' => $it['product_id'], 'qty' => $it['qty']]);
             }
         });
+        AuditService::log(action: 'update_join_package', targetType: 'join_package', targetId: $joinPackage->id, after: ['name' => $data['name'], 'price' => $data['price']]);
 
         return redirect()->route('join-packages.index')->with('status', 'Paket join diperbarui.');
     }
 
     public function destroy(JoinPackage $joinPackage): RedirectResponse
     {
+        AuditService::log(action: 'delete_join_package', targetType: 'join_package', targetId: $joinPackage->id, before: ['name' => $joinPackage->name, 'target_role' => $joinPackage->target_role]);
         $joinPackage->delete();
 
         return redirect()->route('join-packages.index')->with('status', 'Paket join dihapus.');
