@@ -52,4 +52,24 @@ class MindmapBoardTest extends TestCase
         $this->actingAs($owner)->delete(route('mindmaps.destroy', $map))->assertRedirect();
         $this->assertNull(Mindmap::find($map->id));
     }
+
+    public function test_tombol_hapus_papan_di_daftar_hanya_untuk_pemilik(): void
+    {
+        $owner = $this->user('pemilik');
+        $viewer = $this->user('penonton');
+        $map = Mindmap::create(['title' => 'Papan Rahasia', 'created_by' => $owner->id]);
+        $map->members()->create(['user_id' => $viewer->id, 'can_edit' => false]);
+
+        // Pemilik lihat papannya + tombol "hapus papan".
+        $this->actingAs($owner)->get(route('mindmaps.index'))
+            ->assertOk()
+            ->assertSee('Papan Rahasia')
+            ->assertSee('hapus papan');
+
+        // Anggota non-pemilik tetap lihat papan di daftar, TAPI tanpa tombol hapus.
+        $this->actingAs($viewer)->get(route('mindmaps.index'))
+            ->assertOk()
+            ->assertSee('Papan Rahasia')
+            ->assertDontSee('hapus papan');
+    }
 }

@@ -16,10 +16,19 @@
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @forelse($maps as $map)
-            <a href="{{ route('mindmaps.show', $map) }}" class="block bg-white rounded-2xl border border-stone-200 p-5 hover:border-stone-400 hover:shadow-sm transition">
-                <p class="text-sm font-bold text-stone-900 truncate">{{ $map->title }}</p>
-                <p class="text-[11px] text-stone-400 mt-2">oleh {{ $map->creator?->fullname ?? $map->creator?->name ?? '—' }} · diperbarui {{ $map->updated_at->diffForHumans() }}</p>
-            </a>
+            <div class="bg-white rounded-2xl border border-stone-200 p-5 hover:border-stone-400 hover:shadow-sm transition">
+                <a href="{{ route('mindmaps.show', $map) }}" class="block">
+                    <p class="text-sm font-bold text-stone-900 truncate">{{ $map->title }}</p>
+                    <p class="text-[11px] text-stone-400 mt-2">oleh {{ $map->creator?->fullname ?? $map->creator?->name ?? '—' }} · diperbarui {{ $map->updated_at->diffForHumans() }}</p>
+                </a>
+                @if($map->isOwner(auth()->user()))
+                    <form method="POST" action="{{ route('mindmaps.destroy', $map) }}" class="mt-3 text-right"
+                        onsubmit="return confirm('Hapus papan {{ $map->title }} beserta seluruh isinya?')">
+                        @csrf @method('DELETE')
+                        <button class="text-[11px] text-rose-500 hover:text-rose-700">hapus papan</button>
+                    </form>
+                @endif
+            </div>
         @empty
             <p class="text-sm text-stone-400 col-span-full py-8 text-center">Belum ada papan. Buat papan baru untuk mulai.</p>
         @endforelse
