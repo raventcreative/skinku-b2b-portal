@@ -55,8 +55,6 @@ class SettingController extends Controller
             ],
             'komisiRates' => [
                 'grand' => AppSetting::float('komisi_persen_grand_distributor', CommissionService::RATE_DEFAULTS['komisi_persen_grand_distributor']),
-                'distributor' => AppSetting::float('komisi_persen_distributor', CommissionService::RATE_DEFAULTS['komisi_persen_distributor']),
-                'reseller' => AppSetting::float('komisi_persen_reseller_bronze', CommissionService::RATE_DEFAULTS['komisi_persen_reseller_bronze']),
                 'join' => AppSetting::float('komisi_persen_join', CommissionService::RATE_DEFAULTS['komisi_persen_join']),
             ],
         ]);
@@ -95,20 +93,14 @@ class SettingController extends Controller
     {
         $data = $request->validate([
             'grand' => ['required', 'numeric', 'min:0', 'max:100'],
-            'distributor' => ['required', 'numeric', 'min:0', 'max:100'],
-            'reseller' => ['required', 'numeric', 'min:0', 'max:100'],
             'join' => ['required', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        // Semua rate ditulis dalam satu transaksi supaya trio reseller (bronze/gold/legacy)
-        // tak pernah desync kalau ada kegagalan di tengah — semua tersimpan atau tak sama sekali.
+        // Hanya rate AKTIF yang bisa diedit: Override Grand + Bonus Join. Key override
+        // Distributor/Reseller sengaja TAK disentuh (dorman — reseller beli offline, tak
+        // memicu override) dan tetap di nilai default-nya.
         DB::transaction(function () use ($data) {
             AppSetting::put('komisi_persen_grand_distributor', (string) $data['grand']);
-            AppSetting::put('komisi_persen_distributor', (string) $data['distributor']);
-            // satu input "Reseller" → tulis ketiga key reseller supaya bronze/gold/legacy sinkron (tak ada fallback diam-diam)
-            AppSetting::put('komisi_persen_reseller_bronze', (string) $data['reseller']);
-            AppSetting::put('komisi_persen_reseller_gold', (string) $data['reseller']);
-            AppSetting::put('komisi_persen_reseller', (string) $data['reseller']);
             AppSetting::put('komisi_persen_join', (string) $data['join']);
         });
 

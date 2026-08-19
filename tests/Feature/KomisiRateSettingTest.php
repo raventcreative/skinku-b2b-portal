@@ -8,9 +8,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Fase 3: UI atur rate komisi di Pengaturan. Satu input "Reseller" harus
- * menyinkronkan ketiga key reseller (_bronze, _gold, legacy) supaya engine
- * (CommissionService::overrideRate) tak diam-diam jatuh ke default hardcoded.
+ * UI atur rate komisi di Pengaturan. Hanya rate AKTIF yang bisa diedit:
+ * Override Grand + Bonus Join. Override Distributor/Reseller disembunyikan
+ * (dorman — reseller beli offline, tak memicu override) dan TAK disentuh
+ * saat simpan; key-nya tetap di nilai default backend.
  */
 class KomisiRateSettingTest extends TestCase
 {
@@ -24,24 +25,23 @@ class KomisiRateSettingTest extends TestCase
         ]);
     }
 
-    public function test_simpan_rate_tulis_semua_key_reseller_sinkron(): void
+    public function test_simpan_rate_grand_dan_join(): void
     {
         $this->actingAs($this->superadmin())->post(route('settings.komisi.save'), [
-            'grand' => 7, 'distributor' => 5, 'reseller' => 3, 'join' => 12,
+            'grand' => 7, 'join' => 12,
         ])->assertRedirect();
 
         $this->assertSame('7', AppSetting::get('komisi_persen_grand_distributor'));
-        $this->assertSame('5', AppSetting::get('komisi_persen_distributor'));
-        $this->assertSame('3', AppSetting::get('komisi_persen_reseller_bronze'));
-        $this->assertSame('3', AppSetting::get('komisi_persen_reseller_gold'));
-        $this->assertSame('3', AppSetting::get('komisi_persen_reseller'));
         $this->assertSame('12', AppSetting::get('komisi_persen_join'));
+        // Key override dorman TAK disentuh oleh UI (tetap null / nilai default backend).
+        $this->assertNull(AppSetting::get('komisi_persen_distributor'));
+        $this->assertNull(AppSetting::get('komisi_persen_reseller_bronze'));
     }
 
     public function test_rate_di_luar_0_100_ditolak(): void
     {
         $this->actingAs($this->superadmin())->post(route('settings.komisi.save'), [
-            'grand' => 150, 'distributor' => 5, 'reseller' => 3, 'join' => 12,
+            'grand' => 150, 'join' => 12,
         ])->assertSessionHasErrors('grand');
 
         $this->assertNull(AppSetting::get('komisi_persen_grand_distributor'));
