@@ -176,6 +176,17 @@ class PurchaseOrder extends Model
         return $this->payment_status === self::PAYMENT_PAID;
     }
 
+    /**
+     * Boleh diedit isinya (item & qty)? Hanya selagi masih pending/draft DAN
+     * belum ada bukti bayar. Begitu bukti masuk (awaiting_verification) atau
+     * status naik, PO terkunci — nominal bayar tak boleh berubah sepihak.
+     */
+    public function isEditable(): bool
+    {
+        return in_array($this->status, [self::STATUS_PENDING, self::STATUS_DRAFT], true)
+            && $this->payment_status === self::PAYMENT_UNPAID;
+    }
+
     /** Cicilan-cicilan yang sudah masuk (PO tempo). */
     public function payments()
     {

@@ -32,54 +32,10 @@ class PurchaseOrderService
      */
     public function createForPartner(User $buyer, array $lines, ?string $shippingAddress, ?string $notes, array $priceOverrides = []): PurchaseOrder
     {
-        $clean = [];
-        foreach ($lines as $line) {
-            $qty = (int) ($line['qty'] ?? 0);
-            if ($qty <= 0) {
-                continue;
-            }
-            $clean[(int) $line['product_id']] = ($clean[(int) $line['product_id']] ?? 0) + $qty;
-        }
-
-        if (empty($clean)) {
-            throw ValidationException::withMessages([
-                'items' => 'Pilih minimal satu produk dengan kuantitas di atas 0.',
-            ]);
-        }
+        $clean = $this->cleanLines($lines);
 
         return DB::transaction(function () use ($buyer, $clean, $shippingAddress, $notes, $priceOverrides) {
-            $products = Product::whereIn('id', array_keys($clean))
-                ->where('status', Product::STATUS_ACTIVE)
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-
-            $subtotal = 0.0;
-            $itemsData = [];
-
-            foreach ($clean as $productId => $qty) {
-                $product = $products->get($productId);
-                if (! $product) {
-                    throw ValidationException::withMessages([
-                        'items' => "Produk #{$productId} tidak tersedia atau sudah nonaktif.",
-                    ]);
-                }
-
-                $unitPrice = isset($priceOverrides[$productId])
-                    ? (float) $priceOverrides[$productId]
-                    : (float) $product->priceForRole($buyer->role);
-                $lineTotal = $unitPrice * $qty;
-                $subtotal += $lineTotal;
-
-                $itemsData[] = [
-                    'product_id' => $product->id,
-                    'product_name' => $product->name,
-                    'sku' => $product->sku,
-                    'qty' => $qty,
-                    'unit_price' => $unitPrice,
-                    'total_price' => $lineTotal,
-                ];
-            }
+            [$itemsData, $subtotal] = $this->buildItemLines($clean, $buyer->role, $priceOverrides);
 
             $po = PurchaseOrder::create([
                 'po_number' => $this->generatePoNumber(),
@@ -109,6 +65,120 @@ class PurchaseOrderService
 
             return $po->load('items');
         });
+    }
+
+    /**
+     * Perbarui isi PO (item & qty) selagi masih pending & belum ada bukti bayar.
+     * Bangun ulang baris + hitung ulang total di harga tier pembeli saat ini
+     * (via user_role PO). Diskon & ongkir yang sudah ada dipertahankan. TAK
+     * menyentuh stok/komisi — keduanya hanya bergerak saat complete().
+     *
+     * @param  array<int,array{product_id:int,qty:int}>  $lines
+     */
+    public function updateItems(PurchaseOrder $po, array $lines): PurchaseOrder
+    {
+        if (! $po->isEditable()) {
+            throw new RuntimeException('PO hanya bisa diedit selagi masih pending dan belum ada bukti pembayaran.');
+        }
+
+        $clean = $this->cleanLines($lines);
+
+        return DB::transaction(function () use ($po, $clean) {
+            [$itemsData, $subtotal] = $this->buildItemLines($clean, $po->user_role);
+
+            $before = ['item_count' => $po->items()->count(), 'total_amount' => (float) $po->total_amount];
+
+            $po->items()->delete();
+            $po->items()->createMany($itemsData);
+
+            $po->update([
+                'subtotal' => $subtotal,
+                'total_amount' => $subtotal - (float) $po->discount + (float) $po->shipping_cost,
+            ]);
+
+            AuditService::log(
+                action: 'edit_po',
+                targetType: 'purchase_order',
+                targetId: $po->id,
+                before: $before,
+                after: ['item_count' => count($itemsData), 'total_amount' => (float) $po->total_amount],
+            );
+
+            return $po->load('items');
+        });
+    }
+
+    /**
+     * Bersihkan baris input: dedup per produk, buang qty <= 0. Lempar bila kosong.
+     *
+     * @param  array<int,array{product_id:int,qty:int}>  $lines
+     * @return array<int,int> [product_id => qty]
+     */
+    private function cleanLines(array $lines): array
+    {
+        $clean = [];
+        foreach ($lines as $line) {
+            $qty = (int) ($line['qty'] ?? 0);
+            if ($qty <= 0) {
+                continue;
+            }
+            $productId = (int) $line['product_id'];
+            $clean[$productId] = ($clean[$productId] ?? 0) + $qty;
+        }
+
+        if (empty($clean)) {
+            throw ValidationException::withMessages([
+                'items' => 'Pilih minimal satu produk dengan kuantitas di atas 0.',
+            ]);
+        }
+
+        return $clean;
+    }
+
+    /**
+     * Bangun data baris item + subtotal dari produk aktif yang terkunci. Harga =
+     * override bila ada, else harga tier $role. Dipakai bersama create & update.
+     *
+     * @param  array<int,int>  $clean  [product_id => qty]
+     * @param  array<int,float>  $priceOverrides
+     * @return array{0: array<int,array<string,mixed>>, 1: float}
+     */
+    private function buildItemLines(array $clean, string $role, array $priceOverrides = []): array
+    {
+        $products = Product::whereIn('id', array_keys($clean))
+            ->where('status', Product::STATUS_ACTIVE)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        $subtotal = 0.0;
+        $itemsData = [];
+
+        foreach ($clean as $productId => $qty) {
+            $product = $products->get($productId);
+            if (! $product) {
+                throw ValidationException::withMessages([
+                    'items' => "Produk #{$productId} tidak tersedia atau sudah nonaktif.",
+                ]);
+            }
+
+            $unitPrice = isset($priceOverrides[$productId])
+                ? (float) $priceOverrides[$productId]
+                : (float) $product->priceForRole($role);
+            $lineTotal = $unitPrice * $qty;
+            $subtotal += $lineTotal;
+
+            $itemsData[] = [
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'sku' => $product->sku,
+                'qty' => $qty,
+                'unit_price' => $unitPrice,
+                'total_price' => $lineTotal,
+            ];
+        }
+
+        return [$itemsData, $subtotal];
     }
 
     /**

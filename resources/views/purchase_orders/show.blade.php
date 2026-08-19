@@ -266,6 +266,12 @@
             </div>
         @endif
 
+        {{-- Edit isi PO (item & qty) — hanya selagi pending & belum ada bukti bayar --}}
+        @if($canEdit)
+            <a href="{{ route('purchase-orders.edit', $purchaseOrder) }}"
+               class="block w-full py-2.5 bg-stone-800 text-white text-sm font-semibold rounded-xl hover:bg-stone-900 text-center">Edit PO</a>
+        @endif
+
         {{-- Cancel --}}
         @if(!in_array($purchaseOrder->status, ['completed','cancelled','deleted']))
             @if($u->canDo('update_po_status') || ($u->isPartner() && in_array($purchaseOrder->status, ['pending','draft'])))

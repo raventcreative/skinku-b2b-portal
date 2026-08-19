@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\PurchaseOrder;
+use App\Models\User;
 use App\Services\AuditService;
 use App\Services\ImageService;
 use App\Services\PurchaseOrderService;
@@ -126,8 +127,80 @@ class PurchaseOrderController extends Controller
 
         $purchaseOrder->load('items', 'user');
         $nextStatuses = PurchaseOrder::TRANSITIONS[$purchaseOrder->status] ?? [];
+        $canEdit = $purchaseOrder->isEditable() && $this->canEditPo($user, $purchaseOrder);
 
-        return view('purchase_orders.show', compact('purchaseOrder', 'nextStatuses', 'user'));
+        return view('purchase_orders.show', compact('purchaseOrder', 'nextStatuses', 'user', 'canEdit'));
+    }
+
+    /**
+     * Form edit isi PO (item & qty) — hanya selagi pending & belum ada bukti
+     * bayar. Boleh: owner (mitra pemegang stok) atau admin (update_po_status).
+     */
+    public function edit(Request $request, PurchaseOrder $purchaseOrder)
+    {
+        $user = $request->user();
+        abort_unless($this->canEditPo($user, $purchaseOrder), 403, 'Anda tidak boleh mengedit PO ini.');
+
+        if (! $purchaseOrder->isEditable()) {
+            return redirect()->route('purchase-orders.show', $purchaseOrder)
+                ->withErrors(['status' => 'PO ini sudah tidak bisa diedit (sudah ada bukti bayar atau sedang diproses).']);
+        }
+
+        $products = Product::query()
+            ->where('status', Product::STATUS_ACTIVE)
+            ->orderBy('name')
+            ->get();
+
+        $purchaseOrder->load('items');
+
+        return view('purchase_orders.edit', [
+            'po' => $purchaseOrder,
+            'products' => $products,
+            'user' => $user,
+            'qtyByProduct' => $purchaseOrder->items->pluck('qty', 'product_id'),
+        ]);
+    }
+
+    /**
+     * Simpan perubahan isi PO. Item dibangun ulang + total dihitung ulang di
+     * service (updateItems); stok & komisi tak tersentuh (masih pending).
+     */
+    public function update(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($this->canEditPo($user, $purchaseOrder), 403, 'Anda tidak boleh mengedit PO ini.');
+
+        $data = $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'items.*.qty' => ['required', 'integer', 'min:0'],
+        ]);
+
+        try {
+            $this->service->updateItems($purchaseOrder, $data['items']);
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['status' => $e->getMessage()]);
+        }
+
+        return redirect()->route('purchase-orders.show', $purchaseOrder)
+            ->with('status', "Purchase Order {$purchaseOrder->po_number} berhasil diperbarui.");
+    }
+
+    /**
+     * Boleh mengedit isi PO ini? Admin/staff (update_po_status) selalu boleh;
+     * mitra hanya PO miliknya sendiri & bila ia pemegang stok (reseller beli
+     * offline, tak pernah punya PO untuk diedit). Guard status/bayar terpisah
+     * di PurchaseOrder::isEditable().
+     */
+    private function canEditPo(User $user, PurchaseOrder $po): bool
+    {
+        if ($user->canDo('update_po_status')) {
+            return true;
+        }
+
+        return $user->isPartner()
+            && $po->user_id === $user->id
+            && PartnerHierarchy::holdsStock($user->role);
     }
 
     public function updateStatus(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse

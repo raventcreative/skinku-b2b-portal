@@ -105,6 +105,12 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
     Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
 
+    // Edit isi PO (item & qty) — hanya selagi pending & belum bayar. Otorisasi
+    // (owner mitra pemegang stok ATAU admin update_po_status) dicek inline di
+    // controller, jadi route ini cukup auth (bukan di grup permission).
+    Route::get('/purchase-orders/{purchaseOrder}/edit', [PurchaseOrderController::class, 'edit'])->name('purchase-orders.edit');
+    Route::put('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'update'])->name('purchase-orders.update');
+
     // Buyer uploads transfer proof for their own PO
     Route::post('/purchase-orders/{purchaseOrder}/payment-proof', [PurchaseOrderController::class, 'uploadPayment'])->name('purchase-orders.payment-proof');
 
