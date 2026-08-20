@@ -108,6 +108,36 @@ class HqStockReportTest extends TestCase
         $this->assertSame(700, $row['akhir']);
     }
 
+    public function test_include_empty_menampilkan_produk_stok_nol_idle(): void
+    {
+        $inv = app(InventoryService::class);
+        $moved = $this->product(0);
+        $idle = $this->product(0); // stok 0, tak pernah bergerak
+
+        $inv->adjustHqStock($moved, 100, StockMovement::TYPE_IN, null, 'production', occurredAt: Carbon::parse('2026-07-14 09:00'));
+
+        $svc = app(HqStockReportService::class);
+        $anchor = Carbon::parse('2026-07-14');
+
+        // Default (dipakai Export): produk idle-kosong disembunyikan.
+        $default = collect($svc->report('harian', $anchor)['rows']);
+        $this->assertNull($default->firstWhere('product.id', $idle->id));
+        $this->assertNotNull($default->firstWhere('product.id', $moved->id));
+
+        // includeEmpty (dipakai web): idle-kosong ikut tampil & ditandai empty.
+        $all = collect($svc->report('harian', $anchor, includeEmpty: true)['rows']);
+        $idleRow = $all->firstWhere('product.id', $idle->id);
+        $this->assertNotNull($idleRow);
+        $this->assertTrue($idleRow['empty']);
+        $this->assertFalse($all->firstWhere('product.id', $moved->id)['empty']);
+
+        // Total tak berubah — produk kosong menyumbang 0.
+        $this->assertSame(
+            $svc->report('harian', $anchor)['totals']['akhir'],
+            $svc->report('harian', $anchor, includeEmpty: true)['totals']['akhir'],
+        );
+    }
+
     public function test_pages_render(): void
     {
         $this->product(50);

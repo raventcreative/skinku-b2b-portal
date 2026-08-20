@@ -10,7 +10,17 @@
     $showKeluarLain = ($totals['keluar_lain'] ?? 0) != 0;
     // jumlah kolom untuk colspan grup
     $keluarCols = 3 + ($showKeluarLain ? 1 : 0);
+    $emptyCount = collect($rows)->where('empty', true)->count();
 @endphp
+
+<style>
+    /* Nomor urut via CSS counter: baris yang disembunyikan (display:none) tak
+       ikut dihitung, jadi No selalu rapat 1,2,3… walau stok 0 sedang disembunyikan. */
+    #hqTbody { counter-reset: hqno; }
+    #hqTbody > tr { counter-increment: hqno; }
+    #hqTbody > tr > .hq-no::before { content: counter(hqno); }
+    #hqReport.hide-empty #hqTbody > tr[data-empty="1"] { display: none; }
+</style>
 
 {{-- Kontrol periode --}}
 <form method="GET" action="{{ route('hq-stock.report') }}" class="bg-white rounded-2xl border border-stone-200 p-4 mb-4 flex flex-wrap items-end gap-3">
@@ -42,9 +52,15 @@
         <a href="{{ route('hq-stock.report', ['mode' => $mode, 'date' => $next]) }}" class="px-3 py-2 border border-stone-300 rounded-lg text-sm hover:bg-stone-50">→</a>
         <a href="{{ route('hq-stock.export', ['mode' => $mode, 'date' => $anchor]) }}"
             class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Export Excel</a>
+        @if($emptyCount > 0)
+            <button type="button" id="toggleEmpty" onclick="toggleEmptyRows()"
+                class="px-3 py-2 text-sm border border-stone-300 rounded-lg hover:bg-stone-50"
+                title="Sembunyikan {{ $emptyCount }} produk stok 0 yang tak bergerak periode ini">Sembunyikan stok 0</button>
+        @endif
     </div>
     <div class="flex-1 min-w-[140px] text-right">
         <span class="text-lg font-bold text-stone-800">{{ $label }}</span>
+        <span class="block text-[11px] text-stone-500 mt-0.5">Total <b id="skuCount">{{ count($rows) }}</b> SKU</span>
     </div>
 </form>
 
@@ -61,11 +77,12 @@
 @endif
 
 {{-- Tabel mutasi (geser ke samping di layar kecil; kolom produk menempel) --}}
-<div class="bg-white rounded-2xl border border-stone-200 overflow-x-auto">
+<div id="hqReport" class="bg-white rounded-2xl border border-stone-200 overflow-x-auto">
     <table class="w-full text-xs whitespace-nowrap">
         <thead>
             <tr class="bg-stone-50 text-stone-500 uppercase text-[10px]">
-                <th rowspan="2" class="text-left px-3 py-2 sticky left-0 bg-stone-50 z-10">Produk</th>
+                <th rowspan="2" class="text-right px-2 py-2 sticky left-0 bg-stone-50 z-10 w-12">No</th>
+                <th rowspan="2" class="text-left px-3 py-2 sticky left-12 bg-stone-50 z-10">Produk</th>
                 <th rowspan="2" class="text-right px-3 py-2">Stok Awal</th>
                 <th class="text-center px-3 py-1.5 border-l border-stone-200 bg-emerald-50/50 text-emerald-700" colspan="{{ $showMasukLain ? 2 : 1 }}">Masuk</th>
                 <th class="text-center px-3 py-1.5 border-l border-stone-200 bg-rose-50/50 text-rose-700" colspan="{{ $keluarCols }}">Keluar</th>
@@ -81,10 +98,11 @@
                 @if($showKeluarLain)<th class="text-right px-3 py-1.5">Lain</th>@endif
             </tr>
         </thead>
-        <tbody>
+        <tbody id="hqTbody">
             @forelse($rows as $r)
-                <tr class="border-t border-stone-100 hover:bg-stone-50/50">
-                    <td class="px-3 py-2 sticky left-0 bg-white z-10">
+                <tr @if($r['empty'] ?? false) data-empty="1" @endif class="border-t border-stone-100 hover:bg-stone-50/50">
+                    <td class="hq-no text-right px-2 py-2 font-mono text-stone-400 sticky left-0 bg-white z-10 w-12"></td>
+                    <td class="px-3 py-2 sticky left-12 bg-white z-10">
                         <a href="{{ route('stock-movements.index', ['product_id' => $r['product']->id, 'from' => $start->format('Y-m-d'), 'to' => $end->format('Y-m-d')]) }}"
                             class="font-semibold text-indigo-700 hover:text-indigo-900 hover:underline" title="Lihat rincian pergerakan produk ini pada periode ini">{{ $r['product']->name }}</a>
                         <div class="text-[10px] text-stone-400 font-mono">{{ $r['product']->sku ?: '—' }}</div>
@@ -106,7 +124,7 @@
         @if(count($rows))
             <tfoot>
                 <tr class="border-t-2 border-stone-300 bg-stone-50 font-bold text-stone-800">
-                    <td class="px-3 py-2 sticky left-0 bg-stone-50 z-10">TOTAL</td>
+                    <td colspan="2" class="px-3 py-2 sticky left-0 bg-stone-50 z-10">TOTAL</td>
                     <td class="text-right px-3 py-2 font-mono">{{ $n($totals['awal']) }}</td>
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-200">{{ $n($totals['produksi']) }}</td>
                     @if($showMasukLain)<td class="text-right px-3 py-2 font-mono">{{ $n($totals['masuk_lain']) }}</td>@endif
@@ -128,3 +146,15 @@
     <br>💡 Klik <b>nama produk</b> untuk lihat rincian tiap pergerakannya (buku besar) pada periode ini.
 </p>
 @endsection
+
+@push('scripts')
+<script>
+    // Toggle client-side: sembunyikan/tampilkan produk stok 0 yang tak bergerak.
+    // Default halaman = semua tampil; total SKU tetap sama (produk kosong = saldo 0).
+    function toggleEmptyRows() {
+        const btn = document.getElementById('toggleEmpty');
+        const hidden = document.getElementById('hqReport').classList.toggle('hide-empty');
+        btn.textContent = hidden ? 'Tampilkan semua' : 'Sembunyikan stok 0';
+    }
+</script>
+@endpush

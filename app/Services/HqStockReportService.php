@@ -27,7 +27,7 @@ class HqStockReportService
      *   baseline: ?Carbon
      * }
      */
-    public function report(string $mode, Carbon $anchor): array
+    public function report(string $mode, Carbon $anchor, bool $includeEmpty = false): array
     {
         [$start, $end, $label, $prev, $next] = $this->periodBounds($mode, $anchor);
 
@@ -71,13 +71,15 @@ class HqStockReportService
             $akhir = $now - (int) ($afterEnd[$p->id] ?? 0);
             $b = $buckets[$p->id] ?? $this->emptyBuckets();
 
-            // Sembunyikan produk yang benar-benar tak bergerak & saldo nol.
+            // Produk benar-benar tak bergerak & saldo nol = "kosong". Default-nya
+            // dilewati (dipakai Export). UI web memanggil includeEmpty=true supaya
+            // semua SKU tampil, lalu menyembunyikannya sendiri via tombol (client-side).
             $moved = $awal !== 0 || $akhir !== 0 || array_sum($b) !== 0;
-            if (! $moved) {
+            if (! $moved && ! $includeEmpty) {
                 continue;
             }
 
-            $row = $b + ['product' => $p, 'awal' => $awal, 'akhir' => $akhir];
+            $row = $b + ['product' => $p, 'awal' => $awal, 'akhir' => $akhir, 'empty' => ! $moved];
             $rows[] = $row;
 
             foreach ($this->emptyBuckets() as $k => $_) {
