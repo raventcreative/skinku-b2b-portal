@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
 use App\Models\TelegramBotChat;
+use App\Models\VolumeIncentiveTier;
 use App\Services\Ai\AiProviderFactory;
 use App\Services\AuditService;
 use App\Services\CommissionService;
@@ -57,7 +58,38 @@ class SettingController extends Controller
                 'join' => AppSetting::float('komisi_persen_join', CommissionService::RATE_DEFAULTS['komisi_persen_join']),
                 'ro_cashback' => AppSetting::float('komisi_persen_ro_cashback', CommissionService::RATE_DEFAULTS['komisi_persen_ro_cashback']),
             ],
+            'volumeTiers' => VolumeIncentiveTier::orderBy('threshold')->get(),
         ]);
+    }
+
+    /** Tambah tier insentif volume Grand. Fitur aktif kalau ada >=1 tier. */
+    public function storeVolumeTier(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'threshold' => ['required', 'numeric', 'min:0'],
+            'rate_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        $tier = VolumeIncentiveTier::create([
+            'threshold' => $data['threshold'],
+            'rate_percent' => $data['rate_percent'],
+            'is_active' => true,
+        ]);
+
+        AuditService::log(action: 'create_volume_tier', targetType: 'volume_incentive_tier', targetId: $tier->id, after: $data);
+
+        return back()->with('status', 'Tier insentif volume ditambahkan.');
+    }
+
+    /** Hapus tier insentif volume. */
+    public function destroyVolumeTier(VolumeIncentiveTier $tier): RedirectResponse
+    {
+        $id = $tier->id;
+        $tier->delete();
+
+        AuditService::log(action: 'delete_volume_tier', targetType: 'volume_incentive_tier', targetId: $id);
+
+        return back()->with('status', 'Tier insentif volume dihapus.');
     }
 
     /**

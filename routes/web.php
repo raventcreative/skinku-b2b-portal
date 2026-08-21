@@ -476,6 +476,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('/settings/ai', [SettingController::class, 'saveAi'])->name('settings.ai.save');
         Route::post('/settings/komisi', [SettingController::class, 'saveKomisi'])->name('settings.komisi.save');
+        Route::post('/settings/volume-tier', [SettingController::class, 'storeVolumeTier'])->name('settings.volume-tier.store');
+        Route::delete('/settings/volume-tier/{tier}', [SettingController::class, 'destroyVolumeTier'])->name('settings.volume-tier.destroy');
         // Backup DB: jalankan manual + unduh (simpan di LUAR server).
         Route::post('/settings/backup', [SettingController::class, 'backupNow'])->name('settings.backup');
         Route::get('/settings/backup/{file}', [SettingController::class, 'backupDownload'])->name('settings.backup.download');

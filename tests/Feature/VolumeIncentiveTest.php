@@ -108,4 +108,29 @@ class VolumeIncentiveTest extends TestCase
         $this->svc()->evaluate($this->completedPo($dist, 300_000_000));
         $this->assertSame(0, Commission::where('type', 'volume_bonus')->count());
     }
+
+    public function test_admin_tambah_dan_hapus_tier(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+
+        $this->actingAs($admin)->post(route('settings.volume-tier.store'), [
+            'threshold' => 200_000_000, 'rate_percent' => 5,
+        ])->assertRedirect();
+        $this->assertSame(1, VolumeIncentiveTier::count());
+
+        $tier = VolumeIncentiveTier::first();
+        $this->actingAs($admin)->delete(route('settings.volume-tier.destroy', $tier))->assertRedirect();
+        $this->assertSame(0, VolumeIncentiveTier::count());
+    }
+
+    public function test_settings_tampilkan_kartu_volume(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+        $this->tier(200_000_000, 5);
+
+        $this->actingAs($admin)->get(route('settings.index'))
+            ->assertOk()
+            ->assertSee('Insentif Volume Grand')
+            ->assertSee('200.000.000');
+    }
 }
