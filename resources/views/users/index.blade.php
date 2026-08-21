@@ -3,10 +3,23 @@
 @section('heading', 'Kelola Mitra & Tim')
 
 @section('content')
-@php $isSuper = auth()->user()->isSuperAdmin(); @endphp
+@php
+    $isSuper = auth()->user()->isSuperAdmin();
+    // Header = tautan sort (pola sama dengan Database KOL). Klik pertama asc,
+    // klik lagi balik arah. Kolom divalidasi whitelist di controller.
+    $sortLink = function (string $col, string $label) use ($sort, $dir, $filters) {
+        $nextDir = ($sort === $col && $dir === 'asc') ? 'desc' : 'asc';
+        $arrow = $sort === $col ? ($dir === 'asc' ? ' ↑' : ' ↓') : '';
+        $url = route('users.index', array_merge(array_filter($filters), ['sort' => $col, 'dir' => $nextDir]));
+
+        return '<a href="'.$url.'" class="hover:text-stone-800 '.($sort === $col ? 'text-stone-800 font-bold' : '').'">'.e($label).$arrow.'</a>';
+    };
+@endphp
 
 <div class="flex justify-between items-center mb-4">
     <form method="GET" class="flex flex-wrap gap-2">
+        <input type="hidden" name="sort" value="{{ $sort }}">
+        <input type="hidden" name="dir" value="{{ $dir }}">
         <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari nama/username/email…"
                class="px-3 py-2 text-sm border border-stone-300 rounded-lg w-64">
         <select name="role" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
@@ -32,13 +45,13 @@
     <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
-                <th class="text-left px-4 py-3">Nama</th>
-                <th class="text-left">Username</th>
-                <th class="text-left">Email</th>
-                <th class="text-left">Role</th>
-                <th class="text-left">Member ID</th>
-                <th class="text-left">Perusahaan</th>
-                <th class="text-left">Status</th>
+                <th class="text-left px-4 py-3">{!! $sortLink('fullname', 'Nama') !!}</th>
+                <th class="text-left">{!! $sortLink('username', 'Username') !!}</th>
+                <th class="text-left">{!! $sortLink('email', 'Email') !!}</th>
+                <th class="text-left">{!! $sortLink('role', 'Role') !!}</th>
+                <th class="text-left">{!! $sortLink('member_id', 'Member ID') !!}</th>
+                <th class="text-left">{!! $sortLink('company_name', 'Perusahaan') !!}</th>
+                <th class="text-left">{!! $sortLink('status', 'Status') !!}</th>
                 <th class="text-right px-4">Aksi</th>
             </tr>
         </thead>

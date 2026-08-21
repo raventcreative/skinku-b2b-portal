@@ -28,6 +28,27 @@ class MemberFormHierarchyTest extends TestCase
         ]);
     }
 
+    public function test_kelola_anggota_bisa_disortir_per_kolom(): void
+    {
+        $sa = $this->superAdmin();
+        foreach (['zulfa', 'brian', 'maya'] as $u) {
+            User::create([
+                'name' => $u, 'fullname' => strtoupper($u), 'username' => $u, 'email' => "{$u}@skinku.test",
+                'password' => Hash::make('secret123'), 'role' => User::ROLE_DISTRIBUTOR, 'status' => User::STATUS_ACTIVE,
+            ]);
+        }
+
+        $asc = $this->actingAs($sa)->get(route('users.index', ['sort' => 'username', 'dir' => 'asc']))->assertOk()->getContent();
+        $this->assertLessThan(strpos($asc, '>maya<'), strpos($asc, '>brian<'), 'ASC: brian sebelum maya');
+        $this->assertLessThan(strpos($asc, '>zulfa<'), strpos($asc, '>maya<'), 'ASC: maya sebelum zulfa');
+
+        $desc = $this->actingAs($sa)->get(route('users.index', ['sort' => 'username', 'dir' => 'desc']))->assertOk()->getContent();
+        $this->assertLessThan(strpos($desc, '>brian<'), strpos($desc, '>zulfa<'), 'DESC: zulfa sebelum brian');
+
+        // Kolom ngawur → jatuh ke default (created_at), tetap 200.
+        $this->actingAs($sa)->get(route('users.index', ['sort' => 'hack', 'dir' => 'up']))->assertOk();
+    }
+
     public function test_buat_distributor_dengan_upline_dan_member_id(): void
     {
         $sa = $this->superAdmin();

@@ -28,6 +28,11 @@ class UserController extends Controller
     {
         $filters = $request->only(['q', 'role', 'status']);
 
+        // Kolom sort divalidasi ke whitelist — nilai ngawur jatuh ke default.
+        $sortable = ['fullname', 'username', 'email', 'role', 'member_id', 'company_name', 'status', 'created_at'];
+        $sort = in_array($request->query('sort'), $sortable, true) ? $request->query('sort') : 'created_at';
+        $dir = $request->query('dir') === 'asc' ? 'asc' : 'desc';
+
         $users = User::query()
             ->with('activeJoinTransaction')
             ->when($filters['q'] ?? null, function ($query, $q) {
@@ -41,13 +46,15 @@ class UserController extends Controller
             })
             ->when($filters['role'] ?? null, fn ($query, $role) => $query->where('role', $role))
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
-            ->orderByDesc('created_at')
+            ->orderBy($sort, $dir)
             ->paginate(15)
             ->withQueryString();
 
         return view('users.index', [
             'users' => $users,
             'filters' => $filters,
+            'sort' => $sort,
+            'dir' => $dir,
             'roles' => Role::ordered()->get(),
             'uplineCandidates' => User::whereIn('role', array_keys(PartnerHierarchy::TIERS))
                 ->where('status', User::STATUS_ACTIVE)

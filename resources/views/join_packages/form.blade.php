@@ -70,29 +70,48 @@
     const EXISTING_ITEMS = {{ \Illuminate\Support\Js::from($package->exists ? $package->items->map(fn ($it) => ['product_id' => $it->product_id, 'qty' => $it->qty])->values() : []) }};
     let idx = 0;
 
-    function productOptions(selected) {
-        let html = '<option value="">— pilih produk —</option>';
-        PRODUCTS.forEach(p => {
-            html += `<option value="${p.id}" ${p.id == selected ? 'selected' : ''}>${p.name}${p.sku ? ' (' + p.sku + ')' : ''}</option>`;
-        });
-        return html;
-    }
+    // Ketik-buat-cari (datalist), bukan gulir 1-1. Pola sama form Deal KOL:
+    // teks → product_id (hidden) via peta; server tetap validasi id.
+    const label = p => p.name + (p.sku ? ' (' + p.sku + ')' : '');
+    const LABEL_TO_ID = {}, ID_TO_LABEL = {};
+    PRODUCTS.forEach(p => { const l = label(p); LABEL_TO_ID[l] = p.id; ID_TO_LABEL[p.id] = l; });
+
+    (function () {
+        const dl = document.createElement('datalist');
+        dl.id = 'productList';
+        PRODUCTS.forEach(p => { const o = document.createElement('option'); o.value = label(p); dl.appendChild(o); });
+        document.body.appendChild(dl);
+    })();
 
     function addRow(productId, qty) {
         const i = idx++;
+        const val = (productId && ID_TO_LABEL[productId]) ? ID_TO_LABEL[productId] : '';
         const tr = document.createElement('tr');
-        tr.className = 'border-t border-stone-100 align-middle';
+        tr.className = 'border-t border-stone-100 align-top';
         tr.dataset.row = i;
         tr.innerHTML = `
             <td class="px-4 py-2">
-                <select name="items[${i}][product_id]" required class="w-64 px-2 py-1.5 border border-stone-300 rounded-lg">${productOptions(productId)}</select>
+                <input type="text" list="productList" autocomplete="off" required data-role="pname"
+                    value="${val.replace(/"/g, '&quot;')}" placeholder="Ketik nama / SKU produk…"
+                    class="w-72 px-2 py-1.5 border border-stone-300 rounded-lg">
+                <input type="hidden" name="items[${i}][product_id]" value="${productId || ''}" data-role="pid">
+                <span data-role="miss" class="block mt-1 text-[10px] text-rose-500 hidden">Produk tak ada — pilih dari daftar.</span>
             </td>
-            <td class="text-right">
+            <td class="text-right py-2">
                 <input type="number" min="1" name="items[${i}][qty]" value="${qty || 1}" required class="w-20 px-2 py-1.5 border border-stone-300 rounded-lg text-right">
             </td>
-            <td class="pr-4 text-right"><button type="button" onclick="removeRow(${i})" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
+            <td class="pr-4 py-2 text-right"><button type="button" onclick="removeRow(${i})" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
         document.getElementById('rows').appendChild(tr);
     }
+
+    document.getElementById('rows').addEventListener('input', function (e) {
+        const inp = e.target.closest('[data-role="pname"]');
+        if (!inp) return;
+        const td = inp.closest('td');
+        const id = LABEL_TO_ID[inp.value.trim()] || '';
+        td.querySelector('[data-role="pid"]').value = id;
+        td.querySelector('[data-role="miss"]').classList.toggle('hidden', !!id || inp.value.trim() === '');
+    });
 
     function removeRow(i) {
         const tr = document.querySelector(`tr[data-row="${i}"]`);
