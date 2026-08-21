@@ -29,10 +29,14 @@ class User extends Authenticatable
 
     public const ROLE_RESELLER_GOLD = 'reseller_gold';
 
-    /** Semua role yang dianggap "mitra" (lama + tier MLM). */
+    /** Sponsor = perekrut murni (punya saldo/komisi + withdraw, TANPA stok/PO). Bukan tier pasok. */
+    public const ROLE_SPONSOR = 'sponsor';
+
+    /** Semua role yang dianggap "mitra" (lama + tier MLM + sponsor). */
     public const PARTNER_ROLES = [
         self::ROLE_DISTRIBUTOR, self::ROLE_RESELLER,
         self::ROLE_GRAND_DISTRIBUTOR, self::ROLE_RESELLER_BRONZE, self::ROLE_RESELLER_GOLD,
+        self::ROLE_SPONSOR,
     ];
 
     public const ROLES = [
@@ -52,7 +56,7 @@ class User extends Authenticatable
     protected $fillable = [
         'uid', 'name', 'fullname', 'email', 'username', 'password',
         'role', 'company_name', 'phone', 'address', 'status', 'region',
-        'upline_id', 'member_id',
+        'upline_id', 'sponsor_id', 'member_id',
         'bank', 'no_rekening', 'atas_nama',
         'email_verified_at', 'disabled_at', 'created_by', 'updated_by',
     ];
@@ -92,6 +96,18 @@ class User extends Authenticatable
     public function downlines()
     {
         return $this->hasMany(User::class, 'upline_id');
+    }
+
+    /** Jalur rekrutmen: siapa yang MEREKRUT member ini (beda dari upline pasok). */
+    public function sponsor()
+    {
+        return $this->belongsTo(User::class, 'sponsor_id');
+    }
+
+    /** Member yang DIREKRUT user ini (lead-nya). */
+    public function recruits()
+    {
+        return $this->hasMany(User::class, 'sponsor_id');
     }
 
     /* --------------------------------------------------------------------- */
