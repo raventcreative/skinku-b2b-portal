@@ -41,7 +41,8 @@ Model terpusat (pivot 15 Agu) bikin HQ tetap mengirim ke semua level (termasuk d
 Bangun bertahap (tiap fase self-contained, dormant-safe, deployable sendiri) — pola sama Model X dulu:
 
 ### Fase 1 — Routing + padamkan override (fondasi, dormant-safe)
-- **`PurchaseOrderService::createForPartner`**: set `seller_id = buyer->upline_id` **kalau** upline ada & upline `holdsStock` (GD/Distri); else `null` (HQ). (Balik dari hardcode `null`.)
+- **`PurchaseOrderService::createForPartner`**: set `seller_id = buyer->upline_id` **HANYA jika buyer & upline dua-duanya `holds_stock`** (stockist→stockist, mis. Distri→GD). Reseller (no-stock, beli offline) TAK route inter-partner → `null`/HQ (kalaupun dipanggil via service). GD (upline null) → `null`/HQ. (Balik dari hardcode `null`.)
+- **Tulis-ulang tes komisi:** `CommissionEngineTest` punya ~6 tes yang assert override cair (distri-dengan-upline→HQ→grand 6/4%). Model A meroute distri-dengan-upline ke GD (`seller_id` set) → override skip → tes-tes itu jadi usang. Ganti maknanya ke Model A: "distri dgn upline-GD → PO `seller_id=GD` (inter-partner) → NOL komisi override". Pertahankan tes: no-upline→nol, inter-partner-skip, backdated-nol, idempoten (yang relevan), + 1 tes membuktikan kode override masih bisa dihidupkan (rate>0 + `seller_id=null` paksa) = revivable. **Ini money-critical — kerjakan hati-hati.**
 - **Override PADAM (dorman, JANGAN hapus):** karena engine komisi sudah skip `seller_id !== null`, order ke GD otomatis tanpa override. Tiga langkah non-destruktif: (a) **hide** field "Override Grand" di Pengaturan → Rate Komisi (sama pola dgn Distributor/Reseller yang sudah disembunyikan); (b) **set rate 0** di RATE_DEFAULTS; (c) **BIARKAN kode `recordForCompletedPo` override + key AppSetting tetap ada** — dorman, bisa dipanggil lagi tanpa rebuild. Join bonus (onboarding 10%) TETAP jalan.
 - **Dormant-safe:** jaringan prod KOSONG (semua `upline_id` null) → semua PO tetap `seller_id=null` = HQ = perilaku sekarang. Model A nyala per-mitra begitu upline diisi. NOL disrupsi saat deploy.
 - **Tes:** distri dgn upline-GD → `seller_id`=GD; distri tanpa upline → `seller_id`=null; GD → `seller_id`=null; order ke GD tak catat komisi override; regresi PO HQ existing hijau.
@@ -69,6 +70,16 @@ Per fase (TDD): routing (Fase 1), workflow+otorisasi (Fase 2), pembayaran (Fase 
 ## Rollout / dormant-safe
 
 Deploy tiap fase aman karena jaringan prod kosong (semua ke HQ sampai upline diisi). Aktivasi bertahap: angkat Grand → set upline distri → Model A nyala per-cabang. Bisa uji gradual.
+
+## Forward-compat (biar fitur berikut NEMPEL, bukan bongkar-ulang)
+
+Permintaan user: bangun Model A supaya RO cashback (Sponsor) & Insentif Volume Grand nanti tak memaksa rombak kode Model A.
+
+- **Jaga fondasi komisi utuh:** Model A cuma PADAM override (rate 0 + hide UI), TAK menghapus tabel `commissions`, `CommissionService`, atau hook `recordForCompletedPo`. Semua tetap ada.
+- **Shared hook = "GD selesai order ke HQ"** (`complete()` dengan `seller_id === null` & buyer role grand). Di titik INI nanti nempel: (a) **RO cashback 5%** ke sponsor (Sponsor feature), (b) **Volume Incentive** evaluasi. Model A menjaga hook ini tetap ada & bersih — fitur berikut menambah method/branch, bukan mengubah routing Model A.
+- **Tabel komisi type-agnostic:** kolom `type` string sudah nerima `ro_cashback`, `volume_bonus` tanpa migrasi struktur.
+- **JANGAN nebak data-model Sponsor lebih awal** (mis. `sponsor_id`) di Model A — itu diputus saat spec Sponsor, biar tak salah tebak & malah bikin churn sendiri. Model A cukup menyisakan attach-point bersih.
+- **Anti-mega-build:** ketiga fitur lanjutan dibangun BERTAHAP di atas fondasi ini (bukan satu merge raksasa) — lebih aman dites/review/deploy, hasil "no rework" yang sama.
 
 ## Di luar cakupan (fitur TERPISAH, spec sendiri nanti)
 
