@@ -129,6 +129,12 @@ class HqReportSellerExclusionTest extends TestCase
         $html = $this->actingAs($grand)->get('/dashboard')->assertOk()->getContent();
         $this->assertStringContainsString('Belanja ke HQ', $html);
         $this->assertStringContainsString('Penjualan ke Downline', $html);
+
+        // Distributor juga stockist → dapat kartu Downline; TAPI label belanja "Belanja"
+        // (bukan "ke HQ" — distri beli ke GD-nya, bukan HQ).
+        $distHtml = $this->actingAs($dist)->get('/dashboard')->assertOk()->getContent();
+        $this->assertStringContainsString('Penjualan ke Downline', $distHtml);
+        $this->assertStringNotContainsString('Belanja ke HQ', $distHtml);
     }
 
     public function test_laporan_penjualan_downline_data_dan_akses(): void

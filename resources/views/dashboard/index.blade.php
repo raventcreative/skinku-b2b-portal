@@ -74,10 +74,15 @@
     // Null = kartu diam (pengguna tak punya akses ke halamannya).
     $bln = $bulan->format('Y-m');
     // Mitra: "Penjualan"/"PO Masuk" sebenarnya BELANJA & PO milik dia sendiri (dia
-    // pembeli ke HQ). Staff (HQ): tetap penjualan HQ. Relabel biar tak rancu (Model A).
+    // pembeli). Staff (HQ): tetap penjualan HQ. Relabel biar tak rancu (Model A).
+    // GD selalu beli ke HQ; distributor beli ke GD-nya (atau HQ fallback) → "ke HQ"
+    // cuma pas buat GD, distri/mitra lain pakai "Belanja" generik.
     $isPartner = $user->isPartner();
+    $labelBeli = ! $isPartner
+        ? 'Penjualan'
+        : ($user->role === \App\Models\User::ROLE_GRAND_DISTRIBUTOR ? 'Belanja ke HQ' : 'Belanja');
     $cards = [
-        [$isPartner ? 'Belanja ke HQ' : 'Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), $isPartner ? 'rose' : 'emerald', $per, $salesBreakdown,
+        [$labelBeli, 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), $isPartner ? 'rose' : 'emerald', $per, $salesBreakdown,
             $user->canDo('view_reports') ? route('reports.index', ['bulan' => $bln]) : null],
         [$isPartner ? 'PO Saya' : 'PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per, null,
             route('purchase-orders.index')],
