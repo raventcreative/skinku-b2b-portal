@@ -10,7 +10,6 @@ use App\Services\CommissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -54,7 +53,7 @@ class SettingController extends Controller
                     ->get(),
             ],
             'komisiRates' => [
-                'grand' => AppSetting::float('komisi_persen_grand_distributor', CommissionService::RATE_DEFAULTS['komisi_persen_grand_distributor']),
+                // Model A: hanya Bonus Join yang aktif di UI (override dorman, rate 0).
                 'join' => AppSetting::float('komisi_persen_join', CommissionService::RATE_DEFAULTS['komisi_persen_join']),
             ],
         ]);
@@ -91,18 +90,14 @@ class SettingController extends Controller
      */
     public function saveKomisi(Request $request): RedirectResponse
     {
+        // Model A: override dinonaktifkan → hanya Bonus Join yang bisa diatur dari UI.
+        // Key override (komisi_persen_grand_distributor dll) dibiarkan pada nilai 0
+        // (dorman, revivable) — tak disentuh dari sini.
         $data = $request->validate([
-            'grand' => ['required', 'numeric', 'min:0', 'max:100'],
             'join' => ['required', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        // Hanya rate AKTIF yang bisa diedit: Override Grand + Bonus Join. Key override
-        // Distributor/Reseller sengaja TAK disentuh (dorman — reseller beli offline, tak
-        // memicu override) dan tetap di nilai default-nya.
-        DB::transaction(function () use ($data) {
-            AppSetting::put('komisi_persen_grand_distributor', (string) $data['grand']);
-            AppSetting::put('komisi_persen_join', (string) $data['join']);
-        });
+        AppSetting::put('komisi_persen_join', (string) $data['join']);
 
         AuditService::log(action: 'save_komisi_settings', targetType: 'app_setting', after: $data);
 

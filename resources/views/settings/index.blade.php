@@ -46,19 +46,15 @@
         @endif
     </div>
 
-    {{-- Rate Komisi — hanya rate yang AKTIF di model sekarang: Override Grand + Bonus Join.
-         Override Distributor & Reseller SENGAJA disembunyikan (dorman: reseller beli offline
-         ke distributor, jadi tak pernah memicu override). Key-nya tetap ada di backend pada
-         nilai default — tinggal dimunculkan lagi kalau model berubah. --}}
+    {{-- Rate Komisi — Model A: OVERRIDE DIPADAMKAN (rate 0, dorman). Untung mitra dari
+         MARGIN (beli-dari-upline), bukan override → field Override disembunyikan. Key
+         komisi_persen_<role> tetap ada di backend (nilai 0) — tinggal dimunculkan lagi
+         kalau override dihidupkan. Yang aktif tinggal Bonus Join (onboarding). --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
         <h3 class="text-sm font-bold text-stone-900 mb-1">Rate Komisi</h3>
-        <p class="text-xs text-stone-500 mb-4"><b>Override Grand</b> — dibayar saat Distributor order ke HQ (upline langsung). <b>Bonus Join</b> — % nilai paket ke upline saat mitra baru onboarding. Berlaku untuk komisi ke depan; yang sudah tercatat tak berubah.</p>
+        <p class="text-xs text-stone-500 mb-4"><b>Bonus Join</b> — % nilai paket ke upline saat mitra baru onboarding. Berlaku untuk komisi ke depan; yang sudah tercatat tak berubah. <span class="text-stone-400">(Override dinonaktifkan di Model A — untung mitra dari selisih harga/margin.)</span></p>
         <form method="POST" action="{{ route('settings.komisi.save') }}" class="grid sm:grid-cols-2 gap-3 items-end">
             @csrf
-            <label class="text-[11px] font-semibold text-stone-500">Override Grand (%)
-                <input type="number" name="grand" step="0.01" min="0" max="100" value="{{ $komisiRates['grand'] }}"
-                    class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
-            </label>
             <label class="text-[11px] font-semibold text-stone-500">Bonus Join (%)
                 <input type="number" name="join" step="0.01" min="0" max="100" value="{{ $komisiRates['join'] }}"
                     class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
@@ -67,7 +63,6 @@
                 <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Simpan Rate</button>
             </div>
         </form>
-        @error('grand')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
         @error('join')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
     </div>
 

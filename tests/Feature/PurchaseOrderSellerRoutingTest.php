@@ -40,16 +40,29 @@ class PurchaseOrderSellerRoutingTest extends TestCase
         return app(PurchaseOrderService::class);
     }
 
-    public function test_po_seller_selalu_null_semua_ke_hq(): void
+    public function test_po_distri_route_ke_gd(): void
     {
+        // Model A: Distributor (stockist) dgn upline GD → PO ke GD (inter-partner).
         $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
-        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id); // punya upline
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
 
         $p = $this->product();
-
         $po = $this->svc()->createForPartner($dist, [['product_id' => $p->id, 'qty' => 2]], null, null);
 
-        $this->assertNull($po->seller_id); // routing Model X mati — semua ke HQ
+        $this->assertSame($grand->id, $po->seller_id); // routing ke GD (inter-partner)
+    }
+
+    public function test_po_reseller_no_stock_route_hq(): void
+    {
+        // Reseller (no-stock, beli offline) TAK route inter-partner → HQ (null).
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+        $reseller = $this->user(User::ROLE_RESELLER_BRONZE, $dist->id);
+
+        $p = $this->product();
+        $po = $this->svc()->createForPartner($reseller, [['product_id' => $p->id, 'qty' => 1]], null, null);
+
+        $this->assertNull($po->seller_id); // buyer no-stock → HQ
     }
 
     public function test_po_tanpa_upline_seller_null_hq(): void

@@ -8,10 +8,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * UI atur rate komisi di Pengaturan. Hanya rate AKTIF yang bisa diedit:
- * Override Grand + Bonus Join. Override Distributor/Reseller disembunyikan
- * (dorman — reseller beli offline, tak memicu override) dan TAK disentuh
- * saat simpan; key-nya tetap di nilai default backend.
+ * UI atur rate komisi di Pengaturan. Model A: OVERRIDE dinonaktifkan (dorman,
+ * rate 0) → hanya Bonus Join yang bisa diedit. Key override TAK disentuh dari
+ * UI (tetap dorman, revivable).
  */
 class KomisiRateSettingTest extends TestCase
 {
@@ -25,25 +24,23 @@ class KomisiRateSettingTest extends TestCase
         ]);
     }
 
-    public function test_simpan_rate_grand_dan_join(): void
+    public function test_simpan_rate_join(): void
     {
         $this->actingAs($this->superadmin())->post(route('settings.komisi.save'), [
-            'grand' => 7, 'join' => 12,
+            'join' => 12,
         ])->assertRedirect();
 
-        $this->assertSame('7', AppSetting::get('komisi_persen_grand_distributor'));
         $this->assertSame('12', AppSetting::get('komisi_persen_join'));
-        // Key override dorman TAK disentuh oleh UI (tetap null / nilai default backend).
-        $this->assertNull(AppSetting::get('komisi_persen_distributor'));
-        $this->assertNull(AppSetting::get('komisi_persen_reseller_bronze'));
+        // Model A: override dinonaktifkan → key override TAK ditulis dari UI (tetap dorman).
+        $this->assertNull(AppSetting::get('komisi_persen_grand_distributor'));
     }
 
     public function test_rate_di_luar_0_100_ditolak(): void
     {
         $this->actingAs($this->superadmin())->post(route('settings.komisi.save'), [
-            'grand' => 150, 'join' => 12,
-        ])->assertSessionHasErrors('grand');
+            'join' => 150,
+        ])->assertSessionHasErrors('join');
 
-        $this->assertNull(AppSetting::get('komisi_persen_grand_distributor'));
+        $this->assertNull(AppSetting::get('komisi_persen_join'));
     }
 }
