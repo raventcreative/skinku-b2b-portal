@@ -127,7 +127,7 @@
         </div>
         <form method="POST" id="createUserForm" action="{{ route('users.store') }}" class="grid grid-cols-2 gap-3 text-sm">
             @csrf
-            @include('users._fields', ['roles' => $roles, 'isSuper' => $isSuper, 'scope' => 'C'])
+            @include('users._fields', ['roles' => $roles, 'isSuper' => $isSuper])
             <div class="col-span-2">
                 <label class="block text-xs font-semibold text-stone-700 mb-1">Password (dibuat otomatis — bisa diganti)</label>
                 <div class="flex gap-2">
@@ -160,7 +160,7 @@
         </div>
         <form method="POST" id="editUserForm" class="grid grid-cols-2 gap-3 text-sm">
             @csrf @method('PUT')
-            @include('users._fields', ['roles' => $roles, 'isSuper' => $isSuper, 'edit' => true, 'scope' => 'E'])
+            @include('users._fields', ['roles' => $roles, 'isSuper' => $isSuper, 'edit' => true])
             <div class="col-span-2 flex justify-end gap-2 mt-2">
                 <button type="button" onclick="toggleModal('editUserModal')" class="px-4 py-2 text-stone-600 rounded-lg">Batal</button>
                 <button class="px-5 py-2 bg-red-600 text-white rounded-lg">Update</button>
@@ -200,8 +200,7 @@
         f.querySelector('[name=phone]').value = u.phone ?? '';
         f.querySelector('[name=address]').value = u.address ?? '';
         const regionSel = f.querySelector('[data-region-prov]');
-        const cityInput = f.querySelector('[data-region-city]');
-        const cityDl = f.querySelector('[data-region-citylist]');
+        const citySel = f.querySelector('[data-region-city]');
         if (regionSel) {
             const rv = u.region ?? '';
             // Region lama yang bukan provinsi (data lama) → tambah opsi sementara biar tak hilang.
@@ -210,9 +209,14 @@
             }
             regionSel.value = rv;
         }
-        if (cityInput) {
-            if (cityDl && window.regionFillCity) window.regionFillCity(u.region ?? '', cityDl);
-            cityInput.value = u.city ?? ''; // input teks: nilai lama apa pun tampil apa adanya
+        if (citySel && window.regionFillCity) {
+            const cv = u.city ?? '';
+            window.regionFillCity(u.region ?? '', citySel, cv);
+            // Kota lama yang tak ada di daftar provinsi → tambah opsi biar tak hilang.
+            if (cv && !Array.from(citySel.options).some(o => o.value === cv)) {
+                citySel.add(new Option(cv + ' (lama)', cv));
+                citySel.value = cv;
+            }
         }
         f.querySelector('[name=status]').value = u.status ?? 'active';
         refreshUplineOptions(f);
