@@ -62,26 +62,22 @@
         </div>
         <div>
             <label class="block text-xs font-semibold text-stone-700 mb-1">Upline (induk di pohon)</label>
-            <select name="upline_id" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
-                <option value="">— belum ditempatkan —</option>
-                @foreach($uplines as $cand)
-                    <option value="{{ $cand->id }}" @selected((string) old('upline_id') === (string) $cand->id)>
-                        {{ $cand->fullname }} · {{ \App\Support\PartnerHierarchy::label($cand->role) }}{{ $cand->region ? ' · '.$cand->region : '' }}{{ $cand->member_id ? ' · '.$cand->member_id : '' }}
-                    </option>
-                @endforeach
-            </select>
+            <input type="text" list="uplineList" autocomplete="off" id="uplineSearch"
+                placeholder="Ketik nama / member ID… (kosong = belum ditempatkan)"
+                class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+            <input type="hidden" name="upline_id" id="uplineId" value="{{ old('upline_id') }}">
+            <datalist id="uplineList"></datalist>
+            <span id="uplineMiss" class="block mt-1 text-[10px] text-rose-500 hidden">Upline tak dikenali — pilih dari daftar atau kosongkan.</span>
             <p class="text-[10px] text-stone-400 mt-1">Reseller Bronze & Gold selalu ditempatkan di bawah Distributor.</p>
         </div>
         <div>
             <label class="block text-xs font-semibold text-stone-700 mb-1">Sponsor / perekrut (opsional)</label>
-            <select name="sponsor_id" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
-                <option value="">— tanpa sponsor (daftar mandiri) —</option>
-                @foreach($sponsors as $s)
-                    <option value="{{ $s->id }}" @selected((string) old('sponsor_id') === (string) $s->id)>
-                        {{ $s->fullname }} · {{ \App\Support\PartnerHierarchy::label($s->role) }}{{ $s->member_id ? ' · '.$s->member_id : '' }}
-                    </option>
-                @endforeach
-            </select>
+            <input type="text" list="sponsorList" autocomplete="off" id="sponsorSearch"
+                placeholder="Ketik nama / member ID… (kosong = daftar mandiri)"
+                class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+            <input type="hidden" name="sponsor_id" id="sponsorId" value="{{ old('sponsor_id') }}">
+            <datalist id="sponsorList"></datalist>
+            <span id="sponsorMiss" class="block mt-1 text-[10px] text-rose-500 hidden">Sponsor tak dikenali — pilih dari daftar atau kosongkan.</span>
             <p class="text-[10px] text-stone-400 mt-1">Bonus join 10% ke sponsor. Beda dari upline. Kosong = tak ada bonus join.</p>
         </div>
     </div>
@@ -99,3 +95,33 @@
     </div>
 </form>
 @endsection
+
+@push('scripts')
+<script>
+    // Upline & Sponsor: ketik-buat-cari (datalist), bukan gulir 1-1. Keduanya
+    // OPSIONAL — kosong = tak dipilih. Teks → id (hidden); server validasi id.
+    const UPLINES = {{ \Illuminate\Support\Js::from($uplines->map(fn ($c) => ['id' => $c->id, 'label' => trim($c->fullname.' · '.\App\Support\PartnerHierarchy::label($c->role).($c->region ? ' · '.$c->region : '').($c->member_id ? ' · '.$c->member_id : ''))])->values()) }};
+    const SPONSORS = {{ \Illuminate\Support\Js::from($sponsors->map(fn ($s) => ['id' => $s->id, 'label' => trim($s->fullname.' · '.\App\Support\PartnerHierarchy::label($s->role).($s->member_id ? ' · '.$s->member_id : ''))])->values()) }};
+
+    function wireTypeahead(searchId, hiddenId, listId, missId, data) {
+        const search = document.getElementById(searchId);
+        const hidden = document.getElementById(hiddenId);
+        const list = document.getElementById(listId);
+        const miss = document.getElementById(missId);
+        const L2I = {}, I2L = {};
+        data.forEach(d => {
+            L2I[d.label] = d.id; I2L[d.id] = d.label;
+            const o = document.createElement('option'); o.value = d.label; list.appendChild(o);
+        });
+        if (hidden.value && I2L[hidden.value]) search.value = I2L[hidden.value];
+        search.addEventListener('input', () => {
+            const v = search.value.trim();
+            const id = L2I[v] || '';
+            hidden.value = id;
+            miss.classList.toggle('hidden', !!id || v === '');
+        });
+    }
+    wireTypeahead('uplineSearch', 'uplineId', 'uplineList', 'uplineMiss', UPLINES);
+    wireTypeahead('sponsorSearch', 'sponsorId', 'sponsorList', 'sponsorMiss', SPONSORS);
+</script>
+@endpush
