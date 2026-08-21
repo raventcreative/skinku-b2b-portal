@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\CommissionService;
 use App\Services\ReportService;
+use App\Support\PartnerHierarchy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -53,6 +54,21 @@ class ReportController extends Controller
         $data['user'] = $user;
 
         return view('reports.index', $data);
+    }
+
+    /** Laporan Penjualan ke Downline (Model A) — mitra stockist (GD/Distri) saja. */
+    public function downlineSales(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user->isPartner() && PartnerHierarchy::holdsStock($user->role), 403);
+
+        $bulan = $this->parseMonth($request->query('bulan'));
+
+        return view('reports.downline_sales', [
+            'report' => $this->reports->downlineSalesReport($user, $bulan),
+            'bulan' => $bulan,
+            'user' => $user,
+        ]);
     }
 
     /** Omzet per mitra (HQ-only): jual ke downline (PO) + jual ke customer akhir, digabung per mitra. */

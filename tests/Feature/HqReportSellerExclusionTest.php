@@ -130,4 +130,28 @@ class HqReportSellerExclusionTest extends TestCase
         $this->assertStringContainsString('Belanja ke HQ', $html);
         $this->assertStringContainsString('Penjualan ke Downline', $html);
     }
+
+    public function test_laporan_penjualan_downline_data_dan_akses(): void
+    {
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+        $p = $this->product();
+        $this->completedPo($dist, $p, 5); // dist beli ke grand @ 20rb → 100rb
+
+        // Data laporan
+        $rep = $this->report()->downlineSalesReport($grand, null);
+        $this->assertEqualsWithDelta(100_000, (float) $rep['net'], 0.01);
+        $this->assertSame(1, $rep['completed']);
+        $this->assertNotEmpty($rep['per_buyer']);
+        $this->assertSame($dist->fullname, $rep['per_buyer'][0]['nama']);
+        $this->assertNotEmpty($rep['per_product']);
+
+        // Akses: GD (stockist) boleh & lihat downline-nya.
+        $this->actingAs($grand)->get(route('reports.downline-sales'))->assertOk()
+            ->assertSee('Laporan Penjualan ke Downline')->assertSee($dist->fullname);
+
+        // Reseller Bronze (tak pegang stok / tak punya view_reports) → 403.
+        $bronze = $this->user(User::ROLE_RESELLER_BRONZE);
+        $this->actingAs($bronze)->get(route('reports.downline-sales'))->assertForbidden();
+    }
 }

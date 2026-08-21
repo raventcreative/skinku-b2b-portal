@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Inventory;
 use App\Models\PartnerSale;
+use App\Models\PoReturnItem;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\ShopeeOrder;
@@ -47,6 +48,32 @@ class ReportService
      * Scope helper: partners only see their own data; HQ view excludes
      * inter-partner PO (seller_id set) — those aren't HQ's sales.
      */
+    /**
+     * Penjualan mitra ke downline (Model A), NET: Σ total PO (seller = mitra,
+     * completed) − nilai retur yang sudah applied. Basis tanggal = tanggal PO,
+     * sama seperti cara insentif volume men-net-kan retur (konsisten).
+     */
+    private function downlineSalesNet(User $seller, ?Carbon $month): float
+    {
+        $gross = (float) $this->inMonth(
+            PurchaseOrder::query()->where('status', self::REVENUE_STATUS)->where('seller_id', $seller->id),
+            $month,
+        )->sum('total_amount');
+
+        $returned = (float) $this->inMonth(
+            PoReturnItem::query()
+                ->join('po_returns', 'po_returns.id', '=', 'po_return_items.po_return_id')
+                ->join('purchase_order_items', 'purchase_order_items.id', '=', 'po_return_items.purchase_order_item_id')
+                ->join('purchase_orders', 'purchase_orders.id', '=', 'po_returns.purchase_order_id')
+                ->where('purchase_orders.seller_id', $seller->id)
+                ->where('po_returns.status', 'applied'),
+            $month,
+            'purchase_orders',
+        )->selectRaw('COALESCE(SUM(po_return_items.qty * purchase_order_items.unit_price), 0) as r')->value('r');
+
+        return max(0.0, $gross - $returned);
+    }
+
     private function scopePo($query, ?User $viewer)
     {
         if ($viewer && $viewer->isPartner()) {
@@ -94,13 +121,10 @@ class ReportService
             'partner_stock_units' => $viewer && $viewer->isPartner()
                 ? (int) Inventory::where('user_id', $viewer->id)->sum('quantity')
                 : (int) Inventory::sum('quantity'),
-            // Model A: penjualan mitra ke DOWNLINE-nya = PO completed di mana dia jadi
-            // seller. Beda dari belanja dia ke HQ. 0 untuk staff / mitra tanpa jualan.
+            // Model A: penjualan mitra ke DOWNLINE-nya (NET) = PO completed di mana dia
+            // jadi seller, dikurangi retur applied. 0 untuk staff / mitra tanpa jualan.
             'downline_sales' => $viewer && $viewer->isPartner()
-                ? (float) $this->inMonth(
-                    PurchaseOrder::query()->where('status', self::REVENUE_STATUS)->where('seller_id', $viewer->id),
-                    $month,
-                )->sum('total_amount')
+                ? $this->downlineSalesNet($viewer, $month)
                 : 0.0,
         ];
     }
@@ -121,6 +145,55 @@ class ReportService
      *
      * @return array<int, array{key:string, label:string, color:string, confirmed:float, pipeline:float}>
      */
+    /**
+     * Laporan Penjualan ke Downline (Model A) untuk satu mitra stockist (GD/Distri):
+     * ringkasan net + status + rincian per pembeli-downline + per produk. Semua dari
+     * PO di mana mitra jadi seller (seller_id = dia).
+     *
+     * @return array{net:float, po_count:int, pending:int, completed:int, per_buyer:array<int,array{nama:string,role:string,po_count:int,total:float}>, per_product:array<int,array{nama:string,qty:int,total:float}>}
+     */
+    public function downlineSalesReport(User $seller, ?Carbon $month = null): array
+    {
+        $sellerId = $seller->id;
+
+        $poCount = (int) $this->inMonth(PurchaseOrder::query()->where('seller_id', $sellerId), $month)->count();
+        $pending = (int) $this->inMonth(PurchaseOrder::query()->where('seller_id', $sellerId)->where('status', PurchaseOrder::STATUS_PENDING), $month)->count();
+        $completed = (int) $this->inMonth(PurchaseOrder::query()->where('seller_id', $sellerId)->where('status', self::REVENUE_STATUS), $month)->count();
+
+        // Per downline (pembeli) — PO completed, digabung per pembeli.
+        $perBuyer = $this->inMonth(
+            PurchaseOrder::query()
+                ->where('purchase_orders.seller_id', $sellerId)
+                ->where('purchase_orders.status', self::REVENUE_STATUS)
+                ->join('users', 'users.id', '=', 'purchase_orders.user_id'),
+            $month, 'purchase_orders',
+        )->groupBy('purchase_orders.user_id', 'users.fullname', 'users.name', 'users.role')
+            ->selectRaw('purchase_orders.user_id as uid, COALESCE(users.fullname, users.name) as nama, users.role as role, COUNT(*) as po_count, COALESCE(SUM(purchase_orders.total_amount), 0) as total')
+            ->orderByDesc('total')->get()
+            ->map(fn ($r) => ['nama' => (string) $r->nama, 'role' => (string) $r->role, 'po_count' => (int) $r->po_count, 'total' => (float) $r->total])->all();
+
+        // Per produk — item PO completed.
+        $perProduct = $this->inMonth(
+            PurchaseOrder::query()
+                ->where('purchase_orders.seller_id', $sellerId)
+                ->where('purchase_orders.status', self::REVENUE_STATUS)
+                ->join('purchase_order_items', 'purchase_order_items.purchase_order_id', '=', 'purchase_orders.id'),
+            $month, 'purchase_orders',
+        )->groupBy('purchase_order_items.product_name')
+            ->selectRaw('purchase_order_items.product_name as nama, SUM(purchase_order_items.qty) as qty, COALESCE(SUM(purchase_order_items.qty * purchase_order_items.unit_price), 0) as total')
+            ->orderByDesc('total')->limit(15)->get()
+            ->map(fn ($r) => ['nama' => (string) $r->nama, 'qty' => (int) $r->qty, 'total' => (float) $r->total])->all();
+
+        return [
+            'net' => $this->downlineSalesNet($seller, $month),
+            'po_count' => $poCount,
+            'pending' => $pending,
+            'completed' => $completed,
+            'per_buyer' => $perBuyer,
+            'per_product' => $perProduct,
+        ];
+    }
+
     public function channelSales(?Carbon $month = null): array
     {
         $month ??= Carbon::now();

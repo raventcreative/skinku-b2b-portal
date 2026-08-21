@@ -238,6 +238,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     /* ---------------- Reports ---------------- */
     Route::middleware('permission:view_reports')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/penjualan-downline', [ReportController::class, 'downlineSales'])->name('reports.downline-sales'); // mitra stockist (cek di controller)
         Route::get('/reports/omzet-mitra', [ReportController::class, 'omzetMitra'])->name('reports.omzet-mitra');
         Route::get('/reports/export', [ExportController::class, 'penjualan'])->name('reports.export');
         Route::get('/reports/chart-data', [ReportController::class, 'chartData'])->name('reports.chart-data');

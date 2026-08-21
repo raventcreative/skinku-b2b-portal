@@ -118,6 +118,8 @@ class MlmScenarioEndToEndTest extends TestCase
 
         $this->assertSame(20, $this->stock($dist, $p));         // Distri -10 → 20
         $this->assertSame(80, $this->stock($nur, $p));          // Nur +10 (barang balik) → 80
+        // Penjualan ke Downline jadi NET: 720rb − (10×24rb retur) = 480rb.
+        $this->assertEqualsWithDelta(480_000, (float) $report->summary($nur)['downline_sales'], 0.01);
 
         // ===== STEP 6: Dashboard Grand — label + kartu Model A =====
         $html = $this->actingAs($nur)->get('/dashboard')->assertOk()->getContent();
