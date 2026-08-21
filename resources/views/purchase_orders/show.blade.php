@@ -205,6 +205,20 @@
                 <p class="text-[11px] text-stone-500 mb-3">Catatan: {{ $po->payment_note }}</p>
             @endif
 
+            {{-- Model A: PO ke GD (inter-partner, seller_id terisi) → tampilkan rekening
+                 GD tujuan transfer. PO ke HQ (seller null) tetap seperti biasa (via WA). --}}
+            @if($po->seller_id && ! $po->isPaid())
+                <div class="mb-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+                    <p class="text-[11px] font-bold text-indigo-900 mb-1">Transfer ke rekening penjual (GD)</p>
+                    @if($po->seller && $po->seller->no_rekening)
+                        <p class="text-xs text-stone-700"><b>{{ $po->seller->bank ?: 'Bank' }}</b> · {{ $po->seller->no_rekening }}</p>
+                        <p class="text-[11px] text-stone-500">a.n. {{ $po->seller->atas_nama ?: ($po->seller->fullname ?? $po->seller->name) }}</p>
+                    @else
+                        <p class="text-[11px] text-amber-700">Rekening penjual belum diisi — hubungi <b>{{ $po->seller->fullname ?? $po->seller->name ?? 'penjual' }}</b> untuk info transfer.</p>
+                    @endif
+                </div>
+            @endif
+
             {{-- Buyer (atau admin) unggah bukti. Ongkir ditagih terpisah via WA, jadi TIDAK
                  perlu menunggu admin menetapkan ongkir — buyer bisa langsung bayar produk. --}}
             @if($canUploadProof && in_array($po->payment_status, ['unpaid','rejected']))

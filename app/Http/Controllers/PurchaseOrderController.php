@@ -125,7 +125,7 @@ class PurchaseOrderController extends Controller
             abort(403, 'Anda hanya dapat melihat PO milik Anda sendiri.');
         }
 
-        $purchaseOrder->load('items', 'user');
+        $purchaseOrder->load('items', 'user', 'seller');
         $nextStatuses = PurchaseOrder::TRANSITIONS[$purchaseOrder->status] ?? [];
         $canEdit = $purchaseOrder->isEditable() && $this->canEditPo($user, $purchaseOrder);
 
