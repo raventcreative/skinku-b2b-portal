@@ -199,7 +199,15 @@
         f.querySelector('[name=company_name]').value = u.company_name ?? '';
         f.querySelector('[name=phone]').value = u.phone ?? '';
         f.querySelector('[name=address]').value = u.address ?? '';
-        f.querySelector('[name=region]').value = u.region ?? '';
+        const regionSel = f.querySelector('[name=region]');
+        if (regionSel) {
+            const rv = u.region ?? '';
+            // Region lama yang bukan provinsi (data lama) → tambah opsi sementara biar tak hilang.
+            if (rv && !Array.from(regionSel.options).some(o => o.value === rv)) {
+                regionSel.add(new Option(rv + ' (lama)', rv));
+            }
+            regionSel.value = rv;
+        }
         f.querySelector('[name=status]').value = u.status ?? 'active';
         refreshUplineOptions(f);
         const uplEl = f.querySelector('[name=upline_id]');
@@ -293,7 +301,7 @@
         }
         nameInput.addEventListener('input', refreshUsername);
         if (roleInput) roleInput.addEventListener('change', refreshUsername);
-        if (regionInput) regionInput.addEventListener('input', refreshUsername);
+        if (regionInput) regionInput.addEventListener('change', refreshUsername);
         // keep hidden confirmation synced if admin edits password manually
         const pw = cf.querySelector('#genPassword');
         const pwc = cf.querySelector('#genPasswordConfirm');

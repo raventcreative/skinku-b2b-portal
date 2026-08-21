@@ -28,6 +28,23 @@ class MemberFormHierarchyTest extends TestCase
         ]);
     }
 
+    public function test_region_pakai_dropdown_provinsi(): void
+    {
+        $sa = $this->superAdmin();
+
+        // Form render: dropdown provinsi (bukan input bebas).
+        $this->actingAs($sa)->get(route('users.index'))->assertOk()
+            ->assertSee('pilih provinsi')->assertSee('Jawa Timur')->assertSee('Papua Pegunungan');
+
+        // Simpan user dengan region dari daftar → tersimpan persis.
+        $this->actingAs($sa)->post(route('users.store'), [
+            'fullname' => 'Siti Nurkana', 'email' => 'siti@t.test', 'username' => 'siti_dist',
+            'password' => 'secret123', 'password_confirmation' => 'secret123',
+            'role' => User::ROLE_DISTRIBUTOR, 'status' => User::STATUS_ACTIVE, 'region' => 'Jawa Timur',
+        ])->assertRedirect();
+        $this->assertSame('Jawa Timur', User::where('username', 'siti_dist')->value('region'));
+    }
+
     public function test_kelola_anggota_bisa_disortir_per_kolom(): void
     {
         $sa = $this->superAdmin();
