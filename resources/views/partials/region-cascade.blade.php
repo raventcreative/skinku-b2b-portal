@@ -1,21 +1,34 @@
-{{-- Dropdown wilayah bertingkat: provinsi ([data-region-prov]) → kota
-     ([data-region-city]). Sertakan sekali di halaman yang punya form wilayah.
+{{-- Wilayah bertingkat: provinsi ([data-region-prov]) → kota ketik-cari.
+     Kota = <input list> + <datalist [data-region-citylist]> yang di-refresh per
+     provinsi, plus penanda [data-region-citymiss] kalau ketik di luar daftar.
      openEditUser (modal edit) memanggil window.regionFillCity sendiri. --}}
 <script>
 (function () {
     const CITIES = @json(config('regions.cities'));
-    function fill(prov, citySel, selected) {
-        let html = '<option value="">— pilih kota —</option>';
-        for (const c of (CITIES[prov] || [])) {
-            html += '<option value="' + c + '"' + (c === selected ? ' selected' : '') + '>' + c + '</option>';
-        }
-        citySel.innerHTML = html;
+    function opts(prov) {
+        return (CITIES[prov] || []).map(function (c) { return '<option value="' + c + '"></option>'; }).join('');
     }
-    window.regionFillCity = fill;
+    // Isi ulang datalist kota untuk provinsi terpilih (dipakai juga oleh openEditUser).
+    window.regionFillCity = function (prov, dl) { if (dl) dl.innerHTML = opts(prov); };
+
     document.querySelectorAll('[data-region-prov]').forEach(function (prov) {
         const form = prov.closest('form') || document;
-        const city = form.querySelector('[data-region-city]');
-        if (city) prov.addEventListener('change', function () { fill(prov.value, city, ''); });
+        const input = form.querySelector('[data-region-city]');
+        const dl = form.querySelector('[data-region-citylist]');
+        const miss = form.querySelector('[data-region-citymiss]');
+        if (!input || !dl) return;
+
+        function validate() {
+            const v = input.value.trim();
+            const ok = !v || (CITIES[prov.value] || []).includes(v);
+            if (miss) miss.classList.toggle('hidden', ok);
+        }
+        prov.addEventListener('change', function () {
+            dl.innerHTML = opts(prov.value);
+            input.value = '';                       // reset kota saat ganti provinsi
+            if (miss) miss.classList.add('hidden');
+        });
+        input.addEventListener('input', validate);
     });
 })();
 </script>
