@@ -140,7 +140,8 @@
                 <th rowspan="2" class="text-right px-2 align-bottom" title="Peringkat termurah (dari CPM median) di seluruh screening">{!! $sortLink('rank', 'Rank') !!}</th>
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari RATA-RATA views — bisa terangkat 1 video viral, jadi pembanding saja">{!! $sortLink('verdict_mean', 'Penilaian Rata-rata') !!}</th>
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari views MEDIAN (tengah) — ACUAN UTAMA, tahan dari 1 video viral">{!! $sortLink('verdict', 'Penilaian Median ⭐') !!}</th>
-                <th rowspan="2" class="text-left align-bottom" title="Urut berdasarkan estimasi GMV">{!! $sortLink('gmv', 'GMV · Viral · Fake') !!}</th>
+                <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV = median views × 1,2% konversi × Rp38rb order rata-rata — hitungan sistem, BUKAN data asli">{!! $sortLink('gmv', 'GMV Estimasi · Viral · Fake') !!}</th>
+                <th rowspan="2" class="text-right align-bottom" title="GMV asli dari data KOL — diisi manual saat screening (— bila belum diisi)">GMV Asli</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
             </tr>
             <tr>
@@ -189,15 +190,18 @@
                             <span class="font-semibold text-stone-800">🪙 {{ $rp($ls->gmv_estimate) }}</span>
                             <span class="block text-[10px] text-stone-500">🚀 {{ $ls->viral_label }} · 👤 {{ $ls->fake_label ?? '—' }}</span>
                         </td>
+                        <td class="text-right whitespace-nowrap">
+                            @if($ls->gmv)<span class="font-semibold text-emerald-700">{{ $rp($ls->gmv) }}</span>@else<span class="text-stone-300" title="Belum diisi — isi lewat + Screening / detail">—</span>@endif
+                        </td>
                     @else
-                        <td colspan="19" class="px-3 text-stone-300">belum discreening</td>
+                        <td colspan="20" class="px-3 text-stone-300">belum discreening</td>
                     @endif
                     <td class="text-right px-4">
                         <a href="{{ route('kols.show', $kol) }}" class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap">detail →</a>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="26" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="27" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>

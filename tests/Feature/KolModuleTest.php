@@ -442,14 +442,16 @@ class KolModuleTest extends TestCase
         $spec = $this->user('kol_specialist', 'specg');
         $kol = Kol::create(['tiktok_username' => 'gmvlist', 'followers' => 6_956]);
         KolScreening::create([
-            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => 55_000,
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => 55_000, 'gmv' => 12_345_678,
             'views_1' => 105_200, 'views_2' => 6_627, 'views_3' => 1_165, 'views_4' => 131_400,
             'views_5' => 2_874, 'views_6' => 1_040, 'views_7' => 11_000,
         ]);
 
         $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
-        $this->assertStringContainsString('GMV · Viral · Fake', $html);
-        $this->assertStringContainsString('3.021.912', $html);
+        $this->assertStringContainsString('GMV Estimasi · Viral · Fake', $html); // header lama di-label "Estimasi"
+        $this->assertStringContainsString('GMV Asli', $html);                    // kolom baru
+        $this->assertStringContainsString('3.021.912', $html);                   // estimasi (dari median views)
+        $this->assertStringContainsString('12.345.678', $html);                  // GMV asli (input manual)
         $this->assertStringContainsString('High', $html);
     }
 
