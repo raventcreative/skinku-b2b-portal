@@ -60,6 +60,8 @@ class KolService
             $screening = $kol->screenings()->create([
                 'tanggal_listing' => $data['tanggal_listing'],
                 'ratecard' => $data['ratecard'] ?? null,
+                'gmv' => $data['gmv'] ?? null,
+                'benefit' => $data['benefit'] ?? null,
                 'views_1' => (int) ($views[0] ?? 0),
                 'views_2' => (int) ($views[1] ?? 0),
                 'views_3' => (int) ($views[2] ?? 0),

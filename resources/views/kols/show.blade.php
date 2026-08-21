@@ -115,6 +115,7 @@
                         @else
                             —
                         @endif
+                        @if($s->benefit)<span class="block text-[10px] text-stone-500 text-left mt-1 whitespace-normal">🎁 {{ $s->benefit }}</span>@endif
                     </td>
                     {{-- Satu kolom per video — angka mentahnya, bukan deret bertitik. --}}
                     @foreach($s->views() as $v)
@@ -134,6 +135,7 @@
                     </td>
                     <td class="px-4 whitespace-nowrap">
                         <span class="font-semibold text-stone-800">🪙 {{ $rp($s->gmv_estimate) }}</span>
+                        @if($s->gmv)<span class="block text-[10px] text-emerald-700 font-semibold">GMV aktual: {{ $rp($s->gmv) }}</span>@endif
                         <span class="block text-[10px] text-stone-500">🚀 Viral: {{ $s->viral_label }} · 👤 Fake: {{ $s->fake_label ?? '—' }}</span>
                     </td>
                 </tr>

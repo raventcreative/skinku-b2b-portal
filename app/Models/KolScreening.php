@@ -20,7 +20,7 @@ class KolScreening extends Model
     public const VERDICT_BELUM_HARGA = '⚪ Belum Ada Ratecard';
 
     protected $fillable = [
-        'kol_id', 'tanggal_listing', 'ratecard',
+        'kol_id', 'tanggal_listing', 'ratecard', 'gmv', 'benefit',
         'views_1', 'views_2', 'views_3', 'views_4', 'views_5', 'views_6', 'views_7',
         'created_by',
     ];

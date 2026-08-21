@@ -50,6 +50,8 @@ class KolScreeningController extends Controller
             'phone' => ['nullable', 'string', 'max:30'],
             'tanggal_listing' => ['required', 'date', 'before_or_equal:today'],
             'ratecard' => ['nullable', 'integer', 'min:0'],   // opsional: harga sering baru ada setelah nego
+            'gmv' => ['nullable', 'integer', 'min:0'],        // GMV aktual KOL (Rp)
+            'benefit' => ['nullable', 'string', 'max:500'],   // deliverable dari ratecard
         ];
         for ($i = 1; $i <= 7; $i++) {
             $rules["views_{$i}"] = ['required', 'integer', 'min:0'];
@@ -69,6 +71,8 @@ class KolScreeningController extends Controller
             'phone' => $data['phone'] ?? null,
             'tanggal_listing' => $data['tanggal_listing'],
             'ratecard' => $data['ratecard'] ?? null,
+            'gmv' => $data['gmv'] ?? null,
+            'benefit' => $data['benefit'] ?? null,
             'views' => collect(range(1, 7))->map(fn ($i) => $data["views_{$i}"])->all(),
         ], $request->user()->id);
 

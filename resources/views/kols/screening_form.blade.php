@@ -75,6 +75,15 @@
                     class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                 <span class="block mt-1 text-[10px] text-stone-400">Tanpa harga: median, ratio, GMV, viral & fake tetap dihitung; CPM/verdict/rank menunggu ratecard diisi.</span>
             </label>
+            <label class="text-[11px] font-semibold text-stone-500">GMV KOL (Rp — opsional)
+                <input type="number" name="gmv" min="0" value="{{ old('gmv') }}" placeholder="mis. 50000000"
+                    class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                <span class="block mt-1 text-[10px] text-stone-400">GMV aktual KOL (dari data mereka). Beda dari <b>Estimasi GMV</b> yang dihitung sistem dari median views.</span>
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500 sm:col-span-2">Benefit (dapat apa dengan bayar ratecard — opsional)
+                <input type="text" name="benefit" maxlength="500" value="{{ old('benefit') }}" placeholder="mis. 2 video + 1 live 30 menit + pin comment 3 hari"
+                    class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
         </div>
 
         <p class="text-[11px] font-semibold text-stone-500 mb-1">Views 7 video terakhir</p>

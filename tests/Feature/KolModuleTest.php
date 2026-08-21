@@ -168,6 +168,31 @@ class KolModuleTest extends TestCase
         $this->assertStringContainsString('Worth It', $html);
     }
 
+    public function test_screening_simpan_gmv_dan_benefit(): void
+    {
+        $spec = $this->user('kol_specialist', 'specgmv');
+
+        $payload = [
+            'tiktok_username' => 'nidaawafa', 'followers' => 657_400,
+            'tanggal_listing' => '2026-08-21', 'ratecard' => 1_500_000,
+            'gmv' => 50_000_000, 'benefit' => '2 video + 1 live 30 menit',
+        ];
+        foreach (range(1, 7) as $i) {
+            $payload["views_{$i}"] = 40_000;
+        }
+
+        $this->actingAs($spec)->post(route('kol-screenings.store'), $payload)->assertRedirect();
+
+        $s = KolScreening::latest('id')->first();
+        $this->assertSame(50_000_000, (int) $s->gmv);
+        $this->assertSame('2 video + 1 live 30 menit', $s->benefit);
+
+        // Tampil di detail KOL.
+        $html = $this->actingAs($spec)->get(route('kols.show', $s->kol_id))->assertOk()->getContent();
+        $this->assertStringContainsString('GMV aktual', $html);
+        $this->assertStringContainsString('2 video + 1 live 30 menit', $html);
+    }
+
     /** Username lama (termasuk ditulis pakai "@") dipakai ulang, bukan diduplikat. */
     public function test_screening_username_lama_dipakai_ulang_dan_followers_terbarukan(): void
     {
