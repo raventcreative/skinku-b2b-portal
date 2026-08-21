@@ -94,6 +94,14 @@ class ReportService
             'partner_stock_units' => $viewer && $viewer->isPartner()
                 ? (int) Inventory::where('user_id', $viewer->id)->sum('quantity')
                 : (int) Inventory::sum('quantity'),
+            // Model A: penjualan mitra ke DOWNLINE-nya = PO completed di mana dia jadi
+            // seller. Beda dari belanja dia ke HQ. 0 untuk staff / mitra tanpa jualan.
+            'downline_sales' => $viewer && $viewer->isPartner()
+                ? (float) $this->inMonth(
+                    PurchaseOrder::query()->where('status', self::REVENUE_STATUS)->where('seller_id', $viewer->id),
+                    $month,
+                )->sum('total_amount')
+                : 0.0,
         ];
     }
 

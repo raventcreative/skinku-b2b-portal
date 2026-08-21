@@ -73,10 +73,13 @@
     // angkanya berasal dari sana. PO Pending -> daftar PO terfilter pending, dst.
     // Null = kartu diam (pengguna tak punya akses ke halamannya).
     $bln = $bulan->format('Y-m');
+    // Mitra: "Penjualan"/"PO Masuk" sebenarnya BELANJA & PO milik dia sendiri (dia
+    // pembeli ke HQ). Staff (HQ): tetap penjualan HQ. Relabel biar tak rancu (Model A).
+    $isPartner = $user->isPartner();
     $cards = [
-        ['Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), 'emerald', $per, $salesBreakdown,
+        [$isPartner ? 'Belanja ke HQ' : 'Penjualan', 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), $isPartner ? 'rose' : 'emerald', $per, $salesBreakdown,
             $user->canDo('view_reports') ? route('reports.index', ['bulan' => $bln]) : null],
-        ['PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per, null,
+        [$isPartner ? 'PO Saya' : 'PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per, null,
             route('purchase-orders.index')],
         ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), 'amber', $per, null,
             route('purchase-orders.index', ['status' => 'pending'])],
@@ -91,6 +94,12 @@
         $cards[] = ['Stok Pusat (unit)', number_format($summary['hq_stock_units'], 0, ',', '.'), 'cyan', 'saat ini', null,
             route('inventory.index')];
     } else {
+        // Model A: mitra stockist (GD/Distri) jual ke downline — omzet ini beda dari
+        // belanja dia ke HQ. Reseller/sponsor tak pegang stok → tak ada kartu ini.
+        if (\App\Support\PartnerHierarchy::holdsStock($user->role)) {
+            $cards[] = ['Penjualan ke Downline', 'Rp ' . number_format($summary['downline_sales'], 0, ',', '.'), 'emerald', $per, null,
+                $user->canDo('process_downline_po') ? route('pesanan-downline.index') : null];
+        }
         $cards[] = ['Stok Saya (unit)', number_format($summary['partner_stock_units'], 0, ',', '.'), 'cyan', 'saat ini', null,
             route('inventory.index')];
     }

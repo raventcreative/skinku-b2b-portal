@@ -108,4 +108,26 @@ class HqReportSellerExclusionTest extends TestCase
         $summary = $this->report()->summary($dist); // viewer = mitra pembeli
         $this->assertGreaterThan(0, $summary['total_sales']); // pembeliannya TAK boleh hilang
     }
+
+    public function test_penjualan_ke_downline_di_summary_dan_dashboard(): void
+    {
+        $grand = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $dist = $this->user(User::ROLE_DISTRIBUTOR, $grand->id);
+        $p = $this->product();
+        $this->completedPo($dist, $p, 5); // dist beli ke grand → grand jadi seller
+
+        // B (data): downline_sales grand = nilai PO di mana dia seller.
+        $expected = (float) PurchaseOrder::where('seller_id', $grand->id)
+            ->where('status', PurchaseOrder::STATUS_COMPLETED)->sum('total_amount');
+        $this->assertGreaterThan(0, $expected);
+        $this->assertEqualsWithDelta($expected, (float) $this->report()->summary($grand)['downline_sales'], 0.01);
+        // Pembeli (dist) & HQ (viewer null) tak punya penjualan downline → 0.
+        $this->assertSame(0.0, (float) $this->report()->summary($dist)['downline_sales']);
+        $this->assertSame(0.0, (float) $this->report()->summary(null)['downline_sales']);
+
+        // A + B (view): dashboard GD relabel "Belanja ke HQ" + kartu "Penjualan ke Downline".
+        $html = $this->actingAs($grand)->get('/dashboard')->assertOk()->getContent();
+        $this->assertStringContainsString('Belanja ke HQ', $html);
+        $this->assertStringContainsString('Penjualan ke Downline', $html);
+    }
 }
