@@ -34,7 +34,7 @@
                 @foreach($rows as $c)
                     <tr class="border-t border-stone-100">
                         <td class="px-4 py-2 text-stone-600">{{ $c->created_at->format('d M Y') }}</td>
-                        <td class="text-stone-600">{{ ['join' => 'Join', 'ro_cashback' => 'RO Cashback', 'override' => 'Override'][$c->type] ?? ucfirst(str_replace('_', ' ', $c->type)) }}</td>
+                        <td class="text-stone-600">{{ ['join' => 'Join', 'ro_cashback' => 'RO Cashback', 'volume_bonus' => 'Volume Bonus', 'override' => 'Override'][$c->type] ?? ucfirst(str_replace('_', ' ', $c->type)) }}</td>
                         <td class="text-stone-600">{{ $c->downline?->name ?? '—' }}</td>
                         <td class="text-stone-500">Lv{{ $c->level }}</td>
                         <td class="text-right text-stone-500">{{ rtrim(rtrim(number_format((float) $c->rate, 2, ',', '.'), '0'), ',') }}%</td>

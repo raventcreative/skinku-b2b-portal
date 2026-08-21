@@ -71,6 +71,46 @@
         @error('ro_cashback')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
     </div>
 
+    {{-- Insentif Volume Grand — tier bonus tahunan. Kalau total belanja GD ke HQ per
+         tahun tembus threshold → hak = total × rate% (tier tertinggi, model top-up).
+         Fitur AKTIF hanya kalau ada >=1 tier. --}}
+    <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
+        <h3 class="text-sm font-bold text-stone-900 mb-1">Insentif Volume Grand</h3>
+        <p class="text-xs text-stone-500 mb-4">Bonus tahunan Grand Distributor dari total belanja ke HQ. Kalau total setahun tembus <b>threshold</b>, hak = total × <b>rate</b>% (tier tertinggi yang kelewat, dikasih bertahap/top-up). Belum ada tier = fitur mati.</p>
+
+        @if($volumeTiers->count())
+            <div class="divide-y divide-stone-100 mb-4">
+                @foreach($volumeTiers as $tier)
+                    <div class="flex items-center gap-3 py-2 text-sm">
+                        <span class="text-stone-700">≥ Rp {{ number_format($tier->threshold, 0, ',', '.') }}</span>
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700">{{ rtrim(rtrim($tier->rate_percent, '0'), '.') }}%</span>
+                        <form method="POST" action="{{ route('settings.volume-tier.destroy', $tier) }}" class="ml-auto" onsubmit="return confirm('Hapus tier ini?')">
+                            @csrf @method('DELETE')
+                            <button class="text-[11px] text-rose-500 hover:text-rose-700">hapus</button>
+                        </form>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <p class="text-xs text-amber-600 mb-4">Belum ada tier — insentif volume nonaktif. Tambah tier untuk mengaktifkan.</p>
+        @endif
+
+        <form method="POST" action="{{ route('settings.volume-tier.store') }}" class="grid sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
+            @csrf
+            <label class="text-[11px] font-semibold text-stone-500">Threshold total belanja/tahun (Rp)
+                <input type="number" name="threshold" step="1" min="0" required placeholder="mis. 200000000"
+                    class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Rate (%)
+                <input type="number" name="rate_percent" step="0.01" min="0" max="100" required placeholder="mis. 5"
+                    class="mt-1 w-28 px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">+ Tier</button>
+        </form>
+        @error('threshold')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
+        @error('rate_percent')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
+    </div>
+
     {{-- Backup DB — jaring pengaman terakhir --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
         <div class="flex flex-wrap items-center gap-3 mb-3">

@@ -392,6 +392,8 @@ class PurchaseOrderService
 
             if ($recordCommission) {
                 app(CommissionService::class)->recordForCompletedPo($po);
+                // Insentif volume Grand (top-up) — GD restock ke HQ; dormant kalau nol tier.
+                app(VolumeIncentiveService::class)->evaluate($po);
             }
 
             return $po;
