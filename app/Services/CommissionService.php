@@ -37,6 +37,7 @@ class CommissionService
         'komisi_persen_reseller_gold' => 0.0,
         'komisi_persen_reseller' => 0.0, // legacy generic reseller (masih assignable)
         'komisi_persen_join' => 10.0,
+        'komisi_persen_ro_cashback' => 5.0, // Sponsor: % omzet restock GD ke HQ → perekrut (income pasif). Configurable.
     ];
 
     public function recordForCompletedPo(PurchaseOrder $po): void
@@ -50,28 +51,56 @@ class CommissionService
         } // idempoten
 
         $buyer = $po->user;
-        if (! $buyer || ! $buyer->upline_id) {
+        if (! $buyer) {
             return;
-        } // tak ada upline → nol
+        }
 
         $base = (float) $po->subtotal - (float) $po->discount; // nilai barang bersih
         if ($base <= 0) {
             return;
         }
 
-        // Override 1 TINGKAT: hanya upline LANGSUNG yang dapat komisi, rate sesuai
-        // rank-nya — TIDAK naik-pohon ke atasan yang lebih tinggi. Contoh: Distributor
-        // order ke HQ → Grand (upline langsung) dapat 6%; kalau Reseller yang order →
-        // Distributor (upline langsung) dapat 4%, Grand tidak.
-        // (Bonus join 10% dari nilai PAKET menyusul bareng fitur Onboarding — bukan
-        // dari order ke HQ.)
-        $upline = $buyer->upline;
-        if ($upline && $upline->isPartner()) {
-            $rate = $this->overrideRate($upline->role);
-            if ($rate > 0) {
-                $this->write($upline, $po, $buyer, 'override', 1, $rate, $base);
+        // RO cashback (Sponsor): GD restock ke HQ → PEREKRUT GD dapat 5% (income pasif).
+        // Dicek sebelum guard upline karena GD tak punya upline (upline null).
+        $this->recordRoCashback($po, $buyer, $base);
+
+        // Override 1 TINGKAT — DORMAN di Model A (rate default 0, dibuang; kode dibiarkan
+        // biar revivable). Kalau rate dihidupkan: upline LANGSUNG pembeli dapat komisi.
+        if ($buyer->upline_id) {
+            $upline = $buyer->upline;
+            if ($upline && $upline->isPartner()) {
+                $rate = $this->overrideRate($upline->role);
+                if ($rate > 0) {
+                    $this->write($upline, $po, $buyer, 'override', 1, $rate, $base);
+                }
             }
         }
+    }
+
+    /**
+     * RO cashback Sponsor: tiap GD RESTOCK ke HQ (PO ke HQ), PEREKRUT-nya (`sponsor_id`)
+     * dapat `komisi_persen_ro_cashback`% dari omzet → saldo (income pasif). Hanya Grand
+     * Distributor yang memicu; GD tanpa perekrut → nol. Join (10% paket) bukan PO, jadi
+     * tak pernah lewat sini — semua PO GD = restock. Idempoten via source_po_id (guard
+     * di recordForCompletedPo). Append-only.
+     */
+    private function recordRoCashback(PurchaseOrder $po, User $buyer, float $base): void
+    {
+        if ($buyer->role !== User::ROLE_GRAND_DISTRIBUTOR || ! $buyer->sponsor_id) {
+            return;
+        }
+
+        $sponsor = $buyer->sponsor;
+        if (! $sponsor || ! $sponsor->isPartner()) {
+            return;
+        }
+
+        $rate = AppSetting::float('komisi_persen_ro_cashback', self::RATE_DEFAULTS['komisi_persen_ro_cashback']);
+        if ($rate <= 0) {
+            return;
+        }
+
+        $this->write($sponsor, $po, $buyer, 'ro_cashback', 1, $rate, $base);
     }
 
     /**
