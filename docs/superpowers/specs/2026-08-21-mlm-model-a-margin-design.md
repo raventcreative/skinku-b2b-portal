@@ -21,6 +21,7 @@ Model terpusat (pivot 15 Agu) bikin HQ tetap mengirim ke semua level (termasuk d
 6. **Stok dilacak sampai Distributor.** HQ + GD + Distributor = stockist (`holds_stock=true`). Reseller `holds_stock=false` (tak ada laporan stok; beli offline). Konsekuensi: jual ke reseller = stok KELUAR sepihak dari penjual (sama seperti jual ke customer).
 7. **Akuntansi HOLD:** PO inter-partner TAK auto-journal ke buku HQ (jualan distributor ≠ jualan HQ).
 8. **Rate configurable** (untuk fitur bonus terpisah nanti) — tak hardcode.
+9. **Transisi NON-DESTRUKTIF (prinsip user):** apa pun yang tak dipakai Model A **DIBIKIN DORMAN, BUKAN DIHAPUS** — rate→0, UI hidden, routing off — tapi kode & key tetap ada supaya bisa dipanggil lagi tanpa build ulang. Berlaku ke: override/mekanik terpusat yang ditinggalkan. (Prinsip ini sudah terbukti: engine + workflow Model X yang dulu didorman-kan kini bisa langsung dipakai.)
 
 ## Yang SUDAH ada vs yang BARU
 
@@ -41,7 +42,7 @@ Bangun bertahap (tiap fase self-contained, dormant-safe, deployable sendiri) —
 
 ### Fase 1 — Routing + padamkan override (fondasi, dormant-safe)
 - **`PurchaseOrderService::createForPartner`**: set `seller_id = buyer->upline_id` **kalau** upline ada & upline `holdsStock` (GD/Distri); else `null` (HQ). (Balik dari hardcode `null`.)
-- **Override padam:** karena engine komisi sudah skip `seller_id !== null`, order ke GD otomatis tanpa override. Untuk order HQ (GD ke HQ = upline null → tak ada penerima; distri-tanpa-GD = upline null → tak ada penerima), override praktis tak pernah cair. Set default rate override (`komisi_persen_grand_distributor` dll) ke **0** di RATE_DEFAULTS supaya eksplisit "dibuang" — tetap configurable kalau suatu saat dihidupkan. Join bonus (onboarding 10%) TETAP.
+- **Override PADAM (dorman, JANGAN hapus):** karena engine komisi sudah skip `seller_id !== null`, order ke GD otomatis tanpa override. Tiga langkah non-destruktif: (a) **hide** field "Override Grand" di Pengaturan → Rate Komisi (sama pola dgn Distributor/Reseller yang sudah disembunyikan); (b) **set rate 0** di RATE_DEFAULTS; (c) **BIARKAN kode `recordForCompletedPo` override + key AppSetting tetap ada** — dorman, bisa dipanggil lagi tanpa rebuild. Join bonus (onboarding 10%) TETAP jalan.
 - **Dormant-safe:** jaringan prod KOSONG (semua `upline_id` null) → semua PO tetap `seller_id=null` = HQ = perilaku sekarang. Model A nyala per-mitra begitu upline diisi. NOL disrupsi saat deploy.
 - **Tes:** distri dgn upline-GD → `seller_id`=GD; distri tanpa upline → `seller_id`=null; GD → `seller_id`=null; order ke GD tak catat komisi override; regresi PO HQ existing hijau.
 
