@@ -39,20 +39,22 @@ class OnboardingFlowTest extends TestCase
     {
         $admin = $this->user(User::ROLE_ADMIN);
         $upline = $this->user(User::ROLE_DISTRIBUTOR);
+        $sponsor = $this->user(User::ROLE_DISTRIBUTOR); // perekrut — beda dari upline
         $paket = $this->bronzePaket();
 
         $this->actingAs($admin)->post(route('onboarding.store'), [
             'fullname' => 'Budi Reseller', 'email' => 'budi@t.test', 'username' => 'budi',
             'password' => 'secret123', 'password_confirmation' => 'secret123',
-            'join_package_id' => $paket->id, 'upline_id' => $upline->id, 'paid' => 1,
+            'join_package_id' => $paket->id, 'upline_id' => $upline->id, 'sponsor_id' => $sponsor->id, 'paid' => 1,
         ])->assertRedirect();
 
         $reseller = User::where('username', 'budi')->first();
         $this->assertNotNull($reseller);
         $this->assertSame(User::ROLE_RESELLER_BRONZE, $reseller->role);
         $this->assertSame($upline->id, $reseller->upline_id);
-        // Bonus join ke upline
-        $this->assertEqualsWithDelta(14900, (float) Commission::where('user_id', $upline->id)->where('type', 'join')->sum('amount'), 0.01);
+        $this->assertSame($sponsor->id, $reseller->sponsor_id);
+        // Bonus join 10% ke SPONSOR (perekrut), bukan upline.
+        $this->assertEqualsWithDelta(14900, (float) Commission::where('user_id', $sponsor->id)->where('type', 'join')->sum('amount'), 0.01);
     }
 
     public function test_mitra_tak_bisa_onboard(): void

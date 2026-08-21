@@ -24,11 +24,11 @@ class OnboardingService
      *
      * @param  array<string,mixed>  $data  validated: fullname,email,username,password,company_name?,phone?,address?,region?
      */
-    public function onboard(array $data, JoinPackage $paket, ?int $uplineId, int $adminId): User
+    public function onboard(array $data, JoinPackage $paket, ?int $uplineId, int $adminId, ?int $sponsorId = null): User
     {
         $paket->loadMissing('items.product');
 
-        return DB::transaction(function () use ($data, $paket, $uplineId, $adminId) {
+        return DB::transaction(function () use ($data, $paket, $uplineId, $adminId, $sponsorId) {
             // Pre-check stok HQ (pesan paket-level yang jelas; adjustHqStock tetap
             // jadi guard sungguhan dgn lockForUpdate saat memotong).
             foreach ($paket->items as $item) {
@@ -47,6 +47,7 @@ class OnboardingService
                 'username' => mb_strtolower($data['username']),
                 'password' => Hash::make($data['password']),
                 'role' => $paket->target_role,
+                'sponsor_id' => $sponsorId, // jalur rekrutmen (perekrut) — beda dari upline pasok
                 'company_name' => $data['company_name'] ?? null,
                 'phone' => $data['phone'] ?? null,
                 'address' => $data['address'] ?? null,
@@ -79,7 +80,7 @@ class OnboardingService
             }
 
             if ($user->upline) {
-                $this->commissions->recordJoinBonus($user->upline, $user, (float) $paket->price);
+                $this->commissions->recordJoinBonus($user, (float) $paket->price);
             }
 
             return $user;

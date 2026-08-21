@@ -104,19 +104,23 @@ class CommissionService
     }
 
     /**
-     * Bonus join: saat member baru daftar via paket, upline LANGSUNG (inviter)
+     * Bonus join: saat member baru daftar via paket, PEREKRUT (member->sponsor)
      * dapat `komisi_persen_join`% dari nilai paket → saldo komisi (append-only,
-     * TIDAK auto-cair). 1 tingkat, tanpa PO (source_po_id null).
+     * TIDAK auto-cair). Tanpa perekrut → tak dibayar. Tanpa PO (source_po_id null).
      */
-    public function recordJoinBonus(User $inviter, User $member, float $paketPrice): void
+    public function recordJoinBonus(User $member, float $paketPrice): void
     {
+        // Bonus join ke PEREKRUT (member->sponsor), BUKAN upline pasok. Kalau member
+        // daftar mandiri / tanpa perekrut (sponsor_id null) → TAK ADA join dibayar
+        // (HQ simpan penuh) — dikunci user 2026-08-21, konsisten dgn RO cashback.
+        $sponsor = $member->sponsor;
         $rate = AppSetting::float('komisi_persen_join', self::RATE_DEFAULTS['komisi_persen_join']);
-        if (! $inviter->isPartner() || $rate <= 0 || $paketPrice <= 0) {
+        if (! $sponsor || ! $sponsor->isPartner() || $rate <= 0 || $paketPrice <= 0) {
             return;
         }
 
         Commission::create([
-            'user_id' => $inviter->id, 'source_po_id' => null, 'source_user_id' => $member->id,
+            'user_id' => $sponsor->id, 'source_po_id' => null, 'source_user_id' => $member->id,
             'type' => 'join', 'level' => 1, 'rate' => $rate, 'base_amount' => $paketPrice,
             'amount' => round($paketPrice * $rate / 100, 2), 'status' => 'saldo',
         ]);

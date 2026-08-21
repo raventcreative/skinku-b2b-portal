@@ -55,20 +55,23 @@ class OnboardingServiceTest extends TestCase
     {
         $admin = $this->user(User::ROLE_SUPER_ADMIN);
         $upline = $this->user(User::ROLE_DISTRIBUTOR);
+        $sponsor = $this->user(User::ROLE_DISTRIBUTOR); // perekrut — beda dari upline pasok
         $p = $this->product(100);
         $paket = $this->paket($p, 3); // 3 unit per join
 
-        $reseller = app(OnboardingService::class)->onboard($this->data(), $paket, $upline->id, $admin->id);
+        $reseller = app(OnboardingService::class)->onboard($this->data(), $paket, $upline->id, $admin->id, $sponsor->id);
 
-        // Reseller dibuat, role bronze, upline benar
+        // Reseller dibuat, role bronze, upline & sponsor benar
         $this->assertSame(User::ROLE_RESELLER_BRONZE, $reseller->role);
         $this->assertSame($upline->id, $reseller->upline_id);
+        $this->assertSame($sponsor->id, $reseller->sponsor_id);
         // Stok HQ turun 3
         $this->assertSame(97, (int) $p->fresh()->hq_stock);
         // Transaksi paket tercatat
         $this->assertSame(1, JoinTransaction::where('user_id', $reseller->id)->count());
-        // Bonus join 10% dari 149rb = 14.900 ke upline
-        $this->assertEqualsWithDelta(14900, (float) Commission::where('user_id', $upline->id)->where('type', 'join')->sum('amount'), 0.01);
+        // Bonus join 10% dari 149rb = 14.900 ke SPONSOR (perekrut), BUKAN upline.
+        $this->assertEqualsWithDelta(14900, (float) Commission::where('user_id', $sponsor->id)->where('type', 'join')->sum('amount'), 0.01);
+        $this->assertSame(0.0, (float) Commission::where('user_id', $upline->id)->where('type', 'join')->sum('amount'));
     }
 
     public function test_stok_hq_kurang_rollback_total(): void

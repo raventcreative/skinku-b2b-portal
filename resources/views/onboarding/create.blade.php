@@ -72,6 +72,18 @@
             </select>
             <p class="text-[10px] text-stone-400 mt-1">Reseller Bronze & Gold selalu ditempatkan di bawah Distributor.</p>
         </div>
+        <div>
+            <label class="block text-xs font-semibold text-stone-700 mb-1">Sponsor / perekrut (opsional)</label>
+            <select name="sponsor_id" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+                <option value="">— tanpa sponsor (daftar mandiri) —</option>
+                @foreach($sponsors as $s)
+                    <option value="{{ $s->id }}" @selected((string) old('sponsor_id') === (string) $s->id)>
+                        {{ $s->fullname }} · {{ \App\Support\PartnerHierarchy::label($s->role) }}{{ $s->member_id ? ' · '.$s->member_id : '' }}
+                    </option>
+                @endforeach
+            </select>
+            <p class="text-[10px] text-stone-400 mt-1">Bonus join 10% ke sponsor. Beda dari upline. Kosong = tak ada bonus join.</p>
+        </div>
     </div>
 
     <div class="bg-white rounded-2xl border border-stone-200 p-5 text-sm">

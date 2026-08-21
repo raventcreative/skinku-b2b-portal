@@ -24,21 +24,22 @@ class KomisiRateSettingTest extends TestCase
         ]);
     }
 
-    public function test_simpan_rate_join(): void
+    public function test_simpan_rate_join_dan_ro_cashback(): void
     {
         $this->actingAs($this->superadmin())->post(route('settings.komisi.save'), [
-            'join' => 12,
+            'join' => 12, 'ro_cashback' => 7,
         ])->assertRedirect();
 
         $this->assertSame('12', AppSetting::get('komisi_persen_join'));
-        // Model A: override dinonaktifkan → key override TAK ditulis dari UI (tetap dorman).
+        $this->assertSame('7', AppSetting::get('komisi_persen_ro_cashback'));
+        // Override dinonaktifkan → key override TAK ditulis dari UI (tetap dorman).
         $this->assertNull(AppSetting::get('komisi_persen_grand_distributor'));
     }
 
     public function test_rate_di_luar_0_100_ditolak(): void
     {
         $this->actingAs($this->superadmin())->post(route('settings.komisi.save'), [
-            'join' => 150,
+            'join' => 150, 'ro_cashback' => 5,
         ])->assertSessionHasErrors('join');
 
         $this->assertNull(AppSetting::get('komisi_persen_join'));

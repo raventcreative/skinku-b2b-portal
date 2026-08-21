@@ -33,6 +33,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\RecruitController;
 use App\Http\Controllers\ReportBotAdminController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingController;
@@ -156,6 +157,8 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     // "Jaringan Saya" — mitra upline pantau subtree (read-only). Gate isPartner di controller.
     Route::get('/jaringan-saya', [JaringanSayaController::class, 'index'])->name('jaringan-saya.index');
+    // "Rekrutan Saya" — perekrut (sponsor/GD/distri) lihat lead + earning. Gate isPartner di controller.
+    Route::get('/rekrutan-saya', [RecruitController::class, 'index'])->name('rekrutan-saya.index');
     Route::post('/inventory/minimum', [InventoryController::class, 'setMinimum'])->name('inventory.minimum');
 
     // "Saldo Komisi" — mitra lihat saldo tersedia + ajukan penarikan. Gate isPartner di controller.

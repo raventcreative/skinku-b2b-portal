@@ -53,8 +53,9 @@ class SettingController extends Controller
                     ->get(),
             ],
             'komisiRates' => [
-                // Model A: hanya Bonus Join yang aktif di UI (override dorman, rate 0).
+                // Aktif di UI: Bonus Join + RO Cashback (Sponsor). Override dorman (rate 0).
                 'join' => AppSetting::float('komisi_persen_join', CommissionService::RATE_DEFAULTS['komisi_persen_join']),
+                'ro_cashback' => AppSetting::float('komisi_persen_ro_cashback', CommissionService::RATE_DEFAULTS['komisi_persen_ro_cashback']),
             ],
         ]);
     }
@@ -90,14 +91,15 @@ class SettingController extends Controller
      */
     public function saveKomisi(Request $request): RedirectResponse
     {
-        // Model A: override dinonaktifkan → hanya Bonus Join yang bisa diatur dari UI.
-        // Key override (komisi_persen_grand_distributor dll) dibiarkan pada nilai 0
-        // (dorman, revivable) — tak disentuh dari sini.
+        // Rate aktif: Bonus Join (ke sponsor) + RO Cashback (sponsor, GD restock).
+        // Override (komisi_persen_grand_distributor dll) dorman (rate 0) — tak disentuh.
         $data = $request->validate([
             'join' => ['required', 'numeric', 'min:0', 'max:100'],
+            'ro_cashback' => ['required', 'numeric', 'min:0', 'max:100'],
         ]);
 
         AppSetting::put('komisi_persen_join', (string) $data['join']);
+        AppSetting::put('komisi_persen_ro_cashback', (string) $data['ro_cashback']);
 
         AuditService::log(action: 'save_komisi_settings', targetType: 'app_setting', after: $data);
 

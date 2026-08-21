@@ -52,11 +52,15 @@
          kalau override dihidupkan. Yang aktif tinggal Bonus Join (onboarding). --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
         <h3 class="text-sm font-bold text-stone-900 mb-1">Rate Komisi</h3>
-        <p class="text-xs text-stone-500 mb-4"><b>Bonus Join</b> — % nilai paket ke upline saat mitra baru onboarding. Berlaku untuk komisi ke depan; yang sudah tercatat tak berubah. <span class="text-stone-400">(Override dinonaktifkan di Model A — untung mitra dari selisih harga/margin.)</span></p>
+        <p class="text-xs text-stone-500 mb-4"><b>Bonus Join</b> — % nilai paket ke <b>sponsor/perekrut</b> saat mitra baru onboarding. <b>RO Cashback</b> — % omzet ke sponsor tiap Grand Distributor restock ke HQ (income pasif). Berlaku untuk komisi ke depan; yang sudah tercatat tak berubah. <span class="text-stone-400">(Override dinonaktifkan di Model A — untung mitra dari margin.)</span></p>
         <form method="POST" action="{{ route('settings.komisi.save') }}" class="grid sm:grid-cols-2 gap-3 items-end">
             @csrf
             <label class="text-[11px] font-semibold text-stone-500">Bonus Join (%)
                 <input type="number" name="join" step="0.01" min="0" max="100" value="{{ $komisiRates['join'] }}"
+                    class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">RO Cashback (%)
+                <input type="number" name="ro_cashback" step="0.01" min="0" max="100" value="{{ $komisiRates['ro_cashback'] }}"
                     class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
             </label>
             <div class="sm:col-span-2">
@@ -64,6 +68,7 @@
             </div>
         </form>
         @error('join')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
+        @error('ro_cashback')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
     </div>
 
     {{-- Backup DB — jaring pengaman terakhir --}}
