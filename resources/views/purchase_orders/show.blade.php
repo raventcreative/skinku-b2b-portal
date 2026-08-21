@@ -286,6 +286,12 @@
                class="block w-full py-2.5 bg-stone-800 text-white text-sm font-semibold rounded-xl hover:bg-stone-900 text-center">Edit PO</a>
         @endif
 
+        {{-- Retur PO (hanya completed) — pembeli ajukan / HQ proses langsung --}}
+        @if($purchaseOrder->status === 'completed' && ($u->canDo('process_return') || ($u->isPartner() && $purchaseOrder->user_id === $u->id)))
+            <a href="{{ route('retur.create', $purchaseOrder) }}"
+               class="block w-full py-2.5 bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold rounded-xl hover:bg-amber-100 text-center">Retur PO</a>
+        @endif
+
         {{-- Cancel --}}
         @if(!in_array($purchaseOrder->status, ['completed','cancelled','deleted']))
             @if($u->canDo('update_po_status') || ($u->isPartner() && in_array($purchaseOrder->status, ['pending','draft'])))

@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Commission;
 use App\Models\Inventory;
+use App\Models\JoinPackage;
+use App\Models\JoinTransaction;
 use App\Models\PoReturn;
 use App\Models\PoReturnItem;
 use App\Models\Product;
@@ -11,6 +13,7 @@ use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\VolumeIncentiveTier;
 use App\Services\CommissionService;
+use App\Services\OnboardingService;
 use App\Services\PurchaseOrderService;
 use App\Services\ReturService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -142,5 +145,126 @@ class ReturTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         app(ReturService::class)->apply($this->retur($po, [[$po->items->first()->id, 15]], 'normal')); // > 10
+    }
+
+    public function test_hq_input_retur_langsung_applied(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN); // process_return (super_admin bypass)
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        $this->actingAs($admin)->post(route('retur.store'), [
+            'purchase_order_id' => $po->id, 'kondisi' => 'normal',
+            'items' => [['po_item_id' => $po->items->first()->id, 'qty' => 30]],
+        ])->assertRedirect(route('retur.index'));
+
+        $this->assertSame('applied', PoReturn::first()->status);
+        $this->assertSame(70, $this->partnerStock($gd, $p)); // 100 - 30 berlaku
+    }
+
+    public function test_mitra_input_pending_lalu_hq_acc(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        // Mitra (pembeli) ajukan → pending, belum berlaku.
+        $this->actingAs($gd)->post(route('retur.store'), [
+            'purchase_order_id' => $po->id, 'kondisi' => 'normal',
+            'items' => [['po_item_id' => $po->items->first()->id, 'qty' => 30]],
+        ])->assertRedirect(route('retur.index'));
+
+        $retur = PoReturn::first();
+        $this->assertSame('pending', $retur->status);
+        $this->assertSame(100, $this->partnerStock($gd, $p)); // belum berlaku
+
+        // HQ acc → applied.
+        $this->actingAs($admin)->post(route('retur.approve', $retur))->assertRedirect();
+        $this->assertSame('applied', $retur->fresh()->status);
+        $this->assertSame(70, $this->partnerStock($gd, $p)); // sekarang berlaku
+    }
+
+    public function test_mitra_lain_tak_bisa_retur_po_orang(): void
+    {
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $lain = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 10]], null, null);
+        $this->svc()->complete($po);
+
+        $this->actingAs($lain)->get(route('retur.create', $po))->assertForbidden();
+    }
+
+    public function test_void_balikin_stok_dan_komisi(): void
+    {
+        $sponsor = $this->user(User::ROLE_SPONSOR);
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR, ['sponsor_id' => $sponsor->id]);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        $retur = $this->retur($po, [[$po->items->first()->id, 40]], 'normal');
+        app(ReturService::class)->apply($retur);
+        $this->assertSame(940, (int) $p->fresh()->hq_stock);   // retur normal: HQ +40
+        $this->assertEqualsWithDelta(66_000, $this->commissionSvc()->balance($sponsor), 0.01); // clawback
+
+        // Void → semua balik ke kondisi pasca-complete (sebelum retur).
+        app(ReturService::class)->void($retur->fresh());
+        $this->assertSame('void', $retur->fresh()->status);
+        $this->assertSame(900, (int) $p->fresh()->hq_stock);   // +40 dibatalkan → 900
+        $this->assertSame(100, $this->partnerStock($gd, $p));   // GD balik ke 100
+        $this->assertEqualsWithDelta(110_000, $this->commissionSvc()->balance($sponsor), 0.01); // komisi balik
+    }
+
+    public function test_cancel_join_clawback_dan_balikin_stok_paket(): void
+    {
+        $sponsor = $this->user(User::ROLE_DISTRIBUTOR);
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+        $p = $this->product(1000);
+        $paket = JoinPackage::create(['name' => 'Bronze', 'target_role' => User::ROLE_RESELLER_BRONZE, 'price' => 149000, 'is_active' => true]);
+        $paket->items()->create(['product_id' => $p->id, 'qty' => 5]);
+
+        $member = app(OnboardingService::class)->onboard(
+            ['fullname' => 'M1', 'email' => 'm1@t.test', 'username' => 'm1', 'password' => 'secret123'],
+            $paket, null, $admin->id, $sponsor->id,
+        );
+
+        $this->assertSame(995, (int) $p->fresh()->hq_stock);   // -5 paket
+        $this->assertEqualsWithDelta(14900, $this->commissionSvc()->balance($sponsor), 0.01); // 10% × 149rb ke sponsor
+
+        // Batal join → clawback bonus + balikin stok paket.
+        $trx = JoinTransaction::where('user_id', $member->id)->firstOrFail();
+        app(ReturService::class)->cancelJoin($trx);
+
+        $this->assertNotNull($trx->fresh()->cancelled_at);
+        $this->assertSame(1000, (int) $p->fresh()->hq_stock);  // stok paket balik ke HQ
+        $this->assertEqualsWithDelta(0, $this->commissionSvc()->balance($sponsor), 0.01); // bonus join ditarik
+    }
+
+    public function test_tombol_batal_join_muncul_lalu_hilang_setelah_batal(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+        $p = $this->product(1000);
+        $paket = JoinPackage::create(['name' => 'Bronze', 'target_role' => User::ROLE_RESELLER_BRONZE, 'price' => 149000, 'is_active' => true]);
+        $paket->items()->create(['product_id' => $p->id, 'qty' => 5]);
+
+        $member = app(OnboardingService::class)->onboard(
+            ['fullname' => 'M1', 'email' => 'm1@t.test', 'username' => 'm1', 'password' => 'secret123'],
+            $paket, null, $admin->id, null,
+        );
+
+        // Member punya join aktif → tombol "Batal Join" tampil di Kelola Anggota.
+        $this->actingAs($admin)->get(route('users.index'))->assertOk()->assertSee('Batal Join');
+
+        // Setelah dibatalkan → activeJoinTransaction null → tombol hilang.
+        app(ReturService::class)->cancelJoin(JoinTransaction::where('user_id', $member->id)->firstOrFail());
+        $this->actingAs($admin)->get(route('users.index'))->assertOk()->assertDontSee('Batal Join');
     }
 }

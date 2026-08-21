@@ -36,6 +36,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RecruitController;
 use App\Http\Controllers\ReportBotAdminController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ReturController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockOpnameController;
@@ -139,6 +140,17 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/pesanan-downline/{purchaseOrder}/verify-payment', [DownlineOrderController::class, 'verifyPayment'])->name('pesanan-downline.verify-payment');
         Route::post('/pesanan-downline/{purchaseOrder}/fulfill', [DownlineOrderController::class, 'fulfill'])->name('pesanan-downline.fulfill');
         Route::post('/pesanan-downline/{purchaseOrder}/reject', [DownlineOrderController::class, 'reject'])->name('pesanan-downline.reject');
+    });
+
+    // Retur PO — mitra ajukan (kepemilikan PO), HQ (process_return) proses/acc.
+    Route::get('/retur', [ReturController::class, 'index'])->name('retur.index');
+    Route::get('/purchase-orders/{purchaseOrder}/retur', [ReturController::class, 'create'])->name('retur.create');
+    Route::post('/retur', [ReturController::class, 'store'])->name('retur.store');
+    Route::post('/retur/{retur}/void', [ReturController::class, 'void'])->name('retur.void'); // super_admin (cek di controller)
+    Route::post('/join-transactions/{joinTransaction}/cancel', [ReturController::class, 'cancelJoin'])->name('join-transactions.cancel'); // manage_users (cek di controller)
+    Route::middleware('permission:process_return')->group(function () {
+        Route::post('/retur/{retur}/approve', [ReturController::class, 'approve'])->name('retur.approve');
+        Route::post('/retur/{retur}/reject', [ReturController::class, 'reject'])->name('retur.reject');
     });
 
     /* ---------------- Inventory & Stock Movements ---------------- */

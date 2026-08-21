@@ -83,6 +83,13 @@
                                     <button class="ml-2 text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
                                 </form>
                             @endif
+                            @if($row->activeJoinTransaction)
+                                <form method="POST" action="{{ route('join-transactions.cancel', $row->activeJoinTransaction) }}" class="inline"
+                                    onsubmit="return confirm('Batalkan join {{ $row->fullname }}?\n\nBonus join ke perekrut akan ditarik & stok paket dikembalikan ke HQ. Tercatat di Audit Log.')">
+                                    @csrf
+                                    <button class="ml-2 text-orange-600 hover:text-orange-800 font-semibold">Batal Join</button>
+                                </form>
+                            @endif
                         @else
                             <span class="text-stone-400">—</span>
                         @endif

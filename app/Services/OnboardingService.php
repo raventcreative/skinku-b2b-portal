@@ -79,9 +79,11 @@ class OnboardingService
                 );
             }
 
-            if ($user->upline) {
-                $this->commissions->recordJoinBonus($user, (float) $paket->price);
-            }
+            // Bonus join → PEREKRUT (sponsor), lewat guard internal recordJoinBonus
+            // (tanpa sponsor → tak ada bonus, HQ simpan penuh). JANGAN di-gate ke
+            // upline pasok: rekrutmen ≠ rantai pasok (member bisa punya sponsor
+            // tanpa upline, mis. reseller HQ langsung yang direkrut seseorang).
+            $this->commissions->recordJoinBonus($user, (float) $paket->price);
 
             return $user;
         });

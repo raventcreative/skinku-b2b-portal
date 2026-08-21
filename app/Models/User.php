@@ -110,6 +110,12 @@ class User extends Authenticatable
         return $this->hasMany(User::class, 'sponsor_id');
     }
 
+    /** Transaksi join aktif (belum dibatalkan) — dasar tombol "Batal Join". */
+    public function activeJoinTransaction()
+    {
+        return $this->hasOne(JoinTransaction::class, 'user_id')->whereNull('cancelled_at')->latest('id');
+    }
+
     /* --------------------------------------------------------------------- */
     /* Role / status helpers */
     /* --------------------------------------------------------------------- */

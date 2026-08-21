@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class JoinTransaction extends Model
 {
-    protected $fillable = ['user_id', 'join_package_id', 'inviter_id', 'price', 'created_by'];
+    protected $fillable = ['user_id', 'join_package_id', 'inviter_id', 'price', 'created_by', 'cancelled_at'];
 
-    protected $casts = ['price' => 'decimal:2'];
+    protected $casts = ['price' => 'decimal:2', 'cancelled_at' => 'datetime'];
 
     public function member(): BelongsTo
     {

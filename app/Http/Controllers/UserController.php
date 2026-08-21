@@ -29,6 +29,7 @@ class UserController extends Controller
         $filters = $request->only(['q', 'role', 'status']);
 
         $users = User::query()
+            ->with('activeJoinTransaction')
             ->when($filters['q'] ?? null, function ($query, $q) {
                 $query->where(function ($sub) use ($q) {
                     $sub->where('fullname', 'like', "%{$q}%")

@@ -23,6 +23,7 @@ class Permissions
         'create_po' => 'Buat Purchase Order',
         'update_po_status' => 'Update Status PO',
         'process_downline_po' => 'Proses Pesanan Downline',
+        'process_return' => 'Proses Retur',
         'delete_po' => 'Hapus PO',
         'manage_products' => 'Kelola Produk',
         'manage_users' => 'Kelola User / Anggota',
@@ -63,6 +64,8 @@ class Permissions
         // Model A: penjual PO inter-partner = stockist (GD/Distri). Reseller beli
         // offline (tak pernah jadi seller) → tak perlu. Guard seller_id===me tetap.
         'process_downline_po' => [User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_DISTRIBUTOR],
+        // Retur: HQ (admin/gudang) yang proses/acc. Mitra ajukan via kepemilikan PO.
+        'process_return' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
         'delete_po' => [User::ROLE_ADMIN],
         'manage_products' => [User::ROLE_ADMIN],
         'manage_users' => [User::ROLE_ADMIN],

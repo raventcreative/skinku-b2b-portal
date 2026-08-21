@@ -127,6 +127,24 @@ class CommissionService
     }
 
     /**
+     * Clawback bonus join saat onboarding dibatalkan: baris NEGATIF ke perekrut =
+     * −(total bonus join positif untuk member ini). Append-only.
+     */
+    public function recordJoinClawback(User $member): void
+    {
+        $rows = Commission::where('source_user_id', $member->id)
+            ->where('type', 'join')->where('amount', '>', 0)->get();
+
+        foreach ($rows as $row) {
+            Commission::create([
+                'user_id' => $row->user_id, 'source_po_id' => null, 'source_user_id' => $member->id,
+                'type' => 'join', 'level' => $row->level, 'rate' => $row->rate,
+                'base_amount' => -(float) $row->base_amount, 'amount' => -(float) $row->amount, 'status' => 'saldo',
+            ]);
+        }
+    }
+
+    /**
      * Clawback komisi pasca-retur: baris NEGATIF proporsional ke fraksi retur untuk
      * komisi `ro_cashback`/`override` yang bersumber dari PO ini. Append-only (BUKAN
      * edit baris lama). `volume_bonus` di-clawback via re-evaluasi VolumeIncentiveService;
@@ -136,7 +154,8 @@ class CommissionService
      */
     public function recordReturnReversal(PurchaseOrder $po, float $fraction): void
     {
-        if ($fraction <= 0) {
+        // Fraksi negatif = kompensasi POSITIF (undo clawback saat void). Skip hanya nol.
+        if (abs($fraction) < 0.0001) {
             return;
         }
 
