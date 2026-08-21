@@ -52,6 +52,7 @@ class OnboardingService
                 'phone' => $data['phone'] ?? null,
                 'address' => $data['address'] ?? null,
                 'region' => $data['region'] ?? null,
+                'city' => $data['city'] ?? null,
                 'status' => User::STATUS_ACTIVE,
                 'created_by' => $adminId,
             ]);

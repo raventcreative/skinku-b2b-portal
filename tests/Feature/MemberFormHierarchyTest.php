@@ -28,21 +28,25 @@ class MemberFormHierarchyTest extends TestCase
         ]);
     }
 
-    public function test_region_pakai_dropdown_provinsi(): void
+    public function test_region_pakai_dropdown_provinsi_dan_kota(): void
     {
         $sa = $this->superAdmin();
 
-        // Form render: dropdown provinsi (bukan input bebas).
+        // Form render: dropdown provinsi + data kota (kota dari cascade JS @json).
         $this->actingAs($sa)->get(route('users.index'))->assertOk()
-            ->assertSee('pilih provinsi')->assertSee('Jawa Timur')->assertSee('Papua Pegunungan');
+            ->assertSee('pilih provinsi')->assertSee('Jawa Timur')->assertSee('Papua Pegunungan')
+            ->assertSee('pilih kota')->assertSee('Kota Surabaya');
 
-        // Simpan user dengan region dari daftar → tersimpan persis.
+        // Simpan user dengan provinsi + kota → keduanya tersimpan persis.
         $this->actingAs($sa)->post(route('users.store'), [
             'fullname' => 'Siti Nurkana', 'email' => 'siti@t.test', 'username' => 'siti_dist',
             'password' => 'secret123', 'password_confirmation' => 'secret123',
-            'role' => User::ROLE_DISTRIBUTOR, 'status' => User::STATUS_ACTIVE, 'region' => 'Jawa Timur',
+            'role' => User::ROLE_DISTRIBUTOR, 'status' => User::STATUS_ACTIVE,
+            'region' => 'Jawa Timur', 'city' => 'Kota Surabaya',
         ])->assertRedirect();
-        $this->assertSame('Jawa Timur', User::where('username', 'siti_dist')->value('region'));
+        $row = User::where('username', 'siti_dist')->first();
+        $this->assertSame('Jawa Timur', $row->region);
+        $this->assertSame('Kota Surabaya', $row->city);
     }
 
     public function test_kelola_anggota_bisa_disortir_per_kolom(): void

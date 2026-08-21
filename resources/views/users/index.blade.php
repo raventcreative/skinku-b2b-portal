@@ -73,7 +73,7 @@
                     <td class="px-4 py-3 text-right whitespace-nowrap">
                         @if($row->status !== 'deleted')
                             <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","status","upline_id","member_id"])) }})'>Edit</button>
+                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","city","status","upline_id","member_id"])) }})'>Edit</button>
                             <form method="POST" action="{{ route('users.toggle-status', $row) }}" class="inline">
                                 @csrf
                                 <button class="ml-2 text-amber-600 hover:text-amber-800 font-semibold">{{ $row->status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}</button>
@@ -199,7 +199,8 @@
         f.querySelector('[name=company_name]').value = u.company_name ?? '';
         f.querySelector('[name=phone]').value = u.phone ?? '';
         f.querySelector('[name=address]').value = u.address ?? '';
-        const regionSel = f.querySelector('[name=region]');
+        const regionSel = f.querySelector('[data-region-prov]');
+        const citySel = f.querySelector('[data-region-city]');
         if (regionSel) {
             const rv = u.region ?? '';
             // Region lama yang bukan provinsi (data lama) → tambah opsi sementara biar tak hilang.
@@ -207,6 +208,15 @@
                 regionSel.add(new Option(rv + ' (lama)', rv));
             }
             regionSel.value = rv;
+        }
+        if (citySel && window.regionFillCity) {
+            const cv = u.city ?? '';
+            window.regionFillCity(u.region ?? '', citySel, cv);
+            // Kota lama yang tak ada di daftar provinsi → tambah opsi biar tak hilang.
+            if (cv && !Array.from(citySel.options).some(o => o.value === cv)) {
+                citySel.add(new Option(cv + ' (lama)', cv));
+                citySel.value = cv;
+            }
         }
         f.querySelector('[name=status]').value = u.status ?? 'active';
         refreshUplineOptions(f);
@@ -360,4 +370,5 @@
         }
     }
 </script>
+@include('partials.region-cascade')
 @endpush

@@ -78,6 +78,7 @@ class UserController extends Controller
             'phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],
             'region' => ['nullable', 'string', 'max:100'],
+            'city' => ['nullable', 'string', 'max:100'],
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
             'upline_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
@@ -96,6 +97,7 @@ class UserController extends Controller
                 'phone' => $data['phone'] ?? null,
                 'address' => $data['address'] ?? null,
                 'region' => $data['region'] ?? null,
+                'city' => $data['city'] ?? null,
                 'status' => $data['status'],
                 'created_by' => $actor->id,
             ]);
@@ -138,6 +140,7 @@ class UserController extends Controller
             'phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],
             'region' => ['nullable', 'string', 'max:100'],
+            'city' => ['nullable', 'string', 'max:100'],
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
             'upline_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
@@ -159,6 +162,7 @@ class UserController extends Controller
             'phone' => $data['phone'] ?? null,
             'address' => $data['address'] ?? null,
             'region' => $data['region'] ?? null,
+            'city' => $data['city'] ?? null,
             'status' => $data['status'],
             'updated_by' => $actor->id,
         ]);

@@ -37,6 +37,7 @@ class OnboardingController extends Controller
             'company_name' => ['nullable', 'string', 'max:150'],
             'phone' => ['nullable', 'string', 'max:40'],
             'region' => ['nullable', 'string', 'max:100'],
+            'city' => ['nullable', 'string', 'max:100'],
             'join_package_id' => ['required', 'integer', 'exists:join_packages,id'],
             'upline_id' => ['nullable', 'integer', 'exists:users,id'],
             'sponsor_id' => ['nullable', 'integer', 'exists:users,id'], // perekrut (jalur rekrutmen)

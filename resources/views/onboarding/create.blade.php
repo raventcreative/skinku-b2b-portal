@@ -39,12 +39,21 @@
             <label class="block text-xs font-semibold text-stone-700 mb-1">Telepon</label>
             <input name="phone" value="{{ old('phone') }}" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
         </div>
-        <div class="sm:col-span-2">
+        <div>
             <label class="block text-xs font-semibold text-stone-700 mb-1">Region (Provinsi)</label>
-            <select name="region" class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+            <select name="region" data-region-prov class="w-full px-3 py-2 border border-stone-300 rounded-lg">
                 <option value="">— pilih provinsi —</option>
                 @foreach(config('regions.provinces') as $prov)
                     <option value="{{ $prov }}" @selected(old('region') === $prov)>{{ $prov }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-semibold text-stone-700 mb-1">Kota / Kabupaten</label>
+            <select name="city" data-region-city class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+                <option value="">— pilih kota —</option>
+                @foreach(config('regions.cities')[old('region')] ?? [] as $kota)
+                    <option value="{{ $kota }}" @selected(old('city') === $kota)>{{ $kota }}</option>
                 @endforeach
             </select>
         </div>
@@ -129,4 +138,5 @@
     wireTypeahead('uplineSearch', 'uplineId', 'uplineList', 'uplineMiss', UPLINES);
     wireTypeahead('sponsorSearch', 'sponsorId', 'sponsorList', 'sponsorMiss', SPONSORS);
 </script>
+@include('partials.region-cascade')
 @endpush
