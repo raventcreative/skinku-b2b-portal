@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Support\PartnerHierarchy;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -41,7 +42,7 @@ class PurchaseOrderService
                 'po_number' => $this->generatePoNumber(),
                 'created_by' => $buyer->id,
                 'user_id' => $buyer->id,
-                'seller_id' => null, // routing Model X dimatikan — semua order ke HQ (upline_id hanya utk hierarki komisi)
+                'seller_id' => $this->resolveSeller($buyer), // Model A: distri (stockist) → GD (inter-partner); else HQ
                 'company_name' => $buyer->company_name,
                 'user_role' => $buyer->role,
                 'status' => PurchaseOrder::STATUS_PENDING,
@@ -106,6 +107,23 @@ class PurchaseOrderService
 
             return $po->load('items');
         });
+    }
+
+    /**
+     * Model A — tentukan penjual PO. Distributor (stockist) yang punya upline
+     * stockist (GD) beli KE upline-nya (inter-partner, transfer stok antar gudang).
+     * Selain itu (GD tanpa upline, reseller no-stock, mitra tanpa upline) → HQ (null).
+     * Dormant-safe: jaringan kosong (upline_id null) = semua ke HQ = perilaku lama.
+     */
+    private function resolveSeller(User $buyer): ?int
+    {
+        if (! $buyer->upline_id || ! PartnerHierarchy::holdsStock($buyer->role)) {
+            return null;
+        }
+
+        $upline = $buyer->upline;
+
+        return ($upline && PartnerHierarchy::holdsStock($upline->role)) ? $upline->id : null;
     }
 
     /**

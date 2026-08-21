@@ -25,12 +25,17 @@ use Illuminate\Support\Collection;
 class CommissionService
 {
     /** Rate komisi (persen) per key AppSetting → default. SATU sumber utk engine + UI Pengaturan. */
+    // Model A (2026-08-21): OVERRIDE DIPADAMKAN — rate 0 (dorman, bukan dihapus).
+    // Untung mitra sekarang dari MARGIN (beli-dari-upline, selisih harga tier), bukan
+    // override. Kode override (recordForCompletedPo + overrideRate) TETAP ADA supaya
+    // bisa dihidupkan lagi tanpa build ulang (set rate > 0 via AppSetting/Pengaturan).
+    // Bonus JOIN (10%) TETAP jalan.
     public const RATE_DEFAULTS = [
-        'komisi_persen_grand_distributor' => 6.0,
-        'komisi_persen_distributor' => 4.0,
-        'komisi_persen_reseller_bronze' => 2.0,
-        'komisi_persen_reseller_gold' => 2.0,
-        'komisi_persen_reseller' => 2.0, // legacy generic reseller (masih assignable)
+        'komisi_persen_grand_distributor' => 0.0,
+        'komisi_persen_distributor' => 0.0,
+        'komisi_persen_reseller_bronze' => 0.0,
+        'komisi_persen_reseller_gold' => 0.0,
+        'komisi_persen_reseller' => 0.0, // legacy generic reseller (masih assignable)
         'komisi_persen_join' => 10.0,
     ];
 
