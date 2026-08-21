@@ -10,6 +10,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackdatedSaleController;
 use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DownlineOrderController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\ImpersonationController;
@@ -127,6 +128,16 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::middleware('permission:delete_po')->group(function () {
         Route::delete('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'destroy'])->name('purchase-orders.destroy');
         Route::delete('/purchase-orders/{purchaseOrder}/force', [PurchaseOrderController::class, 'forceDestroy'])->name('purchase-orders.force-destroy');
+    });
+
+    // Pesanan Downline (Model A) — upline (penjual di PO inter-partner) memproses
+    // PO yang dia sendiri jadi penjualnya. Guard seller_id===auth di tiap aksi.
+    Route::middleware('permission:process_downline_po')->group(function () {
+        Route::get('/pesanan-downline', [DownlineOrderController::class, 'index'])->name('pesanan-downline.index');
+        Route::get('/pesanan-downline/{purchaseOrder}', [DownlineOrderController::class, 'show'])->name('pesanan-downline.show');
+        Route::post('/pesanan-downline/{purchaseOrder}/verify-payment', [DownlineOrderController::class, 'verifyPayment'])->name('pesanan-downline.verify-payment');
+        Route::post('/pesanan-downline/{purchaseOrder}/fulfill', [DownlineOrderController::class, 'fulfill'])->name('pesanan-downline.fulfill');
+        Route::post('/pesanan-downline/{purchaseOrder}/reject', [DownlineOrderController::class, 'reject'])->name('pesanan-downline.reject');
     });
 
     /* ---------------- Inventory & Stock Movements ---------------- */

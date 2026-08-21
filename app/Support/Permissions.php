@@ -22,6 +22,7 @@ class Permissions
     public const DEFINITIONS = [
         'create_po' => 'Buat Purchase Order',
         'update_po_status' => 'Update Status PO',
+        'process_downline_po' => 'Proses Pesanan Downline',
         'delete_po' => 'Hapus PO',
         'manage_products' => 'Kelola Produk',
         'manage_users' => 'Kelola User / Anggota',
@@ -59,6 +60,9 @@ class Permissions
     public const DEFAULTS = [
         'create_po' => [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER, User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD],
         'update_po_status' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
+        // Model A: penjual PO inter-partner = stockist (GD/Distri). Reseller beli
+        // offline (tak pernah jadi seller) → tak perlu. Guard seller_id===me tetap.
+        'process_downline_po' => [User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_DISTRIBUTOR],
         'delete_po' => [User::ROLE_ADMIN],
         'manage_products' => [User::ROLE_ADMIN],
         'manage_users' => [User::ROLE_ADMIN],
