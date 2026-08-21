@@ -13,10 +13,16 @@ Retur berlaku ke **PO completed apa pun** (dua jenis di Model A):
 - **PO ke HQ (`seller_id` null)** — GD restock (atau distri-fallback). Retur: **HQ +qty** (barang normal) / write-off (rusak); **buyer −qty**. **Clawback:** `ro_cashback` (perekrut GD) proporsional.
 - **PO inter-partner (`seller_id`=GD)** — distri beli ke GD. Retur: **GD(seller) +qty** (normal); **distri(buyer) −qty**. **Komisi: TAK ada** (margin bukan komisi) → cuma reversal stok + catat refund.
 
-**Clawback komisi (baris NEGATIF, proporsional ke fraksi retur):**
-- **YA:** `ro_cashback` (+ `override` kalau suatu saat dihidupkan). Basis: komisi dengan `source_po_id` = PO ini × fraksi retur (nilai barang yang diretur ÷ subtotal PO).
-- **TIDAK:** `volume_bonus` (self-correct — evaluasi tahun depan pakai total yang sudah turun; sesuai desain no-clawback) & `join` (bukan dari PO).
-- Saldo boleh **minus** (kalau sudah ditarik) = utang, ketutup komisi berikutnya (withdrawal existing tolak narik kalau `availableBalance` < jumlah). Append-only: koreksi = baris baru negatif, BUKAN edit baris lama.
+**Clawback komisi (baris NEGATIF, append-only — dikunci user 2026-08-21: SEMUA bisa ditarik):**
+- **`ro_cashback`** — proporsional ke fraksi retur (nilai barang diretur ÷ subtotal PO), via `CommissionService::recordReturnReversal`.
+- **`volume_bonus`** — **IKUT ditarik** (revisi user): pasca-retur, `netTotal` GD turun (Σ PO − Σ retur applied). Re-evaluasi volume dengan clawback: kalau hak(netTotal) < yang sudah diberi → tulis baris NEGATIF selisihnya. (VolumeIncentiveService diubah: pakai netTotal + izinkan award negatif; evaluate dipanggil juga pasca-retur.)
+- **`override`** — kalau suatu saat dihidupkan (dorman sekarang).
+- **`join`** — di-clawback lewat **flow BATAL JOIN terpisah** (bukan retur PO; join dari paket/onboarding, bukan PO). Lihat bagian di bawah.
+- Saldo boleh **minus** (kalau sudah ditarik) = utang, ketutup komisi berikutnya (withdrawal existing tolak narik kalau `availableBalance` < jumlah).
+
+## Batal/Retur Join (onboarding) — flow terpisah (dikunci user 2026-08-21)
+
+Kalau join member dibatalkan (paket dibalikin / member keluar): **clawback bonus join** (baris negatif ke perekrut) + **balikin stok paket ke HQ** (adjustHqStock +qty per item paket) + tandai JoinTransaction dibatalkan + (opsional) nonaktifkan member. Reuse `recordReturnReversal`-style negatif. Fase-nya: engine bareng Fase 1 (atau sub-fase), UI bareng Fase 2.
 
 ## Keputusan terkunci (carry-over)
 

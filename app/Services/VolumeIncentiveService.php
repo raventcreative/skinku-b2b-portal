@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Commission;
+use App\Models\PoReturnItem;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\VolumeIncentiveTier;
@@ -34,33 +35,44 @@ class VolumeIncentiveService
         $start = Carbon::create($year, 1, 1)->startOfDay();
         $end = Carbon::create($year, 12, 31)->endOfDay();
 
-        // Total belanja GD ke HQ tahun ini (Σ subtotal−discount, PO completed seller null).
-        $total = (float) PurchaseOrder::where('user_id', $grand->id)
+        // Total belanja GD ke HQ tahun ini (Σ subtotal−discount, PO completed seller null)
+        // DIKURANGI nilai retur yang sudah applied (netTotal — biar volume ikut turun).
+        $poTotal = (float) PurchaseOrder::where('user_id', $grand->id)
             ->whereNull('seller_id')
             ->where('status', PurchaseOrder::STATUS_COMPLETED)
             ->whereBetween('completed_at', [$start, $end])
             ->selectRaw('COALESCE(SUM(subtotal - discount), 0) as t')->value('t');
 
-        // Rate = tier TERTINGGI yang thresholdnya <= total.
+        $returned = (float) PoReturnItem::query()
+            ->join('po_returns', 'po_returns.id', '=', 'po_return_items.po_return_id')
+            ->join('purchase_order_items', 'purchase_order_items.id', '=', 'po_return_items.purchase_order_item_id')
+            ->join('purchase_orders', 'purchase_orders.id', '=', 'po_returns.purchase_order_id')
+            ->where('purchase_orders.user_id', $grand->id)
+            ->whereNull('purchase_orders.seller_id')
+            ->where('po_returns.status', 'applied')
+            ->whereBetween('purchase_orders.completed_at', [$start, $end])
+            ->selectRaw('COALESCE(SUM(po_return_items.qty * purchase_order_items.unit_price), 0) as r')->value('r');
+
+        $total = $poTotal - $returned;
+
+        // Rate = tier TERTINGGI yang thresholdnya <= total (0 kalau belum tembus).
         $rate = 0.0;
         foreach ($tiers as $tier) {
             if ($total >= (float) $tier->threshold) {
                 $rate = (float) $tier->rate_percent;
             }
         }
-        if ($rate <= 0) {
-            return; // belum tembus tier mana pun
-        }
 
-        // Hak = total × rate; award = hak − yang sudah diberi tahun ini (SELISIH saja).
+        // Hak = total × rate; award = hak − yang sudah diberi tahun ini. Bisa NEGATIF
+        // (clawback) kalau total turun pasca-retur di bawah yang sudah dibayar.
         $entitlement = round($total * $rate / 100, 2);
         $alreadyAwarded = (float) Commission::where('user_id', $grand->id)
             ->where('type', 'volume_bonus')
             ->whereBetween('created_at', [$start, $end])
             ->sum('amount');
         $award = round($entitlement - $alreadyAwarded, 2);
-        if ($award <= 0) {
-            return; // idempoten / tier turun → tak menambah, tak menarik balik
+        if (abs($award) < 0.005) {
+            return; // tak ada perubahan (idempoten)
         }
 
         // Catatan: amount = SELISIH (delta), sengaja BUKAN base×rate untuk baris ini.

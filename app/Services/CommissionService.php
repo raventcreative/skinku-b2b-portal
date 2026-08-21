@@ -126,6 +126,40 @@ class CommissionService
         ]);
     }
 
+    /**
+     * Clawback komisi pasca-retur: baris NEGATIF proporsional ke fraksi retur untuk
+     * komisi `ro_cashback`/`override` yang bersumber dari PO ini. Append-only (BUKAN
+     * edit baris lama). `volume_bonus` di-clawback via re-evaluasi VolumeIncentiveService;
+     * `join` via flow batal-join. Saldo boleh minus (utang, ketutup komisi berikutnya).
+     *
+     * @param  float  $fraction  0..1 = nilai barang diretur ÷ subtotal PO
+     */
+    public function recordReturnReversal(PurchaseOrder $po, float $fraction): void
+    {
+        if ($fraction <= 0) {
+            return;
+        }
+
+        // Hanya baris POSITIF asli (amount>0) — jangan me-reverse baris reversal.
+        $rows = Commission::where('source_po_id', $po->id)
+            ->whereIn('type', ['ro_cashback', 'override'])
+            ->where('amount', '>', 0)
+            ->get();
+
+        foreach ($rows as $row) {
+            $reversal = -round((float) $row->amount * $fraction, 2);
+            if (abs($reversal) < 0.005) {
+                continue;
+            }
+            Commission::create([
+                'user_id' => $row->user_id, 'source_po_id' => $po->id, 'source_user_id' => $row->source_user_id,
+                'type' => $row->type, 'level' => $row->level, 'rate' => $row->rate,
+                'base_amount' => -round((float) $row->base_amount * $fraction, 2),
+                'amount' => $reversal, 'status' => 'saldo',
+            ]);
+        }
+    }
+
     public function balance(User $mitra): float
     {
         return (float) Commission::where('user_id', $mitra->id)->where('status', 'saldo')->sum('amount');
