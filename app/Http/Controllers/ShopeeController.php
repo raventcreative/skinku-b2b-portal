@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ShopeeConnection;
+use App\Models\ShopeeOrder;
+use App\Models\ShopeeSkuMap;
 use App\Services\AuditService;
 use App\Services\ShopeeClient;
 use App\Services\ShopeeOrderService;
@@ -62,5 +64,90 @@ class ShopeeController extends Controller
         } catch (\Throwable $e) {
             return redirect()->route('shopee.index')->with('error', 'Gagal menghubungkan: '.$e->getMessage());
         }
+    }
+
+    public function syncOrders(Request $request): RedirectResponse
+    {
+        $conn = ShopeeConnection::latest('id')->first();
+        abort_unless($conn, 400, 'Belum terhubung ke toko Shopee.');
+        try {
+            $r = $this->sync->syncOrders($conn, $request->user()->id);
+            $msg = "Berhasil tarik & simpan {$r['count']} order Shopee.";
+            if ($r['deducted']) {
+                $d = $r['deducted'];
+                $msg .= " Auto-potong: {$d['done']} dipotong".($d['failed'] ? ", {$d['failed']} gagal" : '').'.';
+            }
+
+            return redirect()->route('shopee.orders')->with('status', $msg);
+        } catch (\Throwable $e) {
+            return redirect()->route('shopee.index')->with('error', 'Gagal tarik order: '.$e->getMessage());
+        }
+    }
+
+    public function orderList()
+    {
+        $orders = ShopeeOrder::latest('order_created_at')->latest('id')->paginate(25);
+        $previews = $orders->mapWithKeys(fn ($o) => [$o->id => $this->orders->preview($o)]);
+
+        return view('shopee.orders', ['orders' => $orders, 'previews' => $previews, 'needMap' => $this->orders->skusNeedingMap()]);
+    }
+
+    public function stockFunnel()
+    {
+        return view('shopee.stock', ['needMap' => $this->orders->skusNeedingMap()]);
+    }
+
+    public function saveSkuMap(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'shopee_sku' => ['required', 'string', 'max:190'],
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'qty' => ['required', 'integer', 'min:1'],
+        ]);
+        // Satu shopee_sku bisa memetakan ke BANYAK produk (resep) — kunci gabungan.
+        ShopeeSkuMap::updateOrCreate(
+            ['shopee_sku' => $data['shopee_sku'], 'product_id' => $data['product_id']],
+            ['qty' => $data['qty']],
+        );
+
+        return back()->with('status', 'Pemetaan SKU disimpan.');
+    }
+
+    public function removeSkuMap(ShopeeSkuMap $map): RedirectResponse
+    {
+        $map->delete();
+
+        return back()->with('status', 'Pemetaan SKU dihapus.');
+    }
+
+    public function deductStock(Request $request, ShopeeOrder $order): RedirectResponse
+    {
+        try {
+            $this->orders->deduct($order, $request->user()->id);
+
+            return back()->with('status', "Stok order {$order->order_sn} dipotong.");
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function deductAll(Request $request): RedirectResponse
+    {
+        $d = $this->orders->deductAllReady($request->user()->id);
+
+        return back()->with('status', "Potong massal: {$d['done']} dipotong, {$d['failed']} gagal, {$d['skipped']} dilewati.");
+    }
+
+    public function settings(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'auto_deduct' => ['nullable', 'boolean'],
+            'deduct_from' => ['nullable', 'date'],
+        ]);
+        $conn = ShopeeConnection::latest('id')->first();
+        abort_unless($conn, 400, 'Belum terhubung.');
+        $conn->update(['auto_deduct' => (bool) ($data['auto_deduct'] ?? false), 'deduct_from' => $data['deduct_from'] ?? null]);
+
+        return back()->with('status', 'Pengaturan Shopee disimpan.');
     }
 }

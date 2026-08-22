@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Product;
+use App\Models\ShopeeOrder;
+use App\Models\ShopeeSkuMap;
 use App\Models\User;
 use App\Services\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,5 +57,25 @@ class ShopeeWiringTest extends TestCase
             ->assertRedirect(route('shopee.index'));
 
         $this->assertDatabaseHas('shopee_connections', ['shop_id' => '777', 'access_token' => 'A']);
+    }
+
+    public function test_deduct_satu_order(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SB1', 'price_grand' => 1,
+            'price_distributor' => 1, 'price_reseller' => 1, 'price_retail' => 1, 'cogs' => 1,
+            'hq_stock' => 100, 'status' => 'active']);
+        ShopeeSkuMap::create(['shopee_sku' => 'SB1', 'product_id' => $p->id, 'qty' => 1]);
+        $o = ShopeeOrder::create(['order_sn' => 'D1', 'status' => 'SHIPPED', 'total_amount' => 1,
+            'line_items' => [['sku' => 'SB1', 'name' => 'Sabun', 'qty' => 3]], 'stock_status' => ShopeeOrder::STATUS_PENDING,
+            'order_created_at' => now()]);
+
+        $this->actingAs($admin)->post(route('shopee.deduct', $o))->assertRedirect();
+        $this->assertSame(97, (int) $p->fresh()->hq_stock);
+    }
+
+    public function test_command_shopee_sync_tanpa_koneksi_aman(): void
+    {
+        $this->artisan('shopee:sync')->assertSuccessful();
     }
 }

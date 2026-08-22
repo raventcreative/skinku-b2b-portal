@@ -441,6 +441,14 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/shopee', [ShopeeController::class, 'index'])->name('shopee.index');
         Route::get('/shopee/connect', [ShopeeController::class, 'connect'])->name('shopee.connect');
         Route::get('/shopee/callback', [ShopeeController::class, 'callback'])->name('shopee.callback');
+        Route::post('/shopee/sync-orders', [ShopeeController::class, 'syncOrders'])->name('shopee.sync-orders');
+        Route::get('/shopee/orders', [ShopeeController::class, 'orderList'])->name('shopee.orders');
+        Route::get('/shopee/stok', [ShopeeController::class, 'stockFunnel'])->name('shopee.stock');
+        Route::post('/shopee/sku-map', [ShopeeController::class, 'saveSkuMap'])->name('shopee.sku-map');
+        Route::delete('/shopee/sku-map/{map}', [ShopeeController::class, 'removeSkuMap'])->name('shopee.sku-map.remove');
+        Route::post('/shopee/orders/{order}/deduct', [ShopeeController::class, 'deductStock'])->name('shopee.deduct');
+        Route::post('/shopee/deduct-all', [ShopeeController::class, 'deductAll'])->name('shopee.deduct-all');
+        Route::post('/shopee/settings', [ShopeeController::class, 'settings'])->name('shopee.settings');
     });
 
     /* ---------------- Product management ---------------- */
