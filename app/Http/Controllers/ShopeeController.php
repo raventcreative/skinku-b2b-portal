@@ -102,7 +102,7 @@ class ShopeeController extends Controller
         $data = $request->validate([
             'shopee_sku' => ['required', 'string', 'max:190'],
             'product_id' => ['required', 'integer', 'exists:products,id'],
-            'qty' => ['required', 'integer', 'min:1'],
+            'qty' => ['required', 'integer', 'min:1', 'max:999'],
         ]);
         // Satu shopee_sku bisa memetakan ke BANYAK produk (resep) — kunci gabungan.
         ShopeeSkuMap::updateOrCreate(
@@ -124,6 +124,7 @@ class ShopeeController extends Controller
     {
         try {
             $this->orders->deduct($order, $request->user()->id);
+            AuditService::log(action: 'shopee_deduct_stock', targetType: 'shopee', targetId: $order->id, after: ['order_sn' => $order->order_sn]);
 
             return back()->with('status', "Stok order {$order->order_sn} dipotong.");
         } catch (\Throwable $e) {
@@ -134,6 +135,7 @@ class ShopeeController extends Controller
     public function deductAll(Request $request): RedirectResponse
     {
         $d = $this->orders->deductAllReady($request->user()->id);
+        AuditService::log(action: 'shopee_deduct_all', targetType: 'shopee', after: $d);
 
         return back()->with('status', "Potong massal: {$d['done']} dipotong, {$d['failed']} gagal, {$d['skipped']} dilewati.");
     }
@@ -147,6 +149,7 @@ class ShopeeController extends Controller
         $conn = ShopeeConnection::latest('id')->first();
         abort_unless($conn, 400, 'Belum terhubung.');
         $conn->update(['auto_deduct' => (bool) ($data['auto_deduct'] ?? false), 'deduct_from' => $data['deduct_from'] ?? null]);
+        AuditService::log(action: 'shopee_settings', targetType: 'shopee', after: $data);
 
         return back()->with('status', 'Pengaturan Shopee disimpan.');
     }
