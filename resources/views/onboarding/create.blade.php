@@ -50,15 +50,12 @@
         </div>
         <div>
             <label class="block text-xs font-semibold text-stone-700 mb-1">Kota / Kabupaten</label>
-            <input type="text" name="city" list="cityList" data-region-city autocomplete="off"
-                   value="{{ old('city') }}" placeholder="Ketik / pilih kota…"
-                   class="w-full px-3 py-2 border border-stone-300 rounded-lg">
-            <datalist id="cityList" data-region-citylist>
+            <select name="city" data-region-city class="w-full px-3 py-2 border border-stone-300 rounded-lg">
+                <option value="">— pilih kota —</option>
                 @foreach(config('regions.cities')[old('region')] ?? [] as $kota)
-                    <option value="{{ $kota }}"></option>
+                    <option value="{{ $kota }}" @selected(old('city') === $kota)>{{ $kota }}</option>
                 @endforeach
-            </datalist>
-            <span data-region-citymiss class="block mt-1 text-[10px] text-rose-500 hidden">Kota tak ada di provinsi ini — pilih dari daftar.</span>
+            </select>
         </div>
     </div>
 

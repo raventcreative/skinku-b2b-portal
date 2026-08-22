@@ -32,10 +32,10 @@ class MemberFormHierarchyTest extends TestCase
     {
         $sa = $this->superAdmin();
 
-        // Form render: dropdown provinsi + kota ketik-cari (datalist dari cascade JS @json).
+        // Form render: dropdown provinsi + kota (native select, kota dari cascade JS @json).
         $this->actingAs($sa)->get(route('users.index'))->assertOk()
             ->assertSee('pilih provinsi')->assertSee('Jawa Timur')->assertSee('Papua Pegunungan')
-            ->assertSee('Ketik / pilih kota')->assertSee('Surabaya (Kota)');
+            ->assertSee('pilih kota')->assertSee('Surabaya (Kota)');
 
         // Simpan user dengan provinsi + kota → keduanya tersimpan persis.
         $this->actingAs($sa)->post(route('users.store'), [
