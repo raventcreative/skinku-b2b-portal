@@ -38,6 +38,7 @@ use App\Http\Controllers\ReportBotAdminController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReturController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\ShopeeController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockReceiptController;
@@ -434,6 +435,10 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/tiktok/toggle-journal', [TikTokController::class, 'toggleJournal'])->name('tiktok.toggle-journal');
         Route::get('/tiktok/settlements/{settlement}/detail', [TikTokController::class, 'settlementDetail'])->name('tiktok.settlements.detail');
         Route::delete('/tiktok/disconnect', [TikTokController::class, 'disconnect'])->name('tiktok.disconnect');
+    });
+
+    Route::middleware('permission:manage_shopee')->group(function () {
+        Route::get('/shopee', [ShopeeController::class, 'index'])->name('shopee.index');
     });
 
     /* ---------------- Product management ---------------- */

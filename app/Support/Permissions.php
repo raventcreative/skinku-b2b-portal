@@ -43,6 +43,7 @@ class Permissions
         'view_learning' => 'Akses SKINKU Academy',
         'manage_learning' => 'Kelola Materi SKINKU Academy',
         'manage_tiktok' => 'Integrasi TikTok Shop',
+        'manage_shopee' => 'Integrasi Shopee',
         'kol.view' => 'Lihat Database KOL & Hasil Kurasi',
         'kol.screening.manage' => 'Input/Edit Screening KOL',
         'kol.deal.manage' => 'Kelola Deal KOL (buat/edit/hapus/urus)',
@@ -90,6 +91,7 @@ class Permissions
         'view_learning' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER, User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD],
         'manage_learning' => [User::ROLE_ADMIN],
         'manage_tiktok' => [User::ROLE_ADMIN],
+        'manage_shopee' => [User::ROLE_ADMIN],
         // kol_specialist = role dinamis (di-seed migrasi 000045), jadi string
         // literal, bukan konstanta User. Finansial & laporan SENGAJA kosong:
         // kol.deal.finance diberikan per-orang lewat matriks hak akses, dan
