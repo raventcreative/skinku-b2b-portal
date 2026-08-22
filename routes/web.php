@@ -439,6 +439,8 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     Route::middleware('permission:manage_shopee')->group(function () {
         Route::get('/shopee', [ShopeeController::class, 'index'])->name('shopee.index');
+        Route::get('/shopee/connect', [ShopeeController::class, 'connect'])->name('shopee.connect');
+        Route::get('/shopee/callback', [ShopeeController::class, 'callback'])->name('shopee.callback');
     });
 
     /* ---------------- Product management ---------------- */
