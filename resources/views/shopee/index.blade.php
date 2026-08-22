@@ -100,7 +100,6 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
 
     {{-- SKU belum ter-map --}}
     @if(count($needMap))
-        @php $products = \App\Models\Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']); @endphp
         <div class="bg-white rounded-2xl border border-rose-200 p-5">
             <h3 class="text-sm font-bold text-stone-800 mb-1">⚙ SKU belum ter-map ({{ count($needMap) }})</h3>
             <p class="text-[11px] text-stone-500 mb-3">1 SKU Shopee bisa = beberapa produk SKINKU × qty. Dipetakan sekali, berlaku untuk semua order.</p>

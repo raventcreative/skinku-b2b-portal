@@ -13,7 +13,6 @@
 
 <div class="mt-4">
     @if(count($needMap))
-        @php $products = \App\Models\Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']); @endphp
         <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             @foreach($needMap as $sku => $info)
                 <div class="bg-white border border-stone-200 rounded-xl p-3">

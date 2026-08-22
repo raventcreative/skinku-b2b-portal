@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeSkuMap;
@@ -26,6 +27,7 @@ class ShopeeController extends Controller
             'configured' => $this->shopee->configured(),
             'connection' => ShopeeConnection::latest('id')->first(),
             'needMap' => $this->orders->skusNeedingMap(),
+            'products' => Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']),
         ]);
     }
 
@@ -94,7 +96,10 @@ class ShopeeController extends Controller
 
     public function stockFunnel()
     {
-        return view('shopee.stock', ['needMap' => $this->orders->skusNeedingMap()]);
+        return view('shopee.stock', [
+            'needMap' => $this->orders->skusNeedingMap(),
+            'products' => Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']),
+        ]);
     }
 
     public function saveSkuMap(Request $request): RedirectResponse

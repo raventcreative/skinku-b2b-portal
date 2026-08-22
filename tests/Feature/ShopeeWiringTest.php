@@ -82,7 +82,34 @@ class ShopeeWiringTest extends TestCase
     public function test_halaman_orders_dan_stok_render(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);
+
+        // DB kosong dulu: pastikan state kosong (belum ada order/SKU) aman dirender.
         $this->actingAs($admin)->get(route('shopee.orders'))->assertOk()->assertSee('Order Shopee');
         $this->actingAs($admin)->get(route('shopee.stock'))->assertOk();
+
+        // Seed: produk + peta SKU + 3 order (siap potong / sudah dipotong / SKU belum
+        // dipetakan) supaya baris tabel order (pratinjau + tombol potong) dan kartu
+        // $needMap benar-benar dirender, bukan cuma lewat state kosong.
+        $p = Product::create(['name' => 'Sabun', 'sku' => 'SB1', 'price_grand' => 1,
+            'price_distributor' => 1, 'price_reseller' => 1, 'price_retail' => 1, 'cogs' => 1,
+            'hq_stock' => 100, 'status' => 'active']);
+        ShopeeSkuMap::create(['shopee_sku' => 'SB1', 'product_id' => $p->id, 'qty' => 1]);
+
+        $ready = ShopeeOrder::create(['order_sn' => 'READY1', 'status' => 'SHIPPED', 'total_amount' => 50000,
+            'line_items' => [['sku' => 'SB1', 'name' => 'Sabun', 'qty' => 2]],
+            'stock_status' => ShopeeOrder::STATUS_PENDING, 'order_created_at' => now()]);
+
+        ShopeeOrder::create(['order_sn' => 'DONE1', 'status' => 'COMPLETED', 'total_amount' => 30000,
+            'line_items' => [['sku' => 'SB1', 'name' => 'Sabun', 'qty' => 1]],
+            'stock_status' => ShopeeOrder::STATUS_DEDUCTED, 'order_created_at' => now()]);
+
+        ShopeeOrder::create(['order_sn' => 'UNMAP1', 'status' => 'SHIPPED', 'total_amount' => 20000,
+            'line_items' => [['sku' => 'SB-UNMAPPED', 'name' => 'Lotion', 'qty' => 1]],
+            'stock_status' => ShopeeOrder::STATUS_PENDING, 'order_created_at' => now()]);
+
+        $this->actingAs($admin)->get(route('shopee.orders'))->assertOk()
+            ->assertSee('Order Shopee')->assertSee($ready->order_sn);
+        $this->actingAs($admin)->get(route('shopee.stock'))->assertOk();
+        $this->actingAs($admin)->get(route('shopee.index'))->assertOk()->assertSee('SB-UNMAPPED');
     }
 }
