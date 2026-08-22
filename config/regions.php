@@ -51,6 +51,25 @@ $cities = [
     'Papua Selatan' => ['Kab. Asmat', 'Kab. Boven Digoel', 'Kab. Mappi', 'Kab. Merauke'],
 ];
 
+// Format NAMA-DEPAN: "Kota Surabaya" → "Surabaya (Kota)", "Kab. Malang" →
+// "Malang (Kab.)". Penting supaya ketik "sura" langsung ke-filter (datalist/
+// select nyocokin dari depan). Sekalian diurut alfabet per nama tempat.
+$cities = array_map(function ($list) {
+    $list = array_map(function ($c) {
+        if (str_starts_with($c, 'Kota ')) {
+            return substr($c, 5).' (Kota)';
+        }
+        if (str_starts_with($c, 'Kab. ')) {
+            return substr($c, 5).' (Kab.)';
+        }
+
+        return $c;
+    }, $list);
+    sort($list);
+
+    return $list;
+}, $cities);
+
 return [
     'provinces' => array_keys($cities),
     'cities' => $cities,
