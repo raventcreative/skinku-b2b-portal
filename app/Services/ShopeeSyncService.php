@@ -49,9 +49,11 @@ class ShopeeSyncService
         $startedAt = now();
 
         $to = now()->timestamp;
-        $from = $full || ! $conn->last_synced_at
-            ? now()->subDays(14)->timestamp                       // Shopee batas 15 hari
-            : $conn->last_synced_at->copy()->subHours(2)->timestamp;
+        // Shopee tolak rentang >15 hari. Kalau last_synced_at basi (cron mati lama),
+        // clamp ke floor 14 hari biar rentang tetap valid & self-heal, bukan wedge selamanya.
+        $from = ($full || ! $conn->last_synced_at)
+            ? now()->subDays(14)->timestamp
+            : max(now()->subDays(14)->timestamp, $conn->last_synced_at->copy()->subHours(2)->timestamp);
 
         // 1) kumpulkan order_sn berhalaman (cursor)
         $sns = [];
