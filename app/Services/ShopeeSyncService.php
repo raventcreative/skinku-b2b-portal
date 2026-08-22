@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ShopeeConnection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Orchestrator sync Shopee — meniru TikTokSyncService (bagian order).
@@ -55,6 +56,7 @@ class ShopeeSyncService
         // 1) kumpulkan order_sn berhalaman (cursor)
         $sns = [];
         $cursor = '';
+        $capped = true; // tetap true kecuali loop berhenti wajar (habis data)
         for ($guard = 0; $guard < 50; $guard++) {
             $res = $this->shopee->getOrderList($access, $conn->shop_id, $from, $to, $cursor)['response'] ?? [];
             foreach (($res['order_list'] ?? []) as $row) {
@@ -63,9 +65,16 @@ class ShopeeSyncService
                 }
             }
             if (empty($res['more']) || empty($res['next_cursor'])) {
+                $capped = false;
                 break;
             }
             $cursor = $res['next_cursor'];
+        }
+        if ($capped) {
+            // Sama seperti TikTokSyncService::pullOrders(): batas halaman kena
+            // padahal Shopee masih punya order tersisa → jangan diam-diam,
+            // last_synced_at tetap maju jadi order yang terlewat bisa hilang permanen.
+            Log::warning('[shopee:sync] batas halaman tercapai — sebagian order mungkin terlewat, jalankan --full untuk sapu ulang.');
         }
 
         // 2) tarik detail per 50 → kumpulkan
