@@ -78,4 +78,11 @@ class ShopeeWiringTest extends TestCase
     {
         $this->artisan('shopee:sync')->assertSuccessful();
     }
+
+    public function test_halaman_orders_dan_stok_render(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->actingAs($admin)->get(route('shopee.orders'))->assertOk()->assertSee('Order Shopee');
+        $this->actingAs($admin)->get(route('shopee.stock'))->assertOk();
+    }
 }
