@@ -16,6 +16,7 @@ class ShopeeSyncService
     public function __construct(
         private ShopeeClient $shopee,
         private ShopeeOrderService $orders,
+        private ShopeeReturnService $returns,
     ) {}
 
     public function connection(): ?ShopeeConnection
@@ -96,6 +97,42 @@ class ShopeeSyncService
         $deducted = $conn->auto_deduct ? $this->orders->deductAllReady($userId) : null;
 
         return ['count' => $count, 'deducted' => $deducted];
+    }
+
+    /**
+     * Tarik retur dari Shopee → store. Paginasi page_no (guard 40 halaman).
+     * Merge field dari list + detail (detail punya item & alasan).
+     */
+    public function syncReturns(ShopeeConnection $conn): int
+    {
+        $access = $this->freshToken($conn);
+        $to = now()->timestamp;
+        $from = now()->subDays(14)->timestamp; // batas ~15 hari Shopee
+        $all = [];
+        $pageNo = 0;
+
+        for ($guard = 0; $guard < 40; $guard++) {
+            $res = $this->shopee->getReturnList($access, $conn->shop_id, $from, $to, $pageNo, 50);
+            $list = $res['response']['return'] ?? [];
+            foreach ($list as $r) {
+                $sn = $r['return_sn'] ?? null;
+                if (! $sn) {
+                    continue;
+                }
+                $detail = $this->shopee->getReturnDetail($access, $conn->shop_id, $sn);
+                // detail lebih lengkap → menang; field list (order_sn dsb) jadi fallback
+                $all[] = ($detail['response'] ?? []) + $r;
+            }
+            if (empty($res['response']['more'])) {
+                break;
+            }
+            $pageNo++;
+            if ($guard === 39) {
+                Log::warning('[shopee] getReturnList mentok 40 halaman — data retur mungkin belum lengkap.');
+            }
+        }
+
+        return $this->returns->store($all);
     }
 
     /** Shopee kirim expire_in sbg DETIK-dari-sekarang. */

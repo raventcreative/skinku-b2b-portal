@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeSyncCommand extends Command
 {
-    protected $signature = 'shopee:sync {--full : Abaikan filter waktu, sapu 14 hari terakhir}';
+    protected $signature = 'shopee:sync {--full : Abaikan filter waktu, sapu 14 hari terakhir} {--returns : Sekalian tarik retur}';
 
     protected $description = 'Tarik order Shopee (+auto-potong stok bila aktif)';
 
@@ -29,6 +29,19 @@ class ShopeeSyncCommand extends Command
             }
             $this->info($msg);
             Log::info('[shopee:sync] '.$msg);
+
+            if ($this->option('returns')) {
+                try {
+                    $rn = $sync->syncReturns($conn);
+                    $this->info("Retur: {$rn} tersimpan.");
+                    Log::info("[shopee:sync] Retur: {$rn} tersimpan.");
+                } catch (\Throwable $e) {
+                    $this->error('Gagal tarik retur: '.$e->getMessage());
+                    Log::error('[shopee:sync] retur gagal: '.$e->getMessage());
+
+                    return self::FAILURE;
+                }
+            }
 
             return self::SUCCESS;
         } catch (\Throwable $e) {

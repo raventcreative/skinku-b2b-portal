@@ -38,6 +38,9 @@ Schedule::command('tiktok:sync')->everyThirtyMinutes()->withoutOverlapping(15);
 // Order Shopee tiap 30 menit — sekaligus auto-potong stok kalau saklarnya aktif.
 Schedule::command('shopee:sync')->everyThirtyMinutes()->withoutOverlapping(15);
 
+// Retur Shopee cukup sekali sehari (jarang berubah, hemat kuota API).
+Schedule::command('shopee:sync --returns')->dailyAt('01:15')->withoutOverlapping(30);
+
 // Retur & pencairan cukup sekali sehari (jarang berubah, hemat kuota API).
 Schedule::command('tiktok:sync --returns --settlements')->dailyAt('01:00')->withoutOverlapping(30);
 

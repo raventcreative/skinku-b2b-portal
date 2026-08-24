@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\ShopeeConnection;
 use App\Models\ShopeeReturn;
 use App\Models\ShopeeSkuMap;
 use App\Models\User;
 use App\Services\ShopeeClient;
 use App\Services\ShopeeReturnService;
+use App\Services\ShopeeSyncService;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -109,5 +112,48 @@ class ShopeeReturnTest extends TestCase
             && str_contains($req->url(), 'create_time_from=100')
             && str_contains($req->url(), 'sign=')
             && str_contains($req->url(), 'access_token=ACCESS'));
+    }
+
+    public function test_syncreturns_menyimpan_dari_client_fake(): void
+    {
+        // Fake client: getReturnList 1 halaman, getReturnDetail balikin item.
+        $client = new class extends ShopeeClient
+        {
+            public function __construct() {}
+
+            public function getReturnList(string $a, string $s, int $f, int $t, int $p = 0, int $ps = 50): array
+            {
+                return ['response' => ['return' => [['return_sn' => 'RS-1', 'order_sn' => 'S-1']], 'more' => false]];
+            }
+
+            public function getReturnDetail(string $a, string $s, string $sn): array
+            {
+                return ['response' => [
+                    'return_sn' => 'RS-1', 'status' => 'ACCEPTED', 'reason' => 'DAMAGED',
+                    'item' => [['item_sku' => 'RSKU', 'item_name' => 'Produk Retur', 'amount' => 1]],
+                ]];
+            }
+        };
+        $this->app->instance(ShopeeClient::class, $client);
+
+        $conn = ShopeeConnection::create([
+            'shop_id' => '9', 'access_token' => 'A', 'refresh_token' => 'R',
+            'access_expires_at' => now()->addHours(3), 'refresh_expires_at' => now()->addDays(30),
+        ]);
+
+        $n = app(ShopeeSyncService::class)->syncReturns($conn);
+
+        $this->assertSame(1, $n);
+        $this->assertDatabaseHas('shopee_returns', ['shopee_return_sn' => 'RS-1', 'status' => 'ACCEPTED']);
+        $this->assertSame('DAMAGED', ShopeeReturn::where('shopee_return_sn', 'RS-1')->value('return_reason'));
+    }
+
+    public function test_cron_menjadwalkan_shopee_sync_returns(): void
+    {
+        $events = collect(app(Schedule::class)->events())
+            ->map(fn ($e) => $e->command ?? '')
+            ->filter(fn ($c) => str_contains($c, 'shopee:sync --returns'));
+
+        $this->assertTrue($events->isNotEmpty(), 'shopee:sync --returns harus terjadwal');
     }
 }
