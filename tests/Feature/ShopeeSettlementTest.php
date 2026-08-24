@@ -94,8 +94,9 @@ class ShopeeSettlementTest extends TestCase
 
             public function getEscrowDetailBatch(string $a, string $s, array $sns): array
             {
+                // bentuk asli Shopee: tiap order dibungkus 'escrow_detail' (beda dari get_escrow_detail tunggal)
                 return ['response' => [
-                    ['order_sn' => 'S-9', 'order_income' => ['escrow_amount' => 64675, 'buyer_total_amount' => 77665, 'actual_shipping_fee' => 11765]],
+                    ['escrow_detail' => ['order_sn' => 'S-9', 'order_income' => ['escrow_amount' => 64675, 'buyer_total_amount' => 77665, 'actual_shipping_fee' => 11765]]],
                 ]];
             }
         };

@@ -176,7 +176,8 @@ class ShopeeSyncService
         foreach (array_chunk(array_keys($released), 50) as $chunk) {
             try {
                 $batch = $this->shopee->getEscrowDetailBatch($access, $conn->shop_id, $chunk);
-                foreach ($batch['response'] ?? [] as $d) {
+                foreach ($batch['response'] ?? [] as $item) {
+                    $d = $item['escrow_detail'] ?? $item; // batch membungkus tiap order di 'escrow_detail'; single tidak
                     $sn = $d['order_sn'] ?? null;
                     if ($sn && array_key_exists($sn, $released)) {
                         $d['escrow_release_time'] = $released[$sn];
