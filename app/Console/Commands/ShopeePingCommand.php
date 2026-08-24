@@ -15,7 +15,7 @@ use Illuminate\Console\Command;
  */
 class ShopeePingCommand extends Command
 {
-    protected $signature = 'shopee:ping';
+    protected $signature = 'shopee:ping {--insecure : Lewati verifikasi SSL (untuk lokal dgn proxy/AV yang intersepsi TLS)}';
 
     protected $description = 'Uji koneksi & tanda tangan ke API publik Shopee (tanpa connect toko).';
 
@@ -32,7 +32,7 @@ class ShopeePingCommand extends Command
         $this->line('Memanggil  : /api/v2/public/get_shops_by_partner ...');
 
         try {
-            $res = $shopee->getShopsByPartner();
+            $res = $shopee->getShopsByPartner(insecure: (bool) $this->option('insecure'));
         } catch (\Throwable $e) {
             $this->error('GAGAL: '.$e->getMessage());
             $this->warn('  - "wrong sign"        -> bug tanda tangan (harus diperbaiki).');

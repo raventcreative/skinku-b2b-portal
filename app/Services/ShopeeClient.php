@@ -102,12 +102,19 @@ class ShopeeClient
      * API publik: daftar toko yang mengotorisasi partner ini (tanpa access_token/shop_id).
      * Berguna sebagai uji koneksi — kalau Shopee menerima tanda tangan, kredensial & base URL benar.
      */
-    public function getShopsByPartner(int $pageSize = 100, int $pageNo = 0): array
+    public function getShopsByPartner(int $pageSize = 100, int $pageNo = 0, bool $insecure = false): array
     {
         $path = '/api/v2/public/get_shops_by_partner';
         $ts = time();
 
-        return $this->handle(Http::acceptJson()->get($this->base().$path, [
+        $req = Http::acceptJson();
+        if ($insecure) {
+            // Escape hatch khusus diagnostik lokal (proxy/AV yang intersepsi TLS).
+            // Klien produksi tak pernah mengaktifkan ini.
+            $req = $req->withoutVerifying();
+        }
+
+        return $this->handle($req->get($this->base().$path, [
             'partner_id' => $this->partnerId,
             'timestamp' => $ts,
             'sign' => $this->sign($path, $ts),
