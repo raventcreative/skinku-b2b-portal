@@ -31,6 +31,7 @@ class ShopeeOrder extends Model
     protected $fillable = [
         'order_sn', 'status', 'total_amount', 'hpp_amount', 'currency', 'line_items',
         'stock_status', 'order_created_at', 'deducted_at', 'deducted_by',
+        'transit_journal_id', 'sale_journal_id',
     ];
 
     protected $casts = [
