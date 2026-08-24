@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -18,9 +19,10 @@ use RuntimeException;
  *   - access_token cuma berlaku ~4 JAM. refresh_token ~30 hari.
  *   - get_order_list dibatasi rentang waktu maks 15 hari per panggilan.
  *
- * BELUM DIVERIFIKASI LIVE (menunggu Partner ID/Key). Seperti TikTok dulu,
- * kebenaran tanda tangan baru benar-benar terbukti saat panggilan pertama —
- * Shopee akan menolak dengan error "wrong sign" kalau meleset.
+ * Sign & alur OAuth TERVERIFIKASI di SANDBOX 2026-08-24 (via API Test Tool +
+ * shopee:ping; host sandbox: openplatform.sandbox.test-stable.shopee.sg). Sign
+ * kita identik byte-per-byte dgn sign valid Shopee. Verifikasi LIVE (partner_id/
+ * key produksi) menyusul saat go-live.
  */
 class ShopeeClient
 {
@@ -102,19 +104,12 @@ class ShopeeClient
      * API publik: daftar toko yang mengotorisasi partner ini (tanpa access_token/shop_id).
      * Berguna sebagai uji koneksi — kalau Shopee menerima tanda tangan, kredensial & base URL benar.
      */
-    public function getShopsByPartner(int $pageSize = 100, int $pageNo = 1, bool $insecure = false): array
+    public function getShopsByPartner(int $pageSize = 100, int $pageNo = 1): array
     {
         $path = '/api/v2/public/get_shops_by_partner';
         $ts = time();
 
-        $req = Http::acceptJson();
-        if ($insecure) {
-            // Escape hatch khusus diagnostik lokal (proxy/AV yang intersepsi TLS).
-            // Klien produksi tak pernah mengaktifkan ini.
-            $req = $req->withoutVerifying();
-        }
-
-        return $this->handle($req->get($this->base().$path, [
+        return $this->handle($this->client()->get($this->base().$path, [
             'partner_id' => $this->partnerId,
             'timestamp' => $ts,
             'sign' => $this->sign($path, $ts),
@@ -124,6 +119,17 @@ class ShopeeClient
     }
 
     // ---- internal ----
+
+    /**
+     * HTTP client dasar. Bila SHOPEE_INSECURE aktif (HANYA dev lokal di balik
+     * proxy/AV yang intersepsi TLS), lewati verifikasi sertifikat. Default: verify penuh.
+     */
+    private function client(): PendingRequest
+    {
+        $c = Http::acceptJson();
+
+        return config('services.shopee.insecure') ? $c->withoutVerifying() : $c;
+    }
 
     private function base(): string
     {
@@ -151,7 +157,7 @@ class ShopeeClient
             'sign' => $this->sign($path, $ts),
         ]);
 
-        return $this->handle(Http::acceptJson()->post($url, $body), $path);
+        return $this->handle($this->client()->post($url, $body), $path);
     }
 
     /** API toko: access_token & shop_id ikut ditandatangani DAN dikirim di query. */
@@ -168,8 +174,8 @@ class ShopeeClient
 
         $url = $this->base().$path;
         $res = $method === 'GET'
-            ? Http::acceptJson()->get($url, $query)
-            : Http::acceptJson()->post($url.'?'.http_build_query($query), $params);
+            ? $this->client()->get($url, $query)
+            : $this->client()->post($url.'?'.http_build_query($query), $params);
 
         return $this->handle($res, $path);
     }

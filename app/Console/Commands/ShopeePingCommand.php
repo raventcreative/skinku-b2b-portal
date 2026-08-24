@@ -27,12 +27,16 @@ class ShopeePingCommand extends Command
             return self::FAILURE;
         }
 
+        if ($this->option('insecure')) {
+            config(['services.shopee.insecure' => true]);
+        }
+
         $this->line('Base URL   : '.config('services.shopee.api_base'));
         $this->line('Partner ID : '.config('services.shopee.partner_id'));
         $this->line('Memanggil  : /api/v2/public/get_shops_by_partner ...');
 
         try {
-            $res = $shopee->getShopsByPartner(insecure: (bool) $this->option('insecure'));
+            $res = $shopee->getShopsByPartner();
         } catch (\Throwable $e) {
             $this->error('GAGAL: '.$e->getMessage());
             $this->warn('  - "wrong sign"        -> bug tanda tangan (harus diperbaiki).');

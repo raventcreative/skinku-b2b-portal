@@ -57,6 +57,9 @@ return [
         // Sandbox (TERVERIFIKASI 2026-08-24 via API Test Tool): https://openplatform.sandbox.test-stable.shopee.sg
         //   (BUKAN partner.test-stable.shopeemobile.com — host itu tolak partner sandbox kita)
         'api_base' => env('SHOPEE_API_BASE', 'https://partner.shopeemobile.com'),
+        // Lewati verifikasi TLS — HANYA utk dev lokal di balik proxy/AV yg intersepsi TLS
+        // (cURL error 60). JANGAN diaktifkan di produksi.
+        'insecure' => (bool) env('SHOPEE_INSECURE', false),
     ],
 
     // Asisten AI (provider-agnostic). Key WAJIB di .env server — jangan commit.
