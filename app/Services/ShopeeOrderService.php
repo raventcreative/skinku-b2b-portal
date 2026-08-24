@@ -5,11 +5,13 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
+use App\Models\ShopeeReturn;
 use App\Models\ShopeeSkuMap;
 use App\Models\StockMovement;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
@@ -137,7 +139,11 @@ class ShopeeOrderService
     public function skusNeedingMap(): array
     {
         $out = [];
-        foreach (ShopeeOrder::pluck('line_items') as $items) {
+        $sources = ShopeeOrder::pluck('line_items');
+        if (Schema::hasTable('shopee_returns')) {
+            $sources = $sources->concat(ShopeeReturn::pluck('line_items'));
+        }
+        foreach ($sources as $items) {
             foreach ((array) $items as $it) {
                 $sku = $it['sku'] ?? null;
                 if (! $sku || $sku === '—' || isset($out[$sku]) || $this->isAutoMatched($sku)) {

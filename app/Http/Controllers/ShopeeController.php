@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
+use App\Models\ShopeeReturn;
 use App\Models\ShopeeSkuMap;
 use App\Services\AuditService;
 use App\Services\ShopeeClient;
 use App\Services\ShopeeOrderService;
+use App\Services\ShopeeReturnService;
 use App\Services\ShopeeSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +21,7 @@ class ShopeeController extends Controller
         private ShopeeClient $shopee,
         private ShopeeOrderService $orders,
         private ShopeeSyncService $sync,
+        private ShopeeReturnService $returns,
     ) {}
 
     public function index()
@@ -157,5 +160,65 @@ class ShopeeController extends Controller
         AuditService::log(action: 'shopee_settings', targetType: 'shopee', after: $data);
 
         return back()->with('status', 'Pengaturan Shopee disimpan.');
+    }
+
+    /* ---------------- Retur Shopee ---------------- */
+
+    /** Daftar retur + pratinjau + aksi review (approve/tolak). */
+    public function returnList()
+    {
+        $returns = ShopeeReturn::latest('return_created_at')->latest('id')->paginate(25);
+        $previews = [];
+        foreach ($returns as $r) {
+            $previews[$r->id] = $this->returns->preview($r);
+        }
+
+        return view('shopee.returns', compact('returns', 'previews'));
+    }
+
+    /** Tarik retur/refund terbaru dari Shopee → simpan (otomatis). */
+    public function syncReturns(Request $request): RedirectResponse
+    {
+        $conn = $this->sync->connection();
+        if (! $conn) {
+            return back()->with('error', 'Belum terhubung ke Shopee.');
+        }
+        try {
+            $n = $this->sync->syncReturns($conn);
+
+            return redirect()->route('shopee.returns')->with('status', "Retur ditarik: {$n}.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal tarik retur: '.$e->getMessage().' (cek izin scope Return di app Shopee).');
+        }
+    }
+
+    /** Approve: barang layak jual → tambah stok. */
+    public function restockReturn(Request $request, ShopeeReturn $ret): RedirectResponse
+    {
+        try {
+            $this->returns->restock($ret, $request->user()->id, $request->input('note'));
+            AuditService::log(action: 'shopee_return_restock', targetType: 'shopee_return', targetId: $ret->id);
+
+            return back()->with('status', 'Retur di-restock (stok ditambah).');
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /** Tolak: barang cacat → tidak masuk stok. */
+    public function rejectReturn(Request $request, ShopeeReturn $ret): RedirectResponse
+    {
+        $this->returns->reject($ret, $request->user()->id, $request->input('note'));
+        AuditService::log(action: 'shopee_return_reject', targetType: 'shopee_return', targetId: $ret->id);
+
+        return back()->with('status', 'Retur ditolak (tidak masuk stok).');
+    }
+
+    /** Batalkan keputusan review (balik ke pending; tarik stok lagi jika perlu). */
+    public function resetReturn(ShopeeReturn $ret): RedirectResponse
+    {
+        $this->returns->resetReview($ret);
+
+        return back()->with('status', 'Review retur direset.');
     }
 }

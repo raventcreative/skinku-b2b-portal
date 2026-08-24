@@ -8,6 +8,7 @@ use App\Models\ShopeeReturn;
 use App\Models\ShopeeSkuMap;
 use App\Models\User;
 use App\Services\ShopeeClient;
+use App\Services\ShopeeOrderService;
 use App\Services\ShopeeReturnService;
 use App\Services\ShopeeSyncService;
 use Illuminate\Console\Scheduling\Schedule;
@@ -155,5 +156,45 @@ class ShopeeReturnTest extends TestCase
             ->filter(fn ($c) => str_contains($c, 'shopee:sync --returns'));
 
         $this->assertTrue($events->isNotEmpty(), 'shopee:sync --returns harus terjadwal');
+    }
+
+    public function test_halaman_retur_render_dan_reseller_ditolak(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->get('/shopee/returns')->assertOk();
+
+        $reseller = User::create([
+            'name' => 'R', 'fullname' => 'R', 'username' => 'reseller_rtr',
+            'email' => 'reseller_rtr@skinku.test', 'password' => Hash::make('secret123'),
+            'role' => User::ROLE_RESELLER, 'status' => User::STATUS_ACTIVE,
+        ]);
+        $this->actingAs($reseller)->get('/shopee/returns')->assertForbidden();
+    }
+
+    public function test_restock_via_route_menambah_stok(): void
+    {
+        $p = $this->product(100);
+        $admin = $this->admin();
+        $ret = $this->returnFor($p, 3, 'R-RT');
+
+        $this->actingAs($admin)
+            ->post("/shopee/returns/{$ret->id}/restock", ['note' => 'ok'])
+            ->assertRedirect();
+
+        $this->assertEquals(103, $p->fresh()->hq_stock);
+        $this->assertSame(ShopeeReturn::REVIEW_RESTOCKED, $ret->fresh()->review_status);
+    }
+
+    public function test_sku_hanya_di_retur_muncul_di_skus_needing_map(): void
+    {
+        // SKU 'ONLYRET' tak ada di produk & tak ada order; cuma muncul di retur.
+        ShopeeReturn::create([
+            'shopee_return_sn' => 'R-ONLY', 'status' => 'ACCEPTED',
+            'line_items' => [['sku' => 'ONLYRET', 'name' => 'Cuma Retur', 'qty' => 1]],
+            'review_status' => ShopeeReturn::REVIEW_PENDING,
+        ]);
+
+        $need = app(ShopeeOrderService::class)->skusNeedingMap();
+        $this->assertArrayHasKey('ONLYRET', $need);
     }
 }

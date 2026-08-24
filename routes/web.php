@@ -449,6 +449,11 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/shopee/orders/{order}/deduct', [ShopeeController::class, 'deductStock'])->name('shopee.deduct');
         Route::post('/shopee/deduct-all', [ShopeeController::class, 'deductAll'])->name('shopee.deduct-all');
         Route::post('/shopee/settings', [ShopeeController::class, 'settings'])->name('shopee.settings');
+        Route::get('/shopee/returns', [ShopeeController::class, 'returnList'])->name('shopee.returns');
+        Route::post('/shopee/returns/sync', [ShopeeController::class, 'syncReturns'])->name('shopee.returns.sync');
+        Route::post('/shopee/returns/{ret}/restock', [ShopeeController::class, 'restockReturn'])->name('shopee.returns.restock');
+        Route::post('/shopee/returns/{ret}/reject', [ShopeeController::class, 'rejectReturn'])->name('shopee.returns.reject');
+        Route::post('/shopee/returns/{ret}/reset', [ShopeeController::class, 'resetReturn'])->name('shopee.returns.reset');
     });
 
     /* ---------------- Product management ---------------- */

@@ -64,6 +64,7 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
                     <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">↻ Tarik Order</button>
                 </form>
                 <a href="{{ route('shopee.orders') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">📦 Pesanan Shopee →</a>
+                <a href="{{ route('shopee.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700">↩ Retur Shopee →</a>
                 <a href="{{ route('shopee.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800">🔧 SKU &amp; Stok →</a>
             </div>
         @else
