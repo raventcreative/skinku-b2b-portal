@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AccBranch;
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
+use App\Models\ShopeeSettlement;
 use App\Models\ShopeeWalletTransaction;
 use App\Services\ShopeeAccountingService;
 use App\Services\ShopeeWalletService;
@@ -74,5 +75,52 @@ class ShopeeAccountingTest extends TestCase
         $this->assertEquals(-100000, $svc->balanceOf($a['penjualan']->id)); // Cr penjualan
         $this->assertEquals(40000, $svc->balanceOf($a['hpp']->id));        // Dr HPP
         $this->assertEquals(100000, $svc->balanceOf($a['piutang']->id));   // Dr piutang
+    }
+
+    public function test_settlement_balance_dari_data_asli(): void
+    {
+        $this->branch();
+        $svc = app(ShopeeAccountingService::class);
+        $a = $svc->accounts();
+        // Piutang harus ada dulu (dari sale) supaya lunas — buat order+sale
+        $o = ShopeeOrder::create(['order_sn' => '2608247FYHUBMG', 'status' => 'COMPLETED',
+            'total_amount' => 77665, 'hpp_amount' => 40000, 'stock_status' => 'deducted']);
+        $svc->postTransit($o);
+        $svc->postSale($o->fresh()); // Dr piutang 77665
+
+        $s = ShopeeSettlement::create(['order_sn' => '2608247FYHUBMG', 'escrow_amount' => 64675,
+            'buyer_total_amount' => 77665, 'actual_shipping_fee' => 11765, 'campaign_fee' => 0,
+            'posting_status' => ShopeeSettlement::POST_PENDING]);
+
+        $svc->postSettlement($s);
+        $this->assertTrue($s->fresh()->isPosted());
+        $this->assertEquals(64675, $svc->balanceOf($a['kas']->id));    // Dr kas net
+        $this->assertEquals(11765, $svc->balanceOf($a['ongkir']->id)); // Dr ongkir
+        $this->assertEquals(1225, $svc->balanceOf($a['fee']->id));     // Dr fee catch-all (77665-64675-11765)
+        $this->assertEquals(0, $svc->balanceOf($a['piutang']->id));    // piutang lunas (77665 Dr - 77665 Cr)
+    }
+
+    public function test_wallet_withdrawal_dan_ads_dan_skip_escrow(): void
+    {
+        $this->branch();
+        $svc = app(ShopeeAccountingService::class);
+        $a = $svc->accounts();
+
+        $wd = ShopeeWalletTransaction::create(['transaction_id' => 'WD', 'transaction_type' => 'WITHDRAWAL_COMPLETED',
+            'kind' => 'Tarik ke bank', 'amount' => 50000, 'posting_status' => 'pending']);
+        $svc->postWallet($wd);
+        $this->assertEquals(50000, $svc->balanceOf($a['bank']->id));  // Dr bank
+        $this->assertEquals(-50000, $svc->balanceOf($a['kas']->id));  // Cr kas
+
+        $ads = ShopeeWalletTransaction::create(['transaction_id' => 'AD', 'transaction_type' => 'PAID_ADS_CHARGE',
+            'kind' => 'Biaya iklan', 'amount' => 8000, 'posting_status' => 'pending']);
+        $svc->postWallet($ads);
+        $this->assertEquals(8000, $svc->balanceOf($a['iklan']->id));  // Dr iklan
+
+        // ESCROW_VERIFIED_ADD di-SKIP (sudah di settlement) → tak buat jurnal
+        $esc = ShopeeWalletTransaction::create(['transaction_id' => 'ES', 'transaction_type' => 'ESCROW_VERIFIED_ADD',
+            'kind' => 'Order cair (ke saldo)', 'amount' => 64675, 'posting_status' => 'pending']);
+        $svc->postWallet($esc);
+        $this->assertSame('pending', $esc->fresh()->posting_status); // tetap pending (di-skip)
     }
 }
