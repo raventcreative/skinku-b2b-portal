@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ShopeeSettlement;
 use App\Services\ShopeeClient;
+use App\Services\ShopeeSettlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -39,5 +40,37 @@ class ShopeeSettlementTest extends TestCase
 
         Http::assertSent(fn ($r) => str_contains($r->url(), '/api/v2/payment/get_escrow_list')
             && str_contains($r->url(), 'release_time_from=100') && str_contains($r->url(), 'sign='));
+    }
+
+    public function test_store_peta_income_dari_escrow_detail(): void
+    {
+        $svc = app(ShopeeSettlementService::class);
+        // bentuk = elemen response get_escrow_detail_batch (order_sn + order_income + escrow_release_time gabungan)
+        $detail = [
+            'order_sn' => '2608247FYHUBMG',
+            'escrow_release_time' => now()->timestamp,
+            'order_income' => [
+                'escrow_amount' => 64675, 'buyer_total_amount' => 77665,
+                'commission_fee' => 0, 'service_fee' => 0, 'campaign_fee' => 0,
+                'seller_transaction_fee' => 0, 'actual_shipping_fee' => 11765,
+                'buyer_paid_shipping_fee' => 11765, 'shopee_shipping_rebate' => 0,
+                'escrow_tax' => 0, 'withholding_tax' => 0, 'total_adjustment_amount' => 0,
+            ],
+        ];
+
+        $n = $svc->store([$detail]);
+
+        $this->assertSame(1, $n);
+        $row = ShopeeSettlement::where('order_sn', '2608247FYHUBMG')->first();
+        $this->assertEquals('64675.00', $row->escrow_amount);
+        $this->assertEquals('11765.00', $row->actual_shipping_fee);
+        $this->assertSame(ShopeeSettlement::POST_PENDING, $row->posting_status);
+        $this->assertNotNull($row->escrow_release_time);
+        $this->assertIsArray($row->raw);
+
+        // idempoten: posting_status tak reset kalau sudah posted
+        $row->update(['posting_status' => ShopeeSettlement::POST_POSTED]);
+        $svc->store([$detail]);
+        $this->assertSame(ShopeeSettlement::POST_POSTED, $row->fresh()->posting_status);
     }
 }
