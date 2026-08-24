@@ -6,9 +6,11 @@ use App\Models\Product;
 use App\Models\ShopeeReturn;
 use App\Models\ShopeeSkuMap;
 use App\Models\User;
+use App\Services\ShopeeClient;
 use App\Services\ShopeeReturnService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ShopeeReturnTest extends TestCase
@@ -88,5 +90,24 @@ class ShopeeReturnTest extends TestCase
         $svc->resetReview($ret->fresh());
         $this->assertEquals(100, $p->fresh()->hq_stock);
         $this->assertSame(ShopeeReturn::REVIEW_PENDING, $ret->fresh()->review_status);
+    }
+
+    public function test_client_getreturnlist_kirim_sign_dan_path_benar(): void
+    {
+        config([
+            'services.shopee.partner_id' => '123',
+            'services.shopee.partner_key' => 'secret',
+            'services.shopee.api_base' => 'https://partner.example.com',
+        ]);
+        Http::fake([
+            '*get_return_list*' => Http::response(['response' => ['return' => [], 'more' => false]]),
+        ]);
+
+        app(ShopeeClient::class)->getReturnList('ACCESS', 'SHOP', 100, 200, 0, 50);
+
+        Http::assertSent(fn ($req) => str_contains($req->url(), '/api/v2/returns/get_return_list')
+            && str_contains($req->url(), 'create_time_from=100')
+            && str_contains($req->url(), 'sign=')
+            && str_contains($req->url(), 'access_token=ACCESS'));
     }
 }

@@ -100,6 +100,25 @@ class ShopeeClient
         ]);
     }
 
+    /** Daftar retur dalam rentang waktu (batas ~15 hari, sama seperti order). */
+    public function getReturnList(string $accessToken, string $shopId, int $from, int $to, int $pageNo = 0, int $pageSize = 50): array
+    {
+        return $this->shopCall('GET', '/api/v2/returns/get_return_list', $accessToken, $shopId, [
+            'create_time_from' => $from,
+            'create_time_to' => $to,
+            'page_no' => $pageNo,
+            'page_size' => $pageSize,
+        ]);
+    }
+
+    /** Detail retur (per return_sn) — di sinilah item & alasannya. */
+    public function getReturnDetail(string $accessToken, string $shopId, string $returnSn): array
+    {
+        return $this->shopCall('GET', '/api/v2/returns/get_return_detail', $accessToken, $shopId, [
+            'return_sn' => $returnSn,
+        ]);
+    }
+
     /**
      * API publik: daftar toko yang mengotorisasi partner ini (tanpa access_token/shop_id).
      * Berguna sebagai uji koneksi — kalau Shopee menerima tanda tangan, kredensial & base URL benar.
