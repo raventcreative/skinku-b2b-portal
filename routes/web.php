@@ -454,6 +454,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/shopee/returns/{ret}/restock', [ShopeeController::class, 'restockReturn'])->name('shopee.returns.restock');
         Route::post('/shopee/returns/{ret}/reject', [ShopeeController::class, 'rejectReturn'])->name('shopee.returns.reject');
         Route::post('/shopee/returns/{ret}/reset', [ShopeeController::class, 'resetReturn'])->name('shopee.returns.reset');
+        Route::get('/shopee/settlements', [ShopeeController::class, 'settlementList'])->name('shopee.settlements');
+        Route::post('/shopee/settlements/sync', [ShopeeController::class, 'syncSettlements'])->name('shopee.settlements.sync');
+        Route::get('/shopee/settlements/{settlement}/detail', [ShopeeController::class, 'settlementDetail'])->name('shopee.settlements.detail');
     });
 
     /* ---------------- Product management ---------------- */

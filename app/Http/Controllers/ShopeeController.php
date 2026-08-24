@@ -6,11 +6,13 @@ use App\Models\Product;
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeReturn;
+use App\Models\ShopeeSettlement;
 use App\Models\ShopeeSkuMap;
 use App\Services\AuditService;
 use App\Services\ShopeeClient;
 use App\Services\ShopeeOrderService;
 use App\Services\ShopeeReturnService;
+use App\Services\ShopeeSettlementService;
 use App\Services\ShopeeSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,6 +24,7 @@ class ShopeeController extends Controller
         private ShopeeOrderService $orders,
         private ShopeeSyncService $sync,
         private ShopeeReturnService $returns,
+        private ShopeeSettlementService $settlements,
     ) {}
 
     public function index()
@@ -220,5 +223,37 @@ class ShopeeController extends Controller
         $this->returns->resetReview($ret);
 
         return back()->with('status', 'Review retur direset.');
+    }
+
+    /* ---------------- Pencairan (Settlement) Shopee ---------------- */
+
+    /** Daftar pencairan (escrow) per-order. */
+    public function settlementList()
+    {
+        $settlements = ShopeeSettlement::latest('escrow_release_time')->latest('id')->paginate(25);
+
+        return view('shopee.settlements', compact('settlements'));
+    }
+
+    /** Tarik pencairan (escrow) terbaru dari Shopee → simpan. */
+    public function syncSettlements(Request $request): RedirectResponse
+    {
+        $conn = $this->sync->connection();
+        if (! $conn) {
+            return back()->with('error', 'Belum terhubung ke Shopee.');
+        }
+        try {
+            $r = $this->sync->syncSettlements($conn);
+            AuditService::log(action: 'shopee_sync_settlements', targetType: 'shopee', after: ['count' => $r['count']]);
+
+            return redirect()->route('shopee.settlements')->with('status', "Pencairan ditarik: {$r['count']}.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal tarik pencairan: '.$e->getMessage());
+        }
+    }
+
+    public function settlementDetail(ShopeeSettlement $settlement)
+    {
+        return view('shopee.settlement_detail', compact('settlement'));
     }
 }

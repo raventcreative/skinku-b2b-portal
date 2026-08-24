@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeSettlement;
+use App\Models\User;
 use App\Services\ShopeeClient;
 use App\Services\ShopeeSettlementService;
 use App\Services\ShopeeSyncService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -115,5 +117,25 @@ class ShopeeSettlementTest extends TestCase
         $found = collect(app(Schedule::class)->events())
             ->contains(fn ($e) => str_contains($e->command ?? '', 'shopee:sync --settlements'));
         $this->assertTrue($found, 'shopee:sync --settlements harus terjadwal');
+    }
+
+    private function admin(): User
+    {
+        return User::create(['name' => 'A', 'fullname' => 'A', 'username' => 'setadmin',
+            'email' => 'setadmin@skinku.test', 'password' => Hash::make('secret123'),
+            'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE]);
+    }
+
+    public function test_halaman_pencairan_render_dan_reseller_ditolak(): void
+    {
+        ShopeeSettlement::create(['order_sn' => 'S-2', 'escrow_amount' => 100, 'buyer_total_amount' => 120,
+            'posting_status' => ShopeeSettlement::POST_PENDING]);
+
+        $this->actingAs($this->admin())->get('/shopee/settlements')->assertOk();
+
+        $reseller = User::create(['name' => 'R', 'fullname' => 'R', 'username' => 'res_set',
+            'email' => 'res_set@skinku.test', 'password' => Hash::make('secret123'),
+            'role' => User::ROLE_RESELLER, 'status' => User::STATUS_ACTIVE]);
+        $this->actingAs($reseller)->get('/shopee/settlements')->assertForbidden();
     }
 }
