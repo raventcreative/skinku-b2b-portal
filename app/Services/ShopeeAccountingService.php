@@ -10,6 +10,8 @@ use App\Models\ShopeeOrder;
 use App\Models\ShopeeSettlement;
 use App\Models\ShopeeWalletTransaction;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -262,10 +264,126 @@ class ShopeeAccountingService
         return $journal;
     }
 
+    // ---------- pass posting (idempoten, bisa dijalankan berulang) ----------
+
+    /**
+     * Jurnalkan semua yang belum: barang keluar → order sampai → dana cair → wallet.
+     * Hormati batas tanggal (deduct_from) supaya periode pra-opname yang sudah
+     * dibukukan lewat impor Excel tidak dobel.
+     *
+     * @return array{transit:int, sale:int, settlement:int, wallet:int, failed:int}
+     */
+    public function postPending(): array
+    {
+        if (! $this->enabled()) {
+            throw new RuntimeException('Pembukuan Shopee masih DIMATIKAN. Nyalakan dulu saklarnya di halaman Dana Cair.');
+        }
+        $cut = $this->cutoff();
+        $transit = 0;
+        $sale = 0;
+        $settlement = 0;
+        $wallet = 0;
+        $failed = 0;
+
+        // 0. Backfill HPP untuk order yang terlanjur dipotong sebelum kolom hpp_amount ada.
+        $q = ShopeeOrder::where('stock_status', ShopeeOrder::STATUS_DEDUCTED)->where('hpp_amount', 0);
+        foreach ($this->withCutoff($q, $cut, 'order_created_at')->get() as $o) {
+            $hpp = $this->orders->computeHpp($o);
+            if ($hpp > 0) {
+                $o->update(['hpp_amount' => $hpp]);
+            }
+        }
+
+        // 1. Barang keluar yang belum dijurnal
+        $q = ShopeeOrder::where('stock_status', ShopeeOrder::STATUS_DEDUCTED)->whereNull('transit_journal_id');
+        foreach ($this->withCutoff($q, $cut, 'order_created_at')->get() as $o) {
+            try {
+                $this->postTransit($o) && $transit++;
+            } catch (\Throwable $e) {
+                $failed++;
+                Log::warning("[shopee-jurnal] transit order {$o->order_sn} gagal: ".$e->getMessage());
+            }
+        }
+
+        // 2. Order sampai yang belum diakui penjualannya. Sengaja TIDAK mensyaratkan
+        //    transit sudah dijurnal — omzet jangan tersandera HPP yang tak diketahui.
+        $q = ShopeeOrder::whereIn('status', ShopeeOrder::DELIVERED_STATUSES)
+            ->whereNull('sale_journal_id');
+        foreach ($this->withCutoff($q, $cut, 'order_created_at')->get() as $o) {
+            try {
+                $this->postSale($o) && $sale++;
+            } catch (\Throwable $e) {
+                $failed++;
+                Log::warning("[shopee-jurnal] penjualan order {$o->order_sn} gagal: ".$e->getMessage());
+            }
+        }
+
+        // 3. Pencairan (settlement/escrow) yang belum dijurnal
+        $q = ShopeeSettlement::where('posting_status', ShopeeSettlement::POST_PENDING);
+        foreach ($this->withCutoff($q, $cut, 'escrow_release_time')->get() as $s) {
+            try {
+                $this->postSettlement($s) && $settlement++;
+            } catch (\Throwable $e) {
+                $failed++;
+                Log::warning("[shopee-jurnal] pencairan {$s->order_sn} gagal: ".$e->getMessage());
+            }
+        }
+
+        // 4. Wallet (penarikan/iklan/penyesuaian) yang belum dijurnal
+        $q = ShopeeWalletTransaction::where('posting_status', ShopeeWalletTransaction::POST_PENDING);
+        foreach ($this->withCutoff($q, $cut, 'transaction_time')->get() as $w) {
+            try {
+                $this->postWallet($w) && $wallet++;
+            } catch (\Throwable $e) {
+                $failed++;
+                Log::warning("[shopee-jurnal] wallet {$w->transaction_id} gagal: ".$e->getMessage());
+            }
+        }
+
+        return compact('transit', 'sale', 'settlement', 'wallet', 'failed');
+    }
+
     /** Saklar pembukuan Shopee (default MATI — buku produksi tak tersentuh). */
     public function enabled(): bool
     {
         return (bool) ShopeeConnection::latest('id')->first()?->journal_enabled;
+    }
+
+    /**
+     * CABUT semua jurnal Shopee — hapus jurnalnya & reset penanda, sehingga buku
+     * kembali seperti sebelum pembukuan Shopee dinyalakan. Aman: hanya menyentuh
+     * jurnal bersumber Shopee (source_type shopee_*), tidak menyentuh jurnal lain.
+     *
+     * @return array{journals:int, orders:int, settlements:int, wallets:int}
+     */
+    public function unpostAll(): array
+    {
+        $sources = ['shopee_order_transit', 'shopee_order_sale', 'shopee_settlement', 'shopee_wallet'];
+
+        return DB::transaction(function () use ($sources) {
+            $journals = AccJournal::whereIn('source_type', $sources)->count();
+            AccJournal::whereIn('source_type', $sources)->delete(); // lines ikut (cascade)
+
+            $orders = ShopeeOrder::whereNotNull('transit_journal_id')->orWhereNotNull('sale_journal_id')->count();
+            ShopeeOrder::whereNotNull('transit_journal_id')->orWhereNotNull('sale_journal_id')
+                ->update(['transit_journal_id' => null, 'sale_journal_id' => null]);
+
+            $settlements = ShopeeSettlement::where('posting_status', ShopeeSettlement::POST_POSTED)->count();
+            ShopeeSettlement::where('posting_status', ShopeeSettlement::POST_POSTED)->update([
+                'posting_status' => ShopeeSettlement::POST_PENDING,
+                'journal_id' => null,
+                'posted_at' => null,
+            ]);
+
+            $wallets = ShopeeWalletTransaction::where('posting_status', ShopeeWalletTransaction::POST_POSTED)->count();
+            ShopeeWalletTransaction::where('posting_status', ShopeeWalletTransaction::POST_POSTED)->update([
+                'posting_status' => ShopeeWalletTransaction::POST_PENDING,
+                'journal_id' => null,
+                'posted_at' => null,
+            ]);
+
+            return compact('journals', 'orders', 'settlements', 'wallets');
+        });
     }
 
     /** Batas tanggal pembukuan Shopee = batas mulai potong stok. */
@@ -280,6 +398,11 @@ class ShopeeAccountingService
     public function balanceOf(int $accountId, ?string $period = null): float
     {
         return $this->accounting->balanceOf($accountId, $period);
+    }
+
+    private function withCutoff($query, ?Carbon $cut, string $column)
+    {
+        return $cut ? $query->where($column, '>=', $cut) : $query;
     }
 
     // ---------- helper ----------

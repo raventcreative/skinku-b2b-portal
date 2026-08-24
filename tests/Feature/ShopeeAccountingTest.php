@@ -123,4 +123,39 @@ class ShopeeAccountingTest extends TestCase
         $svc->postWallet($esc);
         $this->assertSame('pending', $esc->fresh()->posting_status); // tetap pending (di-skip)
     }
+
+    public function test_switch_off_throw_dan_unpost_scoped_dan_idempoten(): void
+    {
+        $this->branch();
+        $svc = app(ShopeeAccountingService::class);
+        // tanpa journal_enabled → throw
+        ShopeeConnection::create(['shop_id' => '1', 'access_token' => 'A', 'refresh_token' => 'R',
+            'access_expires_at' => now()->addHour(), 'refresh_expires_at' => now()->addDays(30)]); // journal_enabled default false
+        $this->expectException(\RuntimeException::class);
+        $svc->postPending();
+    }
+
+    public function test_full_cycle_idempoten_dan_unpost(): void
+    {
+        $this->branch();
+        ShopeeConnection::create(['shop_id' => '1', 'access_token' => 'A', 'refresh_token' => 'R',
+            'access_expires_at' => now()->addHour(), 'refresh_expires_at' => now()->addDays(30), 'journal_enabled' => true]);
+        $svc = app(ShopeeAccountingService::class);
+        $a = $svc->accounts();
+        ShopeeOrder::create(['order_sn' => 'FC', 'status' => 'COMPLETED', 'total_amount' => 100000,
+            'hpp_amount' => 40000, 'stock_status' => 'deducted']);
+        ShopeeSettlement::create(['order_sn' => 'FC', 'escrow_amount' => 90000, 'buyer_total_amount' => 100000,
+            'actual_shipping_fee' => 0, 'campaign_fee' => 0, 'posting_status' => 'pending']);
+
+        $r1 = $svc->postPending();
+        $this->assertGreaterThanOrEqual(1, $r1['sale']);
+        $this->assertEquals(0, $svc->balanceOf($a['piutang']->id)); // lunas
+        $r2 = $svc->postPending();
+        $this->assertSame(0, $r2['sale'] + $r2['settlement']); // idempoten
+
+        // jurnal non-shopee tak kehapus
+        $svc->unpostAll();
+        $this->assertEquals(0, $svc->balanceOf($a['kas']->id)); // semua jurnal shopee dicabut
+        $this->assertSame('pending', ShopeeSettlement::where('order_sn', 'FC')->value('posting_status'));
+    }
 }
