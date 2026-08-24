@@ -9,6 +9,7 @@ use App\Models\ShopeeReturn;
 use App\Models\ShopeeSettlement;
 use App\Models\ShopeeSkuMap;
 use App\Services\AuditService;
+use App\Services\ShopeeAccountingService;
 use App\Services\ShopeeClient;
 use App\Services\ShopeeOrderService;
 use App\Services\ShopeeReturnService;
@@ -25,6 +26,7 @@ class ShopeeController extends Controller
         private ShopeeSyncService $sync,
         private ShopeeReturnService $returns,
         private ShopeeSettlementService $settlements,
+        private ShopeeAccountingService $journals,
     ) {}
 
     public function index()
@@ -231,8 +233,9 @@ class ShopeeController extends Controller
     public function settlementList()
     {
         $settlements = ShopeeSettlement::latest('escrow_release_time')->latest('id')->paginate(25);
+        $connection = ShopeeConnection::latest('id')->first();
 
-        return view('shopee.settlements', compact('settlements'));
+        return view('shopee.settlements', compact('settlements', 'connection'));
     }
 
     /** Tarik pencairan (escrow) terbaru dari Shopee → simpan. */
@@ -255,5 +258,38 @@ class ShopeeController extends Controller
     public function settlementDetail(ShopeeSettlement $settlement)
     {
         return view('shopee.settlement_detail', compact('settlement'));
+    }
+
+    /** Jurnalkan semua yang belum: barang keluar → order sampai → dana cair → wallet (idempoten). */
+    public function postJournals(): RedirectResponse
+    {
+        try {
+            $r = $this->journals->postPending();
+            AuditService::log(action: 'shopee_post_journals', targetType: 'shopee', after: $r);
+
+            return back()->with('status', "Jurnal: transit {$r['transit']}, sale {$r['sale']}, settlement {$r['settlement']}, wallet {$r['wallet']}, gagal {$r['failed']}.");
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /** CABUT semua jurnal Shopee — buku kembali seperti sebelum pembukuan dinyalakan. */
+    public function unpostJournals(): RedirectResponse
+    {
+        $r = $this->journals->unpostAll();
+        AuditService::log(action: 'shopee_unpost_journals', targetType: 'shopee', after: $r);
+
+        return back()->with('status', 'Semua jurnal Shopee dicabut.');
+    }
+
+    /** Nyalakan/matikan pembukuan Shopee (default MATI). */
+    public function toggleJournal(Request $request): RedirectResponse
+    {
+        $conn = $this->sync->connection();
+        if ($conn) {
+            $conn->update(['journal_enabled' => $request->boolean('journal_enabled')]);
+        }
+
+        return back()->with('status', 'Saklar jurnal diperbarui.');
     }
 }

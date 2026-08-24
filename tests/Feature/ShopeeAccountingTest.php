@@ -8,10 +8,12 @@ use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeSettlement;
 use App\Models\ShopeeWalletTransaction;
+use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\ShopeeAccountingService;
 use App\Services\ShopeeWalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class ShopeeAccountingTest extends TestCase
@@ -168,5 +170,20 @@ class ShopeeAccountingTest extends TestCase
         $this->assertNotNull(AccJournal::find($foreign->id)); // jurnal non-Shopee survive
         $this->assertEquals(12345, $svc->balanceOf($a['kas']->id)); // hanya jurnal Excel yang tinggal
         $this->assertSame('pending', ShopeeSettlement::where('order_sn', 'FC')->value('posting_status'));
+    }
+
+    public function test_toggle_dan_post_journals_route(): void
+    {
+        $this->branch();
+        $admin = User::create(['name' => 'A', 'fullname' => 'A', 'username' => 'jadmin',
+            'email' => 'jadmin@skinku.test', 'password' => Hash::make('secret123'),
+            'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE]);
+        ShopeeConnection::create(['shop_id' => '1', 'access_token' => 'A', 'refresh_token' => 'R',
+            'access_expires_at' => now()->addHour(), 'refresh_expires_at' => now()->addDays(30)]);
+
+        $this->actingAs($admin)->post('/shopee/toggle-journal', ['journal_enabled' => '1'])->assertRedirect();
+        $this->assertTrue(ShopeeConnection::latest('id')->first()->journal_enabled);
+
+        $this->actingAs($admin)->post('/shopee/post-journals')->assertRedirect(); // enabled → jalan (0 data ok)
     }
 }

@@ -457,6 +457,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/shopee/settlements', [ShopeeController::class, 'settlementList'])->name('shopee.settlements');
         Route::post('/shopee/settlements/sync', [ShopeeController::class, 'syncSettlements'])->name('shopee.settlements.sync');
         Route::get('/shopee/settlements/{settlement}/detail', [ShopeeController::class, 'settlementDetail'])->name('shopee.settlements.detail');
+        Route::post('/shopee/post-journals', [ShopeeController::class, 'postJournals'])->name('shopee.post-journals');
+        Route::post('/shopee/unpost-journals', [ShopeeController::class, 'unpostJournals'])->name('shopee.unpost-journals');
+        Route::post('/shopee/toggle-journal', [ShopeeController::class, 'toggleJournal'])->name('shopee.toggle-journal');
     });
 
     /* ---------------- Product management ---------------- */
