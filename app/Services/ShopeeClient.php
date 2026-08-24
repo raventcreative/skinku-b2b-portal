@@ -119,6 +119,33 @@ class ShopeeClient
         ]);
     }
 
+    /** Daftar order yang escrow-nya dirilis dalam rentang waktu (discovery ringan). */
+    public function getEscrowList(string $accessToken, string $shopId, int $releaseFrom, int $releaseTo, int $pageNo = 1, int $pageSize = 100): array
+    {
+        return $this->shopCall('GET', '/api/v2/payment/get_escrow_list', $accessToken, $shopId, [
+            'release_time_from' => $releaseFrom,
+            'release_time_to' => $releaseTo,
+            'page_no' => $pageNo,
+            'page_size' => $pageSize,
+        ]);
+    }
+
+    /** Rincian income/fee 1 order. */
+    public function getEscrowDetail(string $accessToken, string $shopId, string $orderSn): array
+    {
+        return $this->shopCall('GET', '/api/v2/payment/get_escrow_detail', $accessToken, $shopId, [
+            'order_sn' => $orderSn,
+        ]);
+    }
+
+    /** Rincian income/fee ≤50 order sekaligus (POST). */
+    public function getEscrowDetailBatch(string $accessToken, string $shopId, array $orderSns): array
+    {
+        return $this->shopCall('POST', '/api/v2/payment/get_escrow_detail_batch', $accessToken, $shopId, [
+            'order_sn_list' => array_slice(array_values($orderSns), 0, 50),
+        ]);
+    }
+
     /**
      * API publik: daftar toko yang mengotorisasi partner ini (tanpa access_token/shop_id).
      * Berguna sebagai uji koneksi — kalau Shopee menerima tanda tangan, kredensial & base URL benar.
