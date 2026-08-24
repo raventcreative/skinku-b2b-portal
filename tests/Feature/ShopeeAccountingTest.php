@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccBranch;
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeWalletTransaction;
+use App\Services\ShopeeAccountingService;
 use App\Services\ShopeeWalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -12,6 +14,11 @@ use Tests\TestCase;
 class ShopeeAccountingTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function branch(): AccBranch
+    {
+        return AccBranch::firstOrCreate(['code' => 'HQ'], ['name' => 'HQ', 'is_active' => true]);
+    }
 
     public function test_wallet_model_dan_kolom_jurnal_order(): void
     {
@@ -47,5 +54,25 @@ class ShopeeAccountingTest extends TestCase
         $this->assertSame(2, $n);
         $this->assertSame('Biaya iklan', ShopeeWalletTransaction::where('transaction_id', 'T1')->value('kind'));
         $this->assertSame('Tarik ke bank', ShopeeWalletTransaction::where('transaction_id', 'T2')->value('kind'));
+    }
+
+    public function test_transit_lalu_sale_akui_omzet_dan_hpp(): void
+    {
+        $this->branch();
+        $svc = app(ShopeeAccountingService::class);
+        $a = $svc->accounts();
+        $o = ShopeeOrder::create(['order_sn' => 'AC-1', 'status' => 'COMPLETED',
+            'total_amount' => 100000, 'hpp_amount' => 40000, 'stock_status' => 'deducted']);
+
+        $svc->postTransit($o);
+        $this->assertNotNull($o->fresh()->transit_journal_id);
+        $this->assertEquals(40000, $svc->balanceOf($a['transit']->id)); // Dr transit 40000
+
+        $svc->postSale($o->fresh());
+        $this->assertNotNull($o->fresh()->sale_journal_id);
+        $this->assertEquals(0, $svc->balanceOf($a['transit']->id));       // transit lepas
+        $this->assertEquals(-100000, $svc->balanceOf($a['penjualan']->id)); // Cr penjualan
+        $this->assertEquals(40000, $svc->balanceOf($a['hpp']->id));        // Dr HPP
+        $this->assertEquals(100000, $svc->balanceOf($a['piutang']->id));   // Dr piutang
     }
 }
