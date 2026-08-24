@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\ShopeeConnection;
 use App\Models\ShopeeSettlement;
 use App\Services\ShopeeClient;
 use App\Services\ShopeeSettlementService;
+use App\Services\ShopeeSyncService;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -72,5 +75,45 @@ class ShopeeSettlementTest extends TestCase
         $row->update(['posting_status' => ShopeeSettlement::POST_POSTED]);
         $svc->store([$detail]);
         $this->assertSame(ShopeeSettlement::POST_POSTED, $row->fresh()->posting_status);
+    }
+
+    public function test_syncsettlements_dari_client_fake(): void
+    {
+        $client = new class extends ShopeeClient
+        {
+            public function __construct() {}
+
+            public function getEscrowList(string $a, string $s, int $f, int $t, int $p = 1, int $ps = 100): array
+            {
+                return ['response' => ['escrow_list' => [
+                    ['order_sn' => 'S-9', 'escrow_release_time' => 1787000000, 'payout_amount' => 64675],
+                ], 'more' => false]];
+            }
+
+            public function getEscrowDetailBatch(string $a, string $s, array $sns): array
+            {
+                return ['response' => [
+                    ['order_sn' => 'S-9', 'order_income' => ['escrow_amount' => 64675, 'buyer_total_amount' => 77665, 'actual_shipping_fee' => 11765]],
+                ]];
+            }
+        };
+        $this->app->instance(ShopeeClient::class, $client);
+
+        $conn = ShopeeConnection::create(['shop_id' => '9', 'access_token' => 'A', 'refresh_token' => 'R',
+            'access_expires_at' => now()->addHours(3), 'refresh_expires_at' => now()->addDays(30)]);
+
+        $r = app(ShopeeSyncService::class)->syncSettlements($conn);
+
+        $this->assertSame(1, $r['count']);
+        $row = ShopeeSettlement::where('order_sn', 'S-9')->first();
+        $this->assertEquals('64675.00', $row->escrow_amount);
+        $this->assertNotNull($row->escrow_release_time); // digabung dari escrow_list
+    }
+
+    public function test_cron_menjadwalkan_shopee_sync_settlements(): void
+    {
+        $found = collect(app(Schedule::class)->events())
+            ->contains(fn ($e) => str_contains($e->command ?? '', 'shopee:sync --settlements'));
+        $this->assertTrue($found, 'shopee:sync --settlements harus terjadwal');
     }
 }

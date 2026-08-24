@@ -17,6 +17,7 @@ class ShopeeSyncService
         private ShopeeClient $shopee,
         private ShopeeOrderService $orders,
         private ShopeeReturnService $returns,
+        private ShopeeSettlementService $settlements,
     ) {}
 
     public function connection(): ?ShopeeConnection
@@ -139,6 +140,55 @@ class ShopeeSyncService
         }
 
         return $this->returns->store($all);
+    }
+
+    /**
+     * Tarik escrow (settlement) per-order. get_escrow_list (discovery by release
+     * time) → chunk ≤50 → get_escrow_detail_batch → gabung release_time → store.
+     *
+     * @return array{count:int}
+     */
+    public function syncSettlements(ShopeeConnection $conn): array
+    {
+        $access = $this->freshToken($conn);
+        $to = now()->timestamp;
+        $from = now()->subDays(14)->timestamp;
+
+        $released = []; // order_sn => release_time
+        $pageNo = 1;
+        for ($guard = 0; $guard < 40; $guard++) {
+            $res = $this->shopee->getEscrowList($access, $conn->shop_id, $from, $to, $pageNo, 100);
+            foreach ($res['response']['escrow_list'] ?? [] as $e) {
+                if (! empty($e['order_sn'])) {
+                    $released[$e['order_sn']] = $e['escrow_release_time'] ?? null;
+                }
+            }
+            if (empty($res['response']['more'])) {
+                break;
+            }
+            $pageNo++;
+            if ($guard === 39) {
+                Log::warning('[shopee] get_escrow_list mentok 40 halaman — data escrow mungkin belum lengkap.');
+            }
+        }
+
+        $all = [];
+        foreach (array_chunk(array_keys($released), 50) as $chunk) {
+            try {
+                $batch = $this->shopee->getEscrowDetailBatch($access, $conn->shop_id, $chunk);
+                foreach ($batch['response'] ?? [] as $d) {
+                    $sn = $d['order_sn'] ?? null;
+                    if ($sn && array_key_exists($sn, $released)) {
+                        $d['escrow_release_time'] = $released[$sn];
+                    }
+                    $all[] = $d;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[shopee] batch escrow gagal: '.$e->getMessage());
+            }
+        }
+
+        return ['count' => $this->settlements->store($all)];
     }
 
     /** Shopee kirim expire_in sbg DETIK-dari-sekarang. */

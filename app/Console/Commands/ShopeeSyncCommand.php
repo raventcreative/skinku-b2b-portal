@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeSyncCommand extends Command
 {
-    protected $signature = 'shopee:sync {--full : Abaikan filter waktu, sapu 14 hari terakhir} {--returns : Sekalian tarik retur}';
+    protected $signature = 'shopee:sync {--full : Abaikan filter waktu, sapu 14 hari terakhir} {--returns : Sekalian tarik retur} {--settlements : Sekalian tarik pencairan/escrow}';
 
     protected $description = 'Tarik order Shopee (+auto-potong stok bila aktif)';
 
@@ -38,6 +38,19 @@ class ShopeeSyncCommand extends Command
                 } catch (\Throwable $e) {
                     $this->error('Gagal tarik retur: '.$e->getMessage());
                     Log::error('[shopee:sync] retur gagal: '.$e->getMessage());
+
+                    return self::FAILURE;
+                }
+            }
+
+            if ($this->option('settlements')) {
+                try {
+                    $r = $sync->syncSettlements($conn);
+                    $this->info("Pencairan: {$r['count']} tersimpan.");
+                    Log::info("[shopee:sync] Pencairan: {$r['count']} tersimpan.");
+                } catch (\Throwable $e) {
+                    $this->error('Gagal tarik pencairan: '.$e->getMessage());
+                    Log::error('[shopee:sync] pencairan gagal: '.$e->getMessage());
 
                     return self::FAILURE;
                 }
