@@ -119,9 +119,15 @@ class ShopeeSyncService
                 if (! $sn) {
                     continue;
                 }
-                $detail = $this->shopee->getReturnDetail($access, $conn->shop_id, $sn);
-                // detail lebih lengkap → menang; field list (order_sn dsb) jadi fallback
-                $all[] = ($detail['response'] ?? []) + $r;
+                try {
+                    $detail = $this->shopee->getReturnDetail($access, $conn->shop_id, $sn);
+                    // detail lebih lengkap → menang; field list (order_sn dsb) jadi fallback
+                    $all[] = ($detail['response'] ?? []) + $r;
+                } catch (\Throwable $e) {
+                    Log::warning("[shopee] gagal ambil detail retur {$sn}: ".$e->getMessage());
+
+                    continue;
+                }
             }
             if (empty($res['response']['more'])) {
                 break;

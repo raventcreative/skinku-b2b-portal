@@ -149,6 +149,48 @@ class ShopeeReturnTest extends TestCase
         $this->assertSame('DAMAGED', ShopeeReturn::where('shopee_return_sn', 'RS-1')->value('return_reason'));
     }
 
+    public function test_syncreturns_skip_gagal_detail_tanpa_batalkan_batch(): void
+    {
+        // Fake client: getReturnList dengan 2 retur, getReturnDetail throw untuk RS-BAD.
+        $client = new class extends ShopeeClient
+        {
+            public function __construct() {}
+
+            public function getReturnList(string $a, string $s, int $f, int $t, int $p = 0, int $ps = 50): array
+            {
+                return ['response' => ['return' => [
+                    ['return_sn' => 'RS-OK', 'order_sn' => 'S-1'],
+                    ['return_sn' => 'RS-BAD', 'order_sn' => 'S-2'],
+                ], 'more' => false]];
+            }
+
+            public function getReturnDetail(string $a, string $s, string $sn): array
+            {
+                if ($sn === 'RS-BAD') {
+                    throw new \RuntimeException('API error: return not found');
+                }
+
+                return ['response' => [
+                    'return_sn' => 'RS-OK', 'status' => 'ACCEPTED', 'reason' => 'DAMAGED',
+                    'item' => [['item_sku' => 'RSKU', 'item_name' => 'Produk Retur', 'amount' => 1]],
+                ]];
+            }
+        };
+        $this->app->instance(ShopeeClient::class, $client);
+
+        $conn = ShopeeConnection::create([
+            'shop_id' => '9', 'access_token' => 'A', 'refresh_token' => 'R',
+            'access_expires_at' => now()->addHours(3), 'refresh_expires_at' => now()->addDays(30),
+        ]);
+
+        // Harusnya: RS-OK disimpan, RS-BAD dilewati & dilog, method lanjut normal
+        $n = app(ShopeeSyncService::class)->syncReturns($conn);
+
+        $this->assertSame(1, $n, 'harus simpan 1 return (RS-OK), skip RS-BAD');
+        $this->assertDatabaseHas('shopee_returns', ['shopee_return_sn' => 'RS-OK']);
+        $this->assertDatabaseMissing('shopee_returns', ['shopee_return_sn' => 'RS-BAD']);
+    }
+
     public function test_cron_menjadwalkan_shopee_sync_returns(): void
     {
         $events = collect(app(Schedule::class)->events())
