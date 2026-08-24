@@ -18,6 +18,7 @@ class ShopeeSyncService
         private ShopeeOrderService $orders,
         private ShopeeReturnService $returns,
         private ShopeeSettlementService $settlements,
+        private ShopeeWalletService $wallet,
     ) {}
 
     public function connection(): ?ShopeeConnection
@@ -190,6 +191,38 @@ class ShopeeSyncService
         }
 
         return ['count' => $this->settlements->store($all)];
+    }
+
+    /**
+     * Tarik mutasi saldo (wallet) dalam rentang waktu → simpan. Lebih sederhana dari
+     * escrow: satu panggilan berhalaman langsung berisi datanya (tanpa batch detail).
+     * Paginasi page_no (guard 40 halaman).
+     *
+     * @return array{count:int}
+     */
+    public function syncWallet(ShopeeConnection $conn): array
+    {
+        $access = $this->freshToken($conn);
+        $to = now()->timestamp;
+        $from = now()->subDays(14)->timestamp;
+
+        $all = [];
+        $pageNo = 0;
+        for ($guard = 0; $guard < 40; $guard++) {
+            $res = $this->shopee->getWalletTransactionList($access, $conn->shop_id, $from, $to, $pageNo, 100);
+            foreach ($res['response']['transaction_list'] ?? [] as $t) {
+                $all[] = $t;
+            }
+            if (empty($res['response']['more'])) {
+                break;
+            }
+            $pageNo++;
+            if ($guard === 39) {
+                Log::warning('[shopee] get_wallet_transaction_list mentok 40 halaman — data mutasi saldo mungkin belum lengkap.');
+            }
+        }
+
+        return ['count' => $this->wallet->store($all)];
     }
 
     /** Shopee kirim expire_in sbg DETIK-dari-sekarang. */

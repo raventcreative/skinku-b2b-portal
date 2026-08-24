@@ -44,6 +44,9 @@ Schedule::command('shopee:sync --returns')->dailyAt('01:15')->withoutOverlapping
 // Escrow/pencairan Shopee sekali sehari (jarang berubah setelah rilis).
 Schedule::command('shopee:sync --settlements')->dailyAt('01:30')->withoutOverlapping(30);
 
+// Mutasi saldo (wallet) Shopee sekali sehari.
+Schedule::command('shopee:sync --wallet')->dailyAt('01:45')->withoutOverlapping(30);
+
 // Retur & pencairan cukup sekali sehari (jarang berubah, hemat kuota API).
 Schedule::command('tiktok:sync --returns --settlements')->dailyAt('01:00')->withoutOverlapping(30);
 

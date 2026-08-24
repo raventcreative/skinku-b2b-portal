@@ -146,6 +146,17 @@ class ShopeeClient
         ]);
     }
 
+    /** Daftar mutasi saldo (wallet) dalam rentang waktu — biaya iklan, tarik dana, penyesuaian, dll. */
+    public function getWalletTransactionList(string $accessToken, string $shopId, int $from, int $to, int $pageNo = 0, int $pageSize = 100): array
+    {
+        return $this->shopCall('GET', '/api/v2/payment/get_wallet_transaction_list', $accessToken, $shopId, [
+            'create_time_from' => $from,
+            'create_time_to' => $to,
+            'page_no' => $pageNo,
+            'page_size' => $pageSize,
+        ]);
+    }
+
     /**
      * API publik: daftar toko yang mengotorisasi partner ini (tanpa access_token/shop_id).
      * Berguna sebagai uji koneksi — kalau Shopee menerima tanda tangan, kredensial & base URL benar.

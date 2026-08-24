@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeWalletTransaction;
+use App\Services\ShopeeWalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -34,5 +35,17 @@ class ShopeeAccountingTest extends TestCase
         $c = ShopeeConnection::create(['shop_id' => '1', 'access_token' => 'A', 'refresh_token' => 'R',
             'access_expires_at' => now()->addHour(), 'refresh_expires_at' => now()->addDays(30), 'journal_enabled' => true]);
         $this->assertTrue($c->fresh()->journal_enabled);
+    }
+
+    public function test_wallet_store_dan_kind_mapping(): void
+    {
+        $svc = app(ShopeeWalletService::class);
+        $n = $svc->store([
+            ['transaction_id' => 'T1', 'transaction_type' => 'PAID_ADS_CHARGE', 'amount' => 5000, 'money_flow' => 'MONEY_OUT', 'create_time' => now()->timestamp],
+            ['transaction_id' => 'T2', 'transaction_type' => 'WITHDRAWAL_COMPLETED', 'amount' => 60000, 'money_flow' => 'MONEY_OUT', 'create_time' => now()->timestamp],
+        ]);
+        $this->assertSame(2, $n);
+        $this->assertSame('Biaya iklan', ShopeeWalletTransaction::where('transaction_id', 'T1')->value('kind'));
+        $this->assertSame('Tarik ke bank', ShopeeWalletTransaction::where('transaction_id', 'T2')->value('kind'));
     }
 }
