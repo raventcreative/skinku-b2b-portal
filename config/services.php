@@ -53,7 +53,9 @@ return [
     'shopee' => [
         'partner_id' => env('SHOPEE_PARTNER_ID'),
         'partner_key' => env('SHOPEE_PARTNER_KEY'),
-        // Sandbox: https://partner.test-stable.shopeemobile.com
+        // Live (default): https://partner.shopeemobile.com
+        // Sandbox (TERVERIFIKASI 2026-08-24 via API Test Tool): https://openplatform.sandbox.test-stable.shopee.sg
+        //   (BUKAN partner.test-stable.shopeemobile.com — host itu tolak partner sandbox kita)
         'api_base' => env('SHOPEE_API_BASE', 'https://partner.shopeemobile.com'),
     ],
 

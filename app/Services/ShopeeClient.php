@@ -102,7 +102,7 @@ class ShopeeClient
      * API publik: daftar toko yang mengotorisasi partner ini (tanpa access_token/shop_id).
      * Berguna sebagai uji koneksi — kalau Shopee menerima tanda tangan, kredensial & base URL benar.
      */
-    public function getShopsByPartner(int $pageSize = 100, int $pageNo = 0, bool $insecure = false): array
+    public function getShopsByPartner(int $pageSize = 100, int $pageNo = 1, bool $insecure = false): array
     {
         $path = '/api/v2/public/get_shops_by_partner';
         $ts = time();
