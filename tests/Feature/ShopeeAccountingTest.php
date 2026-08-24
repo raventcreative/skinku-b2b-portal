@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\AccBranch;
+use App\Models\AccJournal;
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeSettlement;
 use App\Models\ShopeeWalletTransaction;
+use App\Services\AccountingService;
 use App\Services\ShopeeAccountingService;
 use App\Services\ShopeeWalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -153,9 +155,18 @@ class ShopeeAccountingTest extends TestCase
         $r2 = $svc->postPending();
         $this->assertSame(0, $r2['sale'] + $r2['settlement']); // idempoten
 
-        // jurnal non-shopee tak kehapus
+        // jurnal non-shopee tak kehapus — buktikan dengan membuat jurnal Excel terpisah
+        $accounting = app(AccountingService::class);
+        $foreign = $accounting->record(
+            ['branch_id' => AccBranch::first()->id, 'date' => now()->toDateString(), 'reference' => 'EXC-1',
+                'description' => 'Excel import unrelated', 'type' => 'sales', 'source_type' => 'excel_import', 'source_id' => 999],
+            [['account_id' => $a['kas']->id, 'debit' => 12345, 'credit' => 0],
+                ['account_id' => $a['penjualan']->id, 'debit' => 0, 'credit' => 12345]],
+        );
+
         $svc->unpostAll();
-        $this->assertEquals(0, $svc->balanceOf($a['kas']->id)); // semua jurnal shopee dicabut
+        $this->assertNotNull(AccJournal::find($foreign->id)); // jurnal non-Shopee survive
+        $this->assertEquals(12345, $svc->balanceOf($a['kas']->id)); // hanya jurnal Excel yang tinggal
         $this->assertSame('pending', ShopeeSettlement::where('order_sn', 'FC')->value('posting_status'));
     }
 }
