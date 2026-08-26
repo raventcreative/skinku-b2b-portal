@@ -13,12 +13,28 @@
 
 <div class="mt-4">
     @if(count($needMap))
+        @php
+            $skuUnmapped = collect($needMap)->filter(fn ($i) => $i['components']->isEmpty());
+            $skuMapped = collect($needMap)->reject(fn ($i) => $i['components']->isEmpty());
+            $skuSorted = $skuUnmapped->union($skuMapped); // yang belum dipetakan tampil dulu
+        @endphp
+        <div class="mb-3 text-sm font-bold {{ $skuUnmapped->count() ? 'text-stone-800' : 'text-emerald-700' }}">
+            @if($skuUnmapped->count())
+                ⚙ {{ $skuUnmapped->count() }} SKU perlu dipetakan · {{ $skuMapped->count() }} sudah dipetakan
+            @else
+                ✓ Semua {{ $skuMapped->count() }} SKU sudah dipetakan
+            @endif
+        </div>
         <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-            @foreach($needMap as $sku => $info)
-                <div class="bg-white border border-stone-200 rounded-xl p-3">
+            @foreach($skuSorted as $sku => $info)
+                <div class="bg-white border {{ $info['components']->isEmpty() ? 'border-rose-200' : 'border-stone-200' }} rounded-xl p-3">
                     <div class="mb-1.5">
                         <span class="font-mono text-stone-800 text-sm">{{ $sku }}</span>
-                        @if($info['components']->isEmpty())<span class="ml-1 text-[10px] text-rose-500">belum ada resep</span>@endif
+                        @if($info['components']->isEmpty())
+                            <span class="ml-1 text-[10px] text-rose-500 font-semibold">belum ada resep</span>
+                        @else
+                            <span class="ml-1 text-[10px] text-emerald-600 font-semibold">✓ dipetakan</span>
+                        @endif
                         <div class="text-[10px] text-stone-400 truncate">{{ $info['name'] }}</div>
                     </div>
                     @foreach($info['components'] as $c)

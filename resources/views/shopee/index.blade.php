@@ -100,17 +100,33 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
         </div>
     @endif
 
-    {{-- SKU belum ter-map --}}
+    {{-- Pemetaan SKU Shopee — SKU yang tak auto-match Product.sku. Yang sudah punya
+         resep = beres; yang kosong = perlu dipetakan. --}}
     @if(count($needMap))
-        <div class="bg-white rounded-2xl border border-rose-200 p-5">
-            <h3 class="text-sm font-bold text-stone-800 mb-1">⚙ SKU belum ter-map ({{ count($needMap) }})</h3>
-            <p class="text-[11px] text-stone-500 mb-3">1 SKU Shopee bisa = beberapa produk SKINKU × qty. Dipetakan sekali, berlaku untuk semua order.</p>
+        @php
+            $skuUnmapped = collect($needMap)->filter(fn ($i) => $i['components']->isEmpty());
+            $skuMapped = collect($needMap)->reject(fn ($i) => $i['components']->isEmpty());
+            $needCount = $skuUnmapped->count();
+            $skuSorted = $skuUnmapped->union($skuMapped); // yang belum dipetakan tampil dulu
+        @endphp
+        <div class="bg-white rounded-2xl border {{ $needCount ? 'border-rose-200' : 'border-emerald-200' }} p-5">
+            @if($needCount)
+                <h3 class="text-sm font-bold text-stone-800 mb-1">⚙ SKU perlu dipetakan ({{ $needCount }})</h3>
+                <p class="text-[11px] text-stone-500 mb-3">{{ $skuMapped->count() }} SKU sudah dipetakan. 1 SKU Shopee bisa = beberapa produk SKINKU × qty; dipetakan sekali, berlaku untuk semua order.</p>
+            @else
+                <h3 class="text-sm font-bold text-emerald-700 mb-1">✓ Semua SKU Shopee sudah dipetakan ({{ $skuMapped->count() }})</h3>
+                <p class="text-[11px] text-stone-500 mb-3">Semua SKU dari order sudah punya resep. Bisa edit / tambah komponen di bawah (mis. paket bundle).</p>
+            @endif
             <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-                @foreach($needMap as $sku => $info)
-                    <div class="border border-stone-200 rounded-xl p-3">
+                @foreach($skuSorted as $sku => $info)
+                    <div class="border {{ $info['components']->isEmpty() ? 'border-rose-200' : 'border-stone-200' }} rounded-xl p-3">
                         <div class="mb-1.5">
                             <span class="font-mono text-stone-800 text-sm">{{ $sku }}</span>
-                            @if($info['components']->isEmpty())<span class="ml-1 text-[10px] text-rose-500">belum ada resep</span>@endif
+                            @if($info['components']->isEmpty())
+                                <span class="ml-1 text-[10px] text-rose-500 font-semibold">belum ada resep</span>
+                            @else
+                                <span class="ml-1 text-[10px] text-emerald-600 font-semibold">✓ dipetakan</span>
+                            @endif
                             <div class="text-[10px] text-stone-400 truncate">{{ $info['name'] }}</div>
                         </div>
                         @foreach($info['components'] as $c)

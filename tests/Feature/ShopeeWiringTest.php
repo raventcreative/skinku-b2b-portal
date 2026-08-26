@@ -112,4 +112,28 @@ class ShopeeWiringTest extends TestCase
         $this->actingAs($admin)->get(route('shopee.stock'))->assertOk();
         $this->actingAs($admin)->get(route('shopee.index'))->assertOk()->assertSee('SB-UNMAPPED');
     }
+
+    public function test_label_sku_bedakan_sudah_vs_belum_dipetakan(): void
+    {
+        // SKU yang SUDAH dipetakan manual tak boleh lagi ke-hitung "perlu dipetakan".
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        // Produk target peta; sku-nya beda dari SKU Shopee → tak auto-match.
+        $prod = Product::create(['name' => 'Lotion Asli', 'sku' => 'RP1', 'price_grand' => 1,
+            'price_distributor' => 1, 'price_reseller' => 1, 'price_retail' => 1, 'cogs' => 1,
+            'hq_stock' => 100, 'status' => 'active']);
+        ShopeeSkuMap::create(['shopee_sku' => 'MAPPED-SKU', 'product_id' => $prod->id, 'qty' => 1]);
+
+        ShopeeOrder::create(['order_sn' => 'M1', 'status' => 'SHIPPED', 'total_amount' => 10000,
+            'line_items' => [['sku' => 'MAPPED-SKU', 'name' => 'Lotion', 'qty' => 1]],
+            'stock_status' => ShopeeOrder::STATUS_PENDING, 'order_created_at' => now()]);
+        ShopeeOrder::create(['order_sn' => 'R1', 'status' => 'SHIPPED', 'total_amount' => 10000,
+            'line_items' => [['sku' => 'RAW-SKU', 'name' => 'Serum', 'qty' => 1]],
+            'stock_status' => ShopeeOrder::STATUS_PENDING, 'order_created_at' => now()]);
+
+        $this->actingAs($admin)->get(route('shopee.index'))->assertOk()
+            ->assertSee('perlu dipetakan')   // header cuma hitung yang belum (1: RAW-SKU)
+            ->assertSee('belum ada resep')    // RAW-SKU = belum
+            ->assertSee('Lotion Asli');       // MAPPED-SKU tampil resepnya (sudah dipetakan)
+    }
 }
