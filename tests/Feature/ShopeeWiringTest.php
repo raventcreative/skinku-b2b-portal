@@ -109,8 +109,9 @@ class ShopeeWiringTest extends TestCase
 
         $this->actingAs($admin)->get(route('shopee.orders'))->assertOk()
             ->assertSee('Order Shopee')->assertSee($ready->order_sn);
-        $this->actingAs($admin)->get(route('shopee.stock'))->assertOk();
-        $this->actingAs($admin)->get(route('shopee.index'))->assertOk()->assertSee('SB-UNMAPPED');
+        // Pemetaan SKU ada di halaman SKU & Stok (bukan lagi di halaman integrasi).
+        $this->actingAs($admin)->get(route('shopee.stock'))->assertOk()->assertSee('SB-UNMAPPED');
+        $this->actingAs($admin)->get(route('shopee.index'))->assertOk();
     }
 
     public function test_label_sku_bedakan_sudah_vs_belum_dipetakan(): void
@@ -131,7 +132,7 @@ class ShopeeWiringTest extends TestCase
             'line_items' => [['sku' => 'RAW-SKU', 'name' => 'Serum', 'qty' => 1]],
             'stock_status' => ShopeeOrder::STATUS_PENDING, 'order_created_at' => now()]);
 
-        $this->actingAs($admin)->get(route('shopee.index'))->assertOk()
+        $this->actingAs($admin)->get(route('shopee.stock'))->assertOk()
             ->assertSee('perlu dipetakan')   // header cuma hitung yang belum (1: RAW-SKU)
             ->assertSee('belum ada resep')    // RAW-SKU = belum
             ->assertSee('Lotion Asli');       // MAPPED-SKU tampil resepnya (sudah dipetakan)

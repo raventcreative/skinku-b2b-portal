@@ -100,61 +100,8 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
         </div>
     @endif
 
-    {{-- Pemetaan SKU Shopee — SKU yang tak auto-match Product.sku. Yang sudah punya
-         resep = beres; yang kosong = perlu dipetakan. --}}
-    @if(count($needMap))
-        @php
-            $skuUnmapped = collect($needMap)->filter(fn ($i) => $i['components']->isEmpty());
-            $skuMapped = collect($needMap)->reject(fn ($i) => $i['components']->isEmpty());
-            $needCount = $skuUnmapped->count();
-            $skuSorted = $skuUnmapped->union($skuMapped); // yang belum dipetakan tampil dulu
-        @endphp
-        <div class="bg-white rounded-2xl border {{ $needCount ? 'border-rose-200' : 'border-emerald-200' }} p-5">
-            @if($needCount)
-                <h3 class="text-sm font-bold text-stone-800 mb-1">⚙ SKU perlu dipetakan ({{ $needCount }})</h3>
-                <p class="text-[11px] text-stone-500 mb-3">{{ $skuMapped->count() }} SKU sudah dipetakan. 1 SKU Shopee bisa = beberapa produk SKINKU × qty; dipetakan sekali, berlaku untuk semua order.</p>
-            @else
-                <h3 class="text-sm font-bold text-emerald-700 mb-1">✓ Semua SKU Shopee sudah dipetakan ({{ $skuMapped->count() }})</h3>
-                <p class="text-[11px] text-stone-500 mb-3">Semua SKU dari order sudah punya resep. Bisa edit / tambah komponen di bawah (mis. paket bundle).</p>
-            @endif
-            <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-                @foreach($skuSorted as $sku => $info)
-                    <div class="border {{ $info['components']->isEmpty() ? 'border-rose-200' : 'border-stone-200' }} rounded-xl p-3">
-                        <div class="mb-1.5">
-                            <span class="font-mono text-stone-800 text-sm">{{ $sku }}</span>
-                            @if($info['components']->isEmpty())
-                                <span class="ml-1 text-[10px] text-rose-500 font-semibold">belum ada resep</span>
-                            @else
-                                <span class="ml-1 text-[10px] text-emerald-600 font-semibold">✓ dipetakan</span>
-                            @endif
-                            <div class="text-[10px] text-stone-400 truncate">{{ $info['name'] }}</div>
-                        </div>
-                        @foreach($info['components'] as $c)
-                            <div class="flex items-center gap-1.5 text-xs py-0.5">
-                                <span class="text-emerald-700 truncate">{{ $c->product?->name ?? '(produk terhapus)' }}</span>
-                                <span class="text-stone-400 shrink-0">× {{ $c->qty }}</span>
-                                <form method="POST" action="{{ route('shopee.sku-map.remove', $c) }}" onsubmit="return confirm('Hapus komponen ini?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="text-[10px] text-rose-500 hover:text-rose-700 underline">hapus</button>
-                                </form>
-                            </div>
-                        @endforeach
-                        <form method="POST" action="{{ route('shopee.sku-map') }}" class="flex items-center gap-1.5 text-xs mt-2 pt-2 border-t border-stone-100">
-                            @csrf
-                            <input type="hidden" name="shopee_sku" value="{{ $sku }}">
-                            <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded flex-1 min-w-0">
-                                <option value="">— produk —</option>
-                                @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} ({{ $p->sku }})</option>@endforeach
-                            </select>
-                            <span class="text-stone-400 shrink-0">×</span>
-                            <input type="number" name="qty" value="1" min="1" max="999" class="w-12 px-1.5 py-1 border border-stone-300 rounded text-right shrink-0">
-                            <button type="submit" class="px-2.5 py-1 bg-stone-800 text-white rounded hover:bg-stone-900 shrink-0">+</button>
-                        </form>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    @endif
+    {{-- Pemetaan SKU dipindah ke halaman "SKU & Stok" (biar halaman integrasi bersih,
+         konsisten dgn TikTok). Peringatan SKU belum dipetakan tetap ada di daftar Order. --}}
 
 </div>
 @endsection
