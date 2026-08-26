@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeSkuMap;
 use App\Models\User;
@@ -94,6 +95,10 @@ class ShopeeWiringTest extends TestCase
             'price_distributor' => 1, 'price_reseller' => 1, 'price_retail' => 1, 'cogs' => 1,
             'hq_stock' => 100, 'status' => 'active']);
         ShopeeSkuMap::create(['shopee_sku' => 'SB1', 'product_id' => $p->id, 'qty' => 1]);
+        // Koneksi (auto_deduct + cutoff) → setelan potong tampil di halaman Pesanan.
+        ShopeeConnection::create(['shop_id' => '999', 'access_token' => 'X', 'refresh_token' => 'Y',
+            'access_expires_at' => now()->addHours(3), 'refresh_expires_at' => now()->addDays(30),
+            'auto_deduct' => true, 'deduct_from' => '2026-08-17']);
 
         $ready = ShopeeOrder::create(['order_sn' => 'READY1', 'status' => 'SHIPPED', 'total_amount' => 50000,
             'line_items' => [['sku' => 'SB1', 'name' => 'Sabun', 'qty' => 2]],
@@ -109,7 +114,10 @@ class ShopeeWiringTest extends TestCase
 
         $this->actingAs($admin)->get(route('shopee.orders'))->assertOk()
             ->assertSee('Order Shopee')->assertSee($ready->order_sn)
-            ->assertSee('SB-UNMAPPED');                       // peta SKU (resep) kini di Pesanan
+            ->assertSee('SB-UNMAPPED')                        // peta SKU (resep) kini di Pesanan
+            ->assertSee('Kelola Resep SKU')                   // collapsible (details) spt TikTok
+            ->assertSee('Mulai potong dari')                  // setelan potong pindah ke Pesanan
+            ->assertSee('Auto-potong AKTIF');                 // banner (auto_deduct true)
         $this->actingAs($admin)->get(route('shopee.stock'))->assertOk();  // Konversi Stok = funnel
         $this->actingAs($admin)->get(route('shopee.index'))->assertOk();
     }

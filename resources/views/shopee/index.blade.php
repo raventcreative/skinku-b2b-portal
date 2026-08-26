@@ -74,34 +74,9 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
         @endif
     </div>
 
-    {{-- Pengaturan potong stok --}}
-    @if($connection)
-        <div class="bg-white rounded-2xl border border-stone-200 p-5">
-            <h3 class="text-sm font-bold text-stone-800 mb-3">Pengaturan</h3>
-            <form method="POST" action="{{ route('shopee.settings') }}" class="flex flex-wrap items-center gap-4">
-                @csrf
-                <label class="flex items-center gap-1.5 text-xs text-stone-600 cursor-pointer">
-                    <input type="hidden" name="auto_deduct" value="0">
-                    <input type="checkbox" name="auto_deduct" value="1" @checked($connection->auto_deduct)>
-                    Otomatis potong stok saat tarik order
-                    @if($connection->auto_deduct)<span class="text-emerald-600 font-semibold">AKTIF</span>@endif
-                </label>
-                <label class="flex items-center gap-1.5 text-xs text-stone-600">
-                    Mulai potong dari
-                    <input type="date" name="deduct_from" value="{{ $connection->deduct_from?->format('Y-m-d') }}" class="px-2 py-1 border border-stone-300 rounded text-xs">
-                </label>
-                <button type="submit" class="px-3 py-1.5 text-xs bg-stone-800 text-white rounded-lg hover:bg-stone-900">Simpan</button>
-            </form>
-            @if($connection->deduct_from)
-                <p class="mt-2 text-[11px] text-emerald-700">🛡️ Order sebelum {{ $connection->deduct_from->format('d M Y') }} tidak akan dipotong — sudah tercakup Stok Opname.</p>
-            @else
-                <p class="mt-2 text-[11px] text-rose-600">⚠️ Batas tanggal belum diset. Kalau kamu potong sekarang, order lama (pra-opname) ikut kepotong → stok dobel berkurang.</p>
-            @endif
-        </div>
-    @endif
-
-    {{-- Peta SKU (resep) ada di halaman Pesanan Shopee & funnel di "Konversi Stok"
-         (konsisten dengan TikTok). Halaman integrasi ini sengaja dibiarkan bersih. --}}
+    {{-- Setelan potong (auto-deduct + cutoff) dipindah ke halaman Pesanan Shopee,
+         peta SKU (resep) juga di Pesanan, funnel di "Konversi Stok" — konsisten
+         dengan TikTok. Halaman integrasi ini sengaja dibiarkan bersih. --}}
 
 </div>
 @endsection

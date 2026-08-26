@@ -102,7 +102,10 @@ class ShopeeController extends Controller
         return view('shopee.orders', [
             'orders' => $orders,
             'previews' => $previews,
-            // Peta SKU (resep) inline di halaman Pesanan — konsisten dengan TikTok.
+            // Setelan potong (auto-deduct + cutoff) + peta SKU (resep) inline di
+            // halaman Pesanan — konsisten dengan TikTok.
+            'connection' => ShopeeConnection::latest('id')->first(),
+            'cutoff' => $this->orders->cutoff(),
             'needMap' => $this->orders->skusNeedingMap(),
             'products' => Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']),
         ]);
