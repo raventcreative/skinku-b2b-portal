@@ -8,6 +8,7 @@ use App\Models\ShopeeOrder;
 use App\Models\ShopeeSkuMap;
 use App\Models\User;
 use App\Services\ShopeeClient;
+use App\Services\ShopeeOrderService;
 use App\Services\ShopeeSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -115,6 +116,36 @@ class ShopeeSyncTest extends TestCase
 
         $this->assertNotNull($client->lastFrom);
         $this->assertGreaterThanOrEqual($floor, $client->lastFrom);
+    }
+
+    public function test_order_batal_pakai_nilai_item_saat_total_amount_nol(): void
+    {
+        // Shopee kasih total_amount 0 utk order batal → sistem hitung dari item
+        // (harga diskon × qty) biar "batal" tetap kelihatan nilainya (spt TikTok).
+        app(ShopeeOrderService::class)->store([[
+            'order_sn' => 'CANCEL1', 'order_status' => 'CANCELLED', 'total_amount' => 0,
+            'create_time' => now()->timestamp,
+            'item_list' => [
+                ['item_sku' => 'X', 'item_name' => 'X', 'model_quantity_purchased' => 2, 'model_discounted_price' => 15000],
+            ],
+        ]]);
+
+        $this->assertEqualsWithDelta(30000, (float) ShopeeOrder::where('order_sn', 'CANCEL1')->value('total_amount'), 0.01);
+    }
+
+    public function test_order_normal_tetap_pakai_total_amount_shopee(): void
+    {
+        // Order normal: total_amount Shopee (sudah termasuk ongkir/diskon) dipakai,
+        // BUKAN subtotal item.
+        app(ShopeeOrderService::class)->store([[
+            'order_sn' => 'OK1', 'order_status' => 'COMPLETED', 'total_amount' => 77665,
+            'create_time' => now()->timestamp,
+            'item_list' => [
+                ['item_sku' => 'X', 'model_quantity_purchased' => 1, 'model_discounted_price' => 50000],
+            ],
+        ]]);
+
+        $this->assertEqualsWithDelta(77665, (float) ShopeeOrder::where('order_sn', 'OK1')->value('total_amount'), 0.01);
     }
 
     public function test_backfill_iterasi_window_dan_simpan_histori(): void

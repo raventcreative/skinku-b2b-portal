@@ -42,11 +42,18 @@ class ShopeeOrderService
             }
             $existing = ShopeeOrder::where('order_sn', $sn)->first();
 
+            // Shopee kasih total_amount 0 untuk order BATAL. Biar nilai "batal" tetap
+            // kelihatan (konsisten TikTok), fallback ke subtotal item (harga × qty).
+            $total = (float) ($o['total_amount'] ?? 0);
+            if ($total <= 0) {
+                $total = $this->itemSubtotal($o);
+            }
+
             ShopeeOrder::updateOrCreate(
                 ['order_sn' => $sn],
                 [
                     'status' => $o['order_status'] ?? null,
-                    'total_amount' => (float) ($o['total_amount'] ?? 0),
+                    'total_amount' => $total,
                     'currency' => $o['currency'] ?? null,
                     'line_items' => $this->normalizeItems($o),
                     'order_created_at' => isset($o['create_time']) ? Carbon::createFromTimestamp((int) $o['create_time']) : null,
@@ -81,6 +88,23 @@ class ShopeeOrderService
         }
 
         return array_values($agg);
+    }
+
+    /**
+     * Nilai kotor order dari item_list (harga diskon × qty). Dipakai sebagai
+     * fallback nilai order saat Shopee mengembalikan total_amount 0 (mis. order
+     * batal) — biar kolom "batal" di laporan tetap ada nilainya, seperti TikTok.
+     */
+    private function itemSubtotal(array $order): float
+    {
+        $sum = 0.0;
+        foreach ($order['item_list'] ?? [] as $it) {
+            $price = (float) ($it['model_discounted_price'] ?? ($it['model_original_price'] ?? 0));
+            $qty = (int) ($it['model_quantity_purchased'] ?? ($it['quantity_purchased'] ?? 1));
+            $sum += $price * $qty;
+        }
+
+        return round($sum, 2);
     }
 
     /**
