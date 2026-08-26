@@ -21,7 +21,7 @@ class ReturController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $q = PoReturn::with('purchaseOrder.user', 'items')->latest();
+        $q = PoReturn::with('purchaseOrder.user', 'items.poItem')->latest();
 
         // Mitra hanya lihat retur PO miliknya; HQ (process_return) lihat semua.
         if (! $user->canDo('process_return')) {

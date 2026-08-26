@@ -13,6 +13,7 @@
                 <tr>
                     <th class="text-left px-4 py-2">PO</th>
                     <th class="text-left px-4 py-2">Pembeli</th>
+                    <th class="text-left px-4 py-2">Barang Diretur</th>
                     <th class="text-left px-4 py-2">Kondisi</th>
                     <th class="text-left px-4 py-2">Alasan</th>
                     <th class="text-left px-4 py-2">Status</th>
@@ -24,6 +25,13 @@
                     <tr class="border-t border-stone-100">
                         <td class="px-4 py-2 font-mono text-indigo-700">{{ $r->purchaseOrder->po_number ?? '—' }}</td>
                         <td class="px-4 py-2 text-stone-700">{{ $r->purchaseOrder?->user?->fullname ?? $r->purchaseOrder?->user?->name ?? '—' }}</td>
+                        <td class="px-4 py-2 text-stone-700 whitespace-normal max-w-xs">
+                            @forelse($r->items as $it)
+                                <span class="inline-block">{{ $it->poItem->product_name ?? 'Produk #'.$it->purchase_order_item_id }} <b class="text-stone-900">×{{ $it->qty }}</b></span>@if(! $loop->last)<span class="text-stone-300">, </span>@endif
+                            @empty
+                                <span class="text-stone-300">—</span>
+                            @endforelse
+                        </td>
                         <td class="px-4 py-2">{{ $r->kondisi === 'rusak' ? '🔴 Rusak' : '✅ Normal' }}</td>
                         <td class="px-4 py-2 text-stone-500">{{ $r->reason ?: '—' }}</td>
                         <td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $badge[$r->status] ?? '' }}">{{ ucfirst($r->status) }}</span></td>
@@ -39,7 +47,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-8 text-center text-stone-400">Belum ada retur. Buat retur dari halaman detail PO yang sudah selesai.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-8 text-center text-stone-400">Belum ada retur. Buat retur dari halaman detail PO yang sudah selesai.</td></tr>
                 @endforelse
             </tbody>
         </table>

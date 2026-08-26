@@ -104,6 +104,27 @@ class ReturTest extends TestCase
         $this->assertEqualsWithDelta(66_000, $this->commissionSvc()->balance($sponsor), 0.01); // 110rb × 60%
     }
 
+    public function test_retur_index_menampilkan_barang_diretur(): void
+    {
+        // Approver (process_return) harus bisa LIHAT barang apa yang diretur +
+        // qty-nya di daftar, bukan cuma setuju/tolak buta.
+        $admin = $this->user(User::ROLE_ADMIN);
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        $this->retur($po, [[$po->items->first()->id, 40]], 'normal'); // pending
+
+        $this->actingAs($admin)->get('/retur')
+            ->assertOk()
+            ->assertSee('Barang Diretur')
+            ->assertSee($p->name)
+            ->assertSee('×40');
+    }
+
     public function test_retur_rusak_write_off_hq_tak_nambah(): void
     {
         $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
