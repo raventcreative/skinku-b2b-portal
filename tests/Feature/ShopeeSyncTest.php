@@ -117,6 +117,49 @@ class ShopeeSyncTest extends TestCase
         $this->assertGreaterThanOrEqual($floor, $client->lastFrom);
     }
 
+    public function test_backfill_iterasi_window_dan_simpan_histori(): void
+    {
+        // Fake: tiap window (dibedakan by $from) balikin 1 order unik → memastikan
+        // backfill benar-benar iterasi banyak window 14-harian, bukan cuma 1 tarikan.
+        $client = new class extends ShopeeClient
+        {
+            public array $windows = [];
+
+            public function __construct() {}
+
+            public function refreshToken(string $refreshToken, string $shopId): array
+            {
+                return ['access_token' => 'FRESH', 'refresh_token' => 'R2', 'expire_in' => 14400];
+            }
+
+            public function getOrderList(string $a, string $s, int $f, int $t, string $cursor = '', int $p = 50): array
+            {
+                $this->windows[] = $f;
+
+                return ['response' => ['order_list' => [['order_sn' => 'W'.$f]], 'more' => false, 'next_cursor' => '']];
+            }
+
+            public function getOrderDetail(string $a, string $s, array $sns): array
+            {
+                $orders = [];
+                foreach ($sns as $sn) {
+                    $orders[] = ['order_sn' => $sn, 'order_status' => 'COMPLETED', 'total_amount' => 10000, 'create_time' => now()->timestamp, 'item_list' => []];
+                }
+
+                return ['response' => ['order_list' => $orders]];
+            }
+        };
+        $this->app->instance(ShopeeClient::class, $client);
+
+        $r = app(ShopeeSyncService::class)->backfillOrders($this->conn(), now()->subDays(30), now());
+
+        // 30 hari / 14 → 3 window → 3 order unik ditarik & disimpan.
+        $this->assertCount(3, $client->windows);
+        $this->assertSame(3, $r['pulled']);
+        $this->assertSame(3, $r['stored']);
+        $this->assertSame(3, ShopeeOrder::count());
+    }
+
     public function test_auto_deduct_saat_sync_benar_benar_potong_stok(): void
     {
         $p = $this->product();

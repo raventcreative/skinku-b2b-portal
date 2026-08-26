@@ -102,6 +102,56 @@ class ShopeeSyncService
     }
 
     /**
+     * Tarik ULANG seluruh order pada rentang tanggal (menutup lubang histori yang
+     * tak tercakup sync rutin yang cuma ~14 hari bergulir). Shopee wajib rentang
+     * ≤15 hari → di-iterasi per 14 hari dari $from ke $to. Store-only: idempoten,
+     * tak reset stok, tak auto-potong — murni buat melengkapi omzet histori.
+     */
+    public function backfillOrders(ShopeeConnection $conn, Carbon $from, Carbon $to): array
+    {
+        $sns = [];
+        $winStart = $from->copy();
+
+        for ($w = 0; $w < 120 && $winStart->lt($to); $w++) {  // guard: maks 120 window (~4,5 thn)
+            $access = $this->freshToken($conn);  // token 4 jam — refresh tiap window untuk run panjang
+            $winEnd = (clone $winStart)->addDays(14);
+            if ($winEnd->gt($to)) {
+                $winEnd = $to->copy();
+            }
+
+            $cursor = '';
+            for ($p = 0; $p < 100; $p++) {  // guard halaman per window
+                $res = $this->shopee->getOrderList($access, $conn->shop_id, $winStart->timestamp, $winEnd->timestamp, $cursor)['response'] ?? [];
+                foreach (($res['order_list'] ?? []) as $row) {
+                    if (! empty($row['order_sn'])) {
+                        $sns[$row['order_sn']] = true;  // dedup antar-window via key
+                    }
+                }
+                if (empty($res['more']) || empty($res['next_cursor'])) {
+                    break;
+                }
+                $cursor = $res['next_cursor'];
+            }
+
+            $winStart = (clone $winEnd)->addSecond();
+        }
+
+        $snList = array_keys($sns);
+
+        // Tarik detail per 50 → store (idempoten).
+        $access = $this->freshToken($conn);
+        $detailOrders = [];
+        foreach (array_chunk($snList, 50) as $chunk) {
+            $res = $this->shopee->getOrderDetail($access, $conn->shop_id, $chunk)['response'] ?? [];
+            foreach (($res['order_list'] ?? []) as $o) {
+                $detailOrders[] = $o;
+            }
+        }
+
+        return ['pulled' => count($snList), 'stored' => $this->orders->store($detailOrders)];
+    }
+
+    /**
      * Tarik retur dari Shopee → store. Paginasi page_no (guard 40 halaman).
      * Merge field dari list + detail (detail punya item & alasan).
      */
