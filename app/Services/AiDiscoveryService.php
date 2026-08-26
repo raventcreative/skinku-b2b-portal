@@ -29,7 +29,7 @@ class AiDiscoveryService
     public function discoverKols(array $brief): array
     {
         $query = $this->kolQuery($brief);
-        $results = $this->search->search($query, 8);
+        $results = $this->search->search($query, 10);
 
         if ($results === []) {
             return ['query' => $query, 'candidates' => []];
@@ -49,11 +49,15 @@ class AiDiscoveryService
                 continue; // anti-ngarang: tanpa link sumber / tanpa username → buang
             }
             $followers = $c['followers_est'] ?? null;
+            $fe = is_numeric($followers) ? (int) $followers : null;
             $platform = $this->normalizePlatform((string) ($c['platform'] ?? ''));
             $candidates[] = [
                 'username' => $username,
                 'platform' => $platform,
-                'followers_est' => is_numeric($followers) ? (int) $followers : null,
+                'followers_est' => $fe,
+                // Level = turunan jujur dari follower (bukan tebakan). CPM/GMV TAK
+                // bisa di sini — perlu ratecard + views 7 video → muncul saat screening.
+                'level' => $fe ? $this->levelFromFollowers($fe) : null,
                 'kategori' => trim((string) ($c['kategori'] ?? '')),
                 // Link @username → profil (dirakit dari handle, pola sama dgn Kol);
                 // source_url = tempat ditemukan (artikel/daftar) untuk verifikasi.
@@ -63,7 +67,7 @@ class AiDiscoveryService
             ];
         }
 
-        return ['query' => $query, 'candidates' => array_slice($candidates, 0, 12)];
+        return ['query' => $query, 'candidates' => array_slice($candidates, 0, 15)];
     }
 
     /**
@@ -153,7 +157,9 @@ class AiDiscoveryService
         - "url" WAJIB diisi salah satu URL hasil pencarian tempat influencer itu
           disebut — BOLEH URL artikel/daftar, tidak harus halaman profil.
         - Jika jumlah follower tidak disebut di hasil, isi null (jangan menebak).
-        - Ekstrak sebanyak mungkin kandidat BERBEDA yang relevan (maksimal 12).
+        - Ekstrak SEMUA influencer BERBEDA yang disebut — satu artikel/daftar sering
+          memuat 10-20 nama, JANGAN cuma ambil 1 per artikel. Target hingga 15
+          kandidat bila tersedia. "alasan" singkat (maksimal 12 kata).
         Balas HANYA JSON valid (tanpa teks lain, tanpa markdown) dengan bentuk:
         {"kandidat":[{"username":"tanpa @","platform":"tiktok|instagram|youtube",
         "followers_est":123000,"kategori":"mis. skincare","url":"https://...(sumber)",
@@ -211,6 +217,19 @@ class AiDiscoveryService
         }
 
         return implode("\n\n", $lines);
+    }
+
+    /** Level dari followers — sama persis dengan Kol::getLevelAttribute (turunan, bukan tebakan). */
+    private function levelFromFollowers(int $followers): string
+    {
+        return match (true) {
+            $followers < 10_000 => 'Nano',
+            $followers < 100_000 => 'Mikro',
+            $followers < 500_000 => 'Middle',
+            $followers < 1_000_000 => 'Makro',
+            $followers <= 2_500_000 => 'Mega',
+            default => 'Super Mega',
+        };
     }
 
     /** Rakit URL profil dari platform + handle (pola sama dengan Kol::profileUrl). null bila platform tanpa templat. */

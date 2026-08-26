@@ -95,6 +95,7 @@
                 </div>
             @else
                 <p class="text-xs text-stone-400">Pencarian: <span class="text-stone-500">{{ $kolResult['query'] }}</span> · {{ count($kolResult['candidates']) }} kandidat</p>
+                <p class="text-[11px] text-stone-400 -mt-2">💡 CPM · verdict · estimasi GMV muncul setelah <b>+ Tambah ke Database KOL</b> lalu di-screening (input views 7 video + ratecard).</p>
                 <div class="grid sm:grid-cols-2 gap-3">
                     @foreach($kolResult['candidates'] as $c)
                         <div class="bg-white rounded-2xl border border-stone-200 p-4 flex flex-col gap-2">
@@ -104,8 +105,11 @@
                                         class="font-semibold text-indigo-600 hover:underline">{{ '@'.$c['username'] }}</a>
                                     <span class="ml-1 text-[10px] uppercase tracking-wide text-stone-400">{{ $c['platform'] }}</span>
                                 </div>
-                                <span class="text-xs text-stone-500 shrink-0">
+                                <span class="text-xs text-stone-500 shrink-0 text-right leading-tight">
                                     {{ $c['followers_est'] ? number_format($c['followers_est'], 0, ',', '.').' flw' : 'follower ?' }}
+                                    @if($c['level'])
+                                        <br><span class="text-[10px] font-semibold text-red-600">{{ $c['level'] }}</span>
+                                    @endif
                                 </span>
                             </div>
                             @if($c['kategori'])

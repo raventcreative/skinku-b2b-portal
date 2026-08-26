@@ -70,6 +70,7 @@ class AiDiscoveryServiceTest extends TestCase
         $this->assertSame('skincarequeen', $c['username']);   // '@' dibuang
         $this->assertSame('tiktok', $c['platform']);
         $this->assertSame(120000, $c['followers_est']);
+        $this->assertSame('Middle', $c['level']);              // 120rb follower → Middle (turunan jujur)
         $this->assertSame('https://www.tiktok.com/@skincarequeen', $c['profile_url']); // dirakit dari handle
         $this->assertSame('https://tiktok.com/@skincarequeen', $c['source_url']);       // tempat ditemukan
         $this->assertStringContainsString('jerawat', $out['query']);   // brief masuk query
