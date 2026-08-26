@@ -84,13 +84,24 @@
     $cards = [
         [$labelBeli, 'Rp ' . number_format($summary['total_sales'], 0, ',', '.'), $isPartner ? 'rose' : 'emerald', $per, $salesBreakdown,
             $user->canDo('view_reports') ? route('reports.index', ['bulan' => $bln]) : null],
-        [$isPartner ? 'PO Saya' : 'PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per, null,
-            route('purchase-orders.index')],
-        ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), 'amber', $per, null,
-            route('purchase-orders.index', ['status' => 'pending'])],
-        ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), 'blue', $per, null,
-            route('purchase-orders.index', ['status' => 'completed'])],
     ];
+    // Grand Total Omzet setahun (semua channel) — tepat di samping kartu Penjualan.
+    // Staff saja; rincian per channel jadi breakdown kartu (sama gaya Penjualan).
+    if ($user->isStaff() && ($yearlyOmzet ?? null)) {
+        $gtColors = ['reseller' => '#059669', 'tiktok' => '#e11d48', 'shopee' => '#f97316'];
+        $gtBreakdown = collect($yearlyOmzet['channels'])->map(fn ($c) => [
+            'label' => $c['label'], 'value' => $c['total'], 'color' => $gtColors[$c['key']] ?? '#78716c',
+        ])->all();
+        $cards[] = ['Grand Total Omzet', 'Rp ' . number_format($yearlyOmzet['total'], 0, ',', '.'), 'emerald',
+            $yearlyOmzet['year'] . ' · setahun', $gtBreakdown,
+            $user->canDo('view_reports') ? route('reports.index', ['bulan' => $bln]) : null];
+    }
+    $cards[] = [$isPartner ? 'PO Saya' : 'PO Masuk', number_format($summary['total_po'], 0, ',', '.'), 'stone', $per, null,
+        route('purchase-orders.index')];
+    $cards[] = ['PO Pending', number_format($summary['pending_po'], 0, ',', '.'), 'amber', $per, null,
+        route('purchase-orders.index', ['status' => 'pending'])];
+    $cards[] = ['PO Selesai', number_format($summary['completed_po'], 0, ',', '.'), 'blue', $per, null,
+        route('purchase-orders.index', ['status' => 'completed'])];
     if ($user->isStaff()) {
         $cards[] = ['Mitra Aktif', number_format($summary['total_partners'], 0, ',', '.'), 'purple', 'saat ini', null,
             $user->canDo('manage_users') ? route('users.index') : null];
@@ -258,7 +269,8 @@
     @endforeach
 </div>
 
-{{-- Ringkasan omzet: Grand Total setahun + Distributor/PO bulan ini (realized vs berjalan) — staff --}}
+{{-- Omzet Distributor / PO bulan ini (realized vs berjalan) — full-width. Grand
+     Total setahun kini jadi kartu di deretan atas (tepat di samping Penjualan). --}}
 @if(($yearlyOmzet ?? null))
     @php
         $rpO = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
@@ -266,47 +278,14 @@
         $poReal = (float) ($poBucket['confirmed'] ?? 0);
         $poPipe = (float) ($poBucket['pipeline'] ?? 0);
     @endphp
-    <div class="grid lg:grid-cols-2 gap-4 mb-6">
-        {{-- Grand Total Omzet — Tahunan --}}
-        <div class="bg-white rounded-2xl border border-emerald-200 p-5">
-            <div class="flex items-baseline justify-between gap-2">
-                <p class="text-[11px] uppercase tracking-wide text-emerald-700 font-bold">Grand Total Omzet — {{ $yearlyOmzet['year'] }}</p>
-                <span class="text-[9px] text-stone-300 shrink-0">semua channel · setahun</span>
-            </div>
-            <p class="text-3xl font-bold text-emerald-700 mt-1">{{ $rpO($yearlyOmzet['total']) }}</p>
-            <div class="mt-3 pt-3 border-t border-stone-100 grid grid-cols-2 gap-3">
-                <div>
-                    <p class="text-[10px] uppercase tracking-wide text-emerald-700 font-semibold">Terealisasi</p>
-                    <p class="text-sm font-bold text-stone-800">{{ $rpO($yearlyOmzet['realized']) }}</p>
-                </div>
-                <div>
-                    <p class="text-[10px] uppercase tracking-wide text-amber-700 font-semibold">Masih Berjalan</p>
-                    <p class="text-sm font-bold text-stone-800">{{ $rpO($yearlyOmzet['pipeline']) }}</p>
-                </div>
-            </div>
-            @if(!empty($yearlyOmzet['channels']))
-                <div class="mt-3 pt-3 border-t border-stone-100 space-y-1.5">
-                    <p class="text-[10px] uppercase tracking-wide text-stone-400 font-semibold mb-1">Rincian per Channel</p>
-                    @foreach($yearlyOmzet['channels'] as $ch)
-                        <div class="flex items-center justify-between gap-2">
-                            <span class="text-xs text-stone-600">{{ $ch['label'] }}</span>
-                            <span class="text-right leading-tight">
-                                <span class="text-sm font-bold text-stone-800">{{ $rpO($ch['total']) }}</span>
-                                <span class="block text-[9px] text-stone-400">terealisasi {{ $rpO($ch['realized']) }} · berjalan {{ $rpO($ch['pipeline']) }}</span>
-                            </span>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
+    <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-6">
+        <div class="flex items-baseline justify-between gap-2">
+            <p class="text-[11px] uppercase tracking-wide text-stone-500 font-bold">Omzet Distributor / PO — {{ $bulan->translatedFormat('M Y') }}</p>
+            <span class="text-[9px] text-stone-300 shrink-0">pending ikut dihitung</span>
         </div>
-        {{-- Omzet Distributor / PO — bulan ini (pending ikut dihitung) --}}
-        <div class="bg-white rounded-2xl border border-stone-200 p-5">
-            <div class="flex items-baseline justify-between gap-2">
-                <p class="text-[11px] uppercase tracking-wide text-stone-500 font-bold">Omzet Distributor / PO — {{ $bulan->translatedFormat('M Y') }}</p>
-                <span class="text-[9px] text-stone-300 shrink-0">pending ikut dihitung</span>
-            </div>
-            <p class="text-3xl font-bold text-stone-900 mt-1">{{ $rpO($poReal + $poPipe) }}</p>
-            <div class="mt-3 pt-3 border-t border-stone-100 grid grid-cols-2 gap-3">
+        <div class="mt-2 flex flex-wrap items-center gap-x-10 gap-y-3">
+            <p class="text-3xl font-bold text-stone-900">{{ $rpO($poReal + $poPipe) }}</p>
+            <div class="flex gap-10 sm:border-l sm:border-stone-100 sm:pl-10">
                 <div>
                     <p class="text-[10px] uppercase tracking-wide text-emerald-700 font-semibold">Sudah Masuk</p>
                     <p class="text-sm font-bold text-stone-800">{{ $rpO($poReal) }}</p>

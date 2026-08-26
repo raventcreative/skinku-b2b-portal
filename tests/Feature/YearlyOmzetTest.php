@@ -47,8 +47,8 @@ class YearlyOmzetTest extends TestCase
 
         $this->actingAs($admin)->get('/dashboard')
             ->assertOk()
-            ->assertSee('Grand Total Omzet')
-            ->assertSee('Omzet Distributor / PO')
-            ->assertSee('Rincian per Channel');
+            ->assertSee('Grand Total Omzet')       // kartu di deretan atas (samping Penjualan)
+            ->assertSee('setahun')                  // note kartu Grand Total
+            ->assertSee('Omzet Distributor / PO');  // box full-width di bawah
     }
 }
