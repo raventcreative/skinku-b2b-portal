@@ -100,7 +100,12 @@
         <tbody>
             @forelse($kol->screenings as $s)
                 <tr class="border-t border-stone-100 align-top">
-                    <td class="px-4 py-2.5 text-stone-600">{{ $s->tanggal_listing->format('d M Y') }}</td>
+                    <td class="px-4 py-2.5 text-stone-600">
+                        {{ $s->tanggal_listing->format('d M Y') }}
+                        @if($u->canDo('kol.screening.manage'))
+                            <a href="{{ route('kol-screenings.edit', $s) }}" class="block text-[10px] text-indigo-600 hover:underline mt-0.5">✎ edit</a>
+                        @endif
+                    </td>
                     <td class="text-right text-stone-700">
                         @if($s->ratecard !== null)
                             {{ $rp($s->ratecard) }}

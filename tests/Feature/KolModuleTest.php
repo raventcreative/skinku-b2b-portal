@@ -61,6 +61,33 @@ class KolModuleTest extends TestCase
         $this->assertSame('Middle', Kol::where('tiktok_username', 'skincarequeen')->first()->level);
     }
 
+    public function test_edit_screening_bisa_ubah_views_ratecard_tanggal(): void
+    {
+        // Setelah input, screening HARUS bisa diedit (views/ratecard/tanggal salah
+        // input, atau ratecard baru ada setelah nego). Berlaku utk kol_specialist.
+        $spec = $this->user('kol_specialist', 'editspec');
+        $kol = $this->kol(100_000);
+        $s = KolScreening::create([
+            'kol_id' => $kol->id, 'tanggal_listing' => '2026-07-01', 'ratecard' => null,
+            'views_1' => 1000, 'views_2' => 2000, 'views_3' => 3000, 'views_4' => 4000,
+            'views_5' => 5000, 'views_6' => 6000, 'views_7' => 7000,
+        ]);
+
+        $this->actingAs($spec)->get(route('kol-screenings.edit', $s))->assertOk()->assertSee('Edit Screening');
+
+        $this->actingAs($spec)->put(route('kol-screenings.update', $s), [
+            'tanggal_listing' => '2026-07-05', 'ratecard' => 6_000_000, 'benefit' => 'edit test',
+            'views_1' => 10_000, 'views_2' => 20_000, 'views_3' => 30_000, 'views_4' => 40_000,
+            'views_5' => 50_000, 'views_6' => 60_000, 'views_7' => 70_000,
+        ])->assertRedirect(route('kols.show', $kol->id));
+
+        $s->refresh();
+        $this->assertSame(6_000_000, (int) $s->ratecard);
+        $this->assertSame(10_000, (int) $s->views_1);
+        $this->assertSame('edit test', $s->benefit);
+        $this->assertSame('2026-07-05', $s->tanggal_listing->format('Y-m-d'));
+    }
+
     /**
      * Batas level TEPAT di angka batas: angka batas naik ke jenjang atasnya,
      * kecuali 2,5jt yang masih Mega (rentang "1jt–2,5jt" inklusif).

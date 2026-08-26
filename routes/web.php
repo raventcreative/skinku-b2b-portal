@@ -318,6 +318,8 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::get('/kol-screenings/create', [KolScreeningController::class, 'create'])->name('kol-screenings.create');
             Route::post('/kol-screenings', [KolScreeningController::class, 'store'])->name('kol-screenings.store');
             Route::patch('/kol-screenings/{screening}/ratecard', [KolScreeningController::class, 'updateRatecard'])->name('kol-screenings.ratecard');
+            Route::get('/kol-screenings/{screening}/edit', [KolScreeningController::class, 'edit'])->name('kol-screenings.edit');
+            Route::put('/kol-screenings/{screening}', [KolScreeningController::class, 'update'])->name('kol-screenings.update');
 
             // Impor massal KOL dari template (.xlsx/.csv) — dua tahap preview→commit.
             Route::get('/kols-import', [KolImportController::class, 'form'])->name('kols.import');

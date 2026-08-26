@@ -130,4 +130,57 @@ class KolScreeningController extends Controller
 
         return back()->with('status', "Ratecard diisi — verdict: {$screening->verdict_median}.");
     }
+
+    /** Form edit screening — perbaiki views/ratecard/tanggal/gmv/benefit yang salah input. */
+    public function edit(KolScreening $screening)
+    {
+        return view('kols.screening_edit', [
+            'screening' => $screening,
+            'kol' => $screening->kol,
+        ]);
+    }
+
+    /**
+     * Update seluruh isi screening. Angka turunan (median/CPM/verdict) accessor,
+     * jadi otomatis dihitung ulang begitu views/ratecard berubah.
+     */
+    public function update(Request $request, KolScreening $screening): RedirectResponse
+    {
+        $rules = [
+            'tanggal_listing' => ['required', 'date', 'before_or_equal:today'],
+            'ratecard' => ['nullable', 'integer', 'min:0'],
+            'gmv' => ['nullable', 'integer', 'min:0'],
+            'benefit' => ['nullable', 'string', 'max:500'],
+        ];
+        for ($i = 1; $i <= 7; $i++) {
+            $rules["views_{$i}"] = ['required', 'integer', 'min:0'];
+        }
+
+        $data = $request->validate($rules);
+
+        $before = ['ratecard' => $screening->ratecard, 'median_views' => $screening->median_views, 'verdict' => $screening->verdict_median];
+
+        $update = [
+            'tanggal_listing' => $data['tanggal_listing'],
+            'ratecard' => $data['ratecard'] ?? null,
+            'gmv' => $data['gmv'] ?? null,
+            'benefit' => $data['benefit'] ?? null,
+        ];
+        for ($i = 1; $i <= 7; $i++) {
+            $update["views_{$i}"] = $data["views_{$i}"];
+        }
+        $screening->update($update);
+
+        AuditService::log(
+            action: 'update_kol_screening',
+            targetType: 'kol_screening',
+            targetId: $screening->id,
+            before: $before,
+            after: ['ratecard' => $screening->ratecard, 'median_views' => $screening->median_views, 'verdict' => $screening->verdict_median],
+        );
+
+        return redirect()->route('kols.show', $screening->kol_id)
+            ->with('status', 'Screening diperbarui — median '.number_format($screening->median_views, 0, ',', '.')
+                ." views, verdict {$screening->verdict_median}.");
+    }
 }
