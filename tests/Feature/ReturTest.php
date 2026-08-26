@@ -13,6 +13,7 @@ use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\VolumeIncentiveTier;
 use App\Services\CommissionService;
+use App\Services\InventoryService;
 use App\Services\OnboardingService;
 use App\Services\PurchaseOrderService;
 use App\Services\ReturService;
@@ -102,6 +103,55 @@ class ReturTest extends TestCase
         $this->assertSame(940, (int) $p->fresh()->hq_stock);   // HQ balik +40
         $this->assertSame(60, $this->partnerStock($gd, $p));    // GD -40
         $this->assertEqualsWithDelta(66_000, $this->commissionSvc()->balance($sponsor), 0.01); // 110rb × 60%
+    }
+
+    public function test_retur_from_customer_lewati_stok_mitra_dan_void_simetris(): void
+    {
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        // GD jual habis stoknya (barang sudah keluar dari sistem) → stok mitra 0.
+        app(InventoryService::class)->setPartnerStock($gd->id, $p->id, 0);
+        $this->assertSame(0, $this->partnerStock($gd, $p));
+        $this->assertSame(900, (int) $p->fresh()->hq_stock);
+
+        // Retur 40 "dari pelanggan" — TAK boleh gagal walau stok mitra 0.
+        $retur = PoReturn::create([
+            'purchase_order_id' => $po->id, 'status' => 'pending', 'kondisi' => 'normal', 'from_customer' => true,
+        ]);
+        PoReturnItem::create(['po_return_id' => $retur->id, 'purchase_order_item_id' => $po->items->first()->id, 'qty' => 40]);
+        app(ReturService::class)->apply($retur);
+
+        $this->assertSame(0, $this->partnerStock($gd, $p));    // stok mitra TETAP 0 (tak disentuh)
+        $this->assertSame(940, (int) $p->fresh()->hq_stock);   // HQ tetap restock +40
+
+        // Void → HQ balik 900, stok mitra tetap 0 (dulu tak disentuh, jadi tak ditambah).
+        app(ReturService::class)->void($retur->fresh());
+        $this->assertSame(0, $this->partnerStock($gd, $p));
+        $this->assertSame(900, (int) $p->fresh()->hq_stock);
+    }
+
+    public function test_retur_biasa_stok_mitra_habis_tetap_ditolak(): void
+    {
+        // Tanpa from_customer, guard lama tetap berlaku: stok mitra tak cukup → gagal.
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+        app(InventoryService::class)->setPartnerStock($gd->id, $p->id, 0);
+
+        $retur = PoReturn::create([
+            'purchase_order_id' => $po->id, 'status' => 'pending', 'kondisi' => 'normal', 'from_customer' => false,
+        ]);
+        PoReturnItem::create(['po_return_id' => $retur->id, 'purchase_order_item_id' => $po->items->first()->id, 'qty' => 40]);
+
+        $this->expectException(RuntimeException::class);
+        app(ReturService::class)->apply($retur);
     }
 
     public function test_retur_index_menampilkan_barang_diretur(): void

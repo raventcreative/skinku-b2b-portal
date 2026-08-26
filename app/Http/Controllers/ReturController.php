@@ -55,6 +55,7 @@ class ReturController extends Controller
         $data = $request->validate([
             'purchase_order_id' => ['required', 'integer', 'exists:purchase_orders,id'],
             'kondisi' => ['required', 'in:normal,rusak'],
+            'from_customer' => ['nullable', 'boolean'],
             'reason' => ['nullable', 'string', 'max:500'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.po_item_id' => ['required', 'integer'],
@@ -87,6 +88,7 @@ class ReturController extends Controller
 
         $retur = PoReturn::create([
             'purchase_order_id' => $po->id, 'status' => 'pending', 'kondisi' => $data['kondisi'],
+            'from_customer' => $request->boolean('from_customer'),
             'reason' => $data['reason'] ?? null, 'requested_by' => $user->id,
         ]);
         foreach ($lines as $l) {

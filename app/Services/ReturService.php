@@ -56,12 +56,16 @@ class ReturService
 
                 $returnedValue += (float) $poItem->unit_price * $qty;
 
-                // Pembeli kirim balik barang → stok pembeli turun.
-                $this->inventory->adjustPartnerStock(
-                    userId: $po->user_id, productId: $poItem->product_id, delta: -$qty,
-                    movementType: StockMovement::TYPE_ADJUSTMENT, notes: "Retur PO {$po->po_number}",
-                    referenceType: 'po_return', referenceId: $retur->id,
-                );
+                // Pembeli kirim balik barang → stok pembeli turun. TAPI kalau barang
+                // datang dari retur pelanggan (from_customer), mitra sudah tak pegang
+                // barang di stok sistem (sudah terjual) → JANGAN kurangi stok mitra.
+                if (! $retur->from_customer) {
+                    $this->inventory->adjustPartnerStock(
+                        userId: $po->user_id, productId: $poItem->product_id, delta: -$qty,
+                        movementType: StockMovement::TYPE_ADJUSTMENT, notes: "Retur PO {$po->po_number}",
+                        referenceType: 'po_return', referenceId: $retur->id,
+                    );
+                }
 
                 // Penerima (HQ/GD) dapat stok balik HANYA kalau NORMAL (rusak = write-off).
                 if ($retur->kondisi === 'normal') {
@@ -124,12 +128,15 @@ class ReturService
                     continue;
                 }
 
-                // Pembeli dapat stok balik lagi (+qty).
-                $this->inventory->adjustPartnerStock(
-                    userId: $po->user_id, productId: $poItem->product_id, delta: $qty,
-                    movementType: StockMovement::TYPE_ADJUSTMENT, notes: "Batal retur PO {$po->po_number}",
-                    referenceType: 'po_return', referenceId: $retur->id,
-                );
+                // Pembeli dapat stok balik lagi (+qty) — KECUALI retur ini from_customer
+                // (dulu stok mitra memang tak disentuh, jadi jangan tambah balik).
+                if (! $retur->from_customer) {
+                    $this->inventory->adjustPartnerStock(
+                        userId: $po->user_id, productId: $poItem->product_id, delta: $qty,
+                        movementType: StockMovement::TYPE_ADJUSTMENT, notes: "Batal retur PO {$po->po_number}",
+                        referenceType: 'po_return', referenceId: $retur->id,
+                    );
+                }
 
                 // Penerima (HQ/GD) kehilangan stok yang tadi masuk — HANYA kalau dulu NORMAL.
                 if ($retur->kondisi === 'normal') {

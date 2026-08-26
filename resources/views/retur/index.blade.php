@@ -32,7 +32,10 @@
                                 <span class="text-stone-300">—</span>
                             @endforelse
                         </td>
-                        <td class="px-4 py-2">{{ $r->kondisi === 'rusak' ? '🔴 Rusak' : '✅ Normal' }}</td>
+                        <td class="px-4 py-2">
+                            {{ $r->kondisi === 'rusak' ? '🔴 Rusak' : '✅ Normal' }}
+                            @if($r->from_customer)<span class="block text-[9px] text-indigo-600 font-semibold mt-0.5">dari pelanggan · stok mitra tak dikurangi</span>@endif
+                        </td>
                         <td class="px-4 py-2 text-stone-500">{{ $r->reason ?: '—' }}</td>
                         <td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $badge[$r->status] ?? '' }}">{{ ucfirst($r->status) }}</span></td>
                         <td class="px-4 py-2 text-right">

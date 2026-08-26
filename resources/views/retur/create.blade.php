@@ -44,6 +44,12 @@
                     <option value="rusak">Rusak — write-off (tak nambah stok penerima)</option>
                 </select>
             </div>
+            <label class="flex items-start gap-2 p-3 rounded-lg bg-indigo-50 border border-indigo-100 cursor-pointer">
+                <input type="checkbox" name="from_customer" value="1" class="mt-0.5" {{ old('from_customer') ? 'checked' : '' }}>
+                <span class="text-xs text-stone-700">
+                    <b class="text-indigo-800">Barang dari retur pelanggan</b> — centang kalau mitra sudah tidak memegang barang di stok sistem (sudah terjual, lalu dikembalikan pelanggan). Kalau dicentang, <b>stok mitra tidak dikurangi</b>; penerima (HQ) tetap restock bila kondisi Normal, komisi tetap ditarik. Pakai ini kalau muncul error “stok mitra tidak mencukupi”.
+                </span>
+            </label>
             <div>
                 <label class="block text-xs font-semibold text-stone-700 mb-1">Alasan (opsional)</label>
                 <textarea name="reason" rows="2" maxlength="500" class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ old('reason') }}</textarea>
