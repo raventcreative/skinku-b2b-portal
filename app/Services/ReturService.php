@@ -88,9 +88,11 @@ class ReturService
             }
 
             // Status applied DULU — supaya re-evaluasi volume (yang baca po_returns.status
-            // = 'applied') melihat retur ini saat menghitung netTotal.
+            // = 'applied') melihat retur ini saat menghitung netTotal. credit_amount =
+            // nilai barang diretur → dipakai memotong sisa tagihan PO.
             $retur->status = 'applied';
             $retur->applied_at = now();
+            $retur->credit_amount = round($returnedValue, 2);
             $retur->save();
 
             // Clawback komisi proporsional (ro_cashback/override) + volume (re-eval GD).

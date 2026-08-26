@@ -68,8 +68,9 @@ class RingkasDashboardTool extends BaseTool
                 ->where('user_id', $user->id)
                 ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DELETED])
                 ->withSum('payments', 'amount')
+                ->withSum('appliedReturns', 'credit_amount')
                 ->get()
-                ->sum(fn (PurchaseOrder $po) => max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0)));
+                ->sum(fn (PurchaseOrder $po) => max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0) - (float) ($po->applied_returns_sum_credit_amount ?? 0)));
 
             return [
                 'bulan' => $bulan->translatedFormat('F Y'),

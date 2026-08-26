@@ -84,12 +84,13 @@
                     <td><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $po->statusColor() }}">{{ $po->status }}</span></td>
                     <td class="whitespace-nowrap">
                         @php
-                            // Sisa dari withSum (tanpa query per baris). Badge bayar
-                            // terpisah dari status order: PO 'completed' pun bisa
-                            // belum lunas kalau kesepakatannya tempo.
-                            $lunas = $po->payment_status === \App\Models\PurchaseOrder::PAYMENT_PAID;
+                            // Sisa dari withSum (tanpa query per baris) — dikurangi cicilan
+                            // masuk & potongan retur. Badge bayar terpisah dari status order:
+                            // PO 'completed' pun bisa belum lunas kalau tempo. Lunas juga bila
+                            // sisa 0 karena barang diretur menutup tagihan.
                             $batal = in_array($po->status, [\App\Models\PurchaseOrder::STATUS_CANCELLED, \App\Models\PurchaseOrder::STATUS_DRAFT], true);
-                            $sisa = max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0));
+                            $sisa = max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0) - (float) ($po->applied_returns_sum_credit_amount ?? 0));
+                            $lunas = $po->payment_status === \App\Models\PurchaseOrder::PAYMENT_PAID || $sisa <= 0.01;
                         @endphp
                         @if($batal)
                             <span class="text-stone-300 text-[10px]">—</span>

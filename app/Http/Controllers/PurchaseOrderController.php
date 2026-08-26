@@ -30,9 +30,10 @@ class PurchaseOrderController extends Controller
 
         $orders = PurchaseOrder::query()
             ->with('user')
-            // Jumlah cicilan per PO sekaligus — badge "Sisa" di daftar tak boleh
-            // memicu satu query per baris (N+1 di 15 baris per halaman).
+            // Jumlah cicilan + potongan retur per PO sekaligus — badge "Sisa" di
+            // daftar tak boleh memicu satu query per baris (N+1 di 15 baris/halaman).
             ->withSum('payments', 'amount')
+            ->withSum('appliedReturns', 'credit_amount')
             ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
             ->when($productId, fn ($q, $pid) => $q->whereHas('items', fn ($i) => $i->where('product_id', $pid)))
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
@@ -64,8 +65,9 @@ class PurchaseOrderController extends Controller
                 ->where('payment_status', '!=', PurchaseOrder::PAYMENT_PAID)
                 ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DRAFT])
                 ->withSum('payments', 'amount')
+                ->withSum('appliedReturns', 'credit_amount')
                 ->get()
-                ->sum(fn ($po) => max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0)));
+                ->sum(fn ($po) => max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0) - (float) ($po->applied_returns_sum_credit_amount ?? 0)));
         }
 
         return view('purchase_orders.index', [

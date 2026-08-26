@@ -193,15 +193,52 @@ class PurchaseOrder extends Model
         return $this->hasMany(PoPayment::class)->orderBy('paid_at')->orderBy('id');
     }
 
+    /** Semua retur PO ini. */
+    public function returns()
+    {
+        return $this->hasMany(PoReturn::class);
+    }
+
+    /** Retur yang sudah berlaku (applied) — sumber potongan tagihan. */
+    public function appliedReturns()
+    {
+        return $this->hasMany(PoReturn::class)->where('status', 'applied');
+    }
+
     public function paidTotal(): float
     {
         return (float) $this->payments()->sum('amount');
     }
 
-    /** Sisa tagihan — tak pernah negatif. */
+    /**
+     * Potongan tagihan dari barang yang diretur (nilai retur applied). Pakai hasil
+     * eager-load withSum('appliedReturns','credit_amount') kalau ada, biar tak N+1.
+     */
+    public function returnsCredit(): float
+    {
+        if (isset($this->applied_returns_sum_credit_amount)) {
+            return (float) $this->applied_returns_sum_credit_amount;
+        }
+
+        return (float) $this->appliedReturns()->sum('credit_amount');
+    }
+
+    /** Sisa tagihan — dikurangi cicilan masuk & potongan retur. Tak pernah negatif. */
     public function remaining(): float
     {
-        return max(0.0, (float) $this->total_amount - $this->paidTotal());
+        return max(0.0, (float) $this->total_amount - $this->paidTotal() - $this->returnsCredit());
+    }
+
+    /** Kelebihan (bayar + retur > tagihan) → refund yang harus dikembalikan ke pembeli. */
+    public function refundDue(): float
+    {
+        return max(0.0, $this->paidTotal() + $this->returnsCredit() - (float) $this->total_amount);
+    }
+
+    /** Tagihan beres — lewat pembayaran dan/atau potongan retur. */
+    public function isSettled(): bool
+    {
+        return $this->paidTotal() + $this->returnsCredit() >= (float) $this->total_amount - 0.01;
     }
 
     /** Recompute total = subtotal - discount + shipping. */

@@ -150,16 +150,29 @@
                         </table>
                     @endif
 
+                    @php $retCredit = $po->returnsCredit(); $refund = $po->refundDue(); @endphp
+                    @if($retCredit > 0)
+                        <div class="flex justify-between mt-2 text-xs">
+                            <span class="text-stone-500">Potongan retur (barang dikembalikan):</span>
+                            <b class="text-emerald-700">− Rp {{ number_format($retCredit, 0, ',', '.') }}</b>
+                        </div>
+                    @endif
                     <div class="flex justify-between mt-2 pt-2 border-t border-stone-200 text-xs">
                         <span class="text-stone-500">Terbayar: <b class="text-stone-800">Rp {{ number_format($po->paidTotal(), 0, ',', '.') }}</b></span>
-                        <span class="{{ $po->isPaid() ? 'text-emerald-700' : 'text-rose-600' }} font-bold">
-                            {{ $po->isPaid() ? 'LUNAS' : 'Sisa: Rp '.number_format($po->remaining(), 0, ',', '.') }}
+                        <span class="{{ $po->isSettled() ? 'text-emerald-700' : 'text-rose-600' }} font-bold">
+                            {{ $po->isSettled() ? 'LUNAS' : 'Sisa: Rp '.number_format($po->remaining(), 0, ',', '.') }}
                         </span>
                     </div>
+                    @if($refund > 0.01)
+                        <div class="flex justify-between mt-1 text-xs">
+                            <span class="text-amber-700 font-semibold">Kelebihan → refund ke pembeli:</span>
+                            <b class="text-amber-700">Rp {{ number_format($refund, 0, ',', '.') }}</b>
+                        </div>
+                    @endif
                 </div>
             @endif
 
-            @if($u->canDo('update_po_status') && $po->is_tempo && ! $po->isPaid())
+            @if($u->canDo('update_po_status') && $po->is_tempo && ! $po->isSettled())
                 {{-- Catat cicilan saat uang masuk. Melebihi sisa ditolak server. --}}
                 <form method="POST" action="{{ route('purchase-orders.payments', $po) }}" class="mb-3 space-y-2">
                     @csrf

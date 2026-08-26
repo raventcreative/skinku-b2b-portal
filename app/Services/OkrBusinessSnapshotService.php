@@ -204,11 +204,12 @@ class OkrBusinessSnapshotService
                 ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DELETED])
                 ->whereNull('seller_id')
                 ->withSum('payments', 'amount')
+                ->withSum('appliedReturns', 'credit_amount')
                 ->get();
             $out['piutang_tempo'] = [
                 'jumlah_po' => $tempo->count(),
                 'sisa_tagihan' => round((float) $tempo->sum(
-                    fn (PurchaseOrder $po) => max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0))
+                    fn (PurchaseOrder $po) => max(0, (float) $po->total_amount - (float) ($po->payments_sum_amount ?? 0) - (float) ($po->applied_returns_sum_credit_amount ?? 0))
                 ), 2),
                 'jatuh_tempo' => $tempo->filter(fn (PurchaseOrder $po) => $po->tempo_due_date?->isPast())->count(),
             ];

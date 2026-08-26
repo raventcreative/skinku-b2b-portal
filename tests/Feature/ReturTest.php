@@ -154,6 +154,65 @@ class ReturTest extends TestCase
         app(ReturService::class)->apply($retur);
     }
 
+    public function test_retur_potong_sisa_tagihan(): void
+    {
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000); // price_grand 22.000
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null); // 2.200.000
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        $this->assertEqualsWithDelta(2_200_000, $po->remaining(), 0.01);
+        $this->assertFalse($po->isSettled());
+
+        // Retur 40 @ 22.000 = 880.000 → sisa tagihan turun jadi 1.320.000.
+        app(ReturService::class)->apply($this->retur($po, [[$po->items->first()->id, 40]]));
+        $po->refresh();
+
+        $this->assertEqualsWithDelta(880_000, $po->returnsCredit(), 0.01);
+        $this->assertEqualsWithDelta(1_320_000, $po->remaining(), 0.01);
+    }
+
+    public function test_retur_penuh_bikin_lunas_dan_kelebihan_jadi_refund(): void
+    {
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 10]], null, null); // 220.000
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        // Bayar sebagian 100.000 → sisa 120.000.
+        $po->payments()->create(['amount' => 100_000, 'paid_at' => now(), 'notes' => null, 'created_by' => $gd->id]);
+        $po->refresh();
+        $this->assertEqualsWithDelta(120_000, $po->remaining(), 0.01);
+
+        // Retur penuh 10 = 220.000. Bayar 100k + retur 220k = 320k > total 220k →
+        // lunas, sisa 0, kelebihan 100k jadi refund ke pembeli.
+        app(ReturService::class)->apply($this->retur($po, [[$po->items->first()->id, 10]]));
+        $po->refresh();
+
+        $this->assertTrue($po->isSettled());
+        $this->assertEqualsWithDelta(0, $po->remaining(), 0.01);
+        $this->assertEqualsWithDelta(100_000, $po->refundDue(), 0.01);
+    }
+
+    public function test_void_retur_kembalikan_sisa_tagihan(): void
+    {
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        $retur = $this->retur($po, [[$po->items->first()->id, 40]]);
+        app(ReturService::class)->apply($retur);
+        $this->assertEqualsWithDelta(1_320_000, $po->fresh()->remaining(), 0.01);
+
+        // Void → potongan retur hilang (status void tak dihitung) → sisa balik penuh.
+        app(ReturService::class)->void($retur->fresh());
+        $this->assertEqualsWithDelta(2_200_000, $po->fresh()->remaining(), 0.01);
+    }
+
     public function test_super_admin_hapus_permanen_retur_rejected(): void
     {
         $super = $this->user(User::ROLE_SUPER_ADMIN);
