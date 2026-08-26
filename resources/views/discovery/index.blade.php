@@ -100,7 +100,7 @@
                         <div class="bg-white rounded-2xl border border-stone-200 p-4 flex flex-col gap-2">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
-                                    <a href="{{ $c['url'] }}" target="_blank" rel="noopener noreferrer"
+                                    <a href="{{ $c['profile_url'] }}" target="_blank" rel="noopener noreferrer"
                                         class="font-semibold text-indigo-600 hover:underline">{{ '@'.$c['username'] }}</a>
                                     <span class="ml-1 text-[10px] uppercase tracking-wide text-stone-400">{{ $c['platform'] }}</span>
                                 </div>
@@ -114,12 +114,14 @@
                             @if($c['alasan'])
                                 <p class="text-xs text-stone-500 leading-relaxed">{{ $c['alasan'] }}</p>
                             @endif
+                            <a href="{{ $c['source_url'] }}" target="_blank" rel="noopener noreferrer"
+                                class="text-[10px] text-stone-400 hover:text-indigo-600 hover:underline break-all">↗ sumber temuan</a>
                             @if($u->canDo('kol.screening.manage'))
                                 <form method="POST" action="{{ route('discovery.kol.add') }}" class="mt-1" onsubmit="discoveryLoading(this)">
                                     @csrf
                                     <input type="hidden" name="username" value="{{ $c['username'] }}">
                                     <input type="hidden" name="platform" value="{{ $c['platform'] }}">
-                                    <input type="hidden" name="url" value="{{ $c['url'] }}">
+                                    <input type="hidden" name="url" value="{{ $c['profile_url'] }}">
                                     <input type="hidden" name="followers" value="{{ $c['followers_est'] }}">
                                     <input type="hidden" name="kategori" value="{{ $c['kategori'] }}">
                                     <button class="w-full px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60">

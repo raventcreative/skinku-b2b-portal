@@ -16,6 +16,9 @@ class TavilyProvider implements WebSearchProvider
         private string $base = 'https://api.tavily.com',
         private int $timeout = 30,
         private int $connectTimeout = 10,
+        // 'advanced' = konten hasil lebih kaya (lebih bagus buat ekstraksi
+        // kandidat/tren), bayar 2 kredit; 'basic' = 1 kredit tapi ringkas.
+        private string $depth = 'advanced',
     ) {}
 
     public function search(string $query, int $maxResults = 6): array
@@ -32,7 +35,7 @@ class TavilyProvider implements WebSearchProvider
                     'api_key' => $this->apiKey,
                     'query' => $query,
                     'max_results' => max(1, min(20, $maxResults)),
-                    'search_depth' => 'basic',
+                    'search_depth' => $this->depth,
                     'include_answer' => false,
                 ]);
         } catch (\Throwable $e) {

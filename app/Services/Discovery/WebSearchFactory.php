@@ -18,6 +18,7 @@ class WebSearchFactory
                 (string) config('services.discovery.tavily.base', 'https://api.tavily.com'),
                 (int) config('services.discovery.tavily.timeout', 30),
                 (int) config('services.discovery.connect_timeout', 10),
+                (string) config('services.discovery.tavily.depth', 'advanced'),
             ),
         };
     }

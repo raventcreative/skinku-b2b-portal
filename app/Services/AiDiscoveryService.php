@@ -43,18 +43,22 @@ class AiDiscoveryService
         $data = $this->decodeJson((string) $turn->text);
         $candidates = [];
         foreach ($data['kandidat'] ?? [] as $c) {
-            $url = trim((string) ($c['url'] ?? ''));
+            $source = trim((string) ($c['url'] ?? ''));
             $username = ltrim(trim((string) ($c['username'] ?? '')), '@');
-            if ($url === '' || $username === '') {
+            if ($source === '' || $username === '') {
                 continue; // anti-ngarang: tanpa link sumber / tanpa username → buang
             }
             $followers = $c['followers_est'] ?? null;
+            $platform = $this->normalizePlatform((string) ($c['platform'] ?? ''));
             $candidates[] = [
                 'username' => $username,
-                'platform' => $this->normalizePlatform((string) ($c['platform'] ?? '')),
+                'platform' => $platform,
                 'followers_est' => is_numeric($followers) ? (int) $followers : null,
                 'kategori' => trim((string) ($c['kategori'] ?? '')),
-                'url' => $url,
+                // Link @username → profil (dirakit dari handle, pola sama dgn Kol);
+                // source_url = tempat ditemukan (artikel/daftar) untuk verifikasi.
+                'profile_url' => $this->profileUrl($platform, $username) ?: $source,
+                'source_url' => $source,
                 'alasan' => trim((string) ($c['alasan'] ?? '')),
             ];
         }
@@ -108,7 +112,9 @@ class AiDiscoveryService
 
     private function kolQuery(array $brief): string
     {
-        $parts = ['influencer skincare beauty'];
+        // "daftar/rekomendasi" sengaja: hasil listicle (artikel yang MENYEBUT banyak
+        // influencer) jauh lebih kaya kandidat daripada satu halaman profil.
+        $parts = ['daftar rekomendasi influencer skincare beauty'];
         if (filled($brief['kategori'] ?? null)) {
             $parts[] = (string) $brief['kategori'];
         }
@@ -139,16 +145,18 @@ class AiDiscoveryService
     {
         return <<<'TXT'
         Kamu asisten riset influencer untuk brand skincare Indonesia (SKINKU).
-        Dari HASIL PENCARIAN WEB yang diberikan, ekstrak kandidat KOL/influencer
-        yang cocok dengan brief. ATURAN KERAS:
+        Dari HASIL PENCARIAN WEB (termasuk artikel/daftar yang MENYEBUT banyak
+        influencer), EKSTRAK setiap KOL/influencer yang relevan dengan brief.
+        ATURAN KERAS:
         - HANYA gunakan informasi yang benar-benar muncul di hasil pencarian.
-          DILARANG mengarang username, angka follower, atau URL.
-        - Setiap kandidat WAJIB punya "url" yang berasal dari salah satu hasil.
-        - Jika jumlah follower tidak diketahui dari hasil, isi null (jangan menebak).
-        - Lewati listicle/berita yang bukan profil orang.
+          DILARANG mengarang username atau angka follower.
+        - "url" WAJIB diisi salah satu URL hasil pencarian tempat influencer itu
+          disebut — BOLEH URL artikel/daftar, tidak harus halaman profil.
+        - Jika jumlah follower tidak disebut di hasil, isi null (jangan menebak).
+        - Ekstrak sebanyak mungkin kandidat BERBEDA yang relevan (maksimal 12).
         Balas HANYA JSON valid (tanpa teks lain, tanpa markdown) dengan bentuk:
         {"kandidat":[{"username":"tanpa @","platform":"tiktok|instagram|youtube",
-        "followers_est":123000,"kategori":"mis. jerawat","url":"https://...",
+        "followers_est":123000,"kategori":"mis. skincare","url":"https://...(sumber)",
         "alasan":"1 kalimat kenapa relevan"}]}
         TXT;
     }
@@ -203,6 +211,14 @@ class AiDiscoveryService
         }
 
         return implode("\n\n", $lines);
+    }
+
+    /** Rakit URL profil dari platform + handle (pola sama dengan Kol::profileUrl). null bila platform tanpa templat. */
+    private function profileUrl(string $platform, string $username): ?string
+    {
+        $tpl = config("kol.platforms.{$platform}.url");
+
+        return $tpl ? sprintf($tpl, rawurlencode($username)) : null;
     }
 
     private function normalizePlatform(string $platform): string

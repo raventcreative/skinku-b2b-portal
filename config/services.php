@@ -107,6 +107,9 @@ return [
             'key' => env('TAVILY_API_KEY'),
             'base' => env('TAVILY_API_BASE', 'https://api.tavily.com'),
             'timeout' => (int) env('TAVILY_TIMEOUT', 30),
+            // 'advanced' (default) = hasil lebih kaya utk ekstraksi (2 kredit);
+            // 'basic' = 1 kredit tapi ringkas.
+            'depth' => env('TAVILY_SEARCH_DEPTH', 'advanced'),
         ],
     ],
 
