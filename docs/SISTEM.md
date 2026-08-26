@@ -33,6 +33,7 @@ Kalau kamu baru pertama baca: mulai dari [Ringkasan](#0-ringkasan) → [Konvensi
 - [15. KOL (endorsement)](#15-kol-endorsement)
 - [16. Report Bot (Telegram)](#16-report-bot-telegram)
 - [17. AI Assistant (embedded)](#17-ai-assistant-embedded)
+- [17b. Rekomendasi AI (Discovery)](#17b-rekomendasi-ai-discovery)
 - [18. SKINKU Academy (LMS)](#18-skinku-academy-lms)
 - [19. Material, Produksi, Supplier](#19-material-produksi-supplier)
 
@@ -576,6 +577,23 @@ Tool write selalu lewat alur confirm; tool read eksekusi inline.
 1 baris per seksi terpandu (business/products/team/workflow/priorities/okr_strategy/rules/notes). `document()` gabung seksi terisi (≤6000 char) jadi blok "PENGETAHUAN BISNIS" di system prompt — **eksplisit dibingkai sebagai data, bukan instruksi** (hardening prompt-injection).
 
 **Izin:** `use_ai_assistant` (default: staf + semua role mitra).
+
+---
+
+## 17b. Rekomendasi AI (Discovery)
+
+Menu **Rekomendasi AI** (`discovery.index`) — AI mencari di web real-time lalu merangkum kandidat KOL baru atau tren produk. Beda dari sorting KOL internal: ini menemukan yang **belum ada** di database.
+
+### Arsitektur
+- **Mesin pencari swappable:** `WebSearchProvider` (interface) + `TavilyProvider` (Tavily, `TAVILY_API_KEY`) + `WebSearchFactory::make()` (pilih dari `config/services.php` → `discovery.provider`; tambah Serper/Brave = tambah cabang match). Di-bind lazy di `AppServiceProvider` (di-swap `FakeWebSearchProvider` saat test).
+- **Perangkum:** reuse `AiProvider` (`AiProviderFactory::make()`, OpenAI). Prompt **grounded/anti-ngarang** — AI hanya boleh pakai potongan hasil pencarian, wajib sertakan URL; kandidat/poin tanpa link dibuang di `AiDiscoveryService`. Hasil web kosong → AI tak dipanggil (hemat token).
+- `AiDiscoveryService::discoverKols(brief)` & `productTrends(topik)`.
+
+### Alur
+- **Cari KOL:** brief (kategori/platform/region/follower min-max/keyword) → kandidat (username, est. follower, kategori, link, alasan) → tombol **+ Tambah ke Database KOL** → `KolService::createProspek()` (status `prospek`, dedupe by username case-insensitive, followers lama tak ditimpa) → redirect detail KOL → lanjut screening biasa.
+- **Tren Produk:** topik → laporan **read-only** (ringkasan + poin + link sumber), tak disimpan.
+
+**Izin:** `use_ai_discovery` (default: admin + kol_specialist), **internal-only** (mitra diblokir `InternalOnlyMiddleware`). Aksi tambah KOL butuh `kol.screening.manage` lagi (admin non-super hanya bisa mencari). Zero-dependency (HTTP + `TAVILY_API_KEY`, tanpa migrasi).
 
 ---
 
