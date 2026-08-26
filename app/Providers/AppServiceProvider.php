@@ -12,6 +12,8 @@ use App\Services\Ai\Tools\RingkasKpiKanbanTool;
 use App\Services\Ai\Tools\RingkasMindmapTool;
 use App\Services\Ai\Tools\TambahMindmapTool;
 use App\Services\Ai\Tools\ToolRegistry;
+use App\Services\Discovery\WebSearchFactory;
+use App\Services\Discovery\WebSearchProvider;
 use App\Services\ImpersonationService;
 use App\Services\KanbanKpiService;
 use App\Services\ReportService;
@@ -28,6 +30,11 @@ class AppServiceProvider extends ServiceProvider
         // Otak AI aktif (lazy — baru dibuat saat dipakai, jadi key kosong tak
         // bikin halaman lain 500). Di-swap FakeAiProvider saat test.
         $this->app->bind(AiProvider::class, fn () => AiProviderFactory::make());
+
+        // Mesin pencari web untuk Rekomendasi AI (Tavily default, swappable).
+        // Lazy + konstruksi tak melempar (hanya search() yang lempar bila key
+        // kosong) → halaman lain aman. Di-swap FakeWebSearchProvider saat test.
+        $this->app->bind(WebSearchProvider::class, fn () => WebSearchFactory::make());
 
         // Daftar alat yang boleh dipakai asisten (disaring per izin di ToolRegistry).
         $this->app->bind(ToolRegistry::class, fn ($app) => new ToolRegistry([

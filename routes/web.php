@@ -4,6 +4,7 @@ use App\Http\Controllers\AccAccountController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AccTemplateController;
 use App\Http\Controllers\AiAssistantController;
+use App\Http\Controllers\AiDiscoveryController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
@@ -553,6 +554,18 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::middleware('internal')->group(function () {
             Route::get('/asisten/pengetahuan', [AiAssistantController::class, 'knowledge'])->name('ai.knowledge');
             Route::post('/asisten/pengetahuan', [AiAssistantController::class, 'saveKnowledge'])->name('ai.knowledge.save');
+        });
+    });
+
+    // Rekomendasi AI (Discovery web): cari KOL & tren produk via Tavily + AI.
+    // 'internal' blokir mitra KERAS di atas permission. Tambah kandidat ke DB KOL
+    // dijaga lagi kol.screening.manage (sama dengan input KOL).
+    Route::middleware(['permission:use_ai_discovery', 'internal'])->group(function () {
+        Route::get('/rekomendasi', [AiDiscoveryController::class, 'index'])->name('discovery.index');
+        Route::post('/rekomendasi/kol', [AiDiscoveryController::class, 'searchKol'])->name('discovery.kol');
+        Route::post('/rekomendasi/produk', [AiDiscoveryController::class, 'searchProduct'])->name('discovery.produk');
+        Route::middleware('permission:kol.screening.manage')->group(function () {
+            Route::post('/rekomendasi/kol/tambah', [AiDiscoveryController::class, 'addKol'])->name('discovery.kol.add');
         });
     });
 

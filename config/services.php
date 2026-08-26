@@ -96,6 +96,20 @@ return [
         ],
     ],
 
+    // Rekomendasi AI (Discovery) — pencarian web untuk cari KOL & tren produk.
+    // Provider bisa diganti (Tavily default; Serper/Brave tinggal tambah cabang
+    // di WebSearchFactory). Key WAJIB di .env server (TAVILY_API_KEY) — jangan
+    // commit. Free tier Tavily umumnya cukup untuk pemakaian normal.
+    'discovery' => [
+        'provider' => env('DISCOVERY_SEARCH_PROVIDER', 'tavily'),
+        'connect_timeout' => (int) env('DISCOVERY_CONNECT_TIMEOUT', 10),
+        'tavily' => [
+            'key' => env('TAVILY_API_KEY'),
+            'base' => env('TAVILY_API_BASE', 'https://api.tavily.com'),
+            'timeout' => (int) env('TAVILY_TIMEOUT', 30),
+        ],
+    ],
+
     // Report Bot Telegram (webhook + notifikasi laporan via chat). Token &
     // webhook secret WAJIB diisi di .env server — jangan pernah commit.
     // webhook_secret dipakai TelegramWebhookController untuk verifikasi

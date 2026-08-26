@@ -75,4 +75,35 @@ class KolService
             return ['kol' => $kol, 'screening' => $screening, 'created' => $created];
         });
     }
+
+    /**
+     * Tambah KOL hasil Rekomendasi AI sebagai PROSPEK — tanpa screening (screening
+     * menyusul manual lewat form yang sudah ada). Pakai ulang bila username sudah
+     * ada supaya tak bikin duplikat; followers hanya diisi saat membuat baru
+     * (angka discovery = estimasi, jangan menimpa data screening yang lebih sahih).
+     *
+     * @param  array{username:string, platform?:?string, tiktok_link?:?string, followers?:int|null, kategori?:?string}  $data
+     * @return array{kol: Kol, created: bool}
+     */
+    public function createProspek(array $data): array
+    {
+        $username = ltrim(trim((string) $data['username']), '@');
+
+        $kol = Kol::whereRaw('LOWER(tiktok_username) = ?', [mb_strtolower($username)])->first();
+        if ($kol) {
+            return ['kol' => $kol, 'created' => false];
+        }
+
+        $kol = Kol::create([
+            'tiktok_username' => $username,
+            'platform' => $data['platform'] ?? 'tiktok',
+            'tiktok_link' => $data['tiktok_link'] ?? null,
+            'followers' => (int) ($data['followers'] ?? 0),
+            'kategori' => $data['kategori'] ?? null,
+            'status' => Kol::STATUS_PROSPEK,
+            'catatan' => 'Ditemukan via Rekomendasi AI',
+        ]);
+
+        return ['kol' => $kol, 'created' => true];
+    }
 }

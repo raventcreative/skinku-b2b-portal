@@ -55,6 +55,7 @@ class Permissions
         'okr.view' => 'Lihat OKR & progres tim',
         'okr.manage' => 'Susun dan setujui OKR dengan AI',
         'use_ai_assistant' => 'Asisten AI',
+        'use_ai_discovery' => 'Rekomendasi AI (Discovery KOL & Tren Produk)',
         'manage_join_packages' => 'Kelola Paket Join',
     ];
 
@@ -122,6 +123,10 @@ class Permissions
         // mitra (distributor/reseller) HANYA data akunnya sendiri (ter-scope
         // user_id di dalam alat). Edit Pengetahuan AI tetap internal saja.
         'use_ai_assistant' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER, User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD],
+        // Rekomendasi AI = riset internal (cari KOL & tren produk). Default admin
+        // + kol_specialist; mitra diblokir KERAS oleh middleware 'internal' apa
+        // pun kata matriks. Aksi "tambah ke DB KOL" masih dijaga kol.screening.manage.
+        'use_ai_discovery' => [User::ROLE_ADMIN, 'kol_specialist'],
         // Katalog Paket Join (Onboarding) = admin-only (super_admin selalu ikut).
         'manage_join_packages' => [User::ROLE_ADMIN],
     ];
