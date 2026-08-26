@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PoReturnItem;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\User;
@@ -21,7 +22,11 @@ class PurchaseOrderController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filters = $request->only(['status', 'q', 'bayar']);
+        $filters = $request->only(['status', 'q', 'bayar', 'product']);
+
+        // Filter "PO yang memuat produk X" — untuk menemukan PO lama tanpa buka
+        // satu-satu (mis. saat mencari asal barang buat retur).
+        $productId = $filters['product'] ?? null;
 
         $orders = PurchaseOrder::query()
             ->with('user')
@@ -29,6 +34,7 @@ class PurchaseOrderController extends Controller
             // memicu satu query per baris (N+1 di 15 baris per halaman).
             ->withSum('payments', 'amount')
             ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
+            ->when($productId, fn ($q, $pid) => $q->whereHas('items', fn ($i) => $i->where('product_id', $pid)))
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
             // bayar=belum -> semua yang belum lunas (termasuk tempo berjalan);
             // bayar=lunas -> yang sudah. Basisnya payment_status — satu sumber
@@ -54,6 +60,7 @@ class PurchaseOrderController extends Controller
         if (($filters['bayar'] ?? null) === 'belum') {
             $piutang = PurchaseOrder::query()
                 ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
+                ->when($productId, fn ($q, $pid) => $q->whereHas('items', fn ($i) => $i->where('product_id', $pid)))
                 ->where('payment_status', '!=', PurchaseOrder::PAYMENT_PAID)
                 ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DRAFT])
                 ->withSum('payments', 'amount')
@@ -66,6 +73,7 @@ class PurchaseOrderController extends Controller
             'filters' => $filters,
             'statuses' => PurchaseOrder::STATUSES,
             'piutang' => $piutang,
+            'products' => Product::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -130,6 +138,48 @@ class PurchaseOrderController extends Controller
         $canEdit = $purchaseOrder->isEditable() && $this->canEditPo($user, $purchaseOrder);
 
         return view('purchase_orders.show', compact('purchaseOrder', 'nextStatuses', 'user', 'canEdit'));
+    }
+
+    /**
+     * Mini-detail PO untuk popup di daftar (JSON) — isi item + sisa yang masih
+     * bisa diretur (dibeli − sudah diretur applied). Otorisasi sama seperti show.
+     */
+    public function quick(Request $request, PurchaseOrder $purchaseOrder)
+    {
+        $user = $request->user();
+        if ($user->isPartner() && $purchaseOrder->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $purchaseOrder->load('items', 'user');
+
+        $returned = PoReturnItem::query()
+            ->join('po_returns', 'po_returns.id', '=', 'po_return_items.po_return_id')
+            ->where('po_returns.purchase_order_id', $purchaseOrder->id)
+            ->where('po_returns.status', 'applied')
+            ->selectRaw('purchase_order_item_id, SUM(qty) as q')
+            ->groupBy('purchase_order_item_id')
+            ->pluck('q', 'purchase_order_item_id');
+
+        return response()->json([
+            'po_number' => $purchaseOrder->po_number,
+            'company' => $purchaseOrder->company_name ?? $purchaseOrder->user?->fullname ?? '—',
+            'status' => $purchaseOrder->status,
+            'created_at' => $purchaseOrder->created_at?->format('d M Y H:i'),
+            'total' => (float) $purchaseOrder->total_amount,
+            'items' => $purchaseOrder->items->map(function ($it) use ($returned) {
+                $ret = (int) ($returned[$it->id] ?? 0);
+
+                return [
+                    'product_name' => $it->product_name,
+                    'sku' => $it->sku,
+                    'qty' => (int) $it->qty,
+                    'unit_price' => (float) $it->unit_price,
+                    'returned' => $ret,
+                    'returnable' => max(0, (int) $it->qty - $ret),
+                ];
+            })->values(),
+        ]);
     }
 
     /**

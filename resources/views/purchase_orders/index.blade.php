@@ -16,6 +16,10 @@
             <option value="belum" @selected(($filters['bayar'] ?? '')==='belum')>Belum Lunas</option>
             <option value="lunas" @selected(($filters['bayar'] ?? '')==='lunas')>Lunas</option>
         </select>
+        <select name="product" class="px-3 py-2 text-sm border border-stone-300 rounded-lg max-w-[12rem]" title="Tampilkan hanya PO yang memuat produk ini">
+            <option value="">Semua Produk</option>
+            @foreach($products as $p)<option value="{{ $p->id }}" @selected((string) ($filters['product'] ?? '') === (string) $p->id)>{{ $p->name }}</option>@endforeach
+        </select>
         <button class="px-4 py-2 text-sm bg-stone-200 rounded-lg hover:bg-stone-300">Filter</button>
         <a href="{{ route('purchase-orders.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Export Excel</a>
     </form>
@@ -103,7 +107,8 @@
                         @endif
                     </td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <a href="{{ route('purchase-orders.show', $po) }}" class="text-stone-600 hover:text-red-600 font-semibold">Detail</a>
+                        <button type="button" onclick="poQuickView({{ $po->id }})" class="text-indigo-600 hover:text-indigo-800 font-semibold">Lihat</button>
+                        <a href="{{ route('purchase-orders.show', $po) }}" class="text-stone-600 hover:text-red-600 font-semibold ml-2">Detail</a>
                         @if($u->isStaff() && $u->canDo('delete_po'))
                             <form method="POST" action="{{ route('purchase-orders.force-destroy', $po) }}" class="inline ml-2" onsubmit="return confirm('Hapus PERMANEN PO {{ $po->po_number }}? Tidak bisa dikembalikan. Gunakan untuk membersihkan data test.')">
                                 @csrf @method('DELETE')
@@ -120,6 +125,82 @@
     </div>
 </div>
 <div class="mt-4">{{ $orders->links() }}</div>
+
+{{-- Popup mini-detail PO — buka isi PO tanpa pindah halaman (data via /quick). --}}
+<div id="poQuickModal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/50 p-4" onclick="poQuickClose()">
+    <div class="bg-white rounded-2xl border border-stone-200 w-full max-w-lg max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
+        <div class="flex items-start justify-between gap-3 px-5 py-3 border-b border-stone-100">
+            <div>
+                <p class="text-sm font-bold text-stone-800" data-q-po>—</p>
+                <p class="text-[11px] text-stone-500" data-q-meta></p>
+            </div>
+            <button type="button" onclick="poQuickClose()" class="text-stone-400 hover:text-stone-700 text-xl leading-none shrink-0" aria-label="Tutup">&times;</button>
+        </div>
+        <div class="p-4 overflow-y-auto">
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead class="text-stone-400 uppercase text-[10px]"><tr>
+                        <th class="text-left py-1">Produk</th>
+                        <th class="text-right py-1">Qty</th>
+                        <th class="text-right py-1">Harga</th>
+                        <th class="text-right py-1 pl-2">Sisa bisa retur</th>
+                    </tr></thead>
+                    <tbody data-q-items></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 px-5 py-3 border-t border-stone-100 bg-stone-50 rounded-b-2xl">
+            <span class="text-sm"><span class="text-stone-500">Total:</span> <b class="text-stone-800" data-q-total>—</b></span>
+            <a href="#" data-q-detail class="text-xs px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 font-semibold">Buka detail lengkap →</a>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var poBase = @json(url('/purchase-orders'));
+    var modal = document.getElementById('poQuickModal');
+    function rp(n) { return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID'); }
+    function esc(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : String(s)); return d.innerHTML; }
+
+    window.poQuickView = function (id) {
+        var itemsEl = modal.querySelector('[data-q-items]');
+        itemsEl.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-stone-400">Memuat…</td></tr>';
+        modal.querySelector('[data-q-po]').textContent = 'PO #' + id;
+        modal.querySelector('[data-q-meta]').textContent = '';
+        modal.querySelector('[data-q-total]').textContent = '—';
+        modal.querySelector('[data-q-detail]').setAttribute('href', poBase + '/' + id);
+        modal.classList.remove('hidden'); modal.classList.add('flex');
+
+        fetch(poBase + '/' + id + '/quick', { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { if (! r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (d) {
+                modal.querySelector('[data-q-po]').textContent = d.po_number;
+                modal.querySelector('[data-q-meta]').textContent = [d.company, d.created_at, d.status].filter(Boolean).join(' · ');
+                modal.querySelector('[data-q-total]').textContent = rp(d.total);
+                if (! d.items || ! d.items.length) {
+                    itemsEl.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-stone-400">Tak ada item.</td></tr>';
+                    return;
+                }
+                itemsEl.innerHTML = d.items.map(function (it) {
+                    var note = it.returned > 0 ? ' <span class="text-[9px] text-stone-400">(diretur ' + it.returned + ')</span>' : '';
+                    return '<tr class="border-t border-stone-100">'
+                        + '<td class="py-1.5 pr-2 text-stone-800 font-medium">' + esc(it.product_name)
+                        + '<div class="text-[9px] text-stone-400 font-mono">' + esc(it.sku || '') + '</div></td>'
+                        + '<td class="py-1.5 text-right">' + it.qty + '</td>'
+                        + '<td class="py-1.5 text-right text-stone-500">' + rp(it.unit_price) + '</td>'
+                        + '<td class="py-1.5 text-right pl-2 font-semibold ' + (it.returnable > 0 ? 'text-emerald-700' : 'text-stone-300') + '">' + it.returnable + note + '</td>'
+                        + '</tr>';
+                }).join('');
+            })
+            .catch(function () {
+                itemsEl.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-rose-500">Gagal memuat detail.</td></tr>';
+            });
+    };
+
+    window.poQuickClose = function () { modal.classList.add('hidden'); modal.classList.remove('flex'); };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window.poQuickClose(); });
+})();
+</script>
 
 @if($canBulk)
 <script>

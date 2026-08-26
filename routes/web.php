@@ -106,6 +106,8 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     // Export SEBELUM {purchaseOrder}: tanpa ini, "export" tertelan model binding.
     Route::get('/purchase-orders/export', [ExportController::class, 'purchaseOrders'])->name('purchase-orders.export');
+    // Mini-detail JSON untuk popup di daftar PO (isi item + sisa bisa retur).
+    Route::get('/purchase-orders/{purchaseOrder}/quick', [PurchaseOrderController::class, 'quick'])->name('purchase-orders.quick');
     Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
     Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
 
