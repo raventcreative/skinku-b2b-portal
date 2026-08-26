@@ -154,6 +154,58 @@ class ReturTest extends TestCase
         app(ReturService::class)->apply($retur);
     }
 
+    public function test_super_admin_hapus_permanen_retur_rejected(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN);
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        $retur = $this->retur($po, [[$po->items->first()->id, 40]]);
+        $retur->update(['status' => 'rejected']);
+
+        $this->actingAs($super)->delete(route('retur.force-destroy', $retur))->assertRedirect();
+
+        $this->assertDatabaseMissing('po_returns', ['id' => $retur->id]);
+        $this->assertDatabaseMissing('po_return_items', ['po_return_id' => $retur->id]);
+    }
+
+    public function test_hapus_permanen_retur_applied_ditolak(): void
+    {
+        // Retur Applied HARUS di-batalkan dulu — tak boleh dihapus langsung.
+        $super = $this->user(User::ROLE_SUPER_ADMIN);
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        $retur = $this->retur($po, [[$po->items->first()->id, 40]]);
+        app(ReturService::class)->apply($retur);
+
+        $this->actingAs($super)->delete(route('retur.force-destroy', $retur))->assertRedirect();
+
+        $this->assertDatabaseHas('po_returns', ['id' => $retur->id, 'status' => 'applied']);
+    }
+
+    public function test_non_super_admin_tak_bisa_hapus_permanen_retur(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        $gd = $this->user(User::ROLE_GRAND_DISTRIBUTOR);
+        $p = $this->product(1000);
+        $po = $this->svc()->createForPartner($gd, [['product_id' => $p->id, 'qty' => 100]], null, null);
+        $this->svc()->complete($po);
+        $po->refresh();
+
+        $retur = $this->retur($po, [[$po->items->first()->id, 40]]);
+        $retur->update(['status' => 'rejected']);
+
+        $this->actingAs($admin)->delete(route('retur.force-destroy', $retur))->assertForbidden();
+        $this->assertDatabaseHas('po_returns', ['id' => $retur->id]);
+    }
+
     public function test_retur_index_menampilkan_barang_diretur(): void
     {
         // Approver (process_return) harus bisa LIHAT barang apa yang diretur +

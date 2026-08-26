@@ -150,6 +150,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::get('/purchase-orders/{purchaseOrder}/retur', [ReturController::class, 'create'])->name('retur.create');
     Route::post('/retur', [ReturController::class, 'store'])->name('retur.store');
     Route::post('/retur/{retur}/void', [ReturController::class, 'void'])->name('retur.void'); // super_admin (cek di controller)
+    Route::delete('/retur/{retur}/force', [ReturController::class, 'forceDestroy'])->name('retur.force-destroy'); // super_admin (cek di controller)
     Route::post('/join-transactions/{joinTransaction}/cancel', [ReturController::class, 'cancelJoin'])->name('join-transactions.cancel'); // manage_users (cek di controller)
     Route::middleware('permission:process_return')->group(function () {
         Route::post('/retur/{retur}/approve', [ReturController::class, 'approve'])->name('retur.approve');

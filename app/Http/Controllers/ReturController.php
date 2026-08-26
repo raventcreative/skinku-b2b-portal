@@ -152,6 +152,29 @@ class ReturController extends Controller
         return back()->with('status', 'Retur dibatalkan — stok & komisi dikembalikan.');
     }
 
+    /**
+     * Hapus PERMANEN retur (super_admin) — buat bersihin data test / pengajuan
+     * batal. Retur yang masih Applied HARUS di-batalkan (void) dulu biar stok &
+     * komisi balik — baru boleh dihapus (jaring pengaman biar tak ada efek nyangkut).
+     */
+    public function forceDestroy(Request $request, PoReturn $retur): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Hanya super admin yang bisa menghapus permanen retur.');
+
+        if ($retur->status === 'applied') {
+            return back()->with('error', 'Retur ini masih Applied. Klik "batalkan" dulu (biar stok & komisi balik), baru bisa dihapus permanen.');
+        }
+
+        $id = $retur->id;
+        $poNumber = $retur->purchaseOrder?->po_number;
+        $retur->items()->delete();
+        $retur->delete();
+
+        AuditService::log(action: 'force_delete_po_return', targetType: 'po_return', targetId: $id, after: ['po' => $poNumber]);
+
+        return back()->with('status', 'Retur dihapus permanen.');
+    }
+
     /** Batal/Retur JOIN (onboarding) — admin (manage_users): clawback bonus join + balikin stok paket. */
     public function cancelJoin(Request $request, JoinTransaction $joinTransaction): RedirectResponse
     {

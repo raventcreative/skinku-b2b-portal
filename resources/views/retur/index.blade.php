@@ -38,15 +38,26 @@
                         </td>
                         <td class="px-4 py-2 text-stone-500">{{ $r->reason ?: '—' }}</td>
                         <td class="px-4 py-2"><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $badge[$r->status] ?? '' }}">{{ ucfirst($r->status) }}</span></td>
-                        <td class="px-4 py-2 text-right">
-                            @if($canProcess && $r->status === 'pending')
+                        <td class="px-4 py-2 text-right whitespace-nowrap">
+                            @php
+                                $isSuper = auth()->user()->isSuperAdmin();
+                                $showApproveReject = $canProcess && $r->status === 'pending';
+                                $showVoid = $r->status === 'applied' && $isSuper;
+                                $showDelete = $isSuper && $r->status !== 'applied';
+                            @endphp
+                            @if($showApproveReject)
                                 <form method="POST" action="{{ route('retur.approve', $r) }}" class="inline" onsubmit="return confirm('Setujui & berlakukan retur ini?')">@csrf<button class="text-[11px] text-emerald-600 hover:text-emerald-800 font-semibold">setujui</button></form>
                                 <form method="POST" action="{{ route('retur.reject', $r) }}" class="inline ml-2" onsubmit="return confirm('Tolak pengajuan retur ini?')">@csrf<button class="text-[11px] text-rose-500 hover:text-rose-700">tolak</button></form>
-                            @elseif($r->status === 'applied' && auth()->user()->isSuperAdmin())
-                                <form method="POST" action="{{ route('retur.void', $r) }}" class="inline" onsubmit="return confirm('Batalkan retur ini? Semua efek (stok & komisi) dikembalikan.')">@csrf<button class="text-[11px] text-stone-500 hover:text-rose-600">batalkan</button></form>
-                            @else
-                                <span class="text-stone-300">—</span>
                             @endif
+                            @if($showVoid)
+                                <form method="POST" action="{{ route('retur.void', $r) }}" class="inline" onsubmit="return confirm('Batalkan retur ini? Semua efek (stok & komisi) dikembalikan.')">@csrf<button class="text-[11px] text-stone-500 hover:text-rose-600">batalkan</button></form>
+                            @endif
+                            @if($showDelete)
+                                <form method="POST" action="{{ route('retur.force-destroy', $r) }}" class="inline ml-2" onsubmit="return confirm('Hapus PERMANEN retur ini? Tidak bisa dikembalikan. Untuk membersihkan data test / pengajuan batal.')">@csrf @method('DELETE')<button class="text-[11px] text-rose-600 hover:text-rose-800 font-semibold">hapus</button></form>
+                            @endif
+                            @unless($showApproveReject || $showVoid || $showDelete)
+                                <span class="text-stone-300">—</span>
+                            @endunless
                         </td>
                     </tr>
                 @empty
