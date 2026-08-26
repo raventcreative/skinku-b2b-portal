@@ -191,6 +191,54 @@
     @endforeach
 </div>
 
+{{-- Ringkasan omzet: Grand Total setahun + Distributor/PO bulan ini (realized vs berjalan) — staff --}}
+@if(($yearlyOmzet ?? null))
+    @php
+        $rpO = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
+        $poBucket = collect($channelSales ?? [])->firstWhere('key', 'reseller');
+        $poReal = (float) ($poBucket['confirmed'] ?? 0);
+        $poPipe = (float) ($poBucket['pipeline'] ?? 0);
+    @endphp
+    <div class="grid lg:grid-cols-2 gap-4 mb-6">
+        {{-- Grand Total Omzet — Tahunan --}}
+        <div class="bg-white rounded-2xl border border-emerald-200 p-5">
+            <div class="flex items-baseline justify-between gap-2">
+                <p class="text-[11px] uppercase tracking-wide text-emerald-700 font-bold">Grand Total Omzet — {{ $yearlyOmzet['year'] }}</p>
+                <span class="text-[9px] text-stone-300 shrink-0">semua channel · setahun</span>
+            </div>
+            <p class="text-3xl font-bold text-emerald-700 mt-1">{{ $rpO($yearlyOmzet['total']) }}</p>
+            <div class="mt-3 pt-3 border-t border-stone-100 grid grid-cols-2 gap-3">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wide text-emerald-700 font-semibold">Terealisasi</p>
+                    <p class="text-sm font-bold text-stone-800">{{ $rpO($yearlyOmzet['realized']) }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] uppercase tracking-wide text-amber-700 font-semibold">Masih Berjalan</p>
+                    <p class="text-sm font-bold text-stone-800">{{ $rpO($yearlyOmzet['pipeline']) }}</p>
+                </div>
+            </div>
+        </div>
+        {{-- Omzet Distributor / PO — bulan ini (pending ikut dihitung) --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-5">
+            <div class="flex items-baseline justify-between gap-2">
+                <p class="text-[11px] uppercase tracking-wide text-stone-500 font-bold">Omzet Distributor / PO — {{ $bulan->translatedFormat('M Y') }}</p>
+                <span class="text-[9px] text-stone-300 shrink-0">pending ikut dihitung</span>
+            </div>
+            <p class="text-3xl font-bold text-stone-900 mt-1">{{ $rpO($poReal + $poPipe) }}</p>
+            <div class="mt-3 pt-3 border-t border-stone-100 grid grid-cols-2 gap-3">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wide text-emerald-700 font-semibold">Sudah Masuk</p>
+                    <p class="text-sm font-bold text-stone-800">{{ $rpO($poReal) }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] uppercase tracking-wide text-amber-700 font-semibold">Pending / Berjalan</p>
+                    <p class="text-sm font-bold text-stone-800">{{ $rpO($poPipe) }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
+
 <div class="grid lg:grid-cols-3 gap-6 mb-6">
     <div class="lg:col-span-2 bg-white rounded-2xl border border-stone-200 p-5">
         <h3 class="text-sm font-bold text-stone-800 mb-3">Tren Penjualan — {{ $bulan->translatedFormat('F Y') }}</h3>

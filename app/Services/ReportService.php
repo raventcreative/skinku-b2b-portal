@@ -267,6 +267,53 @@ class ReportService
     }
 
     /**
+     * Grand Total omzet SETAHUN (semua channel): terealisasi + masih berjalan.
+     *   - realized : PO completed + TikTok/Shopee delivered dalam tahun itu
+     *   - pipeline : order berbayar yang masih berjalan (pending/proses)
+     *   - total    : realized + pipeline
+     * Basis waktu = tanggal order masuk (konsisten dgn channelSales).
+     *
+     * @return array{year:int, realized:float, pipeline:float, total:float}
+     */
+    public function yearlyOmzet(?Carbon $year = null): array
+    {
+        $year ??= Carbon::now();
+        $start = $year->copy()->startOfYear();
+        $end = $year->copy()->endOfYear();
+
+        $po = fn (array $statuses) => (float) PurchaseOrder::query()
+            ->whereIn('status', $statuses)
+            ->whereRaw('COALESCE(order_date, DATE(created_at)) BETWEEN ? AND ?', [$start->toDateString(), $end->toDateString()])
+            ->whereNull('seller_id')
+            ->sum('total_amount');
+
+        $mp = function (string $table, string $model, array $statuses) use ($start, $end): float {
+            if (! Schema::hasTable($table)) {
+                return 0.0;
+            }
+
+            return (float) $model::whereIn('status', $statuses)
+                ->whereBetween('order_created_at', [$start, $end])
+                ->sum('total_amount');
+        };
+
+        $realized = $po([self::REVENUE_STATUS])
+            + $mp('tiktok_orders', TiktokOrder::class, TiktokOrder::DELIVERED_STATUSES)
+            + $mp('shopee_orders', ShopeeOrder::class, ShopeeOrder::DELIVERED_STATUSES);
+
+        $pipeline = $po(PurchaseOrder::PIPELINE_STATUSES)
+            + $mp('tiktok_orders', TiktokOrder::class, TiktokOrder::PIPELINE_STATUSES)
+            + $mp('shopee_orders', ShopeeOrder::class, ShopeeOrder::PIPELINE_STATUSES);
+
+        return [
+            'year' => (int) $year->year,
+            'realized' => round($realized, 2),
+            'pipeline' => round($pipeline, 2),
+            'total' => round($realized + $pipeline, 2),
+        ];
+    }
+
+    /**
      * Gross-profit estimate for completed POs, using each product's current
      * average HPP (products.cogs). Goods revenue = sum of item subtotals (before
      * discount/shipping) so it lines up with COGS of goods sold.
