@@ -217,6 +217,20 @@
                     <p class="text-sm font-bold text-stone-800">{{ $rpO($yearlyOmzet['pipeline']) }}</p>
                 </div>
             </div>
+            @if(!empty($yearlyOmzet['channels']))
+                <div class="mt-3 pt-3 border-t border-stone-100 space-y-1.5">
+                    <p class="text-[10px] uppercase tracking-wide text-stone-400 font-semibold mb-1">Rincian per Channel</p>
+                    @foreach($yearlyOmzet['channels'] as $ch)
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs text-stone-600">{{ $ch['label'] }}</span>
+                            <span class="text-right leading-tight">
+                                <span class="text-sm font-bold text-stone-800">{{ $rpO($ch['total']) }}</span>
+                                <span class="block text-[9px] text-stone-400">terealisasi {{ $rpO($ch['realized']) }} · berjalan {{ $rpO($ch['pipeline']) }}</span>
+                            </span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </div>
         {{-- Omzet Distributor / PO — bulan ini (pending ikut dihitung) --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-5">

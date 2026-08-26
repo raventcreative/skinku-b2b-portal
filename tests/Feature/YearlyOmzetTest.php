@@ -21,6 +21,20 @@ class YearlyOmzetTest extends TestCase
         $this->assertArrayHasKey('pipeline', $r);
         $this->assertArrayHasKey('total', $r);
         $this->assertEqualsWithDelta($r['realized'] + $r['pipeline'], $r['total'], 0.01);
+
+        // Rincian per channel: 3 channel (Distributor/PO, TikTok, Shopee),
+        // tiap channel total = realized + pipeline, dan jumlah semua channel = total.
+        $this->assertArrayHasKey('channels', $r);
+        $this->assertCount(3, $r['channels']);
+        foreach ($r['channels'] as $c) {
+            $this->assertArrayHasKey('label', $c);
+            $this->assertEqualsWithDelta($c['realized'] + $c['pipeline'], $c['total'], 0.01);
+        }
+        $this->assertEqualsWithDelta(
+            array_sum(array_column($r['channels'], 'total')),
+            $r['total'],
+            0.01,
+        );
     }
 
     public function test_dashboard_render_dengan_kotak_omzet(): void
@@ -34,6 +48,7 @@ class YearlyOmzetTest extends TestCase
         $this->actingAs($admin)->get('/dashboard')
             ->assertOk()
             ->assertSee('Grand Total Omzet')
-            ->assertSee('Omzet Distributor / PO');
+            ->assertSee('Omzet Distributor / PO')
+            ->assertSee('Rincian per Channel');
     }
 }

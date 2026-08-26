@@ -272,8 +272,10 @@ class ReportService
      *   - pipeline : order berbayar yang masih berjalan (pending/proses)
      *   - total    : realized + pipeline
      * Basis waktu = tanggal order masuk (konsisten dgn channelSales).
+     *   - channels : rincian per channel (Distributor/PO, TikTok, Shopee),
+     *                masing-masing {realized, pipeline, total}.
      *
-     * @return array{year:int, realized:float, pipeline:float, total:float}
+     * @return array{year:int, realized:float, pipeline:float, total:float, channels:array<int, array{key:string, label:string, realized:float, pipeline:float, total:float}>}
      */
     public function yearlyOmzet(?Carbon $year = null): array
     {
@@ -297,19 +299,42 @@ class ReportService
                 ->sum('total_amount');
         };
 
-        $realized = $po([self::REVENUE_STATUS])
-            + $mp('tiktok_orders', TiktokOrder::class, TiktokOrder::DELIVERED_STATUSES)
-            + $mp('shopee_orders', ShopeeOrder::class, ShopeeOrder::DELIVERED_STATUSES);
+        // Rincian per channel (Distributor/PO, TikTok, Shopee) — realized vs berjalan.
+        $channels = [
+            [
+                'key' => 'reseller', 'label' => 'Distributor / PO',
+                'realized' => $po([self::REVENUE_STATUS]),
+                'pipeline' => $po(PurchaseOrder::PIPELINE_STATUSES),
+            ],
+            [
+                'key' => 'tiktok', 'label' => 'TikTok',
+                'realized' => $mp('tiktok_orders', TiktokOrder::class, TiktokOrder::DELIVERED_STATUSES),
+                'pipeline' => $mp('tiktok_orders', TiktokOrder::class, TiktokOrder::PIPELINE_STATUSES),
+            ],
+            [
+                'key' => 'shopee', 'label' => 'Shopee',
+                'realized' => $mp('shopee_orders', ShopeeOrder::class, ShopeeOrder::DELIVERED_STATUSES),
+                'pipeline' => $mp('shopee_orders', ShopeeOrder::class, ShopeeOrder::PIPELINE_STATUSES),
+            ],
+        ];
 
-        $pipeline = $po(PurchaseOrder::PIPELINE_STATUSES)
-            + $mp('tiktok_orders', TiktokOrder::class, TiktokOrder::PIPELINE_STATUSES)
-            + $mp('shopee_orders', ShopeeOrder::class, ShopeeOrder::PIPELINE_STATUSES);
+        $channels = array_map(function (array $c): array {
+            $c['realized'] = round($c['realized'], 2);
+            $c['pipeline'] = round($c['pipeline'], 2);
+            $c['total'] = round($c['realized'] + $c['pipeline'], 2);
+
+            return $c;
+        }, $channels);
+
+        $realized = array_sum(array_column($channels, 'realized'));
+        $pipeline = array_sum(array_column($channels, 'pipeline'));
 
         return [
             'year' => (int) $year->year,
             'realized' => round($realized, 2),
             'pipeline' => round($pipeline, 2),
             'total' => round($realized + $pipeline, 2),
+            'channels' => $channels,
         ];
     }
 
