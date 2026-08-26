@@ -98,9 +98,11 @@ class DashboardActionsTest extends TestCase
 
     public function test_panel_tak_tampil_untuk_mitra_tanpa_izin(): void
     {
-        // Mitra (distributor) tak punya izin process_withdrawal → panel "Perlu
-        // Tindakan" sama sekali tak tampil, bukan cuma kosong.
-        $mitra = $this->user(User::ROLE_DISTRIBUTOR);
+        // Reseller tak punya izin apa pun yang relevan (process_withdrawal,
+        // update_po_status, process_downline_po) → panel "Perlu Tindakan" sama
+        // sekali tak tampil, bukan cuma kosong. (Distributor kini JUSTRU tampil
+        // karena punya process_downline_po — lihat DashboardActionablePoTest.)
+        $mitra = $this->user(User::ROLE_RESELLER);
 
         $this->actingAs($mitra)->get('/dashboard')
             ->assertOk()

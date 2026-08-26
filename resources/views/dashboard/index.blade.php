@@ -110,36 +110,82 @@
     }
 @endphp
 
-{{-- Perlu Tindakan: penarikan komisi menunggu. Panel selalu tampil untuk siapa
-     pun yang berwenang memproses (izin process_withdrawal), dengan empty state
-     kalau sedang tak ada yang menunggu — bukan hilang sama sekali. --}}
-@if($user->canDo('process_withdrawal'))
+{{-- Perlu Tindakan: PO yang butuh tindakan (baru masuk / verifikasi bayar) +
+     penarikan komisi menunggu. Panel tampil untuk siapa pun yang berwenang atas
+     salah satunya; tiap seksi punya empty state — bukan hilang sama sekali. --}}
+@php
+    $canPoInbox = $user->canDo('update_po_status') || $user->canDo('process_downline_po');
+    $poInbox = $actionablePos ?? collect();
+@endphp
+@if($user->canDo('process_withdrawal') || $canPoInbox)
 <div class="bg-white rounded-2xl border border-amber-200 overflow-hidden mb-5">
     <div class="flex items-center gap-2 px-5 py-3 border-b border-amber-100 bg-amber-50">
         <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
         <span class="text-sm font-bold text-amber-900">Perlu Tindakan</span>
     </div>
-    <div class="p-4">
-        @if(($pendingWithdrawals ?? collect())->isNotEmpty())
+    <div class="p-4 space-y-5">
+        {{-- Pesanan (PO) perlu tindakan --}}
+        @if($canPoInbox)
+        <div>
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-sm font-semibold text-stone-800">Pesanan (PO) perlu tindakan</span>
+                @if($poInbox->isNotEmpty())
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ count($poInbox) }} menunggu</span>
+                @endif
+            </div>
+            @if($poInbox->isNotEmpty())
+                <div class="space-y-2">
+                    @foreach($poInbox as $po)
+                        <div class="flex items-center justify-between gap-3 px-3 py-2 border border-stone-100 rounded-lg">
+                            <span class="text-sm text-stone-700 truncate">
+                                <b class="text-stone-800">{{ $po->po_number }}</b><span class="text-stone-400"> · {{ $po->user->fullname ?? $po->user->name ?? 'Mitra #'.$po->user_id }} · {{ $po->created_at->diffForHumans() }}</span>
+                            </span>
+                            <span class="flex items-center gap-2 shrink-0">
+                                @if($po->status === \App\Models\PurchaseOrder::STATUS_PENDING)
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">baru masuk</span>
+                                @endif
+                                @if($po->payment_status === \App\Models\PurchaseOrder::PAYMENT_AWAITING)
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">verifikasi bayar</span>
+                                @endif
+                                <a href="{{ route('purchase-orders.show', $po) }}" class="text-xs px-3 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 font-semibold">Tinjau</a>
+                            </span>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <p class="text-xs text-stone-400 py-3 text-center">Tak ada PO menunggu tindakan — semua beres.</p>
+            @endif
+            <a href="{{ route('purchase-orders.index') }}" class="inline-block mt-3 text-xs text-indigo-600 hover:underline">Lihat semua Purchase Orders →</a>
+        </div>
+        @endif
+
+        {{-- Penarikan komisi menunggu --}}
+        @if($user->canDo('process_withdrawal'))
+        <div @if($canPoInbox) class="pt-4 border-t border-stone-100" @endif>
             <div class="flex items-center gap-2 mb-3">
                 <span class="text-sm font-semibold text-stone-800">Penarikan komisi menunggu</span>
-                <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ count($pendingWithdrawals) }} menunggu</span>
+                @if(($pendingWithdrawals ?? collect())->isNotEmpty())
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ count($pendingWithdrawals) }} menunggu</span>
+                @endif
             </div>
-            <div class="space-y-2">
-                @foreach($pendingWithdrawals as $w)
-                    <div class="flex items-center justify-between gap-3 px-3 py-2 border border-stone-100 rounded-lg">
-                        <span class="text-sm text-stone-700">{{ $w->mitra->fullname ?? $w->mitra->name ?? 'Mitra #'.$w->user_id }}<span class="text-stone-400"> · {{ ($w->requested_at ?? $w->created_at)->diffForHumans() }}</span></span>
-                        <span class="flex items-center gap-3 shrink-0">
-                            <b class="text-sm text-stone-800">Rp {{ number_format((float) $w->amount, 0, ',', '.') }}</b>
-                            <a href="{{ route('withdrawals.index') }}" class="text-xs px-3 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 font-semibold">Proses</a>
-                        </span>
-                    </div>
-                @endforeach
-            </div>
-        @else
-            <p class="text-xs text-stone-400 py-4 text-center">Belum ada penarikan menunggu — semua sudah diproses.</p>
+            @if(($pendingWithdrawals ?? collect())->isNotEmpty())
+                <div class="space-y-2">
+                    @foreach($pendingWithdrawals as $w)
+                        <div class="flex items-center justify-between gap-3 px-3 py-2 border border-stone-100 rounded-lg">
+                            <span class="text-sm text-stone-700">{{ $w->mitra->fullname ?? $w->mitra->name ?? 'Mitra #'.$w->user_id }}<span class="text-stone-400"> · {{ ($w->requested_at ?? $w->created_at)->diffForHumans() }}</span></span>
+                            <span class="flex items-center gap-3 shrink-0">
+                                <b class="text-sm text-stone-800">Rp {{ number_format((float) $w->amount, 0, ',', '.') }}</b>
+                                <a href="{{ route('withdrawals.index') }}" class="text-xs px-3 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 font-semibold">Proses</a>
+                            </span>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <p class="text-xs text-stone-400 py-4 text-center">Belum ada penarikan menunggu — semua sudah diproses.</p>
+            @endif
+            <a href="{{ route('withdrawals.index') }}" class="inline-block mt-3 text-xs text-indigo-600 hover:underline">Lihat semua di Penarikan →</a>
+        </div>
         @endif
-        <a href="{{ route('withdrawals.index') }}" class="inline-block mt-3 text-xs text-indigo-600 hover:underline">Lihat semua di Penarikan →</a>
     </div>
 </div>
 @endif

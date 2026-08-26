@@ -82,7 +82,32 @@ class DashboardController extends Controller
             ? Withdrawal::where('status', 'diajukan')->with('mitra')->orderByDesc('id')->limit(8)->get()
             : collect();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'yearlyOmzet', 'bulan', 'recentPo', 'lowStock', 'pendingWithdrawals') + ['limited' => false] + $announce);
+        // "Inbox" PO — pesanan yang butuh tindakan: baru masuk (pending) atau bukti
+        // bayar perlu diverifikasi (awaiting_verification). Staf HQ (update_po_status)
+        // lihat PO langsung-HQ; mitra-penjual (process_downline_po) lihat PO downline.
+        $canHqPo = $user->canDo('update_po_status');
+        $canDownlinePo = $user->canDo('process_downline_po');
+        $actionablePos = ($canHqPo || $canDownlinePo)
+            ? PurchaseOrder::query()
+                ->with('user')
+                ->where(function ($q) use ($user, $canHqPo, $canDownlinePo) {
+                    if ($canHqPo) {
+                        $q->orWhereNull('seller_id');
+                    }
+                    if ($canDownlinePo) {
+                        $q->orWhere('seller_id', $user->id);
+                    }
+                })
+                ->where(fn ($q) => $q
+                    ->where('status', PurchaseOrder::STATUS_PENDING)
+                    ->orWhere('payment_status', PurchaseOrder::PAYMENT_AWAITING))
+                ->whereNotIn('status', [PurchaseOrder::STATUS_COMPLETED, PurchaseOrder::STATUS_CANCELLED])
+                ->latest()
+                ->limit(8)
+                ->get()
+            : collect();
+
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'yearlyOmzet', 'bulan', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
     }
 
     /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */
