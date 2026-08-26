@@ -66,7 +66,7 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
                 <a href="{{ route('shopee.orders') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">📦 Pesanan Shopee →</a>
                 <a href="{{ route('shopee.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700">↩ Retur Shopee →</a>
                 <a href="{{ route('shopee.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">💰 Pencairan →</a>
-                <a href="{{ route('shopee.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800">🔧 SKU &amp; Stok →</a>
+                <a href="{{ route('shopee.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800">📊 Konversi Stok →</a>
             </div>
         @else
             <p class="text-sm text-stone-500 mb-4">Belum terhubung. Klik tombol di bawah untuk memberi izin toko Shopee kamu ke SKINKU (tarik order + potong stok).</p>
@@ -100,8 +100,8 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
         </div>
     @endif
 
-    {{-- Pemetaan SKU dipindah ke halaman "SKU & Stok" (biar halaman integrasi bersih,
-         konsisten dgn TikTok). Peringatan SKU belum dipetakan tetap ada di daftar Order. --}}
+    {{-- Peta SKU (resep) ada di halaman Pesanan Shopee & funnel di "Konversi Stok"
+         (konsisten dengan TikTok). Halaman integrasi ini sengaja dibiarkan bersih. --}}
 
 </div>
 @endsection

@@ -1,70 +1,44 @@
 @extends('layouts.app')
-@section('title', 'SKU & Stok Shopee')
-@section('heading', 'Pemetaan SKU Shopee')
+@section('title', 'Konversi Stok Shopee')
+@section('heading', 'Konversi Stok per Item')
 
 @section('content')
 <a href="{{ route('shopee.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Integrasi</a>
 
 <div class="mt-3 px-4 py-2.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 text-[11px]">
-    ℹ️ SKU yang cocok otomatis dengan SKU produk SKINKU tidak perlu dipetakan manual. Daftar di bawah adalah SKU
-    yang <b>belum dikenali</b> dari order Shopee yang sudah ditarik. 1 SKU Shopee bisa = beberapa produk SKINKU × qty
-    (mis. paket bundle), dan berlaku untuk semua order begitu dipetakan.
+    ℹ️ Dihitung dari order Shopee yang <b>sudah dipotong stok</b>, dikelompokkan per status kirim.
+    <b>Sisa</b> = stok gudang sekarang · <b>Dalam Perjalanan</b> = SHIPPED · <b>Terkirim</b> = COMPLETED/TO_CONFIRM_RECEIVE · <b>Total</b> = sisa + keluar.
 </div>
 
-<div class="mt-4">
-    @if(count($needMap))
+<div class="mt-4 space-y-2">
+    @forelse($rows as $r)
         @php
-            $skuUnmapped = collect($needMap)->filter(fn ($i) => $i['components']->isEmpty());
-            $skuMapped = collect($needMap)->reject(fn ($i) => $i['components']->isEmpty());
-            $skuSorted = $skuUnmapped->union($skuMapped); // yang belum dipetakan tampil dulu
+            $total = max(1, $r['total']);
+            $pSisa = round($r['sisa'] / $total * 100);
+            $pTransit = round($r['transit'] / $total * 100);
+            $pDeliv = 100 - $pSisa - $pTransit;
         @endphp
-        <div class="mb-3 text-sm font-bold {{ $skuUnmapped->count() ? 'text-stone-800' : 'text-emerald-700' }}">
-            @if($skuUnmapped->count())
-                ⚙ {{ $skuUnmapped->count() }} SKU perlu dipetakan · {{ $skuMapped->count() }} sudah dipetakan
-            @else
-                ✓ Semua {{ $skuMapped->count() }} SKU sudah dipetakan
-            @endif
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                <div class="font-semibold text-sm text-stone-800">{{ $r['product']->name }} <span class="text-[10px] text-stone-400 font-mono">{{ $r['product']->sku }}</span></div>
+                <div class="text-xs text-stone-500">Total <b class="text-stone-800">{{ number_format($r['total'], 0, ',', '.') }}</b></div>
+            </div>
+            {{-- bar funnel --}}
+            <div class="flex h-2.5 rounded-full overflow-hidden bg-stone-100 mb-2">
+                <div class="bg-emerald-500" style="width: {{ $pDeliv }}%"></div>
+                <div class="bg-amber-400" style="width: {{ $pTransit }}%"></div>
+                <div class="bg-stone-300" style="width: {{ $pSisa }}%"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+                <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Terkirim <b class="text-stone-800">{{ number_format($r['delivered'], 0, ',', '.') }}</b></div>
+                <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Dalam Perjalanan <b class="text-stone-800">{{ number_format($r['transit'], 0, ',', '.') }}</b></div>
+                <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-stone-300 inline-block"></span> Sisa <b class="text-stone-800">{{ number_format($r['sisa'], 0, ',', '.') }}</b></div>
+            </div>
         </div>
-        <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-            @foreach($skuSorted as $sku => $info)
-                <div class="bg-white border {{ $info['components']->isEmpty() ? 'border-rose-200' : 'border-stone-200' }} rounded-xl p-3">
-                    <div class="mb-1.5">
-                        <span class="font-mono text-stone-800 text-sm">{{ $sku }}</span>
-                        @if($info['components']->isEmpty())
-                            <span class="ml-1 text-[10px] text-rose-500 font-semibold">belum ada resep</span>
-                        @else
-                            <span class="ml-1 text-[10px] text-emerald-600 font-semibold">✓ dipetakan</span>
-                        @endif
-                        <div class="text-[10px] text-stone-400 truncate">{{ $info['name'] }}</div>
-                    </div>
-                    @foreach($info['components'] as $c)
-                        <div class="flex items-center gap-1.5 text-xs py-0.5">
-                            <span class="text-emerald-700 truncate">{{ $c->product?->name ?? '(produk terhapus)' }}</span>
-                            <span class="text-stone-400 shrink-0">× {{ $c->qty }}</span>
-                            <form method="POST" action="{{ route('shopee.sku-map.remove', $c) }}" onsubmit="return confirm('Hapus komponen ini?')">
-                                @csrf @method('DELETE')
-                                <button type="submit" class="text-[10px] text-rose-500 hover:text-rose-700 underline">hapus</button>
-                            </form>
-                        </div>
-                    @endforeach
-                    <form method="POST" action="{{ route('shopee.sku-map') }}" class="flex items-center gap-1.5 text-xs mt-2 pt-2 border-t border-stone-100">
-                        @csrf
-                        <input type="hidden" name="shopee_sku" value="{{ $sku }}">
-                        <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded flex-1 min-w-0">
-                            <option value="">— produk —</option>
-                            @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} ({{ $p->sku }})</option>@endforeach
-                        </select>
-                        <span class="text-stone-400 shrink-0">×</span>
-                        <input type="number" name="qty" value="1" min="1" max="999" class="w-12 px-1.5 py-1 border border-stone-300 rounded text-right shrink-0">
-                        <button type="submit" class="px-2.5 py-1 bg-stone-800 text-white rounded hover:bg-stone-900 shrink-0">+</button>
-                    </form>
-                </div>
-            @endforeach
-        </div>
-    @else
+    @empty
         <div class="bg-white rounded-2xl border border-stone-200 px-4 py-8 text-center text-stone-400 text-sm">
-            Semua SKU Shopee yang tersimpan sudah cocok / dipetakan ke produk SKINKU.
+            Belum ada data. Konversi stok muncul setelah ada order yang kamu <b>Potong Stok</b> di halaman Pesanan Shopee.
         </div>
-    @endif
+    @endforelse
 </div>
 @endsection

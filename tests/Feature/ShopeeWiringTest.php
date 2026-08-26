@@ -108,9 +108,9 @@ class ShopeeWiringTest extends TestCase
             'stock_status' => ShopeeOrder::STATUS_PENDING, 'order_created_at' => now()]);
 
         $this->actingAs($admin)->get(route('shopee.orders'))->assertOk()
-            ->assertSee('Order Shopee')->assertSee($ready->order_sn);
-        // Pemetaan SKU ada di halaman SKU & Stok (bukan lagi di halaman integrasi).
-        $this->actingAs($admin)->get(route('shopee.stock'))->assertOk()->assertSee('SB-UNMAPPED');
+            ->assertSee('Order Shopee')->assertSee($ready->order_sn)
+            ->assertSee('SB-UNMAPPED');                       // peta SKU (resep) kini di Pesanan
+        $this->actingAs($admin)->get(route('shopee.stock'))->assertOk();  // Konversi Stok = funnel
         $this->actingAs($admin)->get(route('shopee.index'))->assertOk();
     }
 
@@ -132,9 +132,28 @@ class ShopeeWiringTest extends TestCase
             'line_items' => [['sku' => 'RAW-SKU', 'name' => 'Serum', 'qty' => 1]],
             'stock_status' => ShopeeOrder::STATUS_PENDING, 'order_created_at' => now()]);
 
-        $this->actingAs($admin)->get(route('shopee.stock'))->assertOk()
+        $this->actingAs($admin)->get(route('shopee.orders'))->assertOk()
             ->assertSee('perlu dipetakan')   // header cuma hitung yang belum (1: RAW-SKU)
             ->assertSee('belum ada resep')    // RAW-SKU = belum
             ->assertSee('Lotion Asli');       // MAPPED-SKU tampil resepnya (sudah dipetakan)
+    }
+
+    public function test_konversi_stok_shopee_tampilkan_funnel(): void
+    {
+        // Halaman stok Shopee sekarang = funnel Konversi Stok (spt TikTok), bukan peta SKU.
+        $admin = $this->user(User::ROLE_ADMIN);
+        $p = Product::create(['name' => 'Sabun Funnel', 'sku' => 'SF1', 'price_grand' => 1,
+            'price_distributor' => 1, 'price_reseller' => 1, 'price_retail' => 1, 'cogs' => 1,
+            'hq_stock' => 50, 'status' => 'active']);
+
+        // Order COMPLETED yang SUDAH dipotong stok → masuk bucket "Terkirim".
+        ShopeeOrder::create(['order_sn' => 'F1', 'status' => 'COMPLETED', 'total_amount' => 10000,
+            'line_items' => [['sku' => 'SF1', 'name' => 'Sabun', 'qty' => 3]],
+            'stock_status' => ShopeeOrder::STATUS_DEDUCTED, 'order_created_at' => now()]);
+
+        $this->actingAs($admin)->get(route('shopee.stock'))->assertOk()
+            ->assertSee('Konversi Stok per Item')
+            ->assertSee('Sabun Funnel')
+            ->assertSee('Terkirim');
     }
 }

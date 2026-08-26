@@ -183,6 +183,54 @@ class ShopeeOrderService
         return $out;
     }
 
+    /**
+     * Funnel konversi stok per produk (dari order yang SUDAH dipotong stok),
+     * dikelompokkan per status kirim. Meniru TikTokOrderService::stockFunnel.
+     * Shopee: Terkirim = COMPLETED/TO_CONFIRM_RECEIVE · Dalam Perjalanan = SHIPPED.
+     *
+     * @return array<int, array{product: Product, transit: int, delivered: int, sisa: int, total: int}>
+     */
+    public function stockFunnel(): array
+    {
+        $transit = [];
+        $delivered = [];
+        $cache = [];
+        $resolve = fn ($sku) => $cache[$sku] ??= $this->resolve($sku);
+
+        foreach (ShopeeOrder::where('stock_status', ShopeeOrder::STATUS_DEDUCTED)->get() as $o) {
+            $bucket = in_array($o->status, ['COMPLETED', 'TO_CONFIRM_RECEIVE'], true) ? 'd'
+                : ($o->status === 'SHIPPED' ? 't' : null);
+            if (! $bucket) {
+                continue;
+            }
+            foreach ($o->line_items ?? [] as $item) {
+                foreach ($resolve($item['sku'] ?? null) as $c) {
+                    $pid = $c['product']->id;
+                    $qty = $c['qty'] * (int) ($item['qty'] ?? 0);
+                    if ($bucket === 't') {
+                        $transit[$pid] = ($transit[$pid] ?? 0) + $qty;
+                    } else {
+                        $delivered[$pid] = ($delivered[$pid] ?? 0) + $qty;
+                    }
+                }
+            }
+        }
+
+        $ids = array_values(array_unique(array_merge(array_keys($transit), array_keys($delivered))));
+        if (! $ids) {
+            return [];
+        }
+        $rows = [];
+        foreach (Product::whereIn('id', $ids)->orderBy('name')->get() as $p) {
+            $t = $transit[$p->id] ?? 0;
+            $d = $delivered[$p->id] ?? 0;
+            $sisa = (int) $p->hq_stock;
+            $rows[] = ['product' => $p, 'transit' => $t, 'delivered' => $d, 'sisa' => $sisa, 'total' => $sisa + $t + $d];
+        }
+
+        return $rows;
+    }
+
     /** Nilai HPP order = Σ (HPP produk × qty komponen). */
     public function computeHpp(ShopeeOrder $order): float
     {

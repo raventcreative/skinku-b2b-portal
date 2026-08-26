@@ -99,15 +99,19 @@ class ShopeeController extends Controller
         $orders = ShopeeOrder::latest('order_created_at')->latest('id')->paginate(25);
         $previews = $orders->mapWithKeys(fn ($o) => [$o->id => $this->orders->preview($o)]);
 
-        return view('shopee.orders', ['orders' => $orders, 'previews' => $previews, 'needMap' => $this->orders->skusNeedingMap()]);
+        return view('shopee.orders', [
+            'orders' => $orders,
+            'previews' => $previews,
+            // Peta SKU (resep) inline di halaman Pesanan — konsisten dengan TikTok.
+            'needMap' => $this->orders->skusNeedingMap(),
+            'products' => Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']),
+        ]);
     }
 
     public function stockFunnel()
     {
-        return view('shopee.stock', [
-            'needMap' => $this->orders->skusNeedingMap(),
-            'products' => Product::where('status', 'active')->orderBy('name')->get(['id', 'name', 'sku']),
-        ]);
+        // Halaman "Konversi Stok" = funnel per produk (spt TikTok), bukan peta SKU.
+        return view('shopee.stock', ['rows' => $this->orders->stockFunnel()]);
     }
 
     public function saveSkuMap(Request $request): RedirectResponse
