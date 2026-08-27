@@ -1,0 +1,118 @@
+@extends('layouts.app')
+@section('title', 'Dashboard KOL')
+@section('heading', 'Dashboard KOL')
+
+@section('content')
+@php $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.'); $rc = fn ($n) => $n >= 1_000_000 ? round($n / 1_000_000, 1).' jt' : number_format($n, 0, ',', '.'); @endphp
+
+<div class="space-y-4">
+
+    <p class="text-sm text-stone-500">Ringkasan {{ now()->translatedFormat('F Y') }} — pipeline, views, budget, dan affiliate dalam satu layar.</p>
+
+    {{-- Baris stat utama --}}
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {{-- Views vs target --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <div class="flex items-center justify-between">
+                <p class="text-xs text-stone-500">Views bulan ini</p>
+                <span class="text-[10px] px-2 py-0.5 rounded-full {{ $viewsAman ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ $viewsAman ? 'Aman' : 'Berisiko' }}</span>
+            </div>
+            <p class="text-2xl font-bold text-stone-800">{{ number_format($totalViews, 0, ',', '.') }}</p>
+            <p class="text-[11px] text-stone-400">{{ $target > 0 ? round($totalViews / $target * 100) : 0 }}% dari {{ $rc($target) }} · proyeksi {{ $rc($proj) }}</p>
+            <div class="h-1.5 bg-stone-100 rounded-full overflow-hidden mt-1"><div class="h-full bg-red-500" style="width: {{ $target > 0 ? min(100, round($totalViews / $target * 100)) : 0 }}%"></div></div>
+        </div>
+
+        {{-- Pipeline --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <p class="text-xs text-stone-500">Pipeline aktif</p>
+            <p class="text-2xl font-bold text-stone-800">{{ $pipeline['active'] }}</p>
+            <p class="text-[11px] {{ $pipeline['terlambat'] ? 'text-rose-500' : 'text-stone-400' }}">{{ $pipeline['terlambat'] }} terlambat · {{ $pipeline['hariIni'] }} hari ini · {{ $pipeline['tanpaAksi'] }} tanpa aksi</p>
+        </div>
+
+        {{-- GMV --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <p class="text-xs text-stone-500">GMV affiliate</p>
+            @if($aff)
+                <p class="text-2xl font-bold text-stone-800">{{ $rp($aff['gmv']) }}</p>
+                <p class="text-[11px] text-stone-400">{{ number_format($aff['orders'], 0, ',', '.') }} order · {{ $aff['affiliates'] }} affiliate</p>
+            @else
+                <p class="text-sm text-stone-400 mt-2">🔒 butuh izin Affiliate</p>
+            @endif
+        </div>
+
+        {{-- Budget / Konten --}}
+        @if($budget)
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">Sisa budget</p>
+                <p class="text-2xl font-bold {{ $budget['sisa'] < 0 ? 'text-rose-600' : 'text-emerald-600' }}">{{ $rp($budget['sisa']) }}</p>
+                <p class="text-[11px] text-stone-400">spent {{ $rc($budget['spent']) }} · committed {{ $rc($budget['committed']) }}</p>
+            </div>
+        @else
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">Konten bulan ini</p>
+                <p class="text-2xl font-bold text-stone-800">{{ $contentCount }}</p>
+                <p class="text-[11px] text-stone-400">paid {{ $rc($paidViews) }} · earned {{ $rc($earnedViews) }} views</p>
+            </div>
+        @endif
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-4">
+        {{-- Top affiliate + APS --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-semibold text-stone-700">Top affiliate (GMV)</p>
+                @if($aff)<a href="{{ route('kol-affiliate.index') }}" class="text-xs text-indigo-600 hover:underline">Semua →</a>@endif
+            </div>
+            @if($aff && $aff['top']->isNotEmpty())
+                <div class="divide-y divide-stone-100">
+                    @foreach($aff['top'] as $t)
+                        <div class="flex items-center justify-between py-2">
+                            <a href="{{ route('kols.show', $t['kol']->id) }}" class="text-sm text-indigo-600 hover:underline">{{ '@'.$t['kol']->tiktok_username }}</a>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-stone-700">{{ $rp($t['gmv']) }}</span>
+                                @if($t['aps']['status'] === 'scored')
+                                    @php $tone = ['bina_intensif' => 'bg-emerald-100 text-emerald-700', 'pantau' => 'bg-amber-100 text-amber-700', 'nurture' => 'bg-stone-100 text-stone-500'][$t['aps']['label']]; @endphp
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full {{ $tone }}" title="APS {{ $apsLabels[$t['aps']['label']] }}">APS {{ rtrim(rtrim(number_format($t['aps']['score'], 1, ',', '.'), '0'), ',') }}</span>
+                                @else
+                                    <span class="text-[10px] text-stone-300">new</span>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <p class="text-sm text-stone-400 py-6 text-center">{{ $aff ? 'Belum ada data affiliate — import dulu.' : '🔒 butuh izin Affiliate' }}</p>
+            @endif
+        </div>
+
+        {{-- Top konten --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-semibold text-stone-700">Top konten (views)</p>
+                <a href="{{ route('kol-konten.index') }}" class="text-xs text-indigo-600 hover:underline">Semua →</a>
+            </div>
+            @if($topContent->isNotEmpty())
+                <div class="divide-y divide-stone-100">
+                    @foreach($topContent as $c)
+                        <div class="flex items-center justify-between py-2 gap-3">
+                            <div class="min-w-0">
+                                <a href="{{ $c->url }}" target="_blank" rel="noopener noreferrer" class="text-sm text-indigo-600 hover:underline truncate block">{{ $c->title ?: $c->url }}</a>
+                                <span class="text-[10px] text-stone-400">{{ '@'.$c->kol->tiktok_username }} · {{ $c->label }}</span>
+                            </div>
+                            <span class="text-sm text-stone-700 shrink-0">{{ $rc((int) ($c->latestSnapshot->views ?? 0)) }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <p class="text-sm text-stone-400 py-6 text-center">Belum ada konten bulan ini.</p>
+            @endif
+        </div>
+    </div>
+
+    @if($pipeline['terlambat'] > 0 || $pipeline['hariIni'] > 0)
+        <a href="{{ route('kol-reminder.index') }}" class="block bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800 hover:bg-amber-100">
+            ⏰ Ada <b>{{ $pipeline['terlambat'] }}</b> terlambat & <b>{{ $pipeline['hariIni'] }}</b> jatuh tempo hari ini di pipeline — buka Reminder →
+        </a>
+    @endif
+</div>
+@endsection

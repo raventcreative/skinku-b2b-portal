@@ -23,6 +23,7 @@ use App\Http\Controllers\KolAffiliateController;
 use App\Http\Controllers\KolAgentController;
 use App\Http\Controllers\KolContentController;
 use App\Http\Controllers\KolController;
+use App\Http\Controllers\KolDashboardController;
 use App\Http\Controllers\KolDealController;
 use App\Http\Controllers\KolImportController;
 use App\Http\Controllers\KolPipelineController;
@@ -343,6 +344,9 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::post('/kols-import/preview', [KolImportController::class, 'preview'])->name('kols.import.preview');
             Route::post('/kols-import/commit', [KolImportController::class, 'commit'])->name('kols.import.commit');
         });
+
+        // Dashboard KOL — ringkasan 1-layar (merangkai service yang ada).
+        Route::get('/kol-dashboard', [KolDashboardController::class, 'index'])->name('kol-dashboard.index');
 
         // Fase 1 sub-menu KOL: pipeline scouting (spec 2026-08-27). Baca di balik
         // kol.view; tulis di balik kol.pipeline.manage. Hapus = super_admin (controller).
