@@ -3,17 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Services\KolAffiliateService;
 use App\Services\KolScoringService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * KSS — kalkulator seleksi KOL baru (form → skor + keputusan + advice). Kalkulator
- * murni (tak menyimpan). Median views auto-isi dari screening terbaru (JS).
+ * Skor KOL — 2 tab (mengikuti app Iyuro): Ranking APS (affiliate 4-mingguan) +
+ * Kalkulator KSS (seleksi KOL baru, form murni; median auto-isi dari screening).
  */
 class KolScoringController extends Controller
 {
-    public function kss(Request $request, KolScoringService $svc)
+    public function kss(Request $request, KolScoringService $svc, KolAffiliateService $aff)
     {
         $result = null;
         $input = null;
@@ -41,7 +42,18 @@ class KolScoringController extends Controller
             ]);
         }
 
-        return view('kols.skor.kss', [
+        // Tab Ranking APS — hanya untuk pemegang izin Affiliate (butuh data GMV).
+        $canAffiliate = $request->user()->canDo('kol.affiliate.view');
+        $apsRanking = collect();
+        if ($canAffiliate) {
+            $apsRanking = $aff->monthly(now())->map(fn ($r) => [
+                'kol' => $r->kol,
+                'gmv' => (int) $r->gmv,
+                'aps' => $svc->aps($aff->apsInput((int) $r->kol_id, now())),
+            ]);
+        }
+
+        return view('kols.skor.index', [
             'kols' => Kol::with('latestScreening')->orderBy('tiktok_username')->get(['id', 'tiktok_username', 'followers']),
             'result' => $result,
             'old' => $input,
@@ -49,6 +61,11 @@ class KolScoringController extends Controller
             'historyOpts' => KolScoringService::HISTORY_LABEL,
             'readinessOpts' => KolScoringService::READINESS_LABEL,
             'decisionLabel' => KolScoringService::KSS_LABEL,
+            'canAffiliate' => $canAffiliate,
+            'apsRanking' => $apsRanking,
+            'apsLabels' => KolScoringService::APS_LABEL,
+            // Default tab: KSS bila baru submit form; selain itu Ranking APS (bila ada).
+            'tab' => $result ? 'kss' : ($canAffiliate ? 'aps' : 'kss'),
         ]);
     }
 }

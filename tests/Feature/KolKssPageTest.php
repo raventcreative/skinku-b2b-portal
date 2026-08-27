@@ -23,7 +23,7 @@ class KolKssPageTest extends TestCase
     {
         $this->actingAs($this->user(User::ROLE_RESELLER, 'r1'))->get(route('kol-skor.kss'))->assertForbidden();
         $this->actingAs($this->user('kol_specialist', 'ks1'))->get(route('kol-skor.kss'))
-            ->assertOk()->assertSee('Skor Seleksi KOL');
+            ->assertOk()->assertSee('Kalkulator KSS')->assertSee('Ranking APS');
     }
 
     public function test_hitung_kss_shortlist(): void
