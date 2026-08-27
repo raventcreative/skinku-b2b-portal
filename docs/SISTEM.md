@@ -511,6 +511,16 @@ Infrastruktur load-bearing untuk **OKR** (task approved → kartu) & **AI Assist
 
 **Izin:** `kol.view`, `kol.screening.manage`, `kol.deal.manage`, `kol.deal.approve` (approver ≠ submitter), `kol.deal.finance` (field uang), `kol.report.view` (reserved). Role default: custom `kol_specialist` (+ admin untuk deal.manage/approve).
 
+### Sub-menu KOL Fase 1 (grup accordion — pipeline, reminder, konten)
+
+Menu KOL = **grup accordion**: Database KOL · Pipeline · Konten & Views · Reminder · Deal KOL. Semua menempel ke tabel `kols` (bukan tabel creator baru). Diadaptasi dari app lokal "KOL Command Center" (repo terpisah `Iyuro/skinku`, Next.js); scraper TIDAK ikut (agen lokal fase depan — kolom `source` snapshot sudah disiapkan). Spec: `docs/superpowers/specs/2026-08-27-kol-submenu-fase1-design.md`.
+
+- **Pipeline scouting** (`KolPipelineController`, `kol_pipeline_cards` + `kol_pipeline_events`, migrasi 000099) — kanban 9 stage (kandidat→…→drop), **1 kartu aktif per KOL** (unique kol_id+track), next-action+tanggal, followup_count; tiap pindah stage tulis event **append-only**. Hapus kartu = super_admin (jalur normal = geser ke Drop). Izin tulis `kol.pipeline.manage`.
+- **Reminder** (`KolReminderController`, baca-saja) — agregat pipeline: terlambat → jatuh tempo hari ini → tanpa next-action (drop dikecualikan).
+- **Konten & Views** (`KolContentController`, `kol_contents` + `kol_content_snapshots`, migrasi 000100) — arsip konten per KOL + **snapshot views bertanggal append-only** (unique kol_content_id+captured_on → isi ulang hari sama = replace). **Anti-dobel-hitung:** konten ber-`kol_deal_id` DIPAKSA `paid`, sisanya `earned`. Ringkasan bulanan (total/paid/earned + proyeksi pace vs `kol_views_target` AppSetting). **Grid isi views massal** (spreadsheet-like, snapshot hari ini). Autofill judul via **TikTok oEmbed** (host allowlist tiktok.com). Izin tulis `kol.content.manage`. ⚠ Lookup `captured_on` pakai Carbon `startOfDay()` (string Y-m-d meleset dari nilai datetime tersimpan).
+
+**Izin baru:** `kol.pipeline.manage`, `kol.content.manage` (default `kol_specialist`).
+
 ---
 
 ## 16. Report Bot (Telegram)
@@ -666,7 +676,7 @@ Dari `app/Support/Permissions.php`. super_admin selalu punya semua (terkunci). D
 | `okr.view` / `okr.manage` | staf/internal | OKR |
 | `kanban.view` | internal | Kanban |
 | `mindmap.view` | internal | Mindmap |
-| `kol.view` / `kol.screening.manage` / `kol.deal.manage` / `kol.deal.approve` / `kol.deal.finance` / `kol.report.view` | kol_specialist (+admin) | KOL |
+| `kol.view` / `kol.screening.manage` / `kol.deal.manage` / `kol.deal.approve` / `kol.deal.finance` / `kol.report.view` / `kol.pipeline.manage` / `kol.content.manage` | kol_specialist (+admin) | KOL |
 | `use_ai_assistant` | staf + mitra | AI Assistant |
 | `view_learning` / `manage_learning` | luas / admin | SKINKU Academy |
 | `system_settings` | admin | Pengaturan sistem (termasuk Report Bot) |
@@ -691,8 +701,10 @@ Dari `app/Support/Permissions.php`. super_admin selalu punya semua (terkunci). D
 - **`000073`** — Report Bot.
 - **`000074`–`000092`** — **MLM**: hierarchy ke users (`000074`), reorder role (`000075`), price_grand (`000076`/`000078`), backfill tanggal movement (`000077`/`000079`), seller_id PO (`000080`), commissions (`000081`), bank+withdrawals (`000082`/`000083`), join packages/items/transactions (`000084`-`000086`/`000091`), sponsor_id (`000087`), volume tiers (`000088`), po_returns (`000090`), city (`000092`).
 - **`000093`–`000095`** — **Shopee Fase 2-4**: returns (`000093`), settlements (`000094`), accounting/wallet (`000095`).
+- **`000096`–`000098`** — retur detail: `from_customer` (`000096`), `credit_amount` + backfill (`000097`/`000098`).
+- **`000099`–`000100`** — **Sub-menu KOL Fase 1**: pipeline cards/events (`000099`), konten + snapshot views (`000100`).
 
-Migrasi tertinggi saat ini: **`000095`**.
+Migrasi tertinggi saat ini: **`000100`**.
 
 ---
 
