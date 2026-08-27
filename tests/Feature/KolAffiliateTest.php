@@ -85,4 +85,28 @@ class KolAffiliateTest extends TestCase
         $this->assertSame(1, $linked);
         $this->assertSame(0, $this->svc()->unmatched()->count());
     }
+
+    public function test_halaman_affiliate_gating_dan_ranking(): void
+    {
+        // Tanpa kol.affiliate.view → 403 (gudang: bukan grantee).
+        $this->actingAs($this->user(User::ROLE_GUDANG, 'gd1'))
+            ->get(route('kol-affiliate.index'))->assertForbidden();
+
+        $spec = $this->user('kol_specialist', 'aff4');
+        $kol = Kol::create(['tiktok_username' => 'ranktest', 'followers' => 30_000]);
+        $this->svc()->import([['order_id' => 'R1', 'username' => 'ranktest', 'gmv' => 1_000_000, 'order_date' => now()->toDateString()]], 'tiktok', $spec->id);
+
+        $this->actingAs($spec)->get(route('kol-affiliate.index'))->assertOk()
+            ->assertSee('Affiliate & GMV')->assertSee('ranktest');
+    }
+
+    public function test_match_via_http_butuh_manage(): void
+    {
+        $spec = $this->user('kol_specialist', 'aff5');
+        $kol = Kol::create(['tiktok_username' => 'newmatch', 'followers' => 8000]);
+        $this->svc()->import([['order_id' => 'M1', 'username' => 'orang_asing', 'gmv' => 200_000, 'order_date' => now()->toDateString()]], 'tiktok', $spec->id);
+
+        $this->actingAs($spec)->post(route('kol-affiliate.match'), ['raw_username' => 'orang_asing', 'kol_id' => $kol->id])->assertRedirect();
+        $this->assertSame($kol->id, KolAffiliateTransaction::where('order_id', 'M1')->value('kol_id'));
+    }
 }

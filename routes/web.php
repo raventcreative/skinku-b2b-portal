@@ -19,6 +19,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\JaringanSayaController;
 use App\Http\Controllers\JoinPackageController;
 use App\Http\Controllers\KanbanController;
+use App\Http\Controllers\KolAffiliateController;
 use App\Http\Controllers\KolContentController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDealController;
@@ -358,6 +359,14 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::get('/kol-konten/{content}/edit', [KolContentController::class, 'edit'])->name('kol-konten.edit');
             Route::put('/kol-konten/{content}', [KolContentController::class, 'update'])->name('kol-konten.update');
             Route::delete('/kol-konten/{content}', [KolContentController::class, 'destroy'])->name('kol-konten.destroy');
+        });
+
+        // Affiliate & GMV (Fase 3a) — angka uang di balik kol.affiliate.view.
+        Route::middleware('permission:kol.affiliate.view')->group(function () {
+            Route::get('/kol-affiliate', [KolAffiliateController::class, 'index'])->name('kol-affiliate.index');
+            Route::middleware('permission:kol.affiliate.manage')->group(function () {
+                Route::post('/kol-affiliate/match', [KolAffiliateController::class, 'match'])->name('kol-affiliate.match');
+            });
         });
     });
 

@@ -303,6 +303,9 @@
                         {!! navItem('kol-konten.index', 'Konten & Views', 'kol-konten.*') !!}
                         {!! navItem('kol-reminder.index', 'Reminder', 'kol-reminder.*') !!}
                     @endif
+                    @if($u->canDo('kol.affiliate.view'))
+                        {!! navItem('kol-affiliate.index', 'Affiliate & GMV', 'kol-affiliate.*') !!}
+                    @endif
                     @if($u->canDo('kol.deal.manage'))
                         {!! navItem('kol-deals.index', 'Deal KOL', 'kol-deals.*') !!}
                     @endif
