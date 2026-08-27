@@ -51,6 +51,8 @@ class Permissions
         'kol.deal.finance' => 'Finansial Deal KOL (biaya, status bayar, rekening)',
         'kol.pipeline.manage' => 'Kelola Pipeline KOL (kartu scouting)',
         'kol.content.manage' => 'Kelola Konten & Views KOL',
+        'kol.affiliate.view' => 'Lihat Affiliate & GMV (angka penjualan)',
+        'kol.affiliate.manage' => 'Import & Cocokkan Data Affiliate',
         'kol.report.view' => 'Laporan KOL (fase berikutnya)',
         'kanban.view' => 'Papan Kanban (tugas tim ala Trello)',
         'mindmap.view' => 'Mindmaps (kanvas ide & diagram)',
@@ -110,6 +112,8 @@ class Permissions
         'kol.deal.finance' => [],
         'kol.pipeline.manage' => ['kol_specialist'],
         'kol.content.manage' => ['kol_specialist'],
+        'kol.affiliate.view' => ['kol_specialist'],
+        'kol.affiliate.manage' => ['kol_specialist'],
         'kol.report.view' => [],
         // Dipakai SEMUA tim internal (klarifikasi Freddie) — admin, gudang,
         // kol_specialist dapat default; role dinamis lain via matriks. Mitra

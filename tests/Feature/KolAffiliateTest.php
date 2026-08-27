@@ -1,0 +1,88 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Kol;
+use App\Models\KolAffiliateTransaction;
+use App\Models\User;
+use App\Services\KolAffiliateService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class KolAffiliateTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function user(string $role, string $u): User
+    {
+        return User::create([
+            'name' => $u, 'fullname' => strtoupper($u), 'username' => $u, 'email' => "{$u}@skinku.test",
+            'password' => Hash::make('secret123'), 'role' => $role, 'status' => User::STATUS_ACTIVE,
+        ]);
+    }
+
+    private function svc(): KolAffiliateService
+    {
+        return app(KolAffiliateService::class);
+    }
+
+    public function test_import_dedup_match_dan_unmatched(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'ayu.skin', 'followers' => 50_000]);
+        $actor = $this->user('kol_specialist', 'aff1')->id;
+
+        $rows = [
+            ['order_id' => 'A1', 'username' => '@ayu.skin', 'gmv' => 100_000, 'commission' => 10_000, 'order_date' => now()->toDateString()],
+            ['order_id' => 'A2', 'username' => 'siapa_ini', 'gmv' => 50_000, 'order_date' => now()->toDateString()], // unmatched
+            ['order_id' => '', 'username' => 'x', 'gmv' => 9], // tanpa order_id → dilewati
+        ];
+        $res = $this->svc()->import($rows, 'tiktok', $actor);
+        $this->assertSame(['imported' => 2, 'matched' => 1, 'unmatched' => 1], $res);
+        $this->assertSame($kol->id, KolAffiliateTransaction::where('order_id', 'A1')->value('kol_id'));
+
+        // Re-import order sama (A1) dgn GMV baru → replace, bukan dobel.
+        $this->svc()->import([['order_id' => 'A1', 'username' => 'ayu.skin', 'gmv' => 250_000, 'order_date' => now()->toDateString()]], 'tiktok', $actor);
+        $this->assertSame(2, KolAffiliateTransaction::count()); // tetap 2 baris
+        $this->assertSame(250_000, (int) KolAffiliateTransaction::where('order_id', 'A1')->value('gmv'));
+    }
+
+    public function test_monthly_kecualikan_batal_dan_unmatched(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'budi', 'followers' => 10_000]);
+        $actor = $this->user('kol_specialist', 'aff2')->id;
+        $this->svc()->import([
+            ['order_id' => 'B1', 'username' => 'budi', 'gmv' => 200_000, 'commission' => 20_000, 'order_date' => now()->toDateString()],
+            ['order_id' => 'B2', 'username' => 'budi', 'gmv' => 999_000, 'status' => 'Cancelled', 'order_date' => now()->toDateString()], // batal → tak dihitung
+            ['order_id' => 'B3', 'username' => 'ga_kenal', 'gmv' => 500_000, 'order_date' => now()->toDateString()], // unmatched → tak masuk ranking
+        ], 'tiktok', $actor);
+
+        $rank = $this->svc()->monthly(now());
+        $this->assertCount(1, $rank);
+        $this->assertSame($kol->id, (int) $rank[0]->kol_id);
+        $this->assertSame(200_000, (int) $rank[0]->gmv);   // B2 batal dikecualikan
+        $this->assertSame(1, (int) $rank[0]->orders);
+    }
+
+    public function test_weekly_gmv_dan_match_username(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'sari', 'followers' => 20_000]);
+        $actor = $this->user('kol_specialist', 'aff3')->id;
+        // Minggu ini 300rb, minggu lalu 100rb.
+        $this->svc()->import([
+            ['order_id' => 'C1', 'username' => 'sari', 'gmv' => 300_000, 'order_date' => now()->toDateString()],
+            ['order_id' => 'C2', 'username' => 'sari', 'gmv' => 100_000, 'order_date' => now()->subWeek()->toDateString()],
+        ], 'tiktok', $actor);
+
+        $weekly = $this->svc()->weeklyGmv($kol->id, now(), 4);
+        $this->assertSame([0, 0, 100_000, 300_000], $weekly); // lama → baru
+
+        // Cocokkan username belum kenal ke KOL baru.
+        $this->svc()->import([['order_id' => 'D1', 'username' => 'dewi_glow', 'gmv' => 80_000, 'order_date' => now()->toDateString()]], 'tiktok', $actor);
+        $this->assertSame(1, $this->svc()->unmatched()->count());
+        $dewi = Kol::create(['tiktok_username' => 'dewi_glow', 'followers' => 5000]);
+        $linked = $this->svc()->matchUsername('dewi_glow', $dewi->id);
+        $this->assertSame(1, $linked);
+        $this->assertSame(0, $this->svc()->unmatched()->count());
+    }
+}
