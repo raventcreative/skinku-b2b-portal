@@ -366,6 +366,8 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::get('/kol-affiliate', [KolAffiliateController::class, 'index'])->name('kol-affiliate.index');
             Route::middleware('permission:kol.affiliate.manage')->group(function () {
                 Route::post('/kol-affiliate/match', [KolAffiliateController::class, 'match'])->name('kol-affiliate.match');
+                Route::get('/kol-affiliate/import', [KolAffiliateController::class, 'importForm'])->name('kol-affiliate.import');
+                Route::post('/kol-affiliate/import', [KolAffiliateController::class, 'importStore'])->name('kol-affiliate.import.store');
             });
         });
     });

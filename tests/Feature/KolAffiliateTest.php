@@ -7,6 +7,7 @@ use App\Models\KolAffiliateTransaction;
 use App\Models\User;
 use App\Services\KolAffiliateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -108,5 +109,27 @@ class KolAffiliateTest extends TestCase
 
         $this->actingAs($spec)->post(route('kol-affiliate.match'), ['raw_username' => 'orang_asing', 'kol_id' => $kol->id])->assertRedirect();
         $this->assertSame($kol->id, KolAffiliateTransaction::where('order_id', 'M1')->value('kol_id'));
+    }
+
+    public function test_import_csv_auto_map_header(): void
+    {
+        $spec = $this->user('kol_specialist', 'aff6');
+        Kol::create(['tiktok_username' => 'csvkol', 'followers' => 12_000]);
+
+        // Header pakai nama umum Affiliate Center → auto-map.
+        $csv = "Order ID,Creator Username,Total Penjualan,Komisi,Status,Tanggal\n"
+            ."X100,@csvkol,\"Rp 150.000\",15000,Completed,2026-08-20\n"
+            ."X101,belum_kenal,90000,9000,Completed,2026-08-21\n";
+        $file = UploadedFile::fake()->createWithContent('aff.csv', $csv);
+
+        $this->actingAs($spec)->post(route('kol-affiliate.import.store'), ['platform' => 'tiktok', 'file' => $file])
+            ->assertRedirect(route('kol-affiliate.index'));
+
+        $this->assertSame(2, KolAffiliateTransaction::count());
+        $t = KolAffiliateTransaction::where('order_id', 'X100')->first();
+        $this->assertSame(150_000, (int) $t->gmv);              // "Rp 150.000" → 150000
+        $this->assertNotNull($t->kol_id);                       // @csvkol cocok
+        $this->assertSame('2026-08-20', $t->order_date->format('Y-m-d'));
+        $this->assertNull(KolAffiliateTransaction::where('order_id', 'X101')->value('kol_id')); // belum cocok
     }
 }
