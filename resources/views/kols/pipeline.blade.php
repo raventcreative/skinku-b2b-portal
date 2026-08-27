@@ -18,19 +18,19 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
             <p class="text-xs text-stone-500">Kartu aktif</p>
-            <p class="text-2xl font-bold text-stone-800">{{ $statAktif }}</p>
+            <p id="stat-aktif" class="text-2xl font-bold text-stone-800">{{ $statAktif }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
             <p class="text-xs text-stone-500">Terlambat</p>
-            <p class="text-2xl font-bold {{ $statTerlambat ? 'text-rose-600' : 'text-stone-800' }}">{{ $statTerlambat }}</p>
+            <p id="stat-terlambat" class="text-2xl font-bold {{ $statTerlambat ? 'text-rose-600' : 'text-stone-800' }}">{{ $statTerlambat }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
             <p class="text-xs text-stone-500">Hari ini / besok</p>
-            <p class="text-2xl font-bold {{ $statDekat ? 'text-amber-600' : 'text-stone-800' }}">{{ $statDekat }}</p>
+            <p id="stat-dekat" class="text-2xl font-bold {{ $statDekat ? 'text-amber-600' : 'text-stone-800' }}">{{ $statDekat }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
             <p class="text-xs text-stone-500">Tanpa next action</p>
-            <p class="text-2xl font-bold {{ $statTanpaAksi ? 'text-amber-600' : 'text-stone-800' }}">{{ $statTanpaAksi }}</p>
+            <p id="stat-tanpaaksi" class="text-2xl font-bold {{ $statTanpaAksi ? 'text-amber-600' : 'text-stone-800' }}">{{ $statTanpaAksi }}</p>
         </div>
     </div>
 
@@ -79,7 +79,7 @@
             <div class="min-w-[248px] w-[248px] shrink-0">
                 <div class="flex items-center justify-between px-1 mb-2">
                     <span class="text-xs font-bold uppercase tracking-wide text-stone-500">{{ $labels[$stage] }}</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">{{ $cards->count() }}</span>
+                    <span data-count-for="{{ $stage }}" class="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">{{ $cards->count() }}</span>
                 </div>
                 <div class="space-y-2 kanban-col min-h-[56px] rounded-lg transition" data-stage="{{ $stage }}">
                     @foreach($cards as $c)
@@ -87,9 +87,15 @@
                             $late = $c->isActive() && $c->next_action_at && $c->next_action_at->lt($today);
                             $soon = $c->isActive() && $c->next_action_at && $c->next_action_at->between($today, $today->copy()->addDay()->endOfDay());
                         @endphp
-                        <div id="card-{{ $c->id }}" data-card-id="{{ $c->id }}" @if($u->canDo('kol.pipeline.manage')) draggable="true" @endif class="bg-white rounded-xl border border-stone-200 p-3 space-y-1.5 {{ $u->canDo('kol.pipeline.manage') ? 'cursor-move' : '' }}">
+                        <div id="card-{{ $c->id }}" data-card-id="{{ $c->id }}"
+                            data-late="{{ $late ? 1 : 0 }}" data-soon="{{ $soon ? 1 : 0 }}" data-noaction="{{ ! $c->next_action_at ? 1 : 0 }}"
+                            @if($u->canDo('kol.pipeline.manage')) draggable="true" @endif
+                            class="bg-white rounded-xl border border-stone-200 p-3 space-y-1.5 {{ $u->canDo('kol.pipeline.manage') ? 'cursor-move' : '' }}">
                             <div class="flex items-start justify-between gap-2">
-                                <a href="{{ route('kols.show', $c->kol_id) }}" class="text-sm font-semibold text-indigo-600 hover:underline">{{ '@'.$c->kol->tiktok_username }}</a>
+                                <div class="min-w-0">
+                                    <a href="{{ route('kols.show', $c->kol_id) }}" class="text-sm font-semibold text-indigo-600 hover:underline">{{ '@'.$c->kol->tiktok_username }}</a>
+                                    <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $c->kol->level }}</span>
+                                </div>
                                 @if($c->followup_count > 0)
                                     <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 shrink-0">FU {{ $c->followup_count }}×</span>
                                 @endif
@@ -136,9 +142,7 @@
                             @endif
                         </div>
                     @endforeach
-                    @if($cards->isEmpty())
-                        <p class="text-[11px] text-stone-300 px-1">—</p>
-                    @endif
+                    <p class="text-[11px] text-stone-300 px-1 kanban-empty {{ $cards->isEmpty() ? '' : 'hidden' }}">—</p>
                 </div>
             </div>
         @endforeach
@@ -147,12 +151,32 @@
 
 @if($u->canDo('kol.pipeline.manage'))
 <script>
-    // Drag-and-drop kartu antar kolom → PATCH pindah stage (endpoint yang sama
-    // dengan dropdown "Pindah / aksi"), lalu reload.
+    // Drag-and-drop TANPA reload: pindahkan kartu di DOM langsung + hitung ulang
+    // badge/stat, lalu simpan ke server di latar belakang (revert kalau gagal).
     (function () {
-        var dragId = null;
+        var dragEl = null;
+        function setText(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
+        function recount() {
+            var aktif = 0, terlambat = 0, dekat = 0, tanpa = 0;
+            document.querySelectorAll('.kanban-col').forEach(function (col) {
+                var cards = col.querySelectorAll('[data-card-id]');
+                var badge = document.querySelector('[data-count-for="' + col.getAttribute('data-stage') + '"]');
+                if (badge) badge.textContent = cards.length;
+                var empty = col.querySelector('.kanban-empty');
+                if (empty) empty.classList.toggle('hidden', cards.length > 0);
+                if (col.getAttribute('data-stage') === 'drop') return; // drop = tak aktif
+                cards.forEach(function (c) {
+                    aktif++;
+                    if (c.getAttribute('data-late') === '1') terlambat++;
+                    if (c.getAttribute('data-soon') === '1') dekat++;
+                    if (c.getAttribute('data-noaction') === '1') tanpa++;
+                });
+            });
+            setText('stat-aktif', aktif); setText('stat-terlambat', terlambat);
+            setText('stat-dekat', dekat); setText('stat-tanpaaksi', tanpa);
+        }
         document.querySelectorAll('[data-card-id][draggable=true]').forEach(function (card) {
-            card.addEventListener('dragstart', function (e) { dragId = card.getAttribute('data-card-id'); e.dataTransfer.effectAllowed = 'move'; card.classList.add('opacity-40'); });
+            card.addEventListener('dragstart', function (e) { dragEl = card; e.dataTransfer.effectAllowed = 'move'; setTimeout(function () { card.classList.add('opacity-40'); }, 0); });
             card.addEventListener('dragend', function () { card.classList.remove('opacity-40'); });
         });
         document.querySelectorAll('.kanban-col').forEach(function (col) {
@@ -160,13 +184,17 @@
             col.addEventListener('dragleave', function () { col.classList.remove('bg-stone-100'); });
             col.addEventListener('drop', function (e) {
                 e.preventDefault(); col.classList.remove('bg-stone-100');
-                if (!dragId) return;
-                fetch('{{ url('/kol-pipeline') }}/' + dragId + '/stage', {
+                if (!dragEl || dragEl.parentElement === col) { dragEl = null; return; }
+                var fromCol = dragEl.parentElement, moving = dragEl, id = dragEl.getAttribute('data-card-id');
+                col.appendChild(dragEl);   // pindah optimistik
+                recount();
+                fetch('{{ url('/kol-pipeline') }}/' + id + '/stage', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
                     body: JSON.stringify({ stage: col.getAttribute('data-stage') })
-                }).then(function (r) { if (r.ok || r.redirected) location.reload(); else alert('Gagal memindahkan kartu.'); })
-                  .catch(function () { alert('Gagal memindahkan kartu.'); });
+                }).then(function (r) { if (!(r.ok || r.redirected)) throw new Error(); })
+                  .catch(function () { fromCol.appendChild(moving); recount(); alert('Gagal memindahkan kartu. Coba lagi.'); });
+                dragEl = null;
             });
         });
     })();

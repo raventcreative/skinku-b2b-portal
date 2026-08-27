@@ -599,6 +599,7 @@ class KolModuleTest extends TestCase
         $this->assertSame(5_000_000.0, $s->cpm_median);     // median jujur: 5jt
 
         $html = $this->actingAs($spec)->get(route('kols.index'))->assertOk()->getContent();
+        $html = substr($html, strpos($html, '<tbody'));   // batasi ke tabel — abaikan kotak cari KOL di atas
 
         // Rank ikut median: sehat #1, meledak #2 (terakhir) — bukan sebaliknya.
         $posSehat = strpos($html, 'sehatkol');
@@ -638,19 +639,22 @@ class KolModuleTest extends TestCase
         $this->screen($mahal, 8_000_000, 100_000);    // CPM 80rb -> rank 2
         Kol::create(['tiktok_username' => 'kosong1', 'followers' => 5_000]);   // belum discreening
 
+        // Batasi ke isi tabel (abaikan kotak cari KOL yang memuat semua username).
+        $tbody = fn (string $h) => substr($h, strpos($h, '<tbody'));
+
         // Sort rank asc: rank 1 dulu; yang belum discreening SELALU di dasar.
-        $html = $this->actingAs($spec)->get(route('kols.index', ['sort' => 'rank', 'dir' => 'asc']))->assertOk()->getContent();
+        $html = $tbody($this->actingAs($spec)->get(route('kols.index', ['sort' => 'rank', 'dir' => 'asc']))->assertOk()->getContent());
         $this->assertLessThan(strpos($html, 'zzmahal'), strpos($html, 'aamurah'));
         $this->assertGreaterThan(strpos($html, 'zzmahal'), strpos($html, 'kosong1'));
 
         // Sort rank desc: urutan berbalik, tapi yang kosong TETAP di dasar.
-        $html = $this->actingAs($spec)->get(route('kols.index', ['sort' => 'rank', 'dir' => 'desc']))->assertOk()->getContent();
+        $html = $tbody($this->actingAs($spec)->get(route('kols.index', ['sort' => 'rank', 'dir' => 'desc']))->assertOk()->getContent());
         $this->assertLessThan(strpos($html, 'aamurah'), strpos($html, 'zzmahal'));
         $this->assertGreaterThan(strpos($html, 'aamurah'), strpos($html, 'kosong1'));
 
         // Kolom lain ikut bisa: total views desc — mahal & murah sama 100rb×7,
         // jadi cukup pastikan tidak meledak dan kosong tetap di bawah.
-        $html = $this->actingAs($spec)->get(route('kols.index', ['sort' => 'total', 'dir' => 'desc']))->assertOk()->getContent();
+        $html = $tbody($this->actingAs($spec)->get(route('kols.index', ['sort' => 'total', 'dir' => 'desc']))->assertOk()->getContent());
         $this->assertGreaterThan(strpos($html, 'aamurah'), strpos($html, 'kosong1'));
 
         $this->actingAs($spec)->get(route('kols.index', ['sort' => 'gmv', 'dir' => 'desc']))->assertOk();
@@ -726,8 +730,11 @@ class KolModuleTest extends TestCase
             'views_5' => 10_000, 'views_6' => 10_000, 'views_7' => 10_000,
         ]);
 
-        $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'tanpa_harga']))->assertOk()
-            ->assertSee('tanpaharga2')->assertDontSee('adaharga');
+        // Cek di isi tabel saja — kotak cari KOL memuat semua username (termasuk yg tersaring).
+        $html = $this->actingAs($spec)->get(route('kols.index', ['verdict' => 'tanpa_harga']))->assertOk()->getContent();
+        $table = substr($html, strpos($html, '<tbody'));
+        $this->assertStringContainsString('tanpaharga2', $table);
+        $this->assertStringNotContainsString('adaharga', $table);
     }
 
     /* ---------------- Platform sosial media + tautan profil ---------------- */

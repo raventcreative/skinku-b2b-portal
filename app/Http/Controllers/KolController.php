@@ -44,6 +44,9 @@ class KolController extends Controller
 
         return view('kols.index', [
             'kols' => $kols,
+            // Daftar penuh (tak terpengaruh filter) buat kotak cari KOL — cukup
+            // id + username, dipakai combobox untuk loncat ke detail.
+            'allKols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']),
             'filters' => $filters,
             'sort' => $sort,
             'dir' => $dir,

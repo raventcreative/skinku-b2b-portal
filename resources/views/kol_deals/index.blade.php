@@ -38,8 +38,16 @@
 </div>
 
 @if($budget)
-    <div class="bg-white rounded-2xl border border-stone-200 p-4 mb-4">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    @php
+        // Utilisasi budget: Spent (lunas) + Committed (belum lunas) terhadap cap.
+        $cap = max(1, (float) $budget['budget']);
+        $spentPct = (int) min(100, round($budget['spent'] / $cap * 100));
+        $commitPct = (int) min(100 - $spentPct, round($budget['committed'] / $cap * 100));
+        $terpakaiPct = (int) round(($budget['spent'] + $budget['committed']) / $cap * 100);
+    @endphp
+    <div class="mb-4 space-y-3">
+        {{-- Header + setelan cap/anchor --}}
+        <div class="flex flex-wrap items-center justify-between gap-2">
             <p class="text-sm font-semibold text-stone-700">Budget {{ now()->translatedFormat('F Y') }}</p>
             <form method="POST" action="{{ route('kol-deals.budget') }}" class="flex items-center gap-1 text-xs">
                 @csrf
@@ -50,18 +58,52 @@
                 <button class="text-indigo-600 hover:underline">simpan</button>
             </form>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            <div><p class="text-xs text-stone-500">Spent (lunas)</p><p class="font-bold text-stone-800">{{ $rp($budget['spent']) }}</p></div>
-            <div><p class="text-xs text-stone-500">Committed</p><p class="font-bold text-stone-800">{{ $rp($budget['committed']) }}</p></div>
-            <div><p class="text-xs text-stone-500">Sisa (dari {{ $rp($budget['budget']) }})</p><p class="font-bold {{ $budget['sisa'] < 0 ? 'text-rose-600' : 'text-emerald-600' }}">{{ $rp($budget['sisa']) }}</p></div>
-            <div><p class="text-xs text-stone-500">Blended CPM paid</p><p class="font-bold {{ $budget['overAnchor'] ? 'text-rose-600' : 'text-stone-800' }}">{{ $budget['cpm'] !== null ? $rp($budget['cpm']) : '—' }}</p><p class="text-[10px] text-stone-400">anchor {{ $rp($budget['anchor']) }}</p></div>
-        </div>
-        @if($budget['overConcentration'] || $budget['overAnchor'])
-            <div class="mt-3 flex flex-wrap gap-2">
-                @if($budget['overConcentration'])<span class="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-700">⚠ 1 KOL menyerap {{ $budget['topSharePct'] }}% budget</span>@endif
-                @if($budget['overAnchor'])<span class="text-[11px] px-2 py-1 rounded-full bg-rose-100 text-rose-700">⚠ CPM paid di atas anchor</span>@endif
+
+        {{-- Kartu-kotak terpisah per metrik (gaya laporan Iyuro) --}}
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">Budget bulan ini</p>
+                <p class="text-xl font-bold text-stone-800 mt-1">{{ $rp($budget['budget']) }}</p>
             </div>
-        @endif
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">Spent (lunas)</p>
+                <p class="text-xl font-bold text-stone-800 mt-1">{{ $rp($budget['spent']) }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">Committed (belum lunas)</p>
+                <p class="text-xl font-bold text-amber-600 mt-1">{{ $rp($budget['committed']) }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">Sisa</p>
+                <p class="text-xl font-bold {{ $budget['sisa'] < 0 ? 'text-rose-600' : 'text-emerald-600' }} mt-1">{{ $rp($budget['sisa']) }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">Blended CPM paid</p>
+                <p class="text-xl font-bold {{ $budget['overAnchor'] ? 'text-rose-600' : 'text-stone-800' }} mt-1">{{ $budget['cpm'] !== null ? $rp($budget['cpm']) : '—' }}</p>
+                <p class="text-[10px] text-stone-400">anchor {{ $rp($budget['anchor']) }}</p>
+            </div>
+        </div>
+
+        {{-- Bar utilisasi: merah = lunas, amber = committed, sisanya kosong --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="text-stone-500">Terpakai {{ $terpakaiPct }}% dari {{ $rp($budget['budget']) }}</span>
+                <span class="flex items-center gap-3 text-[10px] text-stone-500">
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-red-500 inline-block"></span>Lunas</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block"></span>Committed</span>
+                </span>
+            </div>
+            <div class="h-2.5 w-full bg-stone-100 rounded-full overflow-hidden flex">
+                <div class="h-full bg-red-500" style="width: {{ $spentPct }}%"></div>
+                <div class="h-full bg-amber-400" style="width: {{ $commitPct }}%"></div>
+            </div>
+            @if($budget['overConcentration'] || $budget['overAnchor'])
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @if($budget['overConcentration'])<span class="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-700">⚠ 1 KOL menyerap {{ $budget['topSharePct'] }}% budget</span>@endif
+                    @if($budget['overAnchor'])<span class="text-[11px] px-2 py-1 rounded-full bg-rose-100 text-rose-700">⚠ CPM paid di atas anchor</span>@endif
+                </div>
+            @endif
+        </div>
     </div>
 @endif
 

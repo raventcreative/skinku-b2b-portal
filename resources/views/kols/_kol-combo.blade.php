@@ -7,6 +7,7 @@
     $selected = $selected ?? null;
     $selectedLabel = $selectedLabel ?? null;
     $placeholder = $placeholder ?? '🔎 ketik / pilih KOL…';
+    $atPrefix = $atPrefix ?? true;   // tampilkan "@username"; false = username polos
 @endphp
 <div id="{{ $comboId }}" class="skinku-combo relative mt-1">
     <input type="hidden" name="{{ $name }}" value="{{ $selected }}" class="combo-value">
@@ -15,7 +16,7 @@
     <div class="combo-list hidden absolute z-30 mt-1 w-full max-h-56 overflow-auto bg-white border border-stone-200 rounded-lg shadow-lg text-sm">
         @foreach($kols as $k)
             <div class="combo-opt px-3 py-1.5 hover:bg-stone-100 cursor-pointer" data-value="{{ $k->id }}"
-                data-median="{{ $k->relationLoaded('latestScreening') && $k->latestScreening ? (int) $k->latestScreening->median_views : 0 }}">{{ '@'.$k->tiktok_username }}</div>
+                data-median="{{ $k->relationLoaded('latestScreening') && $k->latestScreening ? (int) $k->latestScreening->median_views : 0 }}">{{ ($atPrefix ? '@' : '').$k->tiktok_username }}</div>
         @endforeach
     </div>
 </div>

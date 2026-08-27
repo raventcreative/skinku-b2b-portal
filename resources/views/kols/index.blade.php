@@ -23,6 +23,14 @@
     };
 @endphp
 
+{{-- Kotak cari KOL: ketik + pilih dalam 1 field → langsung loncat ke detail KOL. --}}
+<div class="bg-white rounded-2xl border border-stone-200 p-4 mb-4 max-w-md">
+    <label class="block">
+        <span class="text-xs font-semibold text-stone-600">Cari KOL</span>
+        @include('kols._kol-combo', ['kols' => $allKols, 'name' => 'cari_kol_id', 'id' => 'cariKolCombo', 'atPrefix' => false, 'placeholder' => '🔎 ketik username / pilih → buka detail…'])
+    </label>
+</div>
+
 <div class="flex flex-wrap items-center gap-3 mb-4">
     <form method="GET" class="flex flex-wrap items-center gap-2 text-xs">
         <select name="level" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
@@ -256,4 +264,14 @@
     }
 </script>
 @endif
+
+<script>
+    // Kotak cari KOL: pilih dari combobox → langsung buka halaman detail KOL.
+    (function () {
+        var combo = document.getElementById('cariKolCombo');
+        if (combo) combo.addEventListener('combo:select', function (e) {
+            if (e.detail.value) window.location = '{{ url('/kols') }}/' + e.detail.value;
+        });
+    })();
+</script>
 @endsection
