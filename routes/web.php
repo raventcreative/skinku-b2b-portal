@@ -19,6 +19,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\JaringanSayaController;
 use App\Http\Controllers\JoinPackageController;
 use App\Http\Controllers\KanbanController;
+use App\Http\Controllers\KolContentController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDealController;
 use App\Http\Controllers\KolImportController;
@@ -343,6 +344,18 @@ Route::middleware(['auth', 'role'])->group(function () {
 
         // Reminder KOL — agregat pipeline (baca-saja).
         Route::get('/kol-reminder', [KolReminderController::class, 'index'])->name('kol-reminder.index');
+
+        // Konten & Views KOL — arsip konten + snapshot views bertanggal.
+        Route::get('/kol-konten', [KolContentController::class, 'index'])->name('kol-konten.index');
+        Route::middleware('permission:kol.content.manage')->group(function () {
+            Route::get('/kol-konten/create', [KolContentController::class, 'create'])->name('kol-konten.create');
+            Route::post('/kol-konten', [KolContentController::class, 'store'])->name('kol-konten.store');
+            Route::post('/kol-konten/oembed', [KolContentController::class, 'oembed'])->name('kol-konten.oembed');
+            Route::post('/kol-konten/target', [KolContentController::class, 'updateTarget'])->name('kol-konten.target');
+            Route::get('/kol-konten/{content}/edit', [KolContentController::class, 'edit'])->name('kol-konten.edit');
+            Route::put('/kol-konten/{content}', [KolContentController::class, 'update'])->name('kol-konten.update');
+            Route::delete('/kol-konten/{content}', [KolContentController::class, 'destroy'])->name('kol-konten.destroy');
+        });
     });
 
     // Deal KOL: gated kol.deal.manage SAJA (bukan kol.view) — penyetuju (admin)
