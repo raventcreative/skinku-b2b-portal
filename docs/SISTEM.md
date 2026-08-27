@@ -521,6 +521,19 @@ Menu KOL = **grup accordion**: Database KOL · Pipeline · Konten & Views · Rem
 
 **Izin baru:** `kol.pipeline.manage`, `kol.content.manage` (default `kol_specialist`).
 
+### Sub-menu KOL Fase 2 — Deal & Budget
+
+`KolBudgetService` di atas `kol_deals` (tanpa tabel/izin baru): panel budget bulanan di halaman Deal (finance-gated) — **spent** (deal lunas) / **committed** (aktif belum lunas) / **sisa** (dari cap `kol_budget_monthly`); **blended CPM paid** = biaya deal ÷ views konten paid (Fase 1) vs `kol_cpm_anchor`; warning 1-KOL>40%. Reminder tagihan deal belum lunas ikut di halaman Reminder.
+
+### Sub-menu KOL Fase 3 — Affiliate & GMV · Skor · Agen (migrasi 000101)
+
+Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/specs/2026-08-27-kol-fase3-*`.
+- **3a Affiliate & GMV** — `kol_affiliate_transactions` (unique platform+order_id, kol_id null=belum cocok) + `KolAffiliateService` (import dedup/match, ranking bulanan kecuali batal, weeklyGmv, unmatched, apsInput). Halaman ranking GMV/komisi/order + layar **Belum Cocok** (tautkan username→KOL). **Import XLSX/CSV** auto-map header (reuse `SpreadsheetReader`). Izin `kol.affiliate.view` (angka uang) + `kol.affiliate.manage` (import/cocok).
+- **3b Skor** — `App\Support\KolMetrics` (cpm/ecpm/rpm/roas/growthVelocity/consistency/median/pace) + `KolScoringService` (**APS** 4-mingguan: growth 35%+RPM 25%+konsistensi 20%+skala 20%, reweight bila views null, cap 40 bila 2mgg no-post, label ≥75 bina/≥50 pantau/<50 nurture · **KSS** kalkulator seleksi: eCPM 35%+ER 20%+niche 20%+riwayat 15%+kesiapan 10%, ≥70 shortlist/≥50 nego/<50 tolak). KSS di menu **Skor**; APS jadi kolom di ranking affiliate.
+- **3c Agen** — endpoint `POST /api/kol-agent/affiliate` (header `X-Agent-Token`, CSRF-exclude, source=agent) untuk app lokal setor transaksi hasil scrape. Token `KOL_AGENT_TOKEN`.
+
+**Izin baru:** `kol.affiliate.view`, `kol.affiliate.manage`.
+
 ---
 
 ## 16. Report Bot (Telegram)
@@ -676,7 +689,7 @@ Dari `app/Support/Permissions.php`. super_admin selalu punya semua (terkunci). D
 | `okr.view` / `okr.manage` | staf/internal | OKR |
 | `kanban.view` | internal | Kanban |
 | `mindmap.view` | internal | Mindmap |
-| `kol.view` / `kol.screening.manage` / `kol.deal.manage` / `kol.deal.approve` / `kol.deal.finance` / `kol.report.view` / `kol.pipeline.manage` / `kol.content.manage` | kol_specialist (+admin) | KOL |
+| `kol.view` / `kol.screening.manage` / `kol.deal.manage` / `kol.deal.approve` / `kol.deal.finance` / `kol.report.view` / `kol.pipeline.manage` / `kol.content.manage` / `kol.affiliate.view` / `kol.affiliate.manage` | kol_specialist (+admin) | KOL |
 | `use_ai_assistant` | staf + mitra | AI Assistant |
 | `view_learning` / `manage_learning` | luas / admin | SKINKU Academy |
 | `system_settings` | admin | Pengaturan sistem (termasuk Report Bot) |
@@ -703,8 +716,9 @@ Dari `app/Support/Permissions.php`. super_admin selalu punya semua (terkunci). D
 - **`000093`–`000095`** — **Shopee Fase 2-4**: returns (`000093`), settlements (`000094`), accounting/wallet (`000095`).
 - **`000096`–`000098`** — retur detail: `from_customer` (`000096`), `credit_amount` + backfill (`000097`/`000098`).
 - **`000099`–`000100`** — **Sub-menu KOL Fase 1**: pipeline cards/events (`000099`), konten + snapshot views (`000100`).
+- **`000101`** — **Sub-menu KOL Fase 3a**: transaksi affiliate (GMV/komisi per order).
 
-Migrasi tertinggi saat ini: **`000100`**.
+Migrasi tertinggi saat ini: **`000101`**.
 
 ---
 
