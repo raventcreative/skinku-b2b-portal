@@ -20,6 +20,7 @@ use App\Http\Controllers\JaringanSayaController;
 use App\Http\Controllers\JoinPackageController;
 use App\Http\Controllers\KanbanController;
 use App\Http\Controllers\KolAffiliateController;
+use App\Http\Controllers\KolAgentController;
 use App\Http\Controllers\KolContentController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDealController;
@@ -80,6 +81,15 @@ Route::middleware('guest')->group(function () {
 | dikecualikan dari CSRF di bootstrap/app.php.
 */
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
+
+/*
+|--------------------------------------------------------------------------
+| Agen scraper KOL (Fase 3c) — app lokal setor transaksi affiliate
+|--------------------------------------------------------------------------
+| Auth via header X-Agent-Token (config services.kol_agent.token), bukan sesi
+| web. CSRF dikecualikan di bootstrap/app.php (api/kol-agent/*).
+*/
+Route::post('/api/kol-agent/affiliate', [KolAgentController::class, 'affiliate'])->name('kol-agent.affiliate');
 
 Route::get('/', fn () => redirect()->route('dashboard'));
 

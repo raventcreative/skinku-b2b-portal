@@ -113,6 +113,13 @@ return [
         ],
     ],
 
+    // Agen scraper KOL (Fase 3c): app lokal Iyuro/skinku setor transaksi affiliate
+    // ke portal via endpoint bertoken. Token WAJIB di .env server (KOL_AGENT_TOKEN)
+    // — jangan commit; kosong = endpoint agen mati (401).
+    'kol_agent' => [
+        'token' => env('KOL_AGENT_TOKEN'),
+    ],
+
     // Report Bot Telegram (webhook + notifikasi laporan via chat). Token &
     // webhook secret WAJIB diisi di .env server — jangan pernah commit.
     // webhook_secret dipakai TelegramWebhookController untuk verifikasi

@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // TelegramWebhookController, bukan oleh CSRF.
         $middleware->validateCsrfTokens(except: [
             'telegram/webhook',
+            'api/kol-agent/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -19,7 +19,7 @@ class KolAffiliateService
      * @param  array<int,array{order_id?:mixed,username?:mixed,gmv?:mixed,commission?:mixed,qty?:mixed,product?:mixed,status?:mixed,order_date?:mixed}>  $rows
      * @return array{imported:int,matched:int,unmatched:int}
      */
-    public function import(array $rows, string $platform, int $actorId, string $source = 'import'): array
+    public function import(array $rows, string $platform, ?int $actorId, string $source = 'import'): array
     {
         $imported = $matched = $unmatched = 0;
 
