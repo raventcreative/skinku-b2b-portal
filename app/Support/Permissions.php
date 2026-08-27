@@ -49,6 +49,8 @@ class Permissions
         'kol.deal.manage' => 'Kelola Deal KOL (buat/edit/hapus/urus)',
         'kol.deal.approve' => 'Setujui/Tolak Deal KOL (penyetuju — bukan pengaju)',
         'kol.deal.finance' => 'Finansial Deal KOL (biaya, status bayar, rekening)',
+        'kol.pipeline.manage' => 'Kelola Pipeline KOL (kartu scouting)',
+        'kol.content.manage' => 'Kelola Konten & Views KOL',
         'kol.report.view' => 'Laporan KOL (fase berikutnya)',
         'kanban.view' => 'Papan Kanban (tugas tim ala Trello)',
         'mindmap.view' => 'Mindmaps (kanvas ide & diagram)',
@@ -106,6 +108,8 @@ class Permissions
         // selalu); kol_specialist sengaja TIDAK dapat (pengaju ≠ penyetuju).
         'kol.deal.approve' => [User::ROLE_ADMIN],
         'kol.deal.finance' => [],
+        'kol.pipeline.manage' => ['kol_specialist'],
+        'kol.content.manage' => ['kol_specialist'],
         'kol.report.view' => [],
         // Dipakai SEMUA tim internal (klarifikasi Freddie) — admin, gudang,
         // kol_specialist dapat default; role dinamis lain via matriks. Mitra
