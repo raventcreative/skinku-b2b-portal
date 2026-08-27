@@ -112,7 +112,15 @@
     {{-- Grafik --}}
     <div class="grid lg:grid-cols-2 gap-4">
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
-            <p class="text-sm font-semibold text-stone-700 mb-2">Views kumulatif (konten tayang)</p>
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-semibold text-stone-700">Views kumulatif (konten tayang)</p>
+                {{-- Legend HTML (bukan di canvas) biar teks tajam. --}}
+                <div class="flex items-center gap-3 text-[11px] text-stone-500">
+                    <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded-sm" style="background:#dc2626"></span>Paid</span>
+                    <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded-sm" style="background:#059669"></span>Earned</span>
+                    <span class="flex items-center gap-1"><span class="inline-block w-3 border-t border-dashed border-stone-400"></span>Target</span>
+                </div>
+            </div>
             <div class="relative h-64"><canvas id="chartViews"></canvas></div>
         </div>
         @if(!empty($chart['gmvWeeks']))
@@ -142,7 +150,7 @@
                 { label: 'Earned', data: c.cumEarned, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,.08)', fill: true, tension: .3, spanGaps: false, pointRadius: 0 },
                 { label: 'Target', data: c.target, borderColor: '#a8a29e', borderDash: [5,4], fill: false, pointRadius: 0 },
             ]},
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 }, maxTicksLimit: 8 } } } }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 }, maxTicksLimit: 8 } } } }
         });
         var gctx = document.getElementById('chartGmv');
         if (gctx && c.gmvWeeks && c.gmvWeeks.length) new Chart(gctx, {
