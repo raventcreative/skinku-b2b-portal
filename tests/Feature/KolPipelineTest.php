@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Kol;
+use App\Models\KolDeal;
 use App\Models\KolPipelineCard;
 use App\Models\User;
+use App\Services\KolAffiliateService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -120,5 +122,22 @@ class KolPipelineTest extends TestCase
         $res = $this->actingAs($spec)->get(route('kol-reminder.index'))->assertOk();
         $rows = $res->viewData('rows');
         $this->assertSame([$late->id, $due->id, $noAction->id], $rows->pluck('id')->all()); // drop TIDAK ikut
+    }
+
+    public function test_reminder_deadline_posting_dan_affiliate_churn(): void
+    {
+        $root = $this->user(User::ROLE_SUPER_ADMIN, 'root2'); // punya semua izin
+
+        // Deal berjalan, tenggat besok, TANPA konten → deadline posting.
+        $kolA = $this->kol();
+        KolDeal::create(['kode' => 'RD1', 'kol_id' => $kolA->id, 'jenis' => 'vt', 'status' => 'berjalan', 'periode_selesai' => now()->addDay()->toDateString()]);
+
+        // Affiliate order 5 hari lalu, tak ada konten 14 hari terakhir → churn.
+        $kolB = $this->kol();
+        app(KolAffiliateService::class)->import([['order_id' => 'RC1', 'username' => $kolB->tiktok_username, 'gmv' => 100_000, 'order_date' => now()->subDays(5)->toDateString()]], 'tiktok', $root->id);
+
+        $res = $this->actingAs($root)->get(route('kol-reminder.index'))->assertOk();
+        $this->assertCount(1, $res->viewData('postingDue'));
+        $this->assertTrue($res->viewData('churn')->contains('id', $kolB->id));
     }
 }

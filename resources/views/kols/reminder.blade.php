@@ -64,6 +64,36 @@
         </div>
     @endif
 
-    <p class="text-[11px] text-stone-400">Sumber berikutnya (fase depan): deadline posting, affiliate berhenti posting.</p>
+    {{-- Deadline posting: deal berjalan tanpa konten --}}
+    @if($postingDue->isNotEmpty())
+        <div class="pt-2">
+            <p class="text-sm font-semibold text-stone-700 mb-2">📹 Deal berjalan belum ada konten</p>
+            <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden divide-y divide-stone-100">
+                @foreach($postingDue as $d)
+                    <div class="flex items-center justify-between gap-3 px-4 py-3">
+                        <div class="min-w-0">
+                            <a href="{{ route('kol-deals.edit', $d) }}" class="text-sm font-semibold text-indigo-600 hover:underline">{{ '@'.$d->kol->tiktok_username }}</a>
+                            <span class="ml-2 text-[10px] uppercase tracking-wide text-stone-400">{{ $d->kode }} · {{ $d->jenis }}</span>
+                        </div>
+                        <p class="text-xs {{ $d->periode_selesai->lt($today) ? 'text-rose-600 font-medium' : 'text-amber-600' }} shrink-0">tenggat {{ $d->periode_selesai->format('d M Y') }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    {{-- Affiliate berhenti posting --}}
+    @if($churn->isNotEmpty())
+        <div class="pt-2">
+            <p class="text-sm font-semibold text-stone-700 mb-2">💤 Affiliate berhenti posting (≥ 2 minggu)</p>
+            <div class="bg-white rounded-2xl border border-stone-200 p-3 flex flex-wrap gap-2">
+                @foreach($churn as $k)
+                    <a href="{{ route('kols.show', $k->id) }}" class="text-xs px-3 py-1.5 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200">{{ '@'.$k->tiktok_username }}</a>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    <p class="text-[11px] text-stone-400">Reminder tarik dari: pipeline, pembayaran deal, deadline posting deal, dan affiliate berhenti posting.</p>
 </div>
 @endsection

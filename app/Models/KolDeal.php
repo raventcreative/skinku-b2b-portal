@@ -128,6 +128,12 @@ class KolDeal extends Model
         return $this->belongsTo(Kol::class);
     }
 
+    /** Konten yang terkait deal ini — dipakai reminder "deal belum posting". */
+    public function contents()
+    {
+        return $this->hasMany(KolContent::class, 'kol_deal_id');
+    }
+
     public function pic()
     {
         return $this->belongsTo(User::class, 'pic_user_id');

@@ -114,4 +114,10 @@ class Kol extends Model
     {
         return $this->hasOne(KolPipelineCard::class)->where('track', KolPipelineCard::TRACK_KOL);
     }
+
+    /** Konten arsip KOL — dipakai reminder "affiliate berhenti posting". */
+    public function contents()
+    {
+        return $this->hasMany(KolContent::class);
+    }
 }
