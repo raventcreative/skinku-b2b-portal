@@ -68,6 +68,10 @@
         </details>
     @endif
 
+    @if($u->canDo('kol.pipeline.manage'))
+        <p class="text-[11px] text-stone-400">💡 <b>Seret</b> kartu antar kolom untuk pindah stage — atau pakai tombol "Pindah / aksi" di kartu.</p>
+    @endif
+
     {{-- Papan kanban --}}
     <div class="flex gap-3 overflow-x-auto pb-4">
         @foreach($stages as $stage)
@@ -77,13 +81,13 @@
                     <span class="text-xs font-bold uppercase tracking-wide text-stone-500">{{ $labels[$stage] }}</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">{{ $cards->count() }}</span>
                 </div>
-                <div class="space-y-2">
+                <div class="space-y-2 kanban-col min-h-[56px] rounded-lg transition" data-stage="{{ $stage }}">
                     @foreach($cards as $c)
                         @php
                             $late = $c->isActive() && $c->next_action_at && $c->next_action_at->lt($today);
                             $soon = $c->isActive() && $c->next_action_at && $c->next_action_at->between($today, $today->copy()->addDay()->endOfDay());
                         @endphp
-                        <div id="card-{{ $c->id }}" class="bg-white rounded-xl border border-stone-200 p-3 space-y-1.5">
+                        <div id="card-{{ $c->id }}" data-card-id="{{ $c->id }}" @if($u->canDo('kol.pipeline.manage')) draggable="true" @endif class="bg-white rounded-xl border border-stone-200 p-3 space-y-1.5 {{ $u->canDo('kol.pipeline.manage') ? 'cursor-move' : '' }}">
                             <div class="flex items-start justify-between gap-2">
                                 <a href="{{ route('kols.show', $c->kol_id) }}" class="text-sm font-semibold text-indigo-600 hover:underline">{{ '@'.$c->kol->tiktok_username }}</a>
                                 @if($c->followup_count > 0)
@@ -140,4 +144,32 @@
         @endforeach
     </div>
 </div>
+
+@if($u->canDo('kol.pipeline.manage'))
+<script>
+    // Drag-and-drop kartu antar kolom → PATCH pindah stage (endpoint yang sama
+    // dengan dropdown "Pindah / aksi"), lalu reload.
+    (function () {
+        var dragId = null;
+        document.querySelectorAll('[data-card-id][draggable=true]').forEach(function (card) {
+            card.addEventListener('dragstart', function (e) { dragId = card.getAttribute('data-card-id'); e.dataTransfer.effectAllowed = 'move'; card.classList.add('opacity-40'); });
+            card.addEventListener('dragend', function () { card.classList.remove('opacity-40'); });
+        });
+        document.querySelectorAll('.kanban-col').forEach(function (col) {
+            col.addEventListener('dragover', function (e) { e.preventDefault(); col.classList.add('bg-stone-100'); });
+            col.addEventListener('dragleave', function () { col.classList.remove('bg-stone-100'); });
+            col.addEventListener('drop', function (e) {
+                e.preventDefault(); col.classList.remove('bg-stone-100');
+                if (!dragId) return;
+                fetch('{{ url('/kol-pipeline') }}/' + dragId + '/stage', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                    body: JSON.stringify({ stage: col.getAttribute('data-stage') })
+                }).then(function (r) { if (r.ok || r.redirected) location.reload(); else alert('Gagal memindahkan kartu.'); })
+                  .catch(function () { alert('Gagal memindahkan kartu.'); });
+            });
+        });
+    })();
+</script>
+@endif
 @endsection
