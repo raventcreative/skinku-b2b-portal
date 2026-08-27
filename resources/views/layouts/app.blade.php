@@ -512,6 +512,20 @@
     if (window.GLightbox) {
         window.skinkuLightbox = GLightbox({ selector: '.glightbox', loop: true, touchNavigation: true });
     }
+    // Searchable native <select>: kotak cari <input data-select-search="targetId">
+    // menyaring <option> berdasarkan teks (untuk daftar panjang spt KOL). Tetap
+    // native (bukan datalist) — sesuai preferensi, tanpa autofill Chrome berantakan.
+    document.querySelectorAll('[data-select-search]').forEach(function (input) {
+        var sel = document.getElementById(input.getAttribute('data-select-search'));
+        if (!sel) return;
+        input.addEventListener('input', function () {
+            var q = input.value.trim().toLowerCase();
+            Array.prototype.forEach.call(sel.options, function (o) {
+                if (o.value === '' || o.dataset.keep === '1') return; // placeholder selalu tampil
+                o.hidden = q !== '' && o.textContent.toLowerCase().indexOf(q) === -1;
+            });
+        });
+    });
 </script>
 @stack('scripts')
 </body>

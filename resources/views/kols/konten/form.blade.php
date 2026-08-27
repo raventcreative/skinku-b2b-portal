@@ -18,6 +18,8 @@
             <div class="grid sm:grid-cols-2 gap-3 text-sm">
                 <label class="block">
                     <span class="text-xs font-semibold text-stone-600">KOL</span>
+                    <input type="text" data-select-search="kolSelect" placeholder="🔎 ketik untuk cari…"
+                        class="mt-1 w-full px-3 py-1.5 border border-stone-300 rounded-lg text-xs">
                     <select name="kol_id" id="kolSelect" required class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg bg-white">
                         <option value="">— pilih KOL —</option>
                         @foreach($kols as $k)
