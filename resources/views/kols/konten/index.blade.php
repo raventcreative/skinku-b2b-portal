@@ -22,7 +22,10 @@
             <a href="{{ route('kol-konten.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
         </div>
         @if($canManage)
-            <a href="{{ route('kol-konten.create') }}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">+ Tambah konten</a>
+            <div class="flex gap-2">
+                <a href="{{ route('kol-konten.grid', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">Isi views massal</a>
+                <a href="{{ route('kol-konten.create') }}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">+ Tambah konten</a>
+            </div>
         @endif
     </div>
 

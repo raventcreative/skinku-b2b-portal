@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AppSetting;
 use App\Models\Kol;
 use App\Models\KolContent;
+use App\Models\KolContentSnapshot;
 use App\Models\KolDeal;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
@@ -113,11 +114,57 @@ class KolContentController extends Controller
         return back()->with('status', 'Target views disimpan.');
     }
 
+    /** Grid isi views massal — semua konten bulan sebagai baris input. */
+    public function grid(Request $request)
+    {
+        $month = $this->month($request);
+        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+
+        return view('kols.konten.grid', [
+            'month' => $month,
+            'contents' => KolContent::with(['kol', 'latestSnapshot'])
+                ->whereBetween('posted_at', [$start, $start->copy()->endOfMonth()])
+                ->orderBy('kol_id')->orderByDesc('posted_at')->get(),
+        ]);
+    }
+
+    public function gridSave(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'rows' => ['required', 'array'],
+            'rows.*.id' => ['required', 'integer', 'exists:kol_contents,id'],
+            'rows.*.views' => ['nullable', 'integer', 'min:0'],
+            'rows.*.likes' => ['nullable', 'integer', 'min:0'],
+            'rows.*.comments' => ['nullable', 'integer', 'min:0'],
+            'rows.*.shares' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        // Carbon startOfDay (bukan string Y-m-d) supaya cocok dgn nilai tersimpan
+        // saat updateOrCreate — kalau string, unique(kol_content_id,captured_on) meleset.
+        $today = now()->startOfDay();
+        $saved = 0;
+        foreach ($data['rows'] as $row) {
+            if (($row['views'] ?? null) === null) {
+                continue; // baris kosong dilewati
+            }
+            KolContentSnapshot::updateOrCreate(
+                ['kol_content_id' => $row['id'], 'captured_on' => $today],
+                ['views' => $row['views'], 'likes' => $row['likes'] ?? null,
+                    'comments' => $row['comments'] ?? null, 'shares' => $row['shares'] ?? null,
+                    'source' => 'manual', 'created_by' => $request->user()->id],
+            );
+            $saved++;
+        }
+
+        return redirect()->route('kol-konten.index', ['bulan' => $this->month($request)])
+            ->with('status', "{$saved} snapshot views tersimpan (".now()->format('d M').').');
+    }
+
     // ---- internal ----
 
     private function month(Request $request): string
     {
-        $m = (string) $request->query('bulan', now()->format('Y-m'));
+        $m = (string) $request->input('bulan', now()->format('Y-m'));
 
         return preg_match('/^\d{4}-\d{2}$/', $m) ? $m : now()->format('Y-m');
     }

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Kol;
 use App\Models\KolContent;
+use App\Models\KolContentSnapshot;
 use App\Models\KolDeal;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,5 +72,28 @@ class KolContentTest extends TestCase
         // URL non-tiktok ditolak tanpa fetch.
         $this->actingAs($spec)->post(route('kol-konten.oembed'), ['url' => 'https://evil.com/x'])
             ->assertStatus(422);
+    }
+
+    public function test_grid_massal_snapshot_dan_replace_hari_sama(): void
+    {
+        $spec = $this->user('kol_specialist', 'ks3');
+        $kol = $this->kol();
+        $c1 = KolContent::create(['kol_id' => $kol->id, 'url' => 'https://www.tiktok.com/@x/video/11', 'label' => 'earned', 'posted_at' => now()->toDateString()]);
+        $c2 = KolContent::create(['kol_id' => $kol->id, 'url' => 'https://www.tiktok.com/@x/video/12', 'label' => 'earned', 'posted_at' => now()->toDateString()]);
+
+        $this->actingAs($spec)->get(route('kol-konten.grid'))->assertOk()->assertSee('Isi Views Massal');
+
+        $this->actingAs($spec)->post(route('kol-konten.grid.save'), ['rows' => [
+            ['id' => $c1->id, 'views' => 1000, 'likes' => 50],
+            ['id' => $c2->id, 'views' => null],                    // kosong = dilewati
+        ]])->assertRedirect();
+        $this->assertSame(1, KolContentSnapshot::count());
+
+        // Submit ulang hari sama dgn angka baru → replace, tetap 1 baris.
+        $this->actingAs($spec)->post(route('kol-konten.grid.save'), ['rows' => [
+            ['id' => $c1->id, 'views' => 4000],
+        ]])->assertRedirect();
+        $this->assertSame(1, KolContentSnapshot::count());
+        $this->assertSame(4000, (int) $c1->refresh()->latestSnapshot->views);
     }
 }
