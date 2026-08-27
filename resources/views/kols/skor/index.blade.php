@@ -64,13 +64,7 @@
                     @csrf
                     <label class="block">
                         <span class="text-xs font-semibold text-stone-600">KOL (opsional — auto-isi median)</span>
-                        <input type="text" data-select-search="kssKol" placeholder="🔎 cari…" class="mt-1 w-full px-3 py-1.5 border border-stone-300 rounded-lg text-xs">
-                        <select id="kssKol" name="kol_id" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg bg-white">
-                            <option value="">— manual —</option>
-                            @foreach($kols as $k)
-                                <option value="{{ $k->id }}" data-median="{{ (int) ($k->latestScreening->median_views ?? 0) }}" @selected(old('kol_id', $old['kol_id'] ?? null) == $k->id)>{{ '@'.$k->tiktok_username }}</option>
-                            @endforeach
-                        </select>
+                        @include('kols._kol-combo', ['kols' => $kols, 'name' => 'kol_id', 'id' => 'kssKolCombo', 'placeholder' => '🔎 ketik / pilih (opsional)…'])
                     </label>
                     <div class="grid grid-cols-2 gap-3">
                         <label class="block"><span class="text-xs font-semibold text-stone-600">Ratecard (Rp)</span><input type="number" name="rate" min="0" value="{{ old('rate', $old['rate'] ?? '') }}" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg"></label>
@@ -125,9 +119,9 @@
         });
     }
     (function () {
-        var sel = document.getElementById('kssKol'), med = document.getElementById('kssMedian');
-        if (sel && med) sel.addEventListener('change', function () {
-            var o = sel.options[sel.selectedIndex]; var m = o ? parseInt(o.getAttribute('data-median') || '0', 10) : 0;
+        var combo = document.getElementById('kssKolCombo'), med = document.getElementById('kssMedian');
+        if (combo && med) combo.addEventListener('combo:select', function (e) {
+            var m = parseInt(e.detail.option.getAttribute('data-median') || '0', 10);
             if (m > 0) med.value = m;
         });
     })();

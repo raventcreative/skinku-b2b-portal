@@ -18,14 +18,8 @@
             <div class="grid sm:grid-cols-2 gap-3 text-sm">
                 <label class="block">
                     <span class="text-xs font-semibold text-stone-600">KOL</span>
-                    <input type="text" data-select-search="kolSelect" placeholder="🔎 ketik untuk cari…"
-                        class="mt-1 w-full px-3 py-1.5 border border-stone-300 rounded-lg text-xs">
-                    <select name="kol_id" id="kolSelect" required class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg bg-white">
-                        <option value="">— pilih KOL —</option>
-                        @foreach($kols as $k)
-                            <option value="{{ $k->id }}" @selected(old('kol_id', $content->kol_id) == $k->id)>{{ '@'.$k->tiktok_username }}</option>
-                        @endforeach
-                    </select>
+                    @php $selKol = old('kol_id', $content->kol_id); @endphp
+                    @include('kols._kol-combo', ['kols' => $kols, 'name' => 'kol_id', 'id' => 'kontenKolCombo', 'selected' => $selKol, 'selectedLabel' => $selKol ? '@'.optional($kols->firstWhere('id', (int) $selKol))->tiktok_username : null])
                 </label>
                 <label class="block">
                     <span class="text-xs font-semibold text-stone-600">Deal (opsional → jadi paid)</span>
@@ -85,21 +79,22 @@
 </div>
 
 <script>
-    // Filter opsi deal sesuai KOL terpilih (deal harus milik KOL yang sama).
+    // Filter opsi deal sesuai KOL terpilih di combobox (deal harus milik KOL yang sama).
     (function () {
-        var kolSel = document.getElementById('kolSelect');
+        var combo = document.getElementById('kontenKolCombo');
         var dealSel = document.getElementById('dealSelect');
-        function filterDeals() {
-            var kid = kolSel.value;
+        function filterDeals(kid) {
             Array.from(dealSel.options).forEach(function (o) {
                 if (!o.value) return;
-                var show = o.getAttribute('data-kol') === kid;
+                var show = o.getAttribute('data-kol') === String(kid);
                 o.hidden = !show;
                 if (!show && o.selected) { dealSel.value = ''; }
             });
         }
-        kolSel.addEventListener('change', filterDeals);
-        filterDeals();
+        if (combo) {
+            combo.addEventListener('combo:select', function (e) { filterDeals(e.detail.value); });
+            filterDeals(combo.querySelector('.combo-value').value); // initial (edit)
+        }
 
         // Ambil judul via oEmbed (server, host allowlist tiktok.com).
         document.getElementById('fetchTitle').addEventListener('click', function () {

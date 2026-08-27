@@ -42,14 +42,7 @@
                 @csrf
                 <label class="block">
                     <span class="text-xs font-semibold text-stone-600">KOL</span>
-                    <input type="text" data-select-search="pipelineKolSelect" placeholder="🔎 ketik untuk cari…"
-                        class="mt-1 w-full px-3 py-1.5 border border-stone-300 rounded-lg text-xs">
-                    <select id="pipelineKolSelect" name="kol_id" required class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg bg-white">
-                        <option value="">— pilih KOL —</option>
-                        @foreach($kolsTanpaKartu as $k)
-                            <option value="{{ $k->id }}">{{ '@'.$k->tiktok_username }}</option>
-                        @endforeach
-                    </select>
+                    @include('kols._kol-combo', ['kols' => $kolsTanpaKartu, 'name' => 'kol_id', 'id' => 'pipelineKolCombo'])
                 </label>
                 <label class="block">
                     <span class="text-xs font-semibold text-stone-600">Stage awal</span>

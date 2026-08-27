@@ -549,6 +549,28 @@
             });
         });
     });
+
+    // Combobox KOL: 1 field — ketik nyaring + klik pilih → set hidden .combo-value.
+    // Emit 'combo:select' agar logika turunan (median KSS, filter deal) bisa reaksi.
+    document.querySelectorAll('.skinku-combo').forEach(function (combo) {
+        var input = combo.querySelector('.combo-input'), hidden = combo.querySelector('.combo-value'), list = combo.querySelector('.combo-list');
+        var opts = Array.prototype.slice.call(combo.querySelectorAll('.combo-opt'));
+        function openFilter() {
+            var q = input.value.trim().toLowerCase();
+            opts.forEach(function (o) { o.classList.toggle('hidden', q !== '' && o.textContent.toLowerCase().indexOf(q) === -1); });
+            list.classList.remove('hidden');
+        }
+        input.addEventListener('focus', openFilter);
+        input.addEventListener('input', function () { hidden.value = ''; openFilter(); });
+        opts.forEach(function (o) {
+            o.addEventListener('mousedown', function (e) {  // mousedown: jalan sebelum blur
+                e.preventDefault();
+                hidden.value = o.getAttribute('data-value'); input.value = o.textContent; list.classList.add('hidden');
+                combo.dispatchEvent(new CustomEvent('combo:select', { detail: { value: hidden.value, option: o } }));
+            });
+        });
+        input.addEventListener('blur', function () { setTimeout(function () { list.classList.add('hidden'); }, 150); });
+    });
 </script>
 @stack('scripts')
 </body>
