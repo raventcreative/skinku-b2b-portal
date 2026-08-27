@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Kol;
 use App\Services\AuditService;
 use App\Services\KolAffiliateService;
+use App\Services\KolScoringService;
 use App\Support\SpreadsheetReader;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ use Illuminate\Validation\Rule;
  */
 class KolAffiliateController extends Controller
 {
-    public function index(Request $request, KolAffiliateService $svc)
+    public function index(Request $request, KolAffiliateService $svc, KolScoringService $scoring)
     {
         $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
             ? (string) $request->query('bulan') : now()->format('Y-m');
@@ -26,9 +27,14 @@ class KolAffiliateController extends Controller
         $ranking = $svc->monthly($m);
         $unmatched = $svc->unmatched();
 
+        // APS per creator (skor potensi affiliate) — kol_id => hasil aps.
+        $aps = $ranking->mapWithKeys(fn ($r) => [$r->kol_id => $scoring->aps($svc->apsInput((int) $r->kol_id, $m))]);
+
         return view('kols.affiliate.index', [
             'month' => $month,
             'ranking' => $ranking,
+            'aps' => $aps,
+            'apsLabels' => KolScoringService::APS_LABEL,
             'summary' => [
                 'gmv' => (int) $ranking->sum('gmv'),
                 'commission' => (int) $ranking->sum('commission'),

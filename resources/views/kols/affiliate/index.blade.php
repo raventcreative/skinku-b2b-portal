@@ -73,6 +73,7 @@
                         <th class="text-right px-4 py-2.5">GMV</th>
                         <th class="text-right px-4 py-2.5">Order</th>
                         <th class="text-right px-4 py-2.5">Komisi</th>
+                        <th class="text-center px-4 py-2.5">APS</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-stone-100">
@@ -83,9 +84,18 @@
                             <td class="px-4 py-2.5 text-right font-medium text-stone-800">{{ $rp($r->gmv) }}</td>
                             <td class="px-4 py-2.5 text-right text-stone-600">{{ number_format((int) $r->orders, 0, ',', '.') }}</td>
                             <td class="px-4 py-2.5 text-right text-stone-600">{{ $rp($r->commission) }}</td>
+                            <td class="px-4 py-2.5 text-center">
+                                @php $a = $aps[$r->kol_id] ?? null; @endphp
+                                @if($a && $a['status'] === 'scored')
+                                    @php $tone = ['bina_intensif' => 'bg-emerald-100 text-emerald-700', 'pantau' => 'bg-amber-100 text-amber-700', 'nurture' => 'bg-stone-100 text-stone-500'][$a['label']]; @endphp
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full {{ $tone }}" title="{{ $apsLabels[$a['label']] }}">{{ rtrim(rtrim(number_format($a['score'], 1, ',', '.'), '0'), ',') }}</span>
+                                @else
+                                    <span class="text-[10px] text-stone-300">new</span>
+                                @endif
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-4 py-10 text-center text-stone-400 text-sm">Belum ada data affiliate bulan ini. Import dulu dari Affiliate Center.</td></tr>
+                        <tr><td colspan="6" class="px-4 py-10 text-center text-stone-400 text-sm">Belum ada data affiliate bulan ini. Import dulu dari Affiliate Center.</td></tr>
                     @endforelse
                 </tbody>
             </table>

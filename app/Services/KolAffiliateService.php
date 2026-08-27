@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
+use App\Models\KolContent;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -87,6 +88,49 @@ class KolAffiliateService
         return KolAffiliateTransaction::unmatched()->whereNotNull('raw_username')
             ->selectRaw('raw_username, SUM(gmv) as gmv, COUNT(*) as orders')
             ->groupBy('raw_username')->orderByDesc('gmv')->get();
+    }
+
+    /**
+     * Rakit input APS untuk satu KOL di bulan tsb (GMV mingguan dari affiliate +
+     * jumlah konten mingguan & views bulan dari Fase 1). weeksOfData = minggu yang
+     * punya GMV atau konten (paket <4 → "new").
+     *
+     * @return array{weeklyGmv:array<int>,weeklyContent:array<int>,weeksOfData:int,monthGmv:int,monthViews:?int}
+     */
+    public function apsInput(int $kolId, Carbon $month): array
+    {
+        $start = $month->copy()->startOfMonth();
+        $end = $month->copy()->endOfMonth();
+        $upTo = $month->isSameMonth(now()) ? now() : $end->copy();
+
+        $weeklyGmv = $this->weeklyGmv($kolId, $upTo, 4);
+        $weeklyContent = [];
+        for ($i = 3; $i >= 0; $i--) {
+            $ws = $upTo->copy()->subWeeks($i)->startOfWeek();
+            $we = $ws->copy()->endOfWeek();
+            $weeklyContent[] = KolContent::where('kol_id', $kolId)->whereBetween('posted_at', [$ws, $we])->count();
+        }
+
+        $weeksOfData = 0;
+        for ($i = 0; $i < 4; $i++) {
+            if (($weeklyGmv[$i] ?? 0) > 0 || ($weeklyContent[$i] ?? 0) > 0) {
+                $weeksOfData++;
+            }
+        }
+
+        $monthGmv = (int) KolAffiliateTransaction::where('kol_id', $kolId)->notCancelled()
+            ->whereBetween('order_date', [$start, $end])->sum('gmv');
+        $monthViews = (int) KolContent::where('kol_id', $kolId)
+            ->whereBetween('posted_at', [$start, $end])->with('latestSnapshot')->get()
+            ->sum(fn ($c) => (int) ($c->latestSnapshot->views ?? 0));
+
+        return [
+            'weeklyGmv' => $weeklyGmv,
+            'weeklyContent' => $weeklyContent,
+            'weeksOfData' => $weeksOfData,
+            'monthGmv' => $monthGmv,
+            'monthViews' => $monthViews ?: null,
+        ];
     }
 
     /** Tautkan semua transaksi sebuah username ke KOL. Return jumlah baris tertaut. */
