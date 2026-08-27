@@ -300,6 +300,7 @@
                     @if($u->canDo('kol.view'))
                         {!! navItem('kols.index', 'Database KOL', 'kols.*') !!}
                         {!! navItem('kol-pipeline.index', 'Pipeline', 'kol-pipeline.*') !!}
+                        {!! navItem('kol-reminder.index', 'Reminder', 'kol-reminder.*') !!}
                     @endif
                     @if($u->canDo('kol.deal.manage'))
                         {!! navItem('kol-deals.index', 'Deal KOL', 'kol-deals.*') !!}

@@ -105,4 +105,20 @@ class KolPipelineTest extends TestCase
         $this->actingAs($this->user('kol_specialist', 'spec4'))
             ->get(route('dashboard'))->assertSee('Pipeline');
     }
+
+    public function test_reminder_urut_terlambat_dulu(): void
+    {
+        $spec = $this->user('kol_specialist', 'spec5');
+        $late = KolPipelineCard::create(['kol_id' => $this->kol()->id, 'stage' => 'nego',
+            'next_action' => 'Telat', 'next_action_at' => now()->subDays(3)->toDateString()]);
+        $due = KolPipelineCard::create(['kol_id' => $this->kol()->id, 'stage' => 'deal',
+            'next_action' => 'Hari ini', 'next_action_at' => now()->toDateString()]);
+        $noAction = KolPipelineCard::create(['kol_id' => $this->kol()->id, 'stage' => 'kandidat']);
+        KolPipelineCard::create(['kol_id' => $this->kol()->id, 'stage' => 'drop',
+            'next_action' => 'Diparkir', 'next_action_at' => now()->subDays(9)->toDateString()]);
+
+        $res = $this->actingAs($spec)->get(route('kol-reminder.index'))->assertOk();
+        $rows = $res->viewData('rows');
+        $this->assertSame([$late->id, $due->id, $noAction->id], $rows->pluck('id')->all()); // drop TIDAK ikut
+    }
 }
