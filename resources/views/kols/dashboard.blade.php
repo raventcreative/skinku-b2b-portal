@@ -109,10 +109,47 @@
         </div>
     </div>
 
+    {{-- Grafik --}}
+    <div class="grid lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <p class="text-sm font-semibold text-stone-700 mb-2">Views kumulatif (konten tayang)</p>
+            <canvas id="chartViews" height="140"></canvas>
+        </div>
+        @if(!empty($chart['gmvWeeks']))
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-sm font-semibold text-stone-700 mb-2">GMV per minggu</p>
+                <canvas id="chartGmv" height="140"></canvas>
+            </div>
+        @endif
+    </div>
+
     @if($pipeline['terlambat'] > 0 || $pipeline['hariIni'] > 0)
         <a href="{{ route('kol-reminder.index') }}" class="block bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800 hover:bg-amber-100">
             ⏰ Ada <b>{{ $pipeline['terlambat'] }}</b> terlambat & <b>{{ $pipeline['hariIni'] }}</b> jatuh tempo hari ini di pipeline — buka Reminder →
         </a>
     @endif
 </div>
+
+<script>
+    (function () {
+        if (!window.Chart) return;
+        var c = {!! json_encode($chart) !!};
+        var vctx = document.getElementById('chartViews');
+        if (vctx) new Chart(vctx, {
+            type: 'line',
+            data: { labels: c.days, datasets: [
+                { label: 'Paid', data: c.cumPaid, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,.08)', fill: true, tension: .3, spanGaps: false, pointRadius: 0 },
+                { label: 'Earned', data: c.cumEarned, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,.08)', fill: true, tension: .3, spanGaps: false, pointRadius: 0 },
+                { label: 'Target', data: c.target, borderColor: '#a8a29e', borderDash: [5,4], fill: false, pointRadius: 0 },
+            ]},
+            options: { responsive: true, plugins: { legend: { labels: { boxWidth: 12, font: { size: 10 } } } }, scales: { y: { ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 9 }, maxTicksLimit: 8 } } } }
+        });
+        var gctx = document.getElementById('chartGmv');
+        if (gctx && c.gmvWeeks && c.gmvWeeks.length) new Chart(gctx, {
+            type: 'bar',
+            data: { labels: c.gmvWeekLabels, datasets: [{ label: 'GMV', data: c.gmvWeeks, backgroundColor: '#dc2626', borderRadius: 4 }] },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 10 } } } } }
+        });
+    })();
+</script>
 @endsection

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
+use App\Models\KolAffiliateTransaction;
 use App\Models\KolContent;
 use App\Models\KolPipelineCard;
 use App\Services\KolAffiliateService;
@@ -65,7 +66,45 @@ class KolDashboardController extends Controller
             ];
         }
 
+        // Grafik: views kumulatif (paid/earned) per hari + garis target linear.
+        $daysInMonth = now()->daysInMonth;
+        $todayD = now()->day;
+        $byDay = $contents->groupBy(fn ($c) => $c->posted_at->day);
+        $cumPaid = $cumEarned = $targetLine = [];
+        $rP = $rE = 0;
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            if ($d <= $todayD) {
+                foreach ($byDay->get($d, collect()) as $c) {
+                    $vv = (int) ($c->latestSnapshot->views ?? 0);
+                    $c->label === 'paid' ? $rP += $vv : $rE += $vv;
+                }
+                $cumPaid[] = $rP;
+                $cumEarned[] = $rE;
+            } else {
+                $cumPaid[] = null;
+                $cumEarned[] = null;
+            }
+            $targetLine[] = (int) round($target * $d / $daysInMonth);
+        }
+
+        // Grafik GMV mingguan (affiliate.view).
+        $gmvWeeks = $gmvWeekLabels = [];
+        if ($u->canDo('kol.affiliate.view')) {
+            $cur = now()->startOfMonth()->startOfWeek();
+            while ($cur <= $monthEnd) {
+                $we = $cur->copy()->endOfWeek();
+                $gmvWeeks[] = (int) KolAffiliateTransaction::notCancelled()->whereBetween('order_date', [$cur, $we])->sum('gmv');
+                $gmvWeekLabels[] = $cur->format('d M');
+                $cur = $cur->copy()->addWeek();
+            }
+        }
+
         return view('kols.dashboard', [
+            'chart' => [
+                'days' => range(1, $daysInMonth),
+                'cumPaid' => $cumPaid, 'cumEarned' => $cumEarned, 'target' => $targetLine,
+                'gmvWeeks' => $gmvWeeks, 'gmvWeekLabels' => $gmvWeekLabels,
+            ],
             'pipeline' => $pipeline,
             'totalViews' => $totalViews,
             'paidViews' => $paidViews,
