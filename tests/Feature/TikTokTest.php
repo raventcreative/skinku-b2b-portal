@@ -27,6 +27,13 @@ class TikTokTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_tiktok_probe_gagal_anggun_tanpa_koneksi(): void
+    {
+        // Command diagnostik affiliate/scope: tanpa koneksi TikTok harus keluar
+        // rapi (exit 1), bukan melempar exception.
+        $this->artisan('tiktok:probe')->assertExitCode(1);
+    }
+
     private function user(string $role): User
     {
         static $n = 0;
