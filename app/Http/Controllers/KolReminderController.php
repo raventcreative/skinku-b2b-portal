@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\KolPipelineCard;
+use App\Services\KolBudgetService;
+use Illuminate\Http\Request;
 
-/** Reminder KOL — agregat pipeline (fase 1): terlambat → hari ini → tanpa next action. */
+/** Reminder KOL — pipeline (terlambat → hari ini → tanpa next action) + tagihan deal belum lunas (finance). */
 class KolReminderController extends Controller
 {
-    public function index()
+    public function index(Request $request, KolBudgetService $budget)
     {
         $today = now()->startOfDay();
         $cards = KolPipelineCard::active()->with('kol')->get();
@@ -22,6 +24,8 @@ class KolReminderController extends Controller
             'dueCount' => $due->count(),
             'noneCount' => $none->count(),
             'today' => $today,
+            // Tagihan deal belum lunas — finance only (uang).
+            'payments' => $request->user()->canDo('kol.deal.finance') ? $budget->unpaid() : collect(),
         ]);
     }
 }

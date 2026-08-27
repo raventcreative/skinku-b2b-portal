@@ -43,6 +43,27 @@
         </div>
     @endif
 
-    <p class="text-[11px] text-stone-400">Sumber berikutnya (fase depan): pembayaran deal jatuh tempo, deadline posting, affiliate berhenti posting.</p>
+    {{-- Tagihan deal belum lunas (finance) --}}
+    @if($payments->isNotEmpty())
+        <div class="pt-2">
+            <p class="text-sm font-semibold text-stone-700 mb-2">💸 Pembayaran deal belum lunas</p>
+            <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden divide-y divide-stone-100">
+                @foreach($payments as $d)
+                    <div class="flex items-center justify-between gap-3 px-4 py-3">
+                        <div class="min-w-0">
+                            <a href="{{ route('kol-deals.edit', $d) }}" class="text-sm font-semibold text-indigo-600 hover:underline">{{ '@'.$d->kol->tiktok_username }}</a>
+                            <span class="ml-2 text-[10px] uppercase tracking-wide text-stone-400">{{ $d->kode }} · bayar {{ $d->status_bayar }}</span>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-xs font-medium text-stone-700">Rp {{ number_format((float) $d->total_biaya, 0, ',', '.') }}</p>
+                            <p class="text-[10px] text-stone-400">{{ $d->periode_selesai?->format('d M Y') ?? 'tanpa tenggat' }}</p>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    <p class="text-[11px] text-stone-400">Sumber berikutnya (fase depan): deadline posting, affiliate berhenti posting.</p>
 </div>
 @endsection

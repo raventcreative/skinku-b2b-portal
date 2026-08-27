@@ -370,6 +370,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/kol-deals/create', [KolDealController::class, 'create'])->name('kol-deals.create');
         Route::post('/kol-deals', [KolDealController::class, 'store'])->name('kol-deals.store');
         Route::post('/kol-deals/bulk-status', [KolDealController::class, 'bulkStatus'])->name('kol-deals.bulk-status');
+        // Budget bulanan + CPM anchor (Fase 2) — finance-sensitive.
+        Route::post('/kol-deals/budget', [KolDealController::class, 'saveBudget'])->middleware('permission:kol.deal.finance')->name('kol-deals.budget');
         Route::get('/kol-deals/{deal}/edit', [KolDealController::class, 'edit'])->name('kol-deals.edit');
         Route::put('/kol-deals/{deal}', [KolDealController::class, 'update'])->name('kol-deals.update');
         Route::post('/kol-deals/{deal}/hasil', [KolDealController::class, 'saveHasil'])->name('kol-deals.hasil');

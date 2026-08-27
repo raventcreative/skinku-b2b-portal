@@ -37,6 +37,34 @@
     <a href="{{ route('kol-deals.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Deal Baru</a>
 </div>
 
+@if($budget)
+    <div class="bg-white rounded-2xl border border-stone-200 p-4 mb-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <p class="text-sm font-semibold text-stone-700">Budget {{ now()->translatedFormat('F Y') }}</p>
+            <form method="POST" action="{{ route('kol-deals.budget') }}" class="flex items-center gap-1 text-xs">
+                @csrf
+                <span class="text-stone-400">cap</span>
+                <input type="number" name="budget" min="0" value="{{ $budget['budget'] }}" class="w-28 px-2 py-1 border border-stone-300 rounded text-right">
+                <span class="text-stone-400">CPM anchor</span>
+                <input type="number" name="anchor" min="0" value="{{ $budget['anchor'] }}" class="w-20 px-2 py-1 border border-stone-300 rounded text-right">
+                <button class="text-indigo-600 hover:underline">simpan</button>
+            </form>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div><p class="text-xs text-stone-500">Spent (lunas)</p><p class="font-bold text-stone-800">{{ $rp($budget['spent']) }}</p></div>
+            <div><p class="text-xs text-stone-500">Committed</p><p class="font-bold text-stone-800">{{ $rp($budget['committed']) }}</p></div>
+            <div><p class="text-xs text-stone-500">Sisa (dari {{ $rp($budget['budget']) }})</p><p class="font-bold {{ $budget['sisa'] < 0 ? 'text-rose-600' : 'text-emerald-600' }}">{{ $rp($budget['sisa']) }}</p></div>
+            <div><p class="text-xs text-stone-500">Blended CPM paid</p><p class="font-bold {{ $budget['overAnchor'] ? 'text-rose-600' : 'text-stone-800' }}">{{ $budget['cpm'] !== null ? $rp($budget['cpm']) : '—' }}</p><p class="text-[10px] text-stone-400">anchor {{ $rp($budget['anchor']) }}</p></div>
+        </div>
+        @if($budget['overConcentration'] || $budget['overAnchor'])
+            <div class="mt-3 flex flex-wrap gap-2">
+                @if($budget['overConcentration'])<span class="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-700">⚠ 1 KOL menyerap {{ $budget['topSharePct'] }}% budget</span>@endif
+                @if($budget['overAnchor'])<span class="text-[11px] px-2 py-1 rounded-full bg-rose-100 text-rose-700">⚠ CPM paid di atas anchor</span>@endif
+            </div>
+        @endif
+    </div>
+@endif
+
 {{-- Bar aksi massal (muncul saat ada centang) --}}
 <div id="bulkBar" class="hidden items-center gap-2 mb-3 p-2 bg-stone-800 text-white rounded-xl text-xs">
     <span id="bulkCount" class="px-2 font-semibold">0 dipilih</span>

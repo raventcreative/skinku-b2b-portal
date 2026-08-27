@@ -2,17 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppSetting;
 use App\Models\Kol;
 use App\Models\KolDeal;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\KolBudgetService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class KolDealController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, KolBudgetService $budget)
     {
         $deals = KolDeal::query()
             ->with(['kol.latestScreening', 'pic'])
@@ -21,7 +23,24 @@ class KolDealController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('kol_deals.index', ['deals' => $deals]);
+        return view('kol_deals.index', [
+            'deals' => $deals,
+            // Panel budget hanya untuk pemegang finance (agregat uang).
+            'budget' => $request->user()->canDo('kol.deal.finance') ? $budget->summary(now()) : null,
+        ]);
+    }
+
+    /** Simpan cap budget bulanan + CPM anchor (finance-sensitive). */
+    public function saveBudget(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'budget' => ['required', 'integer', 'min:0'],
+            'anchor' => ['required', 'integer', 'min:0'],
+        ]);
+        AppSetting::put(KolBudgetService::KEY_BUDGET, (string) $data['budget']);
+        AppSetting::put(KolBudgetService::KEY_ANCHOR, (string) $data['anchor']);
+
+        return back()->with('status', 'Budget & CPM anchor disimpan.');
     }
 
     /**
