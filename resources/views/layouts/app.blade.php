@@ -289,10 +289,22 @@
                 {!! navItem('learning.index', 'SKINKU Academy', 'learning.*') !!}
             @endif
 
-            @if($u->canDo('kol.view'))
-                {{-- 'kol*' (bukan 'kols.*') supaya menu tetap menyala di halaman
-                     kol-deals.* dan kol-screenings.* --}}
-                {!! navItem('kols.index', 'KOL', 'kol*') !!}
+            @php $kolGroupOpen = request()->routeIs('kol*'); @endphp
+            @if($u->canDo('kol.view') || $u->canDo('kol.deal.manage'))
+                <button type="button" onclick="toggleNavGroup('grpKol')"
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $kolGroupOpen ? 'text-white' : '' }}">
+                    <span class="flex items-center gap-3">{!! navIcon('kols.index') !!}<span>KOL</span></span>
+                    <svg id="grpKolChevron" class="w-3.5 h-3.5 transition-transform {{ $kolGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="grpKol" class="{{ $kolGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                    @if($u->canDo('kol.view'))
+                        {!! navItem('kols.index', 'Database KOL', 'kols.*') !!}
+                        {!! navItem('kol-pipeline.index', 'Pipeline', 'kol-pipeline.*') !!}
+                    @endif
+                    @if($u->canDo('kol.deal.manage'))
+                        {!! navItem('kol-deals.index', 'Deal KOL', 'kol-deals.*') !!}
+                    @endif
+                </div>
             @endif
 
             {{-- Rekomendasi AI (Discovery): cari KOL & tren produk dari web. Sama

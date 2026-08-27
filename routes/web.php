@@ -22,6 +22,7 @@ use App\Http\Controllers\KanbanController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDealController;
 use App\Http\Controllers\KolImportController;
+use App\Http\Controllers\KolPipelineController;
 use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
@@ -328,6 +329,16 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::post('/kols-import/preview', [KolImportController::class, 'preview'])->name('kols.import.preview');
             Route::post('/kols-import/commit', [KolImportController::class, 'commit'])->name('kols.import.commit');
         });
+
+        // Fase 1 sub-menu KOL: pipeline scouting (spec 2026-08-27). Baca di balik
+        // kol.view; tulis di balik kol.pipeline.manage. Hapus = super_admin (controller).
+        Route::get('/kol-pipeline', [KolPipelineController::class, 'index'])->name('kol-pipeline.index');
+        Route::middleware('permission:kol.pipeline.manage')->group(function () {
+            Route::post('/kol-pipeline', [KolPipelineController::class, 'store'])->name('kol-pipeline.store');
+            Route::patch('/kol-pipeline/{card}/stage', [KolPipelineController::class, 'moveStage'])->name('kol-pipeline.stage');
+            Route::patch('/kol-pipeline/{card}/next-action', [KolPipelineController::class, 'nextAction'])->name('kol-pipeline.next-action');
+        });
+        Route::delete('/kol-pipeline/{card}', [KolPipelineController::class, 'destroy'])->name('kol-pipeline.destroy');
     });
 
     // Deal KOL: gated kol.deal.manage SAJA (bukan kol.view) — penyetuju (admin)

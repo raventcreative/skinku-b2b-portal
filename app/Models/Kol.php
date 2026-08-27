@@ -108,4 +108,10 @@ class Kol extends Model
     {
         return $this->hasOne(KolScreening::class)->latestOfMany('tanggal_listing');
     }
+
+    /** Kartu pipeline scouting (satu per KOL, track kol). */
+    public function pipelineCard()
+    {
+        return $this->hasOne(KolPipelineCard::class)->where('track', KolPipelineCard::TRACK_KOL);
+    }
 }
