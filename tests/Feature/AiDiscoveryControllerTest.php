@@ -118,6 +118,32 @@ class AiDiscoveryControllerTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_tambah_massal_paste_jadi_prospek_dan_dedupe(): void
+    {
+        $spec = $this->user('kol_specialist', 'spec6');
+        Kol::create(['tiktok_username' => 'sudahada2', 'followers' => 1000, 'status' => Kol::STATUS_AKTIF]);
+
+        $this->actingAs($spec)->post(route('discovery.kol.bulk'), [
+            'platform' => 'tiktok', 'kategori' => 'skincare',
+            'daftar' => "@ratu1\nratu2\nhttps://www.tiktok.com/@ratu3\nRATU1\nsudahada2\nnama dengan spasi",
+        ])->assertRedirect(route('discovery.index', ['tab' => 'massal']));
+
+        // ratu1/2/3 baru; RATU1 = duplikat ratu1 (dilewati); sudahada2 sudah ada;
+        // "nama dengan spasi" tak valid (dilewati).
+        $this->assertSame(3, Kol::whereIn('tiktok_username', ['ratu1', 'ratu2', 'ratu3'])
+            ->where('status', Kol::STATUS_PROSPEK)->count());
+        $this->assertSame('skincare', Kol::where('tiktok_username', 'ratu1')->first()->kategori);
+        $this->assertSame(1, Kol::where('tiktok_username', 'sudahada2')->count()); // tak tergandakan
+    }
+
+    public function test_tambah_massal_butuh_screening_manage(): void
+    {
+        // Admin punya use_ai_discovery tapi bukan kol.screening.manage → 403.
+        $this->actingAs($this->user(User::ROLE_ADMIN, 'admin2'))
+            ->post(route('discovery.kol.bulk'), ['daftar' => 'ratux'])
+            ->assertForbidden();
+    }
+
     // ---- Tren Produk ---------------------------------------------------
 
     public function test_cari_tren_produk_render_poin(): void

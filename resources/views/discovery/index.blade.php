@@ -34,7 +34,17 @@
             class="disc-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'produk' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}">
             📈 Tren Produk
         </button>
+        @if($u->canDo('kol.screening.manage'))
+            <button type="button" data-tab="massal" onclick="showDiscoveryTab('massal')"
+                class="disc-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'massal' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}">
+                📋 Tambah Massal
+            </button>
+        @endif
     </div>
+
+    @if($errors->any())
+        <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ $errors->first() }}</div>
+    @endif
 
     {{-- ============================ TAB: KOL ============================ --}}
     <section data-panel="kol" class="{{ $tab === 'kol' ? '' : 'hidden' }} space-y-4">
@@ -195,6 +205,49 @@
         @endisset
     </section>
 
+    {{-- ======================== TAB: MASSAL ========================== --}}
+    @if($u->canDo('kol.screening.manage'))
+    <section data-panel="massal" class="{{ $tab === 'massal' ? '' : 'hidden' }} space-y-4">
+        <div class="bg-white rounded-2xl border border-stone-200 p-5">
+            <p class="text-sm text-stone-500 mb-4">
+                Nemu creator akurat di <b>TikTok One / FastMoss / Creative Center</b>? Copy username-nya,
+                paste di sini (satu per baris) → langsung jadi <b>prospek</b> borongan, siap di-screening.
+                Boleh <code>@nama</code>, <code>nama</code>, atau link profil.
+            </p>
+            <form method="POST" action="{{ route('discovery.kol.bulk') }}" class="space-y-4" onsubmit="discoveryLoading(this)">
+                @csrf
+                <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                    <label class="block">
+                        <span class="text-xs font-semibold text-stone-600">Platform (untuk semua)</span>
+                        <select name="platform" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg bg-white">
+                            @foreach(['tiktok' => 'TikTok', 'instagram' => 'Instagram', 'youtube' => 'YouTube'] as $val => $lbl)
+                                <option value="{{ $val }}" @selected(old('platform', 'tiktok') === $val)>{{ $lbl }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="text-xs font-semibold text-stone-600">Kategori / niche (untuk semua, opsional)</span>
+                        <input name="kategori" maxlength="100" value="{{ old('kategori') }}"
+                            placeholder="mis. skincare" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg">
+                    </label>
+                </div>
+                <label class="block text-sm">
+                    <span class="text-xs font-semibold text-stone-600">Daftar username — satu per baris (maks 500)</span>
+                    <textarea name="daftar" rows="10" required
+                        class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg font-mono text-xs"
+                        placeholder="@skincarequeen&#10;ratuskincare&#10;https://www.tiktok.com/@herlinkenza02">{{ old('daftar') }}</textarea>
+                </label>
+                <div class="flex items-center gap-4">
+                    <button class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl disabled:opacity-60">
+                        + Tambah Semua ke Database KOL
+                    </button>
+                    <span class="text-[11px] text-stone-400">Duplikat & baris tak valid otomatis dilewati.</span>
+                </div>
+            </form>
+        </div>
+    </section>
+    @endif
+
 </div>
 
 <script>
@@ -210,10 +263,12 @@
             el.classList.toggle('text-stone-400', !on);
         });
     }
-    // Tombol jadi "Mencari…" + disabled saat submit (Tavily + AI butuh beberapa detik).
+    // Tombol jadi "Memproses…" + disabled saat submit (search/tambah butuh sejenak).
     function discoveryLoading(form) {
         var btn = form.querySelector('button[type=submit], button:not([type])');
-        if (btn) { btn.disabled = true; btn.dataset.label = btn.innerHTML; btn.innerHTML = 'Mencari…'; }
+        if (btn) { btn.disabled = true; btn.dataset.label = btn.innerHTML; btn.innerHTML = 'Memproses…'; }
     }
+    // Kalau validasi tab Massal gagal, buka tab itu balik (bukan tab default).
+    @if(old('daftar')) showDiscoveryTab('massal'); @endif
 </script>
 @endsection

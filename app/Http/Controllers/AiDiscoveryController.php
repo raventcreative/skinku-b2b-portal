@@ -67,6 +67,84 @@ class AiDiscoveryController extends Controller
         return view('discovery.index', $data);
     }
 
+    /**
+     * Tambah KOL BORONGAN dari daftar username yang di-paste (hasil discovery di
+     * TikTok One / FastMoss / Creative Center — sumber mana pun). Tiap baris boleh
+     * berupa "name", "@name", atau URL profil; di-dedupe & jadi prospek.
+     */
+    public function bulkAddKol(Request $request)
+    {
+        $data = $request->validate([
+            'platform' => ['nullable', Rule::in(array_keys(config('kol.platforms')))],
+            'kategori' => ['nullable', 'string', 'max:100'],
+            'daftar' => ['required', 'string', 'max:20000'],
+        ]);
+
+        $handles = array_slice($this->parseHandles($data['daftar']), 0, 500);
+        $created = 0;
+        $existing = 0;
+
+        foreach ($handles as $handle) {
+            try {
+                $res = $this->kol->createProspek([
+                    'username' => $handle,
+                    'platform' => $data['platform'] ?? 'tiktok',
+                    'kategori' => $data['kategori'] ?? null,
+                ]);
+                $res['created'] ? $created++ : $existing++;
+            } catch (\Throwable) {
+                // Satu baris aneh tak boleh menggagalkan seluruh tempelan.
+            }
+        }
+
+        // Satu ringkasan audit (bukan per-KOL) supaya log tak dibanjiri.
+        AuditService::log(
+            action: 'bulk_create_kol',
+            targetType: 'kol',
+            targetId: 0,
+            after: ['created' => $created, 'existing' => $existing, 'via' => 'discovery_paste'],
+        );
+
+        return redirect()->route('discovery.index', ['tab' => 'massal'])->with('status',
+            "{$created} KOL ditambahkan sebagai prospek".
+            ($existing ? ", {$existing} sudah ada (dilewati)" : '').
+            '. Buka Database KOL untuk screening.');
+    }
+
+    /**
+     * Ekstrak handle dari tiap baris — terima "name", "@name", atau URL profil
+     * (tiktok.com/@name, instagram.com/name). Dedupe abaikan huruf besar/kecil.
+     *
+     * @return array<int,string>
+     */
+    private function parseHandles(string $raw): array
+    {
+        $handles = [];
+        foreach (preg_split('/[\r\n]+/', $raw) ?: [] as $line) {
+            $line = trim((string) preg_replace('/[?#].*$/', '', trim($line)));
+            if ($line === '') {
+                continue;
+            }
+            if (str_contains($line, '/')) {
+                if (preg_match('~@([A-Za-z0-9._]+)~', $line, $m)) {
+                    $line = $m[1];
+                } else {
+                    $line = trim($line, '/');
+                    $line = substr($line, ($p = strrpos($line, '/')) === false ? 0 : $p + 1);
+                }
+            }
+            $line = ltrim($line, '@');
+            if (preg_match('/^[A-Za-z0-9._]{2,100}$/', $line)) {
+                $key = mb_strtolower($line); // dedupe abaikan huruf besar/kecil
+                if (! isset($handles[$key])) {
+                    $handles[$key] = $line; // simpan ejaan yang PERTAMA muncul
+                }
+            }
+        }
+
+        return array_values($handles);
+    }
+
     public function addKol(Request $request)
     {
         $data = $request->validate([
@@ -108,7 +186,7 @@ class AiDiscoveryController extends Controller
             'configured' => WebSearchFactory::configured() && filled(config('services.ai.openai.key')),
             'kategoriList' => config('kol.kategori'),
             'platforms' => config('kol.platforms'),
-            'tab' => 'kol',
+            'tab' => in_array(request('tab'), ['kol', 'produk', 'massal'], true) ? request('tab') : 'kol',
             'kolBrief' => null,
             'kolResult' => null,
             'kolError' => null,

@@ -566,6 +566,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/rekomendasi/produk', [AiDiscoveryController::class, 'searchProduct'])->name('discovery.produk');
         Route::middleware('permission:kol.screening.manage')->group(function () {
             Route::post('/rekomendasi/kol/tambah', [AiDiscoveryController::class, 'addKol'])->name('discovery.kol.add');
+            Route::post('/rekomendasi/kol/massal', [AiDiscoveryController::class, 'bulkAddKol'])->name('discovery.kol.bulk');
         });
     });
 
