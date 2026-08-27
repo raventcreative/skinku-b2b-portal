@@ -297,20 +297,24 @@
                     <svg id="grpKolChevron" class="w-3.5 h-3.5 transition-transform {{ $kolGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div id="grpKol" class="{{ $kolGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                    {{-- Urutan mengikuti app Iyuro: Reminder → Database → Pipeline →
+                         Deal → Konten → Affiliate → Skor. --}}
                     @if($u->canDo('kol.view'))
+                        {!! navItem('kol-reminder.index', 'Reminder', 'kol-reminder.*') !!}
                         {!! navItem('kols.index', 'Database KOL', 'kols.*') !!}
                         {!! navItem('kol-pipeline.index', 'Pipeline', 'kol-pipeline.*') !!}
+                    @endif
+                    @if($u->canDo('kol.deal.manage'))
+                        {!! navItem('kol-deals.index', 'Deal KOL', 'kol-deals.*') !!}
+                    @endif
+                    @if($u->canDo('kol.view'))
                         {!! navItem('kol-konten.index', 'Konten & Views', 'kol-konten.*') !!}
-                        {!! navItem('kol-reminder.index', 'Reminder', 'kol-reminder.*') !!}
                     @endif
                     @if($u->canDo('kol.affiliate.view'))
                         {!! navItem('kol-affiliate.index', 'Affiliate & GMV', 'kol-affiliate.*') !!}
                     @endif
                     @if($u->canDo('kol.view'))
                         {!! navItem('kol-skor.kss', 'Skor (KSS)', 'kol-skor.*') !!}
-                    @endif
-                    @if($u->canDo('kol.deal.manage'))
-                        {!! navItem('kol-deals.index', 'Deal KOL', 'kol-deals.*') !!}
                     @endif
                 </div>
             @endif
