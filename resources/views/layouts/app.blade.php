@@ -306,6 +306,9 @@
                     @if($u->canDo('kol.affiliate.view'))
                         {!! navItem('kol-affiliate.index', 'Affiliate & GMV', 'kol-affiliate.*') !!}
                     @endif
+                    @if($u->canDo('kol.view'))
+                        {!! navItem('kol-skor.kss', 'Skor (KSS)', 'kol-skor.*') !!}
+                    @endif
                     @if($u->canDo('kol.deal.manage'))
                         {!! navItem('kol-deals.index', 'Deal KOL', 'kol-deals.*') !!}
                     @endif

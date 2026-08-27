@@ -26,6 +26,7 @@ use App\Http\Controllers\KolDealController;
 use App\Http\Controllers\KolImportController;
 use App\Http\Controllers\KolPipelineController;
 use App\Http\Controllers\KolReminderController;
+use App\Http\Controllers\KolScoringController;
 use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
@@ -370,6 +371,9 @@ Route::middleware(['auth', 'role'])->group(function () {
                 Route::post('/kol-affiliate/import', [KolAffiliateController::class, 'importStore'])->name('kol-affiliate.import.store');
             });
         });
+
+        // Skor — kalkulator KSS (Fase 3b). Kalkulator murni, gated kol.view.
+        Route::match(['get', 'post'], '/kol-skor/kss', [KolScoringController::class, 'kss'])->name('kol-skor.kss');
     });
 
     // Deal KOL: gated kol.deal.manage SAJA (bukan kol.view) — penyetuju (admin)
