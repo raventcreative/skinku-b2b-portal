@@ -9,7 +9,7 @@ class KolContentSnapshot extends Model
 {
     public const UPDATED_AT = null;
 
-    protected $fillable = ['kol_content_id', 'views', 'likes', 'comments', 'shares', 'captured_on', 'source', 'created_by'];
+    protected $fillable = ['kol_content_id', 'views', 'likes', 'comments', 'shares', 'saves', 'captured_on', 'source', 'created_by'];
 
     protected function casts(): array
     {

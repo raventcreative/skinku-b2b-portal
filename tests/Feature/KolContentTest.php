@@ -54,6 +54,53 @@ class KolContentTest extends TestCase
             ->get(route('kol-konten.index'))->assertOk()->assertSee('Konten & Views');
     }
 
+    public function test_store_auto_deteksi_tipe_platform_dan_views_awal(): void
+    {
+        $spec = $this->user('kol_specialist', 'gk1');
+        $kol = $this->kol();
+        $this->actingAs($spec)->post(route('kol-konten.store'), [
+            'kol_id' => $kol->id, 'url' => 'https://www.instagram.com/reel/abc/', 'label' => 'earned',
+            'posted_at' => now()->toDateString(), 'views_awal' => 1000, 'likes_awal' => 100,
+        ])->assertRedirect();
+
+        $c = KolContent::where('kol_id', $kol->id)->first();
+        $this->assertSame('instagram', $c->platform);        // auto dari host
+        $this->assertSame('reels', $c->content_type);        // auto dari /reel
+        $this->assertSame(1, $c->snapshots()->count());
+        $this->assertSame(1000, (int) $c->latestSnapshot->views);
+        $this->assertSame(10.0, $c->engagement_rate);        // 100/1000
+    }
+
+    public function test_snapshot_tunggal_tambah_hapus_dengan_saves(): void
+    {
+        $spec = $this->user('kol_specialist', 'gk2');
+        $c = KolContent::create(['kol_id' => $this->kol()->id, 'url' => 'https://www.tiktok.com/@x/video/5', 'label' => 'earned', 'posted_at' => now()->toDateString()]);
+
+        $this->actingAs($spec)->post(route('kol-konten.snapshot.store', $c), [
+            'captured_on' => now()->toDateString(), 'views' => 500, 'saves' => 50,
+        ])->assertRedirect();
+        $snap = $c->snapshots()->first();
+        $this->assertSame(50, (int) $snap->saves);
+
+        $this->actingAs($spec)->delete(route('kol-konten.snapshot.destroy', $snap))->assertRedirect();
+        $this->assertSame(0, $c->snapshots()->count());
+    }
+
+    public function test_filter_konten_creator_dan_type(): void
+    {
+        $spec = $this->user('kol_specialist', 'gk3');
+        $k1 = Kol::create(['tiktok_username' => 'kf1', 'followers' => 1000]);
+        $k2 = Kol::create(['tiktok_username' => 'kf2', 'followers' => 1000]);
+        KolContent::create(['kol_id' => $k1->id, 'url' => 'https://www.tiktok.com/@x/video/1', 'content_type' => 'video', 'label' => 'earned', 'posted_at' => now()->toDateString()]);
+        KolContent::create(['kol_id' => $k2->id, 'url' => 'https://www.tiktok.com/@x/reel/2', 'content_type' => 'reels', 'label' => 'earned', 'posted_at' => now()->toDateString()]);
+
+        $r1 = $this->actingAs($spec)->get(route('kol-konten.index', ['creator' => $k1->id]))->assertOk();
+        $this->assertSame(1, $r1->viewData('contents')->count());
+
+        $r2 = $this->actingAs($spec)->get(route('kol-konten.index', ['type' => 'reels']))->assertOk();
+        $this->assertSame($k2->id, $r2->viewData('contents')->first()->kol_id);
+    }
+
     public function test_halaman_detail_grafik_dan_riwayat_snapshot(): void
     {
         $kol = $this->kol();

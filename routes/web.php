@@ -383,6 +383,8 @@ Route::middleware(['auth', 'role'])->group(function () {
             // 'grid' sebelum {content} agar tak tertangkap model binding.
             Route::get('/kol-konten/grid', [KolContentController::class, 'grid'])->name('kol-konten.grid');
             Route::post('/kol-konten/grid', [KolContentController::class, 'gridSave'])->name('kol-konten.grid.save');
+            Route::post('/kol-konten/{content}/snapshots', [KolContentController::class, 'snapshotStore'])->name('kol-konten.snapshot.store');
+            Route::delete('/kol-content-snapshots/{snapshot}', [KolContentController::class, 'snapshotDestroy'])->name('kol-konten.snapshot.destroy');
             Route::get('/kol-konten/{content}/edit', [KolContentController::class, 'edit'])->name('kol-konten.edit');
             Route::put('/kol-konten/{content}', [KolContentController::class, 'update'])->name('kol-konten.update');
             Route::delete('/kol-konten/{content}', [KolContentController::class, 'destroy'])->name('kol-konten.destroy');

@@ -35,6 +35,7 @@
                                 <th class="text-right px-3 py-2.5">Likes</th>
                                 <th class="text-right px-3 py-2.5">Komentar</th>
                                 <th class="text-right px-3 py-2.5">Share</th>
+                                <th class="text-right px-3 py-2.5">Saves</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-stone-100">
@@ -45,11 +46,20 @@
                                         <span class="block text-[11px] text-stone-400 truncate">{{ $c->title ?: $c->url }}</span>
                                         <input type="hidden" name="rows[{{ $i }}][id]" value="{{ $c->id }}">
                                     </td>
-                                    <td class="px-3 py-2 text-right text-stone-400">{{ number_format((int) ($c->latestSnapshot->views ?? 0), 0, ',', '.') }}</td>
+                                    <td class="px-3 py-2 text-right text-stone-400">
+                                        {{ number_format((int) ($c->latestSnapshot->views ?? 0), 0, ',', '.') }}
+                                        @php $snap = $c->latestSnapshot; $stale = $snap && $snap->captured_on->diffInDays(now()) > 7; @endphp
+                                        @if(! $snap)
+                                            <span class="block text-[9px] px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 mt-0.5">belum snapshot</span>
+                                        @elseif($stale)
+                                            <span class="block text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 mt-0.5" title="{{ $snap->captured_on->format('d M') }}">basi {{ (int) $snap->captured_on->diffInDays(now()) }} hr</span>
+                                        @endif
+                                    </td>
                                     <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][views]" class="w-24 px-2 py-1 border border-stone-300 rounded text-right"></td>
                                     <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][likes]" class="w-20 px-2 py-1 border border-stone-300 rounded text-right"></td>
                                     <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][comments]" class="w-20 px-2 py-1 border border-stone-300 rounded text-right"></td>
                                     <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][shares]" class="w-20 px-2 py-1 border border-stone-300 rounded text-right"></td>
+                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][saves]" class="w-20 px-2 py-1 border border-stone-300 rounded text-right"></td>
                                 </tr>
                             @endforeach
                         </tbody>

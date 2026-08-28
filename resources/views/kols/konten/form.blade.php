@@ -70,6 +70,35 @@
                 </label>
             </div>
 
+            <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                <label class="block">
+                    <span class="text-xs font-semibold text-stone-600">Tipe konten</span>
+                    <select name="content_type" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg bg-white">
+                        <option value="">— auto dari URL —</option>
+                        @foreach($types as $val => $lbl)<option value="{{ $val }}" @selected(old('content_type', $content->content_type) === $val)>{{ $lbl }}</option>@endforeach
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-stone-600">Catatan (opsional)</span>
+                    <input name="notes" maxlength="2000" value="{{ old('notes', $content->notes) }}" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg">
+                </label>
+            </div>
+            <input type="hidden" name="thumbnail_url" id="thumbInput" value="{{ old('thumbnail_url', $content->thumbnail_url) }}">
+            <p id="oembedHint" class="text-[11px] text-stone-500 hidden"></p>
+
+            @unless($content->exists)
+                <div class="border-t border-stone-100 pt-3">
+                    <p class="text-[11px] font-semibold text-stone-500 mb-2">Views awal + metrik (opsional — jadi snapshot pertama)</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
+                        <label class="block"><span class="text-[11px] text-stone-500">Views</span><input type="number" name="views_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                        <label class="block"><span class="text-[11px] text-stone-500">Likes</span><input type="number" name="likes_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                        <label class="block"><span class="text-[11px] text-stone-500">Komen</span><input type="number" name="comments_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                        <label class="block"><span class="text-[11px] text-stone-500">Share</span><input type="number" name="shares_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                        <label class="block"><span class="text-[11px] text-stone-500">Saves</span><input type="number" name="saves_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                    </div>
+                </div>
+            @endunless
+
             <div class="flex items-center gap-4 pt-2">
                 <button class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">{{ $content->exists ? 'Simpan Perubahan' : 'Tambah Konten' }}</button>
                 <a href="{{ route('kol-konten.index') }}" class="text-xs text-stone-500 hover:text-stone-800">Batal</a>
@@ -108,6 +137,15 @@
                 body: JSON.stringify({ url: url })
             }).then(function (r) { return r.json(); }).then(function (d) {
                 if (d.title) document.getElementById('titleInput').value = d.title;
+                if (d.thumbnail) document.getElementById('thumbInput').value = d.thumbnail;
+                // Auto-match creator: isi combo KOL bila author cocok.
+                if (d.kol_id && combo) {
+                    combo.querySelector('.combo-value').value = d.kol_id;
+                    combo.querySelector('.combo-input').value = '@' + d.author;
+                    filterDeals(d.kol_id);
+                }
+                var hint = document.getElementById('oembedHint');
+                if (d.hint) { hint.textContent = d.hint; hint.classList.remove('hidden'); hint.className = 'text-[11px] ' + (d.kol_id ? 'text-emerald-600' : 'text-amber-600'); }
             }).finally(function () { btn.disabled = false; btn.textContent = 'Ambil judul'; });
         });
     })();

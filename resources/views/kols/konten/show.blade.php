@@ -16,14 +16,20 @@
     {{-- Header konten --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0">
-                <a href="{{ $content->url }}" target="_blank" rel="noopener noreferrer" class="text-lg font-bold text-stone-800 hover:text-indigo-600 break-words">{{ $content->title ?: $content->url }}</a>
-                <div class="flex flex-wrap items-center gap-2 mt-1.5 text-sm">
-                    <a href="{{ route('kols.show', $content->kol_id) }}" class="text-indigo-600 hover:underline">{{ '@'.$content->kol->tiktok_username }}</a>
-                    <span class="text-[10px] px-2 py-0.5 rounded-full {{ $content->label === 'paid' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700' }}">{{ $content->label }}</span>
-                    <span class="text-xs text-stone-400">{{ ucfirst($content->platform) }}</span>
-                    <span class="text-xs text-stone-400">· tayang {{ $content->posted_at->format('d M Y') }}</span>
-                    @if($content->deal)<a href="{{ route('kol-deals.edit', $content->deal) }}" class="text-xs text-stone-500 hover:underline">· deal {{ $content->deal->kode }}</a>@endif
+            <div class="flex gap-3 min-w-0">
+                @if($content->thumbnail_url)
+                    <img src="{{ $content->thumbnail_url }}" alt="" class="w-16 h-20 object-cover rounded-lg border border-stone-200 shrink-0">
+                @endif
+                <div class="min-w-0">
+                    <a href="{{ $content->url }}" target="_blank" rel="noopener noreferrer" class="text-lg font-bold text-stone-800 hover:text-indigo-600 break-words">{{ $content->title ?: $content->url }}</a>
+                    <div class="flex flex-wrap items-center gap-2 mt-1.5 text-sm">
+                        <a href="{{ route('kols.show', $content->kol_id) }}" class="text-indigo-600 hover:underline">{{ '@'.$content->kol->tiktok_username }}</a>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full {{ $content->label === 'paid' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700' }}">{{ $content->label }}</span>
+                        <span class="text-xs text-stone-400">{{ ucfirst($content->platform) }}{{ $content->content_type ? ' · '.(\App\Models\KolContent::TYPE_LABELS[$content->content_type] ?? $content->content_type) : '' }}</span>
+                        <span class="text-xs text-stone-400">· tayang {{ $content->posted_at->format('d M Y') }}</span>
+                        @if($content->deal)<a href="{{ route('kol-deals.edit', $content->deal) }}" class="text-xs text-stone-500 hover:underline">· deal {{ $content->deal->kode }}</a>@endif
+                    </div>
+                    @if($content->notes)<p class="text-xs text-stone-500 mt-1.5">{{ $content->notes }}</p>@endif
                 </div>
             </div>
             @if($canManage)
@@ -49,11 +55,33 @@
             <p class="text-xl font-bold text-stone-800">{{ $latest && $latest->likes !== null ? $nf($latest->likes) : '—' }} <span class="text-stone-300 text-base">/</span> {{ $latest && $latest->comments !== null ? $nf($latest->comments) : '—' }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
-            <p class="text-xs text-stone-500">Jumlah snapshot</p>
-            <p class="text-xl font-bold text-stone-800">{{ $history->count() }}</p>
-            <p class="text-[10px] text-stone-400">riwayat views harian</p>
+            @if($cpm !== null)
+                <p class="text-xs text-stone-500">CPM konten</p>
+                <p class="text-xl font-bold text-stone-800">Rp {{ $nf($cpm) }}</p>
+                <p class="text-[10px] text-stone-400">biaya deal ÷ views · {{ $history->count() }} snapshot</p>
+            @else
+                <p class="text-xs text-stone-500">Jumlah snapshot</p>
+                <p class="text-xl font-bold text-stone-800">{{ $history->count() }}</p>
+                <p class="text-[10px] text-stone-400">riwayat views harian</p>
+            @endif
         </div>
     </div>
+
+    @if($canManage)
+        <details class="bg-white rounded-2xl border border-stone-200 p-4">
+            <summary class="cursor-pointer text-sm font-semibold text-stone-700">+ Tambah snapshot (satuan)</summary>
+            <form method="POST" action="{{ route('kol-konten.snapshot.store', $content) }}" class="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-sm">
+                @csrf
+                <label class="block"><span class="text-[11px] text-stone-500">Tanggal</span><input type="date" name="captured_on" value="{{ now()->toDateString() }}" required class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Views</span><input type="number" name="views" min="0" required class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Likes</span><input type="number" name="likes" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Komen</span><input type="number" name="comments" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Share</span><input type="number" name="shares" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Saves</span><input type="number" name="saves" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                <div class="col-span-2 sm:col-span-3 lg:col-span-6"><button class="px-4 py-1.5 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800">Simpan snapshot</button> <span class="text-[10px] text-stone-400 ml-2">tanggal sama = perbarui</span></div>
+            </form>
+        </details>
+    @endif
 
     @if($history->isEmpty())
         <div class="bg-white rounded-2xl border border-stone-200 p-10 text-center text-stone-400 text-sm">
@@ -77,6 +105,7 @@
                             <th class="text-right px-4 py-2.5">Δ vs sebelumnya</th>
                             <th class="text-right px-4 py-2.5">ER</th>
                             <th class="text-left px-4 py-2.5">Sumber</th>
+                            @if($canManage)<th class="px-4 py-2.5"></th>@endif
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-stone-100">
@@ -97,6 +126,11 @@
                                 </td>
                                 <td class="px-4 py-2.5 text-right text-stone-600">{{ $h['er'] !== null ? rtrim(rtrim(number_format($h['er'], 2, ',', '.'), '0'), ',').'%' : '—' }}</td>
                                 <td class="px-4 py-2.5 text-stone-500">{{ $h['source'] }}</td>
+                                @if($canManage)
+                                    <td class="px-4 py-2.5 text-right">
+                                        <form method="POST" action="{{ route('kol-konten.snapshot.destroy', $h['id']) }}" onsubmit="return confirm('Hapus snapshot ini?')">@csrf @method('DELETE')<button class="text-[11px] text-rose-400 hover:text-rose-600">hapus</button></form>
+                                    </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>
