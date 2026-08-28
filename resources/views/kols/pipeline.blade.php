@@ -11,12 +11,7 @@
 
 <div class="space-y-4">
 
-    @if(session('status'))
-        <div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>
-    @endif
-    @if($errors->any())
-        <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ $errors->first() }}</div>
-    @endif
+    {{-- Flash status & error dirender global oleh layout (hindari banner dobel). --}}
 
     {{-- Toggle papan: KOL scouting vs Affiliate pembinaan --}}
     <div class="flex gap-1 border-b border-stone-200">

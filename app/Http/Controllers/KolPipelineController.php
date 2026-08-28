@@ -59,14 +59,14 @@ class KolPipelineController extends Controller
             'note' => ['nullable', 'string', 'max:2000'],
         ], ['kol_id.unique' => 'KOL ini sudah punya kartu di papan '.$this->trackLabel($track).'.']);
 
-        // Tahap non-terminal wajib punya next action + tanggal.
-        if (! KolPipelineCard::isTerminalStage($data['stage']) && (empty($data['next_action']) || empty($data['next_action_at']))) {
-            return back()->withErrors(['next_action' => 'Tahap aktif wajib punya next action + tanggal.'])->withInput();
-        }
+        // Next action opsional saat menambah (boleh parkir kandidat dulu). Guardrail
+        // wajib-next-action berlaku saat MEMINDAH ke tahap aktif (moveStage), bukan di sini.
+        $hasAction = ! empty($data['next_action']);
 
         $card = KolPipelineCard::create([
             'kol_id' => $data['kol_id'], 'track' => $track, 'stage' => $data['stage'],
-            'next_action' => $data['next_action'] ?? null, 'next_action_at' => $data['next_action_at'] ?? null,
+            'next_action' => $hasAction ? $data['next_action'] : null,
+            'next_action_at' => $hasAction ? ($data['next_action_at'] ?? null) : null,
             'ask_rate' => $data['ask_rate'] ?? null, 'note' => $data['note'] ?? null,
             'created_by' => $request->user()->id,
         ]);

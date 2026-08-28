@@ -94,6 +94,22 @@ class KolPipelineTest extends TestCase
         $this->assertSame(now()->addDays(2)->toDateString(), $card->next_action_at->toDateString());
     }
 
+    public function test_tambah_kartu_tanpa_next_action_boleh_tapi_pindah_tetap_dijaga(): void
+    {
+        $spec = $this->user('kol_specialist', 'specpark');
+        $kol = $this->kol();
+
+        // Tambah di Kandidat TANPA next action → boleh (parkir kandidat dulu).
+        $this->actingAs($spec)->post(route('kol-pipeline.store'), ['kol_id' => $kol->id, 'stage' => 'kandidat'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $card = KolPipelineCard::where('kol_id', $kol->id)->first();
+        $this->assertNull($card->next_action);
+        $this->assertNull($card->next_action_at);
+
+        // Tapi memindah ke tahap aktif lain tetap wajib next action (guardrail move).
+        $this->actingAs($spec)->patchJson(route('kol-pipeline.stage', $card), ['stage' => 'nego'])->assertStatus(422);
+    }
+
     public function test_papan_affiliate_terpisah_dari_kol(): void
     {
         $spec = $this->user('kol_specialist', 'specaff');

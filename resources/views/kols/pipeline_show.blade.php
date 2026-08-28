@@ -13,12 +13,7 @@
 <div class="max-w-4xl space-y-4">
     <a href="{{ route('kol-pipeline.index', ['kind' => $card->track]) }}" class="text-xs text-stone-500 hover:text-stone-800">← Pipeline {{ $isAff ? 'Affiliate' : 'KOL' }}</a>
 
-    @if(session('status'))
-        <div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>
-    @endif
-    @if($errors->any())
-        <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ $errors->first() }}</div>
-    @endif
+    {{-- Flash status & error dirender global oleh layout. --}}
 
     {{-- Header --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
