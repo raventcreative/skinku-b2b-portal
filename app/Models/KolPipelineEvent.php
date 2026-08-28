@@ -15,4 +15,9 @@ class KolPipelineEvent extends Model
     {
         return $this->belongsTo(KolPipelineCard::class, 'card_id');
     }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

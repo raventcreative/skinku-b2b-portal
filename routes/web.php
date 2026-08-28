@@ -351,10 +351,13 @@ Route::middleware(['auth', 'role'])->group(function () {
         // Fase 1 sub-menu KOL: pipeline scouting (spec 2026-08-27). Baca di balik
         // kol.view; tulis di balik kol.pipeline.manage. Hapus = super_admin (controller).
         Route::get('/kol-pipeline', [KolPipelineController::class, 'index'])->name('kol-pipeline.index');
+        Route::get('/kol-pipeline/{card}', [KolPipelineController::class, 'show'])->name('kol-pipeline.show');
         Route::middleware('permission:kol.pipeline.manage')->group(function () {
             Route::post('/kol-pipeline', [KolPipelineController::class, 'store'])->name('kol-pipeline.store');
             Route::patch('/kol-pipeline/{card}/stage', [KolPipelineController::class, 'moveStage'])->name('kol-pipeline.stage');
             Route::patch('/kol-pipeline/{card}/next-action', [KolPipelineController::class, 'nextAction'])->name('kol-pipeline.next-action');
+            Route::post('/kol-pipeline/{card}/follow-up', [KolPipelineController::class, 'followUp'])->name('kol-pipeline.follow-up');
+            Route::patch('/kol-pipeline/{card}', [KolPipelineController::class, 'update'])->name('kol-pipeline.update');
         });
         Route::delete('/kol-pipeline/{card}', [KolPipelineController::class, 'destroy'])->name('kol-pipeline.destroy');
 
