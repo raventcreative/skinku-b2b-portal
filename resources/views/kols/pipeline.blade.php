@@ -13,29 +13,31 @@
 
     {{-- Flash status & error dirender global oleh layout (hindari banner dobel). --}}
 
-    {{-- Toggle papan: KOL scouting vs Affiliate pembinaan --}}
-    <div class="flex gap-1 border-b border-stone-200">
-        <a href="{{ route('kol-pipeline.index', ['kind' => 'kol']) }}" class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ ! $isAff ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}">🔎 Scouting KOL <span class="text-[10px] px-1.5 py-0.5 rounded-full {{ ! $isAff ? 'bg-red-100 text-red-700' : 'bg-stone-100 text-stone-500' }}">{{ $countKol }}</span></a>
-        <a href="{{ route('kol-pipeline.index', ['kind' => 'affiliate']) }}" class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $isAff ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}">🤝 Pembinaan Affiliate <span class="text-[10px] px-1.5 py-0.5 rounded-full {{ $isAff ? 'bg-red-100 text-red-700' : 'bg-stone-100 text-stone-500' }}">{{ $countAffiliate }}</span></a>
+    {{-- Toggle papan (pill, ala Iyuro): KOL scouting vs Affiliate pembinaan --}}
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="inline-flex rounded-xl border border-stone-200 bg-white p-1 text-sm shadow-sm">
+            <a href="{{ route('kol-pipeline.index', ['kind' => 'kol']) }}" class="px-3.5 py-1.5 rounded-lg font-semibold transition {{ ! $isAff ? 'bg-red-600 text-white' : 'text-stone-500 hover:text-stone-800' }}">Scouting KOL <span class="ml-1 text-[11px] tabular-nums {{ ! $isAff ? 'text-red-100' : 'text-stone-400' }}">{{ $countKol }}</span></a>
+            <a href="{{ route('kol-pipeline.index', ['kind' => 'affiliate']) }}" class="px-3.5 py-1.5 rounded-lg font-semibold transition {{ $isAff ? 'bg-red-600 text-white' : 'text-stone-500 hover:text-stone-800' }}">Pembinaan Affiliate <span class="ml-1 text-[11px] tabular-nums {{ $isAff ? 'text-red-100' : 'text-stone-400' }}">{{ $countAffiliate }}</span></a>
+        </div>
     </div>
 
-    {{-- Ringkasan --}}
+    {{-- Ringkasan (label uppercase + aktif/total, ala Iyuro) --}}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
-            <p class="text-xs text-stone-500">Kartu aktif</p>
-            <p id="stat-aktif" class="text-2xl font-bold text-stone-800">{{ $statAktif }}</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Kartu aktif</p>
+            <p class="text-2xl font-bold text-stone-800 tabular-nums mt-0.5"><span id="stat-aktif">{{ $statAktif }}</span><span class="text-base font-semibold text-stone-300">/{{ $total }}</span></p>
         </div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
-            <p class="text-xs text-stone-500">Terlambat</p>
-            <p id="stat-terlambat" class="text-2xl font-bold {{ $statTerlambat ? 'text-rose-600' : 'text-stone-800' }}">{{ $statTerlambat }}</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Terlambat</p>
+            <p id="stat-terlambat" class="text-2xl font-bold tabular-nums mt-0.5 {{ $statTerlambat ? 'text-rose-600' : 'text-stone-800' }}">{{ $statTerlambat }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
-            <p class="text-xs text-stone-500">Hari ini / besok</p>
-            <p id="stat-dekat" class="text-2xl font-bold {{ $statDekat ? 'text-amber-600' : 'text-stone-800' }}">{{ $statDekat }}</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Hari ini / besok</p>
+            <p id="stat-dekat" class="text-2xl font-bold tabular-nums mt-0.5 {{ $statDekat ? 'text-amber-600' : 'text-stone-800' }}">{{ $statDekat }}</p>
         </div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
-            <p class="text-xs text-stone-500">Tanpa next action</p>
-            <p id="stat-tanpaaksi" class="text-2xl font-bold {{ $statTanpaAksi ? 'text-amber-600' : 'text-stone-800' }}">{{ $statTanpaAksi }}</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-400">Tanpa next action</p>
+            <p id="stat-tanpaaksi" class="text-2xl font-bold tabular-nums mt-0.5 {{ $statTanpaAksi ? 'text-amber-600' : 'text-stone-800' }}">{{ $statTanpaAksi }}</p>
         </div>
     </div>
 
@@ -98,79 +100,73 @@
                             $terminal = \App\Models\KolPipelineCard::isTerminalStage($c->stage);
                             $late = ! $terminal && $c->next_action_at && $c->next_action_at->lt($today);
                             $soon = ! $terminal && $c->next_action_at && $c->next_action_at->between($today, $today->copy()->addDay()->endOfDay());
-                            $besok = ! $terminal && $c->next_action_at && $c->next_action_at->isSameDay($today->copy()->addDay());
                             $overLimit = $c->followup_count >= \App\Models\KolPipelineCard::FOLLOW_UP_LIMIT;
+                            $rc = fn ($n) => $n >= 1_000_000 ? 'Rp '.rtrim(rtrim(number_format($n / 1_000_000, 1, ',', '.'), '0'), ',').'jt' : 'Rp '.number_format($n, 0, ',', '.');
+                            $dl = null;
+                            if (! $terminal && $c->next_action_at) {
+                                $d = (int) $today->diffInDays($c->next_action_at->copy()->startOfDay(), false);
+                                $dl = $d < 0 ? 'Terlambat '.abs($d).' hari' : ($d === 0 ? 'Hari ini' : ($d === 1 ? 'Besok' : $d.' hari lagi'));
+                            }
                         @endphp
                         <div id="card-{{ $c->id }}" data-card-id="{{ $c->id }}"
                             data-late="{{ $late ? 1 : 0 }}" data-soon="{{ $soon ? 1 : 0 }}" data-noaction="{{ ! $c->next_action_at ? 1 : 0 }}"
                             data-hasaction="{{ $c->next_action_at ? 1 : 0 }}"
                             @if($u->canDo('kol.pipeline.manage')) draggable="true" @endif
-                            class="bg-white rounded-xl border border-stone-200 p-3 space-y-1.5 {{ $u->canDo('kol.pipeline.manage') ? 'cursor-move' : '' }}">
-                            <div class="flex items-start justify-between gap-2">
-                                <div class="min-w-0">
-                                    <a href="{{ route('kols.show', $c->kol_id) }}" class="text-sm font-semibold text-indigo-600 hover:underline">{{ '@'.$c->kol->tiktok_username }}</a>
-                                    <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $c->kol->level }}</span>
+                            class="bg-white rounded-xl border border-stone-200 p-3 space-y-2 shadow-sm {{ $u->canDo('kol.pipeline.manage') ? 'cursor-grab active:cursor-grabbing' : '' }}">
+                            {{-- Kepala: handle + nama + tier + FU --}}
+                            <div class="flex items-start gap-2">
+                                @if($u->canDo('kol.pipeline.manage'))<span class="text-stone-300 leading-none mt-0.5 shrink-0 select-none" aria-hidden="true">⠿</span>@endif
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <a href="{{ route('kols.show', $c->kol_id) }}" class="text-sm font-semibold text-stone-800 hover:text-indigo-600 truncate">{{ '@'.$c->kol->tiktok_username }}</a>
+                                        <span class="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 shrink-0">{{ $c->kol->level }}</span>
+                                    </div>
                                 </div>
                                 @if($c->followup_count > 0)
                                     <span class="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 {{ $overLimit ? 'bg-amber-100 text-amber-700' : 'bg-stone-100 text-stone-500' }}" title="{{ $overLimit ? 'Sudah '.$c->followup_count.'× — putuskan parkir/drop' : '' }}">FU {{ $c->followup_count }}×</span>
                                 @endif
                             </div>
 
-                            @if($c->ask_rate)
-                                <p class="text-[11px] text-stone-500">💰 diminta {{ $rp($c->ask_rate) }}{{ $c->final_rate ? ' → final '.$rp($c->final_rate) : '' }}</p>
-                            @endif
-
+                            {{-- Next action + tanggal relatif (ikon kalender, warna sesuai status) --}}
                             @if($terminal)
                                 <p class="text-[11px] text-stone-400">✓ tahap akhir</p>
                             @elseif($c->next_action)
-                                <p class="text-xs {{ $late ? 'text-rose-600 font-medium' : ($soon ? 'text-amber-600' : 'text-stone-500') }}">
-                                    {{ $c->next_action }}
-                                    <span class="block text-[10px] {{ $late ? 'text-rose-500' : 'text-stone-400' }}">{{ $c->next_action_at?->format('d M Y') }}{{ $late ? ' · terlambat' : ($besok ? ' · besok' : '') }}</span>
-                                </p>
+                                <div>
+                                    <p class="text-[11px] font-semibold flex items-center gap-1 {{ $late ? 'text-rose-600' : ($soon ? 'text-amber-600' : 'text-stone-500') }}">
+                                        <svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                        {{ $dl }} <span class="text-stone-400 font-normal">· {{ $c->next_action_at->format('d M Y') }}</span>
+                                    </p>
+                                    <p class="text-xs text-stone-600 mt-1">{{ $c->next_action }}</p>
+                                </div>
                             @else
                                 <p class="text-[11px] text-amber-600">⚠ belum ada next action</p>
                             @endif
 
-                            <div class="flex items-center gap-2 pt-0.5">
-                                <a href="{{ route('kol-pipeline.show', $c) }}" class="text-[11px] text-stone-500 hover:text-stone-800">detail →</a>
-                                @if($u->canDo('kol.pipeline.manage') && ! $terminal)
-                                    <form method="POST" action="{{ route('kol-pipeline.follow-up', $c) }}" class="inline">
-                                        @csrf
-                                        <button class="text-[11px] text-indigo-600 hover:underline" title="Catat follow-up + jadwalkan +{{ \App\Models\KolPipelineCard::FOLLOW_UP_SLA_DAYS }} hari">+ follow-up</button>
-                                    </form>
-                                @endif
-                            </div>
-
-                            @if($u->canDo('kol.pipeline.manage'))
-                                <details class="pt-1">
-                                    <summary class="cursor-pointer text-[11px] text-stone-400 hover:text-stone-600">Pindah / aksi</summary>
-                                    <div class="mt-2 space-y-2">
-                                        <form method="POST" action="{{ route('kol-pipeline.stage', $c) }}" class="flex gap-1">
-                                            @csrf @method('PATCH')
-                                            <select name="stage" class="flex-1 px-2 py-1 border border-stone-300 rounded text-xs bg-white">
-                                                @foreach($labels as $val => $lbl)
-                                                    <option value="{{ $val }}" @selected($val === $c->stage)>{{ $lbl }}</option>
-                                                @endforeach
-                                            </select>
-                                            <button class="px-2 py-1 bg-stone-700 hover:bg-stone-800 text-white text-xs rounded">Pindah</button>
-                                        </form>
-                                        <form method="POST" action="{{ route('kol-pipeline.next-action', $c) }}" class="space-y-1">
-                                            @csrf @method('PATCH')
-                                            <input name="next_action" required maxlength="255" placeholder="next action" class="w-full px-2 py-1 border border-stone-300 rounded text-xs">
-                                            <div class="flex items-center gap-2">
-                                                <input type="date" name="next_action_at" required value="{{ now()->toDateString() }}" class="flex-1 px-2 py-1 border border-stone-300 rounded text-xs">
-                                                <button class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded">Set</button>
-                                            </div>
-                                        </form>
-                                        @if($u->role === \App\Models\User::ROLE_SUPER_ADMIN)
-                                            <form method="POST" action="{{ route('kol-pipeline.destroy', $c) }}" onsubmit="return confirm('Hapus kartu ini permanen?')">
-                                                @csrf @method('DELETE')
-                                                <button class="text-[10px] text-rose-500 hover:underline">Hapus kartu</button>
-                                            </form>
-                                        @endif
-                                    </div>
-                                </details>
+                            {{-- Rate diminta → final --}}
+                            @if($c->ask_rate)
+                                <p class="text-[11px] text-stone-500 tabular-nums">{{ $rc($c->ask_rate) }} <span class="text-stone-300">→</span> {{ $c->final_rate ? $rc($c->final_rate) : '—' }}</p>
                             @endif
+
+                            {{-- Aksi inline (ala Iyuro): pindah dropdown + follow-up --}}
+                            @if($u->canDo('kol.pipeline.manage'))
+                                <div class="flex items-center gap-1.5 pt-0.5">
+                                    <form method="POST" action="{{ route('kol-pipeline.stage', $c) }}" class="flex-1 min-w-0">
+                                        @csrf @method('PATCH')
+                                        <select name="stage" onchange="if(this.value)this.form.submit()" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg text-xs bg-white text-stone-600">
+                                            <option value="" selected>Pindah ke…</option>
+                                            @foreach($labels as $val => $lbl)@if($val !== $c->stage)<option value="{{ $val }}">{{ $lbl }}</option>@endif @endforeach
+                                        </select>
+                                    </form>
+                                    @if(! $terminal)
+                                        <form method="POST" action="{{ route('kol-pipeline.follow-up', $c) }}" class="shrink-0">
+                                            @csrf
+                                            <button class="px-2 py-1.5 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 text-xs font-semibold rounded-lg whitespace-nowrap" title="Catat follow-up + jadwalkan +{{ \App\Models\KolPipelineCard::FOLLOW_UP_SLA_DAYS }} hari">✓ Follow-up</button>
+                                        </form>
+                                    @endif
+                                </div>
+                            @endif
+
+                            <a href="{{ route('kol-pipeline.show', $c) }}" class="inline-block text-[11px] text-stone-500 hover:text-stone-800">detail → <span class="text-stone-300">(rate, catatan nego, riwayat)</span></a>
                         </div>
                     @endforeach
                     <p class="text-[11px] text-stone-300 px-1 kanban-empty {{ $cards->isEmpty() ? '' : 'hidden' }}">—</p>

@@ -108,6 +108,13 @@
                 <p class="text-sm text-stone-600 whitespace-pre-line">{{ $card->note }}</p>
             </div>
         @endif
+
+        @if($u->role === \App\Models\User::ROLE_SUPER_ADMIN)
+            <form method="POST" action="{{ route('kol-pipeline.destroy', $card) }}" onsubmit="return confirm('Hapus kartu ini permanen? Riwayat tahap ikut terhapus.')">
+                @csrf @method('DELETE')
+                <button class="text-xs text-rose-500 hover:text-rose-700 hover:underline">Hapus kartu permanen</button>
+            </form>
+        @endif
     @endif
 
     {{-- Riwayat tahap (dari kol_pipeline_events — dulu direkam tapi tak pernah ditampilkan) --}}

@@ -36,12 +36,13 @@ class KolPipelineController extends Controller
             'labels' => KolPipelineCard::labelsFor($track),
             'terminals' => KolPipelineCard::TERMINAL_STAGES,
             'today' => $today,
+            'total' => $cards->count(),
             'statAktif' => $cards->filter->isActive()->count(),
             'statTerlambat' => $cards->filter(fn ($c) => $c->isActive() && $c->next_action_at?->lt($today))->count(),
             'statDekat' => $cards->filter(fn ($c) => $c->isActive() && $c->next_action_at?->between($today, $besok))->count(),
             'statTanpaAksi' => $cards->filter(fn ($c) => $c->isActive() && ! $c->next_action_at)->count(),
-            'countKol' => KolPipelineCard::track(KolPipelineCard::TRACK_KOL)->active()->count(),
-            'countAffiliate' => KolPipelineCard::track(KolPipelineCard::TRACK_AFFILIATE)->active()->count(),
+            'countKol' => KolPipelineCard::track(KolPipelineCard::TRACK_KOL)->count(),
+            'countAffiliate' => KolPipelineCard::track(KolPipelineCard::TRACK_AFFILIATE)->count(),
             'kolsTanpaKartu' => Kol::whereNotIn('id', $taken)->orderBy('tiktok_username')->get(['id', 'tiktok_username']),
         ]);
     }
