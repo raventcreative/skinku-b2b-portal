@@ -163,6 +163,20 @@ class KolContentTest extends TestCase
         $this->assertSame(4000, (int) $c1->refresh()->latestSnapshot->views);
     }
 
+    /** Combo KOL di form konten kaya metadata (peran/tier) + label bersih + tandai blacklist. */
+    public function test_form_konten_combo_kaya_metadata(): void
+    {
+        $spec = $this->user('kol_specialist', 'kontmeta');
+        Kol::create(['tiktok_username' => 'metakol', 'followers' => 200_000, 'role' => 'both', 'status' => 'aktif']);
+        Kol::create(['tiktok_username' => 'blkkol', 'followers' => 3_000, 'role' => 'kol', 'status' => 'blacklist']);
+
+        $html = $this->actingAs($spec)->get(route('kol-konten.create'))->assertOk()->getContent();
+        $this->assertStringContainsString('Middle', $html);              // 200rb → Middle
+        $this->assertStringContainsString('KOL + Affiliate', $html);      // role 'both'
+        $this->assertStringContainsString('blacklist', $html);            // penanda
+        $this->assertStringContainsString('data-label="@metakol"', $html); // input value tetap bersih
+    }
+
     /** Form konten prefill dari ?deal / ?url — creator ditarik dari deal. */
     public function test_create_prefill_dari_deal_dan_url(): void
     {

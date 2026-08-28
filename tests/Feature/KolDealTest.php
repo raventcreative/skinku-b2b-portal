@@ -322,6 +322,19 @@ class KolDealTest extends TestCase
         $this->assertSame(5000, $res->viewData('contentCpm'));   // 1jt ÷ 200rb × 1000
     }
 
+    /** Picker KOL di form deal (datalist) tampilkan peran/tier/status + tandai blacklist. */
+    public function test_form_deal_picker_kaya_metadata(): void
+    {
+        $spec = $this->specialist('pickmeta', finance: true);
+        Kol::create(['tiktok_username' => 'aktifkol', 'followers' => 50_000, 'role' => 'affiliate', 'status' => 'aktif']);
+        Kol::create(['tiktok_username' => 'blacklistkol', 'followers' => 5_000, 'role' => 'kol', 'status' => 'blacklist']);
+
+        $html = $this->actingAs($spec)->get(route('kol-deals.create'))->assertOk()->getContent();
+        $this->assertStringContainsString('Affiliate', $html);   // label peran
+        $this->assertStringContainsString('Mikro', $html);        // tier (50rb followers)
+        $this->assertStringContainsString('blacklist', $html);    // penanda status
+    }
+
     /** Detail deal untuk non-finance: tak ada angka uang (grand total). */
     public function test_detail_deal_non_finance_sembunyikan_uang(): void
     {

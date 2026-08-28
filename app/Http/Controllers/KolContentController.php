@@ -58,7 +58,7 @@ class KolContentController extends Controller
             'aman' => $target > 0 && $proj >= 0.95 * $target,
             'daysLeft' => $daysLeft, 'perDayNeeded' => $perDayNeeded,
             'filters' => $filters,
-            'kols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']),
+            'kols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username', 'role', 'status', 'followers']),
             'platforms' => config('kol.platforms'),
             'types' => KolContent::TYPE_LABELS,
             'prevMonth' => $start->copy()->subMonth()->format('Y-m'),
@@ -342,7 +342,7 @@ class KolContentController extends Controller
     {
         return [
             'content' => $content,
-            'kols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']),
+            'kols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username', 'role', 'status', 'followers']),
             'deals' => KolDeal::with('kol:id,tiktok_username')->orderByDesc('id')->get(['id', 'kode', 'kol_id']),
             'platforms' => config('kol.platforms'),
             'types' => KolContent::TYPE_LABELS,

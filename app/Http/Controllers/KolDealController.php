@@ -176,7 +176,7 @@ class KolDealController extends Controller
      */
     private function formData(KolDeal $deal, int $selectedKolId): array
     {
-        $kols = Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username', 'phone']);
+        $kols = Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username', 'phone', 'role', 'status', 'followers']);
 
         return [
             'deal' => $deal,

@@ -23,7 +23,16 @@
                     placeholder="ketik untuk cari @username…"
                     class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-normal">
                 <datalist id="kolDatalist">
-                    @foreach($kols as $k)<option value="{{ '@'.$k->tiktok_username }}">@endforeach
+                    @foreach($kols as $k)
+                        @php
+                            $meta = collect([
+                                \App\Models\Kol::ROLE_LABELS[$k->role] ?? null,
+                                $k->level,
+                                $k->status === \App\Models\Kol::STATUS_BLACKLIST ? '⛔ blacklist' : ($k->status === \App\Models\Kol::STATUS_NON_AKTIF ? 'nonaktif' : null),
+                            ])->filter()->implode(' · ');
+                        @endphp
+                        <option value="{{ '@'.$k->tiktok_username }}"@if($meta) label="{{ $meta }}"@endif>
+                    @endforeach
                 </datalist>
                 <input type="hidden" name="kol_id" id="kolId" value="{{ old('kol_id', $selectedKolId ?: '') }}">
                 <span id="kolMiss" class="block mt-1 text-[10px] text-rose-500 hidden">KOL tak ditemukan — pilih dari daftar.</span>

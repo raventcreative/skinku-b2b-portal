@@ -568,7 +568,7 @@
         opts.forEach(function (o) {
             o.addEventListener('mousedown', function (e) {  // mousedown: jalan sebelum blur
                 e.preventDefault();
-                hidden.value = o.getAttribute('data-value'); input.value = o.textContent; list.classList.add('hidden');
+                hidden.value = o.getAttribute('data-value'); input.value = o.getAttribute('data-label') || o.textContent.trim(); list.classList.add('hidden');
                 combo.dispatchEvent(new CustomEvent('combo:select', { detail: { value: hidden.value, option: o } }));
             });
         });
