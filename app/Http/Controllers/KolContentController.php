@@ -66,6 +66,43 @@ class KolContentController extends Controller
             ->with('status', 'Konten ditambahkan.');
     }
 
+    /**
+     * Detail konten: grafik pertumbuhan views (snapshot dari waktu ke waktu) +
+     * tabel riwayat snapshot (Δ vs snapshot sebelumnya + engagement rate).
+     * Snapshot harian sudah tersimpan (append-only) — dulu hanya latestSnapshot
+     * yang pernah dibaca; halaman ini menampilkan seluruh riwayatnya.
+     */
+    public function show(KolContent $content)
+    {
+        $content->load(['kol', 'deal']);
+        $snaps = $content->snapshots()->orderBy('captured_on')->get();
+
+        // Riwayat (baru → lama untuk tabel): Δ views vs snapshot sebelumnya + ER.
+        $prev = null;
+        $history = $snaps->map(function ($s) use (&$prev) {
+            $hasEng = $s->likes !== null || $s->comments !== null || $s->shares !== null;
+            $eng = (int) $s->likes + (int) $s->comments + (int) $s->shares;
+            $er = ($hasEng && (int) $s->views > 0) ? round($eng / (int) $s->views * 100, 2) : null;
+            $delta = $prev !== null ? ((int) $s->views - $prev) : null;
+            $prev = (int) $s->views;
+
+            return [
+                'date' => $s->captured_on, 'views' => (int) $s->views,
+                'delta' => $delta, 'er' => $er, 'source' => $s->source,
+            ];
+        })->reverse()->values();
+
+        return view('kols.konten.show', [
+            'content' => $content,
+            'latest' => $snaps->last(),
+            'history' => $history,
+            'chart' => [
+                'labels' => $snaps->map(fn ($s) => $s->captured_on->format('d M'))->values(),
+                'views' => $snaps->map(fn ($s) => (int) $s->views)->values(),
+            ],
+        ]);
+    }
+
     public function edit(KolContent $content)
     {
         return view('kols.konten.form', $this->formData($content));

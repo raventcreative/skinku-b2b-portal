@@ -375,6 +375,8 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::put('/kol-konten/{content}', [KolContentController::class, 'update'])->name('kol-konten.update');
             Route::delete('/kol-konten/{content}', [KolContentController::class, 'destroy'])->name('kol-konten.destroy');
         });
+        // Detail konten (view-level) — DIDAFTAR SETELAH create/grid agar tak menangkapnya.
+        Route::get('/kol-konten/{content}', [KolContentController::class, 'show'])->name('kol-konten.show');
 
         // Affiliate & GMV (Fase 3a) — angka uang di balik kol.affiliate.view.
         Route::middleware('permission:kol.affiliate.view')->group(function () {

@@ -86,7 +86,10 @@
                         <tr>
                             <td class="px-4 py-2.5 max-w-xs">
                                 <a href="{{ $c->url }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline truncate block">{{ $c->title ?: $c->url }}</a>
-                                @if($c->deal)<span class="text-[10px] text-stone-400">deal {{ $c->deal->kode }}</span>@endif
+                                <span class="flex items-center gap-2">
+                                    <a href="{{ route('kol-konten.show', $c) }}" class="text-[10px] text-stone-500 hover:text-stone-800">📈 riwayat &amp; grafik</a>
+                                    @if($c->deal)<span class="text-[10px] text-stone-400">· deal {{ $c->deal->kode }}</span>@endif
+                                </span>
                             </td>
                             <td class="px-4 py-2.5 text-stone-600">{{ '@'.$c->kol->tiktok_username }}</td>
                             <td class="px-4 py-2.5">

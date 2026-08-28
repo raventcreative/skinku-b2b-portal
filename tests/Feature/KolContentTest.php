@@ -54,6 +54,25 @@ class KolContentTest extends TestCase
             ->get(route('kol-konten.index'))->assertOk()->assertSee('Konten & Views');
     }
 
+    public function test_halaman_detail_grafik_dan_riwayat_snapshot(): void
+    {
+        $kol = $this->kol();
+        $c = KolContent::create(['kol_id' => $kol->id, 'url' => 'https://www.tiktok.com/@x/video/7',
+            'label' => 'earned', 'posted_at' => now()->subDays(5)->toDateString()]);
+        // Dua snapshot beda hari → Δ dan grafik pertumbuhan.
+        $c->snapshots()->create(['views' => 1000, 'likes' => 100, 'captured_on' => now()->subDays(3)->startOfDay(), 'source' => 'manual']);
+        $c->snapshots()->create(['views' => 1500, 'likes' => 200, 'captured_on' => now()->startOfDay(), 'source' => 'manual']);
+
+        // Partner (reseller) tak boleh lihat.
+        $this->actingAs($this->user(User::ROLE_RESELLER, 'resd'))->get(route('kol-konten.show', $c))->assertForbidden();
+
+        $this->actingAs($this->user('kol_specialist', 'ksd'))->get(route('kol-konten.show', $c))->assertOk()
+            ->assertSee('Pertumbuhan views')   // grafik
+            ->assertSee('1.500')               // views terbaru
+            ->assertSee('+500')                // Δ vs snapshot sebelumnya
+            ->assertSee('13,33%');             // ER = 200/1500
+    }
+
     public function test_store_deal_memaksa_paid_dan_oembed_autofill(): void
     {
         $spec = $this->user('kol_specialist', 'ks2');
