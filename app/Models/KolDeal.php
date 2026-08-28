@@ -34,7 +34,7 @@ class KolDeal extends Model
     public const FINANCE_FIELDS = ['total_biaya', 'status_bayar', 'no_rekening', 'bank', 'atas_nama'];
 
     protected $fillable = [
-        'kode', 'kol_id', 'jenis', 'ratecard_deal', 'jumlah_slot',
+        'kode', 'kol_id', 'kol_campaign_id', 'jenis', 'ratecard_deal', 'jumlah_slot',
         'periode_mulai', 'periode_selesai', 'pic_user_id', 'link_mou', 'status',
         'total_biaya', 'status_bayar', 'no_rekening', 'bank', 'atas_nama',
         'hasil_tujuan', 'hasil_video_upload', 'hasil_video_fyp', 'hasil_views',
@@ -126,6 +126,11 @@ class KolDeal extends Model
     public function kol()
     {
         return $this->belongsTo(Kol::class);
+    }
+
+    public function campaign()
+    {
+        return $this->belongsTo(KolCampaign::class, 'kol_campaign_id');
     }
 
     /** Konten yang terkait deal ini — dipakai reminder "deal belum posting". */

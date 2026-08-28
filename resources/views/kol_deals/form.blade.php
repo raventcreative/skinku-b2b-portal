@@ -86,6 +86,14 @@
                 </select>
                 @unless($canApprove)<span class="block mt-1 text-[10px] text-stone-400">Acc (berjalan) / Tolak (batal) hanya oleh penyetuju.</span>@endunless
             </label>
+            <label class="text-[11px] font-semibold text-stone-500">Campaign (opsional)
+                <select name="kol_campaign_id" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white">
+                    <option value="">— tanpa campaign —</option>
+                    @foreach($campaigns as $cmp)
+                        <option value="{{ $cmp->id }}" @selected(old('kol_campaign_id', $deal->kol_campaign_id) == $cmp->id)>{{ $cmp->name }}</option>
+                    @endforeach
+                </select>
+            </label>
         </div>
 
         @if($canFinance)

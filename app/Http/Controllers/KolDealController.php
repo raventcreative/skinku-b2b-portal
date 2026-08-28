@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
 use App\Models\Kol;
+use App\Models\KolCampaign;
 use App\Models\KolDeal;
 use App\Models\User;
 use App\Services\AuditService;
@@ -17,7 +18,7 @@ class KolDealController extends Controller
     public function index(Request $request, KolBudgetService $budget)
     {
         $deals = KolDeal::query()
-            ->with(['kol.latestScreening', 'pic'])
+            ->with(['kol.latestScreening', 'pic', 'campaign'])
             ->when($request->query('status'), fn ($q, $v) => $q->where('status', $v))
             ->orderByDesc('id')
             ->paginate(20)
@@ -142,6 +143,7 @@ class KolDealController extends Controller
             ]])->all(),
             'pics' => User::whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, 'kol_specialist'])
                 ->where('status', User::STATUS_ACTIVE)->orderBy('fullname')->get(['id', 'fullname']),
+            'campaigns' => KolCampaign::orderBy('name')->get(['id', 'name']),
             'selectedKolId' => $selectedKolId,
         ];
     }
@@ -300,6 +302,7 @@ class KolDealController extends Controller
     {
         $data = $request->validate([
             'kol_id' => ['required', 'integer', 'exists:kols,id'],
+            'kol_campaign_id' => ['nullable', 'integer', 'exists:kol_campaigns,id'],
             'jenis' => ['required', Rule::in(KolDeal::JENIS)],
             'ratecard_deal' => ['required', 'integer', 'min:0'],
             'jumlah_slot' => ['required', 'integer', 'min:1'],

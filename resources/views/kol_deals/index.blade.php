@@ -33,7 +33,8 @@
             @endforeach
         </select>
     </form>
-    <a href="{{ route('kol-deals.laporan') }}" class="ml-auto px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">📊 Ringkasan Hasil</a>
+    <a href="{{ route('kol-campaigns.index') }}" class="ml-auto px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">📣 Campaign</a>
+    <a href="{{ route('kol-deals.laporan') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">📊 Ringkasan Hasil</a>
     <a href="{{ route('kol-deals.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Deal Baru</a>
 </div>
 
@@ -138,6 +139,7 @@
                     <td class="px-2 py-2.5 font-semibold text-stone-700">{{ $d->kode }}</td>
                     <td>
                         <a href="{{ route('kols.show', $d->kol_id) }}" class="text-red-700 hover:underline font-semibold">{{ '@'.($d->kol->tiktok_username ?? '?') }}</a>
+                        @if($d->campaign)<span class="block text-[10px] text-indigo-500">📣 {{ $d->campaign->name }}</span>@endif
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
                             <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold {{ $levelBadge[$d->kol?->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $d->kol?->level ?? '—' }}</span>
                             @if($sc)

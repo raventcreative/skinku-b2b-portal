@@ -21,6 +21,7 @@ use App\Http\Controllers\JoinPackageController;
 use App\Http\Controllers\KanbanController;
 use App\Http\Controllers\KolAffiliateController;
 use App\Http\Controllers\KolAgentController;
+use App\Http\Controllers\KolCampaignController;
 use App\Http\Controllers\KolContentController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDashboardController;
@@ -412,6 +413,11 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::put('/kol-deals/{deal}', [KolDealController::class, 'update'])->name('kol-deals.update');
         Route::post('/kol-deals/{deal}/hasil', [KolDealController::class, 'saveHasil'])->name('kol-deals.hasil');
         Route::delete('/kol-deals/{deal}', [KolDealController::class, 'destroy'])->name('kol-deals.destroy');
+        // Campaign KOL (payung beberapa deal).
+        Route::get('/kol-campaigns', [KolCampaignController::class, 'index'])->name('kol-campaigns.index');
+        Route::post('/kol-campaigns', [KolCampaignController::class, 'store'])->name('kol-campaigns.store');
+        Route::patch('/kol-campaigns/{campaign}', [KolCampaignController::class, 'update'])->name('kol-campaigns.update');
+        Route::delete('/kol-campaigns/{campaign}', [KolCampaignController::class, 'destroy'])->name('kol-campaigns.destroy');
         // Sampel produk per-deal.
         Route::post('/kol-deals/{deal}/samples', [KolSampleController::class, 'store'])->name('kol-samples.store');
         Route::patch('/kol-samples/{sample}', [KolSampleController::class, 'updateStatus'])->name('kol-samples.status');
