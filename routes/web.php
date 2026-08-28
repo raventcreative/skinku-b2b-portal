@@ -28,6 +28,7 @@ use App\Http\Controllers\KolDealController;
 use App\Http\Controllers\KolImportController;
 use App\Http\Controllers\KolPipelineController;
 use App\Http\Controllers\KolReminderController;
+use App\Http\Controllers\KolSampleController;
 use App\Http\Controllers\KolScoringController;
 use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\LearningController;
@@ -411,6 +412,10 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::put('/kol-deals/{deal}', [KolDealController::class, 'update'])->name('kol-deals.update');
         Route::post('/kol-deals/{deal}/hasil', [KolDealController::class, 'saveHasil'])->name('kol-deals.hasil');
         Route::delete('/kol-deals/{deal}', [KolDealController::class, 'destroy'])->name('kol-deals.destroy');
+        // Sampel produk per-deal.
+        Route::post('/kol-deals/{deal}/samples', [KolSampleController::class, 'store'])->name('kol-samples.store');
+        Route::patch('/kol-samples/{sample}', [KolSampleController::class, 'updateStatus'])->name('kol-samples.status');
+        Route::delete('/kol-samples/{sample}', [KolSampleController::class, 'destroy'])->name('kol-samples.destroy');
     });
 
     /* ---------------- Kanban (papan tugas tim ala Trello) ---------------- */

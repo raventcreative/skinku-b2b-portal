@@ -134,6 +134,12 @@ class KolDeal extends Model
         return $this->hasMany(KolContent::class, 'kol_deal_id');
     }
 
+    /** Sampel produk yang dikirim untuk deal ini. */
+    public function samples()
+    {
+        return $this->hasMany(KolSample::class, 'kol_deal_id')->latest('id');
+    }
+
     public function pic()
     {
         return $this->belongsTo(User::class, 'pic_user_id');

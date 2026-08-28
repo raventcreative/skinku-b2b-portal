@@ -177,6 +177,94 @@
             {{ $deal->exists ? 'Simpan Perubahan' : 'Buat Deal' }}
         </button>
     </form>
+
+    @if($deal->exists)
+        @php
+            $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
+            $samples = $deal->samples;
+            $totalHpp = $samples->sum(fn ($s) => $s->subtotal);
+            $sTone = ['pending' => 'bg-stone-100 text-stone-500', 'shipped' => 'bg-amber-100 text-amber-700', 'received' => 'bg-emerald-100 text-emerald-700'];
+        @endphp
+        <div class="bg-white rounded-2xl border border-stone-200 p-5 mt-4">
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-bold text-stone-800">Sampel Produk</p>
+                <span class="text-xs text-stone-500">Total HPP: <b class="text-stone-800">{{ $rp($totalHpp) }}</b></span>
+            </div>
+
+            {{-- Daftar sampel --}}
+            <div class="space-y-2 mb-4">
+                @forelse($samples as $s)
+                    <div class="border border-stone-200 rounded-xl p-3">
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-stone-800">{{ $s->product }}</p>
+                                <p class="text-[11px] text-stone-500 tabular-nums">{{ number_format($s->units, 0, ',', '.') }} unit × {{ $rp($s->unit_cost) }} = <b>{{ $rp($s->subtotal) }}</b></p>
+                                @if($s->courier || $s->tracking_no)
+                                    <p class="text-[11px] text-stone-400">{{ $s->courier }}{{ $s->courier && $s->tracking_no ? ' · ' : '' }}{{ $s->tracking_no }}</p>
+                                @endif
+                                <p class="text-[10px] text-stone-400">
+                                    @if($s->shipped_at)dikirim {{ $s->shipped_at->format('d M') }}@endif
+                                    @if($s->received_at) · diterima {{ $s->received_at->format('d M') }}@endif
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <form method="POST" action="{{ route('kol-samples.status', $s) }}">
+                                    @csrf @method('PATCH')
+                                    <select name="status" onchange="this.form.submit()" class="text-[11px] px-2 py-1 border border-stone-300 rounded-lg bg-white {{ $sTone[$s->status] ?? '' }}">
+                                        @foreach(\App\Models\KolSample::STATUS_LABELS as $val => $lbl)
+                                            <option value="{{ $val }}" @selected($s->status === $val)>{{ $lbl }}</option>
+                                        @endforeach
+                                    </select>
+                                </form>
+                                <form method="POST" action="{{ route('kol-samples.destroy', $s) }}" onsubmit="return confirm('Hapus sampel ini?')">
+                                    @csrf @method('DELETE')
+                                    <button class="text-[11px] text-rose-400 hover:text-rose-600">hapus</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-xs text-stone-400">Belum ada sampel dicatat.</p>
+                @endforelse
+            </div>
+
+            {{-- Tambah sampel --}}
+            <details class="border-t border-stone-100 pt-3">
+                <summary class="cursor-pointer text-xs font-semibold text-stone-600">+ Catat sampel</summary>
+                <form method="POST" action="{{ route('kol-samples.store', $deal) }}" class="mt-3 grid sm:grid-cols-2 gap-3 text-sm">
+                    @csrf
+                    <label class="text-[11px] font-semibold text-stone-500 sm:col-span-2">Produk
+                        <input name="product" required maxlength="255" placeholder="mis. Serum Glow 30ml" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">Jumlah unit
+                        <input type="number" name="units" min="1" value="1" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">HPP per unit (Rp)
+                        <input type="number" name="unit_cost" min="0" value="0" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">Kurir
+                        <input name="courier" maxlength="100" placeholder="mis. JNE" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">No. resi
+                        <input name="tracking_no" maxlength="100" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">Status
+                        <select name="status" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white">
+                            @foreach(\App\Models\KolSample::STATUS_LABELS as $val => $lbl)<option value="{{ $val }}">{{ $lbl }}</option>@endforeach
+                        </select>
+                    </label>
+                    @if($canFinance)
+                        <label class="flex items-center gap-2 mt-5 text-xs text-stone-600">
+                            <input type="checkbox" name="add_to_deal" value="1"> Tambahkan HPP ke biaya deal
+                        </label>
+                    @endif
+                    <div class="sm:col-span-2">
+                        <button class="px-4 py-2 text-sm bg-stone-700 text-white rounded-lg hover:bg-stone-800 font-semibold">Simpan sampel</button>
+                    </div>
+                </form>
+            </details>
+        </div>
+    @endif
 </div>
 
 <script>
