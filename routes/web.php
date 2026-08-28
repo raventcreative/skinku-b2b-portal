@@ -379,6 +379,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         // Affiliate & GMV (Fase 3a) — angka uang di balik kol.affiliate.view.
         Route::middleware('permission:kol.affiliate.view')->group(function () {
             Route::get('/kol-affiliate', [KolAffiliateController::class, 'index'])->name('kol-affiliate.index');
+            Route::get('/kol-affiliate/transaksi', [KolAffiliateController::class, 'transactions'])->name('kol-affiliate.transactions');
             Route::middleware('permission:kol.affiliate.manage')->group(function () {
                 Route::post('/kol-affiliate/match', [KolAffiliateController::class, 'match'])->name('kol-affiliate.match');
                 Route::get('/kol-affiliate/import', [KolAffiliateController::class, 'importForm'])->name('kol-affiliate.import');

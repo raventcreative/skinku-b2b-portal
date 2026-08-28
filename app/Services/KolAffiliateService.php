@@ -82,6 +82,32 @@ class KolAffiliateService
         return $out;
     }
 
+    /**
+     * GMV agregat per minggu di sepanjang bulan (semua creator, kecuali batal) —
+     * untuk strip "Per minggu" di halaman Affiliate. Minggu ISO yang beririsan
+     * dengan bulan, lama → baru.
+     *
+     * @return array<int,array{label:string,gmv:int}>
+     */
+    public function monthlyWeeklyGmv(Carbon $month): array
+    {
+        $start = $month->copy()->startOfMonth();
+        $end = $month->copy()->endOfMonth();
+        $out = [];
+        $cur = $start->copy()->startOfWeek();
+        while ($cur <= $end) {
+            $we = $cur->copy()->endOfWeek();
+            $out[] = [
+                'label' => $cur->format('d M'),
+                'gmv' => (int) KolAffiliateTransaction::notCancelled()
+                    ->whereBetween('order_date', [$cur, $we])->sum('gmv'),
+            ];
+            $cur = $cur->copy()->addWeek();
+        }
+
+        return $out;
+    }
+
     /** Username belum cocok, urut nilai GMV terbesar (calon affiliate belum terdata). */
     public function unmatched(): Collection
     {

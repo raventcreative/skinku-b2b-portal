@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolAffiliateTransaction;
 use App\Services\AuditService;
 use App\Services\KolAffiliateService;
 use App\Services\KolScoringService;
@@ -41,10 +42,59 @@ class KolAffiliateController extends Controller
                 'orders' => (int) $ranking->sum('orders'),
                 'affiliates' => $ranking->count(),
             ],
+            'weekly' => $svc->monthlyWeeklyGmv($m),
             'unmatched' => $unmatched,
             'canManage' => $request->user()->canDo('kol.affiliate.manage'),
             'kols' => $request->user()->canDo('kol.affiliate.manage')
                 ? Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']) : collect(),
+            'prevMonth' => $m->copy()->subMonth()->format('Y-m'),
+            'nextMonth' => $m->copy()->addMonth()->format('Y-m'),
+        ]);
+    }
+
+    /**
+     * Daftar transaksi affiliate per-order (data sudah tersimpan di
+     * kol_affiliate_transactions, sebelumnya hanya diagregat jadi ranking).
+     * Filter platform/creator/status + paginasi. Gated kol.affiliate.view.
+     */
+    public function transactions(Request $request, KolAffiliateService $svc)
+    {
+        $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
+            ? (string) $request->query('bulan') : now()->format('Y-m');
+        $m = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $start = $m->copy()->startOfMonth();
+        $end = $m->copy()->endOfMonth();
+
+        $platform = in_array($request->query('platform'), ['tiktok', 'shopee'], true) ? $request->query('platform') : null;
+        $kolId = ctype_digit((string) $request->query('kol_id')) ? (int) $request->query('kol_id') : null;
+        $status = in_array($request->query('status'), ['valid', 'cancelled'], true) ? $request->query('status') : 'all';
+
+        // Basis lingkup (bulan + platform + creator), tanpa toggle status.
+        $base = fn () => KolAffiliateTransaction::query()
+            ->whereBetween('order_date', [$start, $end])
+            ->when($platform, fn ($q) => $q->where('platform', $platform))
+            ->when($kolId, fn ($q) => $q->where('kol_id', $kolId));
+
+        // Daftar = basis + toggle status.
+        $list = $base()->with('kol')->latest('order_date')->orderByDesc('id');
+        if ($status === 'valid') {
+            $list->notCancelled();
+        } elseif ($status === 'cancelled') {
+            $list->whereRaw('LOWER(status) IN (?, ?, ?, ?)', KolAffiliateTransaction::CANCELLED);
+        }
+
+        return view('kols.affiliate.transactions', [
+            'month' => $month,
+            'rows' => $list->paginate(30)->withQueryString(),
+            'stats' => [
+                'total' => $base()->count(),
+                'cancelled' => $base()->whereRaw('LOWER(status) IN (?, ?, ?, ?)', KolAffiliateTransaction::CANCELLED)->count(),
+                'gmv' => (int) $base()->notCancelled()->sum('gmv'),
+                'commission' => (int) $base()->notCancelled()->sum('commission'),
+                'unmatched' => $base()->unmatched()->count(),
+            ],
+            'filters' => ['platform' => $platform, 'kol_id' => $kolId, 'status' => $status],
+            'kols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']),
             'prevMonth' => $m->copy()->subMonth()->format('Y-m'),
             'nextMonth' => $m->copy()->addMonth()->format('Y-m'),
         ]);

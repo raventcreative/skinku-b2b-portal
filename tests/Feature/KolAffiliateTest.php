@@ -101,6 +101,52 @@ class KolAffiliateTest extends TestCase
             ->assertSee('Affiliate & GMV')->assertSee('ranktest');
     }
 
+    public function test_monthly_weekly_gmv_agregat_kecualikan_batal(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'weekkol', 'followers' => 10_000]);
+        $actor = $this->user('kol_specialist', 'affw')->id;
+        $d = now()->startOfMonth()->addDays(2)->toDateString();
+        $this->svc()->import([
+            ['order_id' => 'W1', 'username' => 'weekkol', 'gmv' => 300_000, 'order_date' => $d],
+            ['order_id' => 'W2', 'username' => 'weekkol', 'gmv' => 500_000, 'order_date' => $d],
+            ['order_id' => 'W3', 'username' => 'weekkol', 'gmv' => 999_000, 'status' => 'Batal', 'order_date' => $d],
+        ], 'tiktok', $actor);
+
+        $weekly = $this->svc()->monthlyWeeklyGmv(now());
+        $this->assertNotEmpty($weekly);
+        $this->assertArrayHasKey('label', $weekly[0]);
+        $this->assertArrayHasKey('gmv', $weekly[0]);
+        $this->assertSame(800_000, collect($weekly)->sum('gmv')); // W3 batal dikecualikan
+    }
+
+    public function test_halaman_transaksi_gating_filter_dan_render(): void
+    {
+        // Tanpa kol.affiliate.view → 403.
+        $this->actingAs($this->user(User::ROLE_GUDANG, 'gdt'))->get(route('kol-affiliate.transactions'))->assertForbidden();
+
+        $spec = $this->user('kol_specialist', 'afft');
+        Kol::create(['tiktok_username' => 'txkol', 'followers' => 20_000]);
+        $this->svc()->import([
+            ['order_id' => 'T1', 'username' => 'txkol', 'gmv' => 100_000, 'product' => 'Serum A', 'qty' => 2, 'order_date' => now()->toDateString()],
+            ['order_id' => 'T2', 'username' => 'txkol', 'gmv' => 999_000, 'status' => 'Cancelled', 'order_date' => now()->toDateString()],
+        ], 'tiktok', $spec->id);
+        $this->svc()->import([
+            ['order_id' => 'S1', 'username' => 'txkol', 'gmv' => 50_000, 'order_date' => now()->toDateString()],
+        ], 'shopee', $spec->id);
+
+        // Semua: order id per-baris tampil (data yang dulu cuma diagregat).
+        $this->actingAs($spec)->get(route('kol-affiliate.transactions'))->assertOk()
+            ->assertSee('Transaksi Affiliate')->assertSee('T1')->assertSee('Serum A')->assertSee('S1');
+
+        // Filter platform=shopee → hanya order shopee.
+        $this->actingAs($spec)->get(route('kol-affiliate.transactions', ['platform' => 'shopee']))->assertOk()
+            ->assertSee('S1')->assertDontSee('>T1<', false);
+
+        // Filter status=cancelled → hanya order batal.
+        $this->actingAs($spec)->get(route('kol-affiliate.transactions', ['status' => 'cancelled']))->assertOk()
+            ->assertSee('T2')->assertDontSee('>S1<', false);
+    }
+
     public function test_match_via_http_butuh_manage(): void
     {
         $spec = $this->user('kol_specialist', 'aff5');

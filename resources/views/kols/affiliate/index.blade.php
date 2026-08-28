@@ -3,7 +3,10 @@
 @section('heading', 'Affiliate & GMV')
 
 @section('content')
-@php $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.'); @endphp
+@php
+    $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
+    $rc = fn ($n) => $n >= 1_000_000 ? 'Rp '.round($n / 1_000_000, 1).' jt' : 'Rp '.number_format($n, 0, ',', '.');
+@endphp
 
 <div class="space-y-4">
 
@@ -20,9 +23,12 @@
             <span class="font-semibold text-stone-700">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}</span>
             <a href="{{ route('kol-affiliate.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
         </div>
-        @if($canManage && \Illuminate\Support\Facades\Route::has('kol-affiliate.import'))
-            <a href="{{ route('kol-affiliate.import') }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">⬆ Import data affiliate</a>
-        @endif
+        <div class="flex items-center gap-2">
+            <a href="{{ route('kol-affiliate.transactions', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">📄 Semua transaksi</a>
+            @if($canManage && \Illuminate\Support\Facades\Route::has('kol-affiliate.import'))
+                <a href="{{ route('kol-affiliate.import') }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">⬆ Import data affiliate</a>
+            @endif
+        </div>
     </div>
 
     {{-- Ringkasan --}}
@@ -32,6 +38,25 @@
         <div class="bg-white rounded-2xl border border-stone-200 p-4"><p class="text-xs text-stone-500">Order</p><p class="text-xl font-bold text-stone-800">{{ number_format($summary['orders'], 0, ',', '.') }}</p></div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4"><p class="text-xs text-stone-500">Affiliate aktif</p><p class="text-xl font-bold text-stone-800">{{ $summary['affiliates'] }}</p></div>
     </div>
+
+    {{-- Strip GMV per minggu (agregat semua creator) — kecuali order batal. --}}
+    @if(!empty($weekly) && collect($weekly)->sum('gmv') > 0)
+        @php $maxW = max(1, collect($weekly)->max('gmv')); @endphp
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <p class="text-sm font-semibold text-stone-700 mb-3">GMV per minggu</p>
+            <div class="flex items-end gap-3">
+                @foreach($weekly as $w)
+                    <div class="flex-1 flex flex-col items-center gap-1 min-w-0">
+                        <span class="text-[10px] text-stone-500 tabular-nums">{{ $rc($w['gmv']) }}</span>
+                        <div class="w-full bg-stone-100 rounded-md overflow-hidden flex items-end" style="height:64px">
+                            <div class="w-full bg-red-500 rounded-md" style="height: {{ max(3, round($w['gmv'] / $maxW * 100)) }}%"></div>
+                        </div>
+                        <span class="text-[10px] text-stone-400 truncate w-full text-center">{{ $w['label'] }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
 
     {{-- Belum cocok --}}
     @if($unmatched->isNotEmpty())
