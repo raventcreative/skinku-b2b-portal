@@ -434,6 +434,11 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/kol-deals/bulk-status', [KolDealController::class, 'bulkStatus'])->name('kol-deals.bulk-status');
         // Budget bulanan + CPM anchor (Fase 2) — finance-sensitive.
         Route::post('/kol-deals/budget', [KolDealController::class, 'saveBudget'])->middleware('permission:kol.deal.finance')->name('kol-deals.budget');
+        // Pengeluaran budget tambahan (boost/hadiah/dll) — finance-sensitive.
+        Route::middleware('permission:kol.deal.finance')->group(function () {
+            Route::post('/kol-deals/budget-tx', [KolDealController::class, 'budgetTxStore'])->name('kol-deals.budget-tx.store');
+            Route::delete('/kol-deals/budget-tx/{tx}', [KolDealController::class, 'budgetTxDestroy'])->name('kol-deals.budget-tx.destroy');
+        });
         Route::get('/kol-deals/{deal}', [KolDealController::class, 'show'])->name('kol-deals.show');
         Route::get('/kol-deals/{deal}/edit', [KolDealController::class, 'edit'])->name('kol-deals.edit');
         Route::put('/kol-deals/{deal}', [KolDealController::class, 'update'])->name('kol-deals.update');

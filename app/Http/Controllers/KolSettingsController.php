@@ -27,6 +27,7 @@ class KolSettingsController extends Controller
             'viewsTarget' => (int) AppSetting::get('kol_views_target', '1000000'),
             'gmvTarget' => (int) AppSetting::get('kol_gmv_target', '0'),
             'marginPct' => (int) round(AppSetting::float('kol_gross_margin', 0.3) * 100),
+            'shareLimitPct' => (int) round(AppSetting::float('kol_share_limit', 0.4) * 100),
             'sampleHpp' => (int) AppSetting::get('kol_sample_hpp', '0'),
             'dateOrder' => AppSetting::get('kol_import_date_order', 'auto'),
             'targets' => KolMonthlyTarget::orderByDesc('month')->get(),
@@ -42,6 +43,7 @@ class KolSettingsController extends Controller
             'views_target' => ['required', 'integer', 'min:0'],
             'gmv_target' => ['required', 'integer', 'min:0'],
             'margin_pct' => ['required', 'integer', 'min:0', 'max:100'],
+            'share_limit_pct' => ['required', 'integer', 'min:1', 'max:100'],
             'sample_hpp' => ['required', 'integer', 'min:0'],
             'date_order' => ['required', 'in:auto,dmy,mdy'],
         ]);
@@ -51,6 +53,7 @@ class KolSettingsController extends Controller
         AppSetting::put('kol_views_target', (string) $d['views_target']);
         AppSetting::put('kol_gmv_target', (string) $d['gmv_target']);
         AppSetting::put('kol_gross_margin', (string) round($d['margin_pct'] / 100, 2));
+        AppSetting::put('kol_share_limit', (string) round($d['share_limit_pct'] / 100, 2));
         AppSetting::put('kol_sample_hpp', (string) $d['sample_hpp']);
         AppSetting::put('kol_import_date_order', $d['date_order']);
 

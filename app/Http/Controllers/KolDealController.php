@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
 use App\Models\Kol;
+use App\Models\KolBudgetTransaction;
 use App\Models\KolCampaign;
 use App\Models\KolDeal;
 use App\Models\User;
@@ -11,23 +12,46 @@ use App\Services\AuditService;
 use App\Services\KolBudgetService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class KolDealController extends Controller
 {
     public function index(Request $request, KolBudgetService $budget)
     {
+        // Month picker: bulan budget & (opsional) filter deal. Tanpa ?bulan =
+        // budget bulan berjalan + daftar semua deal (perilaku lama, kompatibel).
+        $bulan = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan')) ? (string) $request->query('bulan') : null;
+        $m = $bulan ? Carbon::createFromFormat('Y-m', $bulan)->startOfMonth() : now()->startOfMonth();
+
         $deals = KolDeal::query()
             ->with(['kol.latestScreening', 'pic', 'campaign'])
             ->when($request->query('status'), fn ($q, $v) => $q->where('status', $v))
+            ->when($bulan, function ($q) use ($m) {
+                $start = $m->copy()->startOfMonth();
+                $end = $m->copy()->endOfMonth();
+                $q->where(fn ($w) => $w->whereBetween('periode_mulai', [$start, $end])
+                    ->orWhere(fn ($x) => $x->whereNull('periode_mulai')->whereBetween('created_at', [$start, $end])));
+            })
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
 
+        $canFinance = $request->user()->canDo('kol.deal.finance');
+
         return view('kol_deals.index', [
             'deals' => $deals,
             // Panel budget hanya untuk pemegang finance (agregat uang).
-            'budget' => $request->user()->canDo('kol.deal.finance') ? $budget->summary(now()) : null,
+            'budget' => $canFinance ? $budget->summary($m) : null,
+            'bulan' => $bulan,
+            'month' => $m->format('Y-m'),
+            'monthLabel' => $m->translatedFormat('F Y'),
+            'prevMonth' => $m->copy()->subMonth()->format('Y-m'),
+            'nextMonth' => $m->copy()->addMonth()->format('Y-m'),
+            'txCategories' => KolBudgetTransaction::CATEGORY_LABEL,
+            'extraTx' => $canFinance
+                ? KolBudgetTransaction::where('month', $m->format('Y-m'))->with('creator')->latest('id')->get()
+                : collect(),
         ]);
     }
 
@@ -42,6 +66,27 @@ class KolDealController extends Controller
         AppSetting::put(KolBudgetService::KEY_ANCHOR, (string) $data['anchor']);
 
         return back()->with('status', 'Budget & CPM anchor disimpan.');
+    }
+
+    /** Catat pengeluaran budget tambahan (boost/hadiah/dll) untuk sebuah bulan. */
+    public function budgetTxStore(Request $request): RedirectResponse
+    {
+        $d = $request->validate([
+            'month' => ['required', 'regex:/^\d{4}-\d{2}$/'],
+            'category' => ['required', Rule::in(KolBudgetTransaction::CATEGORIES)],
+            'amount' => ['required', 'integer', 'min:1'],
+            'note' => ['nullable', 'string', 'max:200'],
+        ]);
+        KolBudgetTransaction::create($d + ['created_by' => $request->user()->id]);
+
+        return back()->with('status', 'Pengeluaran budget dicatat.');
+    }
+
+    public function budgetTxDestroy(KolBudgetTransaction $tx): RedirectResponse
+    {
+        $tx->delete();
+
+        return back()->with('status', 'Pengeluaran budget dihapus.');
     }
 
     /**

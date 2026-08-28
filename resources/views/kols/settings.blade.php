@@ -46,6 +46,12 @@
                 <span class="text-[11px] text-stone-400">Untuk ROI margin-aware di dashboard (laba kotor GMV ÷ biaya).</span>
             </label>
             <label class="block text-sm">
+                <span class="text-xs font-semibold text-stone-600">Batas share / creator (%)</span>
+                <input type="number" name="share_limit_pct" min="1" max="100" value="{{ old('share_limit_pct', $shareLimitPct) }}"
+                    class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm tabular-nums">
+                <span class="text-[11px] text-stone-400">Satu KOL menyerap di atas ini → peringatan konsentrasi budget.</span>
+            </label>
+            <label class="block text-sm">
                 <span class="text-xs font-semibold text-stone-600">HPP sampel default / unit</span>
                 <input type="number" name="sample_hpp" min="0" value="{{ old('sample_hpp', $sampleHpp) }}"
                     class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg text-sm tabular-nums">

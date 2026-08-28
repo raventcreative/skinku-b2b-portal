@@ -32,7 +32,15 @@
                 <option value="{{ $s }}" @selected($cur === $s)>{{ ucfirst($s) }}</option>
             @endforeach
         </select>
+        @if($bulan)<input type="hidden" name="bulan" value="{{ $bulan }}">@endif
     </form>
+    {{-- Month picker: scope budget & (bila dipilih) daftar deal ke satu bulan. --}}
+    <div class="flex items-center gap-1 text-xs">
+        <a href="{{ route('kol-deals.index', ['bulan' => $prevMonth, 'status' => $cur]) }}" class="px-2 py-1.5 border border-stone-300 rounded-lg hover:bg-stone-50" title="Bulan sebelumnya">←</a>
+        <span class="px-2 py-1.5 font-semibold text-stone-700 {{ $bulan ? '' : 'text-stone-400' }}">{{ $monthLabel }}{{ $bulan ? '' : ' (berjalan)' }}</span>
+        <a href="{{ route('kol-deals.index', ['bulan' => $nextMonth, 'status' => $cur]) }}" class="px-2 py-1.5 border border-stone-300 rounded-lg hover:bg-stone-50" title="Bulan berikutnya">→</a>
+        @if($bulan)<a href="{{ route('kol-deals.index', ['status' => $cur]) }}" class="ml-1 text-stone-400 hover:text-stone-700">semua bulan</a>@endif
+    </div>
     <a href="{{ route('kol-campaigns.index') }}" class="ml-auto px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">📣 Campaign</a>
     <a href="{{ route('kol-deals.laporan') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">📊 Ringkasan Hasil</a>
     <a href="{{ route('kol-deals.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Deal Baru</a>
@@ -49,7 +57,7 @@
     <div class="mb-4 space-y-3">
         {{-- Header + setelan cap/anchor --}}
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="text-sm font-semibold text-stone-700">Budget {{ now()->translatedFormat('F Y') }}</p>
+            <p class="text-sm font-semibold text-stone-700">Budget {{ $monthLabel }}</p>
             <form method="POST" action="{{ route('kol-deals.budget') }}" class="flex items-center gap-1 text-xs">
                 @csrf
                 <span class="text-stone-400">cap</span>
@@ -100,10 +108,67 @@
             </div>
             @if($budget['overConcentration'] || $budget['overAnchor'])
                 <div class="mt-3 flex flex-wrap gap-2">
-                    @if($budget['overConcentration'])<span class="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-700">⚠ 1 KOL menyerap {{ $budget['topSharePct'] }}% budget</span>@endif
+                    @if($budget['overConcentration'])<span class="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-700">⚠ 1 KOL menyerap {{ $budget['topSharePct'] }}% budget (batas {{ $budget['shareLimitPct'] }}%)</span>@endif
                     @if($budget['overAnchor'])<span class="text-[11px] px-2 py-1 rounded-full bg-rose-100 text-rose-700">⚠ CPM paid di atas anchor</span>@endif
                 </div>
             @endif
+        </div>
+
+        {{-- Rincian per-creator: biaya deal + share bar terhadap budget --}}
+        @if($budget['perCreator']->isNotEmpty())
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs font-semibold text-stone-600 mb-2">Biaya per Creator — {{ $monthLabel }}</p>
+                <div class="space-y-1.5">
+                    @foreach($budget['perCreator']->take(8) as $c)
+                        <div class="flex items-center gap-3 text-xs">
+                            <span class="w-32 truncate text-stone-600">{{ $c['name'] }}</span>
+                            <span class="text-[10px] text-stone-400 w-14 shrink-0">{{ $c['deals'] }} deal</span>
+                            <div class="flex-1 h-2 bg-stone-100 rounded-full overflow-hidden">
+                                <div class="h-full {{ $c['sharePct'] > $budget['shareLimitPct'] ? 'bg-amber-400' : 'bg-red-400' }}" style="width: {{ min(100, $c['sharePct']) }}%"></div>
+                            </div>
+                            <span class="w-24 text-right text-stone-700 tabular-nums shrink-0">{{ $rp($c['cost']) }}</span>
+                            <span class="w-10 text-right text-[10px] text-stone-400 shrink-0">{{ $c['sharePct'] }}%</span>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        {{-- Pengeluaran budget tambahan (boost/hadiah/dll) — masuk "spent" --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-semibold text-stone-600">Pengeluaran Tambahan — {{ $monthLabel }}</p>
+                @if($budget['extras'] > 0)<span class="text-xs text-stone-500">total <b class="text-stone-700 tabular-nums">{{ $rp($budget['extras']) }}</b></span>@endif
+            </div>
+            @if($extraTx->isNotEmpty())
+                <div class="divide-y divide-stone-50 mb-3">
+                    @foreach($extraTx as $tx)
+                        <div class="flex items-center justify-between py-1.5 text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 text-[10px]">{{ $tx->categoryLabel() }}</span>
+                                <span class="text-stone-600">{{ $tx->note ?: '—' }}</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-stone-700 tabular-nums">{{ $rp($tx->amount) }}</span>
+                                <form method="POST" action="{{ route('kol-deals.budget-tx.destroy', $tx) }}" onsubmit="return confirm('Hapus pengeluaran ini?')">
+                                    @csrf @method('DELETE')
+                                    <button class="text-rose-400 hover:text-rose-600 text-[11px]">hapus</button>
+                                </form>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+            <form method="POST" action="{{ route('kol-deals.budget-tx.store') }}" class="flex flex-wrap items-end gap-2 text-xs">
+                @csrf
+                <input type="hidden" name="month" value="{{ $month }}">
+                <select name="category" class="px-2 py-1.5 border border-stone-300 rounded-lg bg-white">
+                    @foreach($txCategories as $val => $lbl)<option value="{{ $val }}">{{ $lbl }}</option>@endforeach
+                </select>
+                <input type="number" name="amount" min="1" placeholder="nominal (Rp)" required class="w-32 px-2 py-1.5 border border-stone-300 rounded-lg tabular-nums">
+                <input name="note" maxlength="200" placeholder="catatan (opsional)" class="flex-1 min-w-[8rem] px-2 py-1.5 border border-stone-300 rounded-lg">
+                <button class="px-3 py-1.5 bg-stone-800 text-white rounded-lg hover:bg-stone-900 font-semibold">+ Catat</button>
+            </form>
         </div>
     </div>
 @endif

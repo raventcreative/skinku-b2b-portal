@@ -37,7 +37,8 @@ class KolSettingsTest extends TestCase
         $root = $this->user(User::ROLE_SUPER_ADMIN, 'root2');
         $this->actingAs($root)->post(route('kol-settings.save'), [
             'budget' => 7_000_000, 'anchor' => 6_000, 'views_target' => 2_000_000,
-            'gmv_target' => 50_000_000, 'margin_pct' => 45, 'sample_hpp' => 25_000, 'date_order' => 'dmy',
+            'gmv_target' => 50_000_000, 'margin_pct' => 45, 'share_limit_pct' => 35,
+            'sample_hpp' => 25_000, 'date_order' => 'dmy',
         ])->assertRedirect();
 
         $this->assertSame('7000000', AppSetting::get(KolBudgetService::KEY_BUDGET));
@@ -45,6 +46,7 @@ class KolSettingsTest extends TestCase
         $this->assertSame('2000000', AppSetting::get('kol_views_target'));
         $this->assertSame('50000000', AppSetting::get('kol_gmv_target'));
         $this->assertSame('0.45', AppSetting::get('kol_gross_margin'));   // 45% → 0.45
+        $this->assertSame('0.35', AppSetting::get('kol_share_limit'));    // 35% → 0.35
         $this->assertSame('25000', AppSetting::get('kol_sample_hpp'));
         $this->assertSame('dmy', AppSetting::get('kol_import_date_order'));
     }
