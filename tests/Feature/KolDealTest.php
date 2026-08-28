@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\Kol;
+use App\Models\KolContent;
 use App\Models\KolDeal;
 use App\Models\RolePermission;
 use App\Models\User;
@@ -300,5 +301,35 @@ class KolDealTest extends TestCase
         $deal->samples()->create(['kol_id' => $kol->id, 'product' => 'Serum', 'units' => 2, 'unit_cost' => 75_000]);
 
         $this->assertSame(1_400_000, $deal->fresh()->grandTotal());   // 1jt + 250rb + (2×75rb)
+    }
+
+    /** Halaman detail deal: render + views agregat konten tertaut + CPM aktual + grand total (finance). */
+    public function test_halaman_detail_deal_render_dengan_views_agregat(): void
+    {
+        $spec = $this->specialist('detail', finance: true);
+        $kol = $this->kol();
+        $deal = KolDeal::create($this->payload($kol, [
+            'kode' => 'DT1', 'total_biaya' => 1_000_000, 'other_cost' => 100_000,
+            'deliverables' => '1 video TikTok wajib', 'status' => 'berjalan',
+        ]));
+        $c = KolContent::create(['kol_id' => $kol->id, 'kol_deal_id' => $deal->id,
+            'url' => 'https://www.tiktok.com/@x/v/77', 'label' => 'paid', 'posted_at' => now()->toDateString()]);
+        $c->snapshots()->create(['views' => 200_000, 'captured_on' => now()->startOfDay(), 'source' => 'manual']);
+
+        $res = $this->actingAs($spec)->get(route('kol-deals.show', $deal))->assertOk()
+            ->assertSee('DT1')->assertSee('1 video TikTok wajib')->assertSee('Konten Tertaut')->assertSee('1.100.000');
+        $this->assertSame(200_000, $res->viewData('contentViews'));
+        $this->assertSame(5000, $res->viewData('contentCpm'));   // 1jt ÷ 200rb × 1000
+    }
+
+    /** Detail deal untuk non-finance: tak ada angka uang (grand total). */
+    public function test_detail_deal_non_finance_sembunyikan_uang(): void
+    {
+        $spec = $this->specialist('detailnf', finance: false);
+        $kol = $this->kol();
+        $deal = KolDeal::create($this->payload($kol, ['kode' => 'DT2', 'total_biaya' => 9_000_000]));
+
+        $this->actingAs($spec)->get(route('kol-deals.show', $deal))->assertOk()
+            ->assertSee('DT2')->assertDontSee('Grand total')->assertDontSee('9.000.000');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 class KolDeal extends Model
 {
@@ -97,6 +98,12 @@ class KolDeal extends Model
     public function dealTypeLabel(): string
     {
         return self::DEAL_TYPE_LABEL[$this->deal_type] ?? $this->deal_type;
+    }
+
+    /** Tenggat posting efektif: field khusus bila diisi, jika tidak akhir periode. */
+    public function getPostingDeadlineEffectiveAttribute(): ?Carbon
+    {
+        return $this->posting_deadline ?? $this->periode_selesai;
     }
 
     /** Laporan hasil sudah pernah diisi? */

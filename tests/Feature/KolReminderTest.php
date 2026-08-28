@@ -68,4 +68,23 @@ class KolReminderTest extends TestCase
             ->assertSee('KirimLama')->assertDontSee('KirimBaruY');
         $this->assertCount(1, $res->viewData('stuckSamples'));
     }
+
+    /** Reminder posting pakai deadline khusus (H-1) meski periode_selesai masih jauh. */
+    public function test_reminder_posting_pakai_deadline_khusus(): void
+    {
+        $root = $this->user(User::ROLE_SUPER_ADMIN, 'rempost');
+        $kol = Kol::create(['tiktok_username' => 'postkol', 'followers' => 5000]);
+        // Periode selesai 2 bulan lagi, tapi deadline posting BESOK → tetap muncul.
+        KolDeal::create(['kode' => 'PD1', 'kol_id' => $kol->id, 'jenis' => 'vt', 'status' => 'berjalan',
+            'periode_mulai' => now()->toDateString(), 'periode_selesai' => now()->addMonths(2)->toDateString(),
+            'posting_deadline' => now()->addDay()->toDateString()]);
+        // Kontrol: semua tenggat jauh → tak muncul.
+        KolDeal::create(['kode' => 'PD2', 'kol_id' => $kol->id, 'jenis' => 'vt', 'status' => 'berjalan',
+            'periode_mulai' => now()->toDateString(), 'posting_deadline' => now()->addMonth()->toDateString()]);
+
+        $kode = $this->actingAs($root)->get(route('kol-reminder.index'))->assertOk()
+            ->viewData('postingDue')->pluck('kode');
+        $this->assertTrue($kode->contains('PD1'));
+        $this->assertFalse($kode->contains('PD2'));
+    }
 }

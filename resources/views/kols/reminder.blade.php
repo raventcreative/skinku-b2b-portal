@@ -126,7 +126,7 @@
                             <a href="{{ route('kol-deals.edit', $d) }}" class="text-sm font-semibold text-indigo-600 hover:underline">{{ '@'.$d->kol->tiktok_username }}</a>
                             <span class="ml-2 text-[10px] uppercase tracking-wide text-stone-400">{{ $d->kode }} · {{ $d->jenis }}</span>
                         </div>
-                        <p class="text-xs {{ $d->periode_selesai->lt($today) ? 'text-rose-600 font-medium' : 'text-amber-600' }} shrink-0">tenggat {{ $d->periode_selesai->format('d M Y') }}</p>
+                        <p class="text-xs {{ $d->posting_deadline_effective->lt($today) ? 'text-rose-600 font-medium' : 'text-amber-600' }} shrink-0">tenggat {{ $d->posting_deadline_effective->format('d M Y') }}</p>
                     </div>
                 @endforeach
             </div>

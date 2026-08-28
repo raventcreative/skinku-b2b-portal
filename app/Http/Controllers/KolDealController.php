@@ -208,6 +208,22 @@ class KolDealController extends Controller
         return back()->with('status', "Laporan hasil {$deal->kode} disimpan (verdict: {$deal->hasil_verdict}).");
     }
 
+    /** Halaman detail deal (read-only) — rangkum semua field + konten tertaut + views agregat. */
+    public function show(Request $request, KolDeal $deal)
+    {
+        $deal->load(['kol', 'campaign', 'pic', 'samples', 'contents.latestSnapshot']);
+        $contentViews = (int) $deal->contents->sum(fn ($c) => (int) ($c->latestSnapshot->views ?? 0));
+
+        return view('kol_deals.show', [
+            'deal' => $deal,
+            'contentViews' => $contentViews,
+            // CPM aktual dari views konten tertaut (beda dari hasil_cpm manual).
+            'contentCpm' => ($contentViews > 0 && $deal->total_biaya > 0)
+                ? (int) round($deal->total_biaya / $contentViews * 1000) : null,
+            'canFinance' => $request->user()->canDo('kol.deal.finance'),
+        ]);
+    }
+
     public function edit(KolDeal $deal)
     {
         return view('kol_deals.form', $this->formData($deal, $deal->kol_id));

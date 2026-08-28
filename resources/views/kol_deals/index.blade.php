@@ -136,7 +136,7 @@
                 @php $sc = $d->kol?->latestScreening; @endphp
                 <tr class="border-t border-stone-100 hover:bg-stone-50">
                     <td class="px-3"><input type="checkbox" class="kolDealCheck" value="{{ $d->id }}" onchange="refreshBulk()"></td>
-                    <td class="px-2 py-2.5 font-semibold text-stone-700">{{ $d->kode }}</td>
+                    <td class="px-2 py-2.5 font-semibold"><a href="{{ route('kol-deals.show', $d) }}" class="text-stone-700 hover:text-red-700 hover:underline">{{ $d->kode }}</a></td>
                     <td>
                         <a href="{{ route('kols.show', $d->kol_id) }}" class="text-red-700 hover:underline font-semibold">{{ '@'.($d->kol->tiktok_username ?? '?') }}</a>
                         @if($d->campaign)<span class="block text-[10px] text-indigo-500">📣 {{ $d->campaign->name }}</span>@endif
@@ -168,7 +168,8 @@
                         @if($canApprove && $d->status !== 'berjalan')<button type="button" onclick="submitBulk('berjalan', {{ $d->id }})" class="text-blue-600 hover:text-blue-800 font-semibold" title="Acc → jalan">Acc</button>@endif
                         @if($d->status !== 'selesai')<button type="button" onclick="submitBulk('selesai', {{ $d->id }})" class="ml-1 text-emerald-600 hover:text-emerald-800 font-semibold" title="Tandai selesai">Selesai</button>@endif
                         @if($canApprove && $d->status !== 'batal')<button type="button" onclick="submitBulk('batal', {{ $d->id }})" class="ml-1 text-rose-500 hover:text-rose-700 font-semibold" title="Tolak">Tolak</button>@endif
-                        <a href="{{ route('kol-deals.edit', $d) }}" class="ml-2 text-stone-500 hover:text-stone-900 font-semibold">Edit</a>
+                        <a href="{{ route('kol-deals.show', $d) }}" class="ml-2 text-stone-500 hover:text-stone-900 font-semibold">Detail</a>
+                        <a href="{{ route('kol-deals.edit', $d) }}" class="ml-1 text-stone-500 hover:text-stone-900 font-semibold">Edit</a>
                         <form method="POST" action="{{ route('kol-deals.destroy', $d) }}" class="inline"
                             onsubmit="return confirm('Hapus deal {{ $d->kode }}? (soft delete, tercatat di Audit Log)')">
                             @csrf @method('DELETE')

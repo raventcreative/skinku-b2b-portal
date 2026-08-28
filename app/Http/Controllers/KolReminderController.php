@@ -37,12 +37,13 @@ class KolReminderController extends Controller
             })
             ->orderBy('created_at')->get();
 
-        // Deadline posting: deal berjalan yang tenggatnya ≤ 3 hari lagi & belum ada konten.
+        // Deadline posting: deal berjalan yang tenggatnya ≤ 3 hari lagi & belum ada
+        // konten. Tenggat = deadline posting khusus bila diisi, jika tidak periode_selesai.
         $postingDue = KolDeal::with('kol')->where('status', 'berjalan')
-            ->whereNotNull('periode_selesai')
-            ->whereDate('periode_selesai', '<=', now()->addDays(3))
+            ->where(fn ($q) => $q->whereNotNull('posting_deadline')->orWhereNotNull('periode_selesai'))
+            ->whereRaw('date(COALESCE(posting_deadline, periode_selesai)) <= ?', [now()->addDays(3)->toDateString()])
             ->whereDoesntHave('contents')
-            ->orderBy('periode_selesai')->get();
+            ->orderByRaw('COALESCE(posting_deadline, periode_selesai) asc')->get();
 
         // Affiliate berhenti posting: punya order affiliate 30 hari terakhir tapi
         // tak ada konten dalam 14 hari terakhir. Finance/affiliate-view only.
