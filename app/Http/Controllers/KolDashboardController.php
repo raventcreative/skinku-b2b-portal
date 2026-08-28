@@ -9,7 +9,9 @@ use App\Models\KolPipelineCard;
 use App\Services\KolAffiliateService;
 use App\Services\KolBudgetService;
 use App\Services\KolScoringService;
+use App\Support\KolMetrics;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * Dashboard KOL (ringkasan 1-layar) — merangkai data pipeline, konten/views,
@@ -21,9 +23,13 @@ class KolDashboardController extends Controller
     public function index(Request $request, KolBudgetService $budget, KolAffiliateService $aff, KolScoringService $scoring)
     {
         $u = $request->user();
+        $m = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
+            ? Carbon::createFromFormat('Y-m', (string) $request->query('bulan'))->startOfMonth()
+            : now()->startOfMonth();
+        $isCurrent = $m->isSameMonth(now());
         $today = now()->startOfDay();
-        $monthStart = now()->startOfMonth();
-        $monthEnd = now()->endOfMonth();
+        $monthStart = $m->copy()->startOfMonth();
+        $monthEnd = $m->copy()->endOfMonth();
 
         // Pipeline
         $cards = KolPipelineCard::active()->get();
@@ -40,20 +46,20 @@ class KolDashboardController extends Controller
         $totalViews = $contents->sum($views);
         $paidViews = $contents->where('label', 'paid')->sum($views);
         $target = (int) AppSetting::get('kol_views_target', '1000000');
-        $proj = (int) round($totalViews * (now()->daysInMonth / max(1, now()->day)));
+        $proj = $isCurrent ? (int) round($totalViews * ($m->daysInMonth / max(1, now()->day))) : $totalViews;
         $topContent = $contents->sortByDesc($views)->take(5)->values();
 
         // Budget (finance)
-        $bud = $u->canDo('kol.deal.finance') ? $budget->summary(now()) : null;
+        $bud = $u->canDo('kol.deal.finance') ? $budget->summary($m) : null;
 
         // Affiliate + APS (affiliate.view)
         $affData = null;
         if ($u->canDo('kol.affiliate.view')) {
-            $ranking = $aff->monthly(now());
+            $ranking = $aff->monthly($m);
             $top = $ranking->take(5)->map(fn ($r) => [
                 'kol' => $r->kol,
                 'gmv' => (int) $r->gmv,
-                'aps' => $scoring->aps($aff->apsInput((int) $r->kol_id, now())),
+                'aps' => $scoring->aps($aff->apsInput((int) $r->kol_id, $m)),
             ]);
             // Distribusi label APS (dari top yang dihitung) — indikasi cepat.
             $dist = $top->countBy(fn ($t) => $t['aps']['status'] === 'scored' ? $t['aps']['label'] : 'new');
@@ -67,8 +73,8 @@ class KolDashboardController extends Controller
         }
 
         // Grafik: views kumulatif (paid/earned) per hari + garis target linear.
-        $daysInMonth = now()->daysInMonth;
-        $todayD = now()->day;
+        $daysInMonth = $m->daysInMonth;
+        $todayD = $isCurrent ? now()->day : $daysInMonth;
         $byDay = $contents->groupBy(fn ($c) => $c->posted_at->day);
         $cumPaid = $cumEarned = $targetLine = [];
         $rP = $rE = 0;
@@ -90,7 +96,7 @@ class KolDashboardController extends Controller
         // Grafik GMV mingguan (affiliate.view).
         $gmvWeeks = $gmvWeekLabels = [];
         if ($u->canDo('kol.affiliate.view')) {
-            $cur = now()->startOfMonth()->startOfWeek();
+            $cur = $m->copy()->startOfMonth()->startOfWeek();
             while ($cur <= $monthEnd) {
                 $we = $cur->copy()->endOfWeek();
                 $gmvWeeks[] = (int) KolAffiliateTransaction::notCancelled()->whereBetween('order_date', [$cur, $we])->sum('gmv');
@@ -99,7 +105,20 @@ class KolDashboardController extends Controller
             }
         }
 
+        // ROAS + ROI margin-aware (butuh biaya deal & GMV).
+        $margin = (float) AppSetting::get('kol_gross_margin', '0.3');
+        $dealCost = $bud ? (int) ($bud['spent'] + $bud['committed']) : 0;
+        $gmv = (int) ($affData['gmv'] ?? 0);
+        $roas = KolMetrics::roas($gmv, $dealCost);
+        $roi = KolMetrics::roiMarginAware($gmv, $margin, $dealCost);
+        $isEmpty = $pipeline['active'] === 0 && $contents->isEmpty() && $gmv === 0;
+
         return view('kols.dashboard', [
+            'month' => $m->format('Y-m'),
+            'isCurrent' => $isCurrent,
+            'prevMonth' => $m->copy()->subMonth()->format('Y-m'),
+            'nextMonth' => $m->copy()->addMonth()->format('Y-m'),
+            'roas' => $roas, 'roi' => $roi, 'margin' => $margin, 'isEmpty' => $isEmpty,
             'chart' => [
                 'days' => range(1, $daysInMonth),
                 'cumPaid' => $cumPaid, 'cumEarned' => $cumEarned, 'target' => $targetLine,

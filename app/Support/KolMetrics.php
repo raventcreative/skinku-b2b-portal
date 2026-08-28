@@ -31,6 +31,12 @@ class KolMetrics
         return $cost > 0 ? $gmv / $cost : null;
     }
 
+    /** ROI margin-aware = (laba kotor GMV − biaya) ÷ biaya. margin = 0..1. */
+    public static function roiMarginAware(float $gmv, float $margin, float $cost): ?float
+    {
+        return $cost > 0 ? round(($gmv * $margin - $cost) / $cost, 2) : null;
+    }
+
     /** Rata-rata pertumbuhan WoW (%) dari deret GMV mingguan (lama→baru). 0→positif = +100%. */
     public static function growthVelocity(array $weekly): ?float
     {

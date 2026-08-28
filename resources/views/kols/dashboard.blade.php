@@ -7,7 +7,25 @@
 
 <div class="space-y-4">
 
-    <p class="text-sm text-stone-500">Ringkasan {{ now()->translatedFormat('F Y') }} — pipeline, views, budget, dan affiliate dalam satu layar.</p>
+    <div class="flex items-center justify-between gap-2 flex-wrap">
+        <p class="text-sm text-stone-500">Ringkasan pipeline, views, budget &amp; affiliate.</p>
+        <div class="flex items-center gap-2 text-sm">
+            <a href="{{ route('kol-dashboard.index', ['bulan' => $prevMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">←</a>
+            <span class="font-semibold text-stone-700">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}{{ $isCurrent ? '' : ' (arsip)' }}</span>
+            <a href="{{ route('kol-dashboard.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
+        </div>
+    </div>
+
+    @if($isEmpty)
+        <div class="bg-white rounded-2xl border border-dashed border-stone-300 p-6">
+            <p class="text-sm font-bold text-stone-800 mb-3">Mulai dari sini 🚀</p>
+            <ol class="space-y-2 text-sm text-stone-600">
+                <li><b>1.</b> Tambahkan KOL di <a href="{{ route('kols.index') }}" class="text-indigo-600 hover:underline">Database KOL</a> lalu isi screening.</li>
+                <li><b>2.</b> Scout &amp; nego lewat <a href="{{ route('kol-pipeline.index') }}" class="text-indigo-600 hover:underline">Pipeline</a>, lalu buat <a href="{{ route('kol-deals.index') }}" class="text-indigo-600 hover:underline">Deal</a>.</li>
+                <li><b>3.</b> Catat <a href="{{ route('kol-konten.index') }}" class="text-indigo-600 hover:underline">Konten &amp; views</a> dan import <a href="{{ route('kol-affiliate.index') }}" class="text-indigo-600 hover:underline">Affiliate GMV</a> — dashboard terisi otomatis.</li>
+            </ol>
+        </div>
+    @endif
 
     {{-- Peringatan budget (finance): CPM paid di atas anchor / 1 KOL menyerap terlalu besar.
          Datanya dari KolBudgetService::summary — sebelumnya dihitung tapi tak pernah tampil di sini. --}}
@@ -21,6 +39,22 @@
                 <p class="text-sm text-rose-800">1 KOL menyerap <b>{{ $budget['topSharePct'] }}%</b> budget bulan ini — risiko terlalu bergantung ke satu creator.</p>
             @endif
             <a href="{{ route('kol-deals.index') }}" class="inline-block text-xs font-semibold text-rose-700 hover:underline">Kelola deal & budget →</a>
+        </div>
+    @endif
+
+    {{-- ROAS + ROI margin-aware (finance) --}}
+    @if($budget)
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">ROAS</p>
+                <p class="text-xl font-bold text-stone-800">{{ $roas !== null ? number_format($roas, 2, ',', '.').'×' : '—' }}</p>
+                <p class="text-[10px] text-stone-400">GMV affiliate ÷ biaya deal</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">ROI (margin {{ round($margin * 100) }}%)</p>
+                <p class="text-xl font-bold {{ $roi === null ? 'text-stone-400' : ($roi >= 0 ? 'text-emerald-600' : 'text-rose-600') }}">{{ $roi !== null ? round($roi * 100).'%' : '—' }}</p>
+                <p class="text-[10px] text-stone-400">(laba kotor − biaya) ÷ biaya · setel margin di Settings</p>
+            </div>
         </div>
     @endif
 

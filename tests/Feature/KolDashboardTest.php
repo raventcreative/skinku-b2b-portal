@@ -8,6 +8,7 @@ use App\Models\KolContent;
 use App\Models\KolDeal;
 use App\Models\KolPipelineCard;
 use App\Models\User;
+use App\Services\KolAffiliateService;
 use App\Services\KolBudgetService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -39,6 +40,32 @@ class KolDashboardTest extends TestCase
         $this->assertSame(1, $res->viewData('pipeline')['active']);
         $this->assertSame(1, $res->viewData('pipeline')['terlambat']);
         $this->assertSame(50_000, $res->viewData('totalViews'));
+    }
+
+    public function test_month_nav_roas_roi_dan_empty_state(): void
+    {
+        // Tanpa data → empty-state onboarding.
+        $spec = $this->user('kol_specialist', 'dashe');
+        $this->actingAs($spec)->get(route('kol-dashboard.index'))->assertOk()->assertSee('Mulai dari sini');
+
+        // Finance + data → ROAS/ROI terhitung.
+        $root = $this->user(User::ROLE_SUPER_ADMIN, 'dashr');
+        AppSetting::put(KolBudgetService::KEY_BUDGET, '5000000');
+        AppSetting::put('kol_gross_margin', '0.5');
+        $kol = Kol::create(['tiktok_username' => 'droas', 'followers' => 50_000]);
+        KolDeal::create(['kode' => 'DR', 'kol_id' => $kol->id, 'jenis' => 'vt', 'total_biaya' => 1_000_000,
+            'status' => 'berjalan', 'status_bayar' => 'lunas', 'periode_mulai' => now()->toDateString()]);
+        app(KolAffiliateService::class)->import([
+            ['order_id' => 'DR1', 'username' => 'droas', 'gmv' => 4_000_000, 'order_date' => now()->toDateString()],
+        ], 'tiktok', $root->id);
+
+        $res = $this->actingAs($root)->get(route('kol-dashboard.index'))->assertOk()->assertSee('ROAS')->assertSee('ROI');
+        $this->assertSame(4.0, $res->viewData('roas'));   // 4jt ÷ 1jt
+        $this->assertSame(1.0, $res->viewData('roi'));    // (4jt×0,5 − 1jt) ÷ 1jt
+
+        // Navigasi bulan lampau → arsip.
+        $this->actingAs($root)->get(route('kol-dashboard.index', ['bulan' => now()->subMonth()->format('Y-m')]))
+            ->assertOk()->assertSee('arsip');
     }
 
     /** Kartu CPM paid + banner peringatan budget: datanya sudah dihitung KolBudgetService, kini tampil (finance-only). */
