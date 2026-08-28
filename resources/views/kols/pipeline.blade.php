@@ -166,7 +166,15 @@
                                 </div>
                             @endif
 
-                            <a href="{{ route('kol-pipeline.show', $c) }}" class="inline-block text-[11px] text-stone-500 hover:text-stone-800">detail → <span class="text-stone-300">(rate, catatan nego, riwayat)</span></a>
+                            <div class="flex items-center justify-between gap-2">
+                                <a href="{{ route('kol-pipeline.show', $c) }}" class="text-[11px] text-stone-500 hover:text-stone-800">detail → <span class="text-stone-300">(rate, nego, riwayat)</span></a>
+                                @if($u->role === \App\Models\User::ROLE_SUPER_ADMIN)
+                                    <form method="POST" action="{{ route('kol-pipeline.destroy', $c) }}" onsubmit="return confirm('Hapus kartu ini permanen?')" class="shrink-0">
+                                        @csrf @method('DELETE')
+                                        <button class="text-[11px] text-rose-400 hover:text-rose-600" title="Hapus kartu permanen">hapus</button>
+                                    </form>
+                                @endif
+                            </div>
                         </div>
                     @endforeach
                     <p class="text-[11px] text-stone-300 px-1 kanban-empty {{ $cards->isEmpty() ? '' : 'hidden' }}">—</p>
