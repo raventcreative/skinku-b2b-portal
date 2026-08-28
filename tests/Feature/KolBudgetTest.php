@@ -148,6 +148,24 @@ class KolBudgetTest extends TestCase
         ])->assertForbidden();
     }
 
+    /** Reminder pembayaran DP menampilkan sisa setelah DP (butuh dp_percent). */
+    public function test_reminder_sisa_setelah_dp(): void
+    {
+        $kol = $this->kol();
+        $deal = KolDeal::create(['kode' => 'DPX', 'kol_id' => $kol->id, 'jenis' => 'vt',
+            'total_biaya' => 1_000_000, 'status' => 'berjalan', 'status_bayar' => 'dp', 'dp_percent' => 40]);
+        $this->assertSame(400_000, $deal->dpAmount());
+        $this->assertSame(600_000, $deal->remainingUnpaid());   // 1jt − 40%
+
+        $this->actingAs($this->user(User::ROLE_SUPER_ADMIN, 'rootdp'))->get(route('kol-reminder.index'))
+            ->assertOk()->assertSee('DP 40% dibayar')->assertSee('sisa Rp 600.000');
+
+        // 'belum' → sisa = total penuh.
+        $d2 = KolDeal::create(['kode' => 'BLM', 'kol_id' => $kol->id, 'jenis' => 'vt',
+            'total_biaya' => 500_000, 'status' => 'berjalan', 'status_bayar' => 'belum']);
+        $this->assertSame(500_000, $d2->remainingUnpaid());
+    }
+
     public function test_batas_share_configurable(): void
     {
         $kol = $this->kol();

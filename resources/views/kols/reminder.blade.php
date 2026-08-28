@@ -103,10 +103,13 @@
                                 <span class="text-[10px] uppercase tracking-wide text-stone-400">{{ $d->kode }}</span>
                                 <span class="text-[10px] px-1.5 py-0.5 rounded {{ $d->status_bayar === 'dp' ? 'bg-sky-100 text-sky-700' : 'bg-stone-100 text-stone-500' }}">bayar {{ $d->status_bayar }}</span>
                             </div>
-                            @if($d->status_bayar === 'dp')<p class="text-[10px] text-stone-400 mt-0.5">sudah DP sebagian — sisa nominal belum tercatat</p>@endif
+                            @if($d->status_bayar === 'dp' && $d->dp_percent > 0)
+                                <p class="text-[10px] text-stone-400 mt-0.5">DP {{ $d->dp_percent }}% dibayar ({{ $rp($d->dpAmount()) }}) — sisa {{ $rp($d->remainingUnpaid()) }}</p>
+                            @endif
                         </div>
                         <div class="text-right shrink-0">
-                            <p class="text-xs font-medium text-stone-700">{{ $rp($d->total_biaya) }}</p>
+                            <p class="text-xs font-medium text-stone-700">{{ $rp($d->remainingUnpaid()) }}</p>
+                            @if($d->status_bayar === 'dp' && $d->dp_percent > 0)<p class="text-[9px] text-stone-400">dari {{ $rp($d->total_biaya) }}</p>@endif
                             <p class="text-[10px] {{ $overdue ? 'text-rose-500' : 'text-stone-400' }}">{{ $due?->format('d M Y') ?? 'tanpa tenggat' }}</p>
                         </div>
                     </div>

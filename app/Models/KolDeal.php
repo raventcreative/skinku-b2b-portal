@@ -86,6 +86,16 @@ class KolDeal extends Model
             : 0;
     }
 
+    /** Sisa tagihan yang belum dibayar: lunas=0; dp=total−DP; belum=total penuh. */
+    public function remainingUnpaid(): int
+    {
+        return match ($this->status_bayar) {
+            'lunas' => 0,
+            'dp' => max(0, (int) $this->total_biaya - $this->dpAmount()),
+            default => (int) $this->total_biaya,
+        };
+    }
+
     /** Pembayaran lewat tenggat: masih belum lunas & periode_selesai sudah lewat. */
     public function isPaymentOverdue(): bool
     {
