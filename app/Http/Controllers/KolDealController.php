@@ -145,6 +145,7 @@ class KolDealController extends Controller
                 ->where('status', User::STATUS_ACTIVE)->orderBy('fullname')->get(['id', 'fullname']),
             'campaigns' => KolCampaign::orderBy('name')->get(['id', 'name']),
             'selectedKolId' => $selectedKolId,
+            'sampleHppDefault' => (int) AppSetting::get('kol_sample_hpp', '0'),
         ];
     }
 

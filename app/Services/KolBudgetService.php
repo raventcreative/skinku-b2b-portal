@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AppSetting;
 use App\Models\KolContent;
 use App\Models\KolDeal;
+use App\Models\KolMonthlyTarget;
 use Illuminate\Support\Carbon;
 
 /**
@@ -30,7 +31,8 @@ class KolBudgetService
 
         $spent = (int) $deals->where('status_bayar', 'lunas')->sum('total_biaya');
         $committed = (int) $deals->where('status_bayar', '!=', 'lunas')->sum('total_biaya');
-        $budget = (int) AppSetting::get(self::KEY_BUDGET, '0');
+        // Override target per-bulan menang atas setelan global (bila diisi).
+        $budget = KolMonthlyTarget::forMonth($month)?->budget ?? (int) AppSetting::get(self::KEY_BUDGET, '0');
         $anchor = (int) AppSetting::get(self::KEY_ANCHOR, '5000');
 
         // CPM paid = total biaya deal ÷ (views konten paid bulan ini ÷ 1.000).

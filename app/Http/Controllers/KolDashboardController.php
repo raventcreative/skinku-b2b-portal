@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AppSetting;
 use App\Models\KolAffiliateTransaction;
 use App\Models\KolContent;
+use App\Models\KolMonthlyTarget;
 use App\Models\KolPipelineCard;
 use App\Services\KolAffiliateService;
 use App\Services\KolBudgetService;
@@ -45,7 +46,9 @@ class KolDashboardController extends Controller
         $views = fn ($c) => (int) ($c->latestSnapshot->views ?? 0);
         $totalViews = $contents->sum($views);
         $paidViews = $contents->where('label', 'paid')->sum($views);
-        $target = (int) AppSetting::get('kol_views_target', '1000000');
+        // Override target per-bulan menang atas setelan global (bila diisi).
+        $ov = KolMonthlyTarget::forMonth($m);
+        $target = $ov?->views_target ?? (int) AppSetting::get('kol_views_target', '1000000');
         $proj = $isCurrent ? (int) round($totalViews * ($m->daysInMonth / max(1, now()->day))) : $totalViews;
         $topContent = $contents->sortByDesc($views)->take(5)->values();
 
@@ -106,7 +109,7 @@ class KolDashboardController extends Controller
         }
 
         // ROAS + ROI margin-aware (butuh biaya deal & GMV).
-        $margin = (float) AppSetting::get('kol_gross_margin', '0.3');
+        $margin = $ov?->margin ?? (float) AppSetting::get('kol_gross_margin', '0.3');
         $dealCost = $bud ? (int) ($bud['spent'] + $bud['committed']) : 0;
         $gmv = (int) ($affData['gmv'] ?? 0);
         $roas = KolMetrics::roas($gmv, $dealCost);

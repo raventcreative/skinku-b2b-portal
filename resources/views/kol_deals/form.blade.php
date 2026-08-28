@@ -248,7 +248,7 @@
                         <input type="number" name="units" min="1" value="1" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     </label>
                     <label class="text-[11px] font-semibold text-stone-500">HPP per unit (Rp)
-                        <input type="number" name="unit_cost" min="0" value="0" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                        <input type="number" name="unit_cost" min="0" value="{{ $sampleHppDefault ?? 0 }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     </label>
                     <label class="text-[11px] font-semibold text-stone-500">Kurir
                         <input name="courier" maxlength="100" placeholder="mis. JNE" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">

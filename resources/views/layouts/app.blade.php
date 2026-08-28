@@ -329,6 +329,9 @@
                     @if($u->canDo('kol.affiliate.manage'))
                         {!! navItem('kol-affiliate.import', 'Import Data', 'kol-affiliate.import') !!}
                     @endif
+                    @if($u->canDo('kol.deal.finance'))
+                        {!! navItem('kol-settings.index', 'Setelan', 'kol-settings.*') !!}
+                    @endif
                 </div>
             @endif
 

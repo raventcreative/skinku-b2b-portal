@@ -216,4 +216,51 @@ class KolAffiliateTest extends TestCase
         $this->assertSame('2026-08-20', $t->order_date->format('Y-m-d'));
         $this->assertNull(KolAffiliateTransaction::where('order_id', 'X101')->value('kol_id')); // belum cocok
     }
+
+    public function test_import_wizard_preview_lalu_commit_mapping_manual(): void
+    {
+        $spec = $this->user('kol_specialist', 'affwz');
+        Kol::create(['tiktok_username' => 'wzkol', 'followers' => 20_000]);
+
+        // Header sengaja non-standar → auto-map gagal, wizard petakan manual.
+        $csv = "Kode Pesanan,Nama TT,Omzet Jual,Tgl\n"
+            ."W1,wzkol,150000,03/04/2026\n";
+        $file = UploadedFile::fake()->createWithContent('aff.csv', $csv);
+
+        // Langkah 1 — preview membuka wizard + menyimpan baris ke temp (token).
+        $prev = $this->actingAs($spec)->post(route('kol-affiliate.import.preview'), ['platform' => 'tiktok', 'file' => $file]);
+        $prev->assertOk()->assertSee('Pemetaan Kolom')->assertSee('Preview 20 Baris Pertama');
+        $token = $prev->viewData('token');
+        $this->assertNotEmpty($token);
+
+        // Langkah 2 — commit mapping manual + dateOrder dmy (03/04 = 3 Apr, bukan 4 Mar).
+        $this->actingAs($spec)->post(route('kol-affiliate.import.commit'), [
+            'token' => $token, 'platform' => 'tiktok', 'filename' => 'aff.csv', 'date_order' => 'dmy',
+            'map' => ['order_id' => 0, 'username' => 1, 'gmv' => 2, 'order_date' => 3],
+        ])->assertRedirect(route('kol-affiliate.index'));
+
+        $t = KolAffiliateTransaction::where('order_id', 'W1')->first();
+        $this->assertNotNull($t);
+        $this->assertSame(150_000, (int) $t->gmv);
+        $this->assertNotNull($t->kol_id);                                // wzkol cocok
+        $this->assertSame('2026-04-03', $t->order_date->format('Y-m-d')); // dmy tegas
+        $this->assertNotNull(AppSetting::get('kol_import_map_tiktok'));   // mapping diingat
+        $this->assertSame('dmy', AppSetting::get('kol_import_date_order'));
+        $this->assertSame('wizard', KolImportBatch::latest('id')->first()->source);
+    }
+
+    public function test_import_wizard_wajib_order_id_dan_username(): void
+    {
+        $spec = $this->user('kol_specialist', 'affwz2');
+        $file = UploadedFile::fake()->createWithContent('aff.csv', "A,B,C\nfoo,bar,baz\n");
+
+        $token = $this->actingAs($spec)->post(route('kol-affiliate.import.preview'), ['platform' => 'tiktok', 'file' => $file])
+            ->viewData('token');
+
+        // Commit tanpa memetakan order_id/username → ditolak, tak ada yang masuk.
+        $this->actingAs($spec)->post(route('kol-affiliate.import.commit'), [
+            'token' => $token, 'platform' => 'tiktok', 'date_order' => 'auto', 'map' => ['gmv' => 2],
+        ])->assertSessionHasErrors('map');
+        $this->assertSame(0, KolAffiliateTransaction::count());
+    }
 }

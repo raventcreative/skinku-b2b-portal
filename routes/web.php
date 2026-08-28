@@ -32,6 +32,7 @@ use App\Http\Controllers\KolReminderController;
 use App\Http\Controllers\KolSampleController;
 use App\Http\Controllers\KolScoringController;
 use App\Http\Controllers\KolScreeningController;
+use App\Http\Controllers\KolSettingsController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MindmapController;
@@ -400,6 +401,9 @@ Route::middleware(['auth', 'role'])->group(function () {
                 Route::post('/kol-affiliate/match', [KolAffiliateController::class, 'match'])->name('kol-affiliate.match');
                 Route::get('/kol-affiliate/import', [KolAffiliateController::class, 'importForm'])->name('kol-affiliate.import');
                 Route::post('/kol-affiliate/import', [KolAffiliateController::class, 'importStore'])->name('kol-affiliate.import.store');
+                // Wizard pemetaan kolom (preview → commit) — mapping tersimpan + dateOrder.
+                Route::post('/kol-affiliate/import/preview', [KolAffiliateController::class, 'importPreview'])->name('kol-affiliate.import.preview');
+                Route::post('/kol-affiliate/import/commit', [KolAffiliateController::class, 'importCommit'])->name('kol-affiliate.import.commit');
                 Route::post('/kol-affiliate/gmv-target', [KolAffiliateController::class, 'saveGmvTarget'])->name('kol-affiliate.gmv-target');
                 Route::post('/kol-affiliate/weekly-stats', [KolAffiliateController::class, 'weeklyStatStore'])->name('kol-affiliate.weekly.store');
                 Route::delete('/kol-affiliate/weekly-stats/{stat}', [KolAffiliateController::class, 'weeklyStatDestroy'])->name('kol-affiliate.weekly.destroy');
@@ -409,6 +413,14 @@ Route::middleware(['auth', 'role'])->group(function () {
         // Skor — kalkulator KSS (Fase 3b). Kalkulator murni, gated kol.view.
         Route::match(['get', 'post'], '/kol-skor/kss', [KolScoringController::class, 'kss'])->name('kol-skor.kss');
         Route::post('/kol-skor/aps-snapshot', [KolScoringController::class, 'snapshotAps'])->name('kol-skor.aps-snapshot');
+
+        // Setelan KOL terpusat (angka acuan + override target per-bulan) — finance-only.
+        Route::middleware('permission:kol.deal.finance')->group(function () {
+            Route::get('/kol-settings', [KolSettingsController::class, 'index'])->name('kol-settings.index');
+            Route::post('/kol-settings', [KolSettingsController::class, 'save'])->name('kol-settings.save');
+            Route::post('/kol-settings/monthly', [KolSettingsController::class, 'monthlyStore'])->name('kol-settings.monthly.store');
+            Route::delete('/kol-settings/monthly/{target}', [KolSettingsController::class, 'monthlyDestroy'])->name('kol-settings.monthly.destroy');
+        });
     });
 
     // Deal KOL: gated kol.deal.manage SAJA (bukan kol.view) — penyetuju (admin)

@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
 use App\Models\KolImportBatch;
+use App\Models\KolMonthlyTarget;
 use App\Models\KolWeeklyStat;
 use App\Services\AuditService;
 use App\Services\KolAffiliateService;
@@ -14,6 +15,7 @@ use App\Support\SpreadsheetReader;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 /**
@@ -46,7 +48,7 @@ class KolAffiliateController extends Controller
             return [$r->kol_id => ['views' => $v, 'rpm' => $v > 0 ? (int) round($r->gmv / $v * 1000) : null]];
         });
         $sparkMap = $ranking->mapWithKeys(fn ($r) => [$r->kol_id => $svc->weeklyGmv((int) $r->kol_id, $upTo, 4)]);
-        $gmvTarget = (int) AppSetting::get('kol_gmv_target', '0');
+        $gmvTarget = KolMonthlyTarget::forMonth($m)?->gmv_target ?? (int) AppSetting::get('kol_gmv_target', '0');
 
         return view('kols.affiliate.index', [
             'month' => $month,
@@ -188,6 +190,20 @@ class KolAffiliateController extends Controller
         'order_date' => ['date', 'order date', 'tanggal', 'tanggal pesanan', 'create time', 'created time', 'waktu pesanan', 'order create time'],
     ];
 
+    /** Label field (urutan tetap) untuk wizard pemetaan kolom. * = wajib. */
+    private const FIELD_LABELS = [
+        'order_id' => 'Order ID *',
+        'username' => 'Username creator *',
+        'gmv' => 'GMV',
+        'commission' => 'Komisi (estimasi)',
+        'commission_settled' => 'Komisi aktual / settled',
+        'content_type' => 'Tipe konten / channel',
+        'qty' => 'Qty',
+        'product' => 'Produk',
+        'status' => 'Status',
+        'order_date' => 'Tanggal order',
+    ];
+
     public function importForm()
     {
         return view('kols.affiliate.import');
@@ -208,47 +224,149 @@ class KolAffiliateController extends Controller
         }
 
         $res = $svc->import($mapped, (string) $request->input('platform'), $request->user()->id);
-        KolImportBatch::create([
-            'platform' => (string) $request->input('platform'), 'source' => 'import',
-            'filename' => $file->getClientOriginalName(),
-            'imported' => $res['imported'], 'matched' => $res['matched'], 'unmatched' => $res['unmatched'],
-            'created_by' => $request->user()->id,
-        ]);
-        AuditService::log(action: 'import_kol_affiliate', targetType: 'kol_affiliate', targetId: 0,
-            after: ['platform' => $request->input('platform')] + $res);
+        $this->logBatch($request, $file->getClientOriginalName(), 'import', $res);
 
         return redirect()->route('kol-affiliate.index')->with('status',
             "{$res['imported']} transaksi diimport — {$res['matched']} cocok, {$res['unmatched']} belum cocok.");
     }
 
-    /** Baris file → shape KolAffiliateService::import (auto-map header + bersihkan angka/tanggal). */
-    private function mapRows(array $raw): array
+    /**
+     * Langkah 1 wizard: baca file → simpan baris terparse ke temp → tampilkan
+     * pemetaan kolom (tebakan otomatis + mapping tersimpan) + preview 20 baris.
+     */
+    public function importPreview(Request $request)
     {
-        if ($raw === []) {
-            return [];
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,csv,txt', 'max:10240'],
+            'platform' => ['required', Rule::in(['tiktok', 'shopee'])],
+        ]);
+
+        $file = $request->file('file');
+        $rows = SpreadsheetReader::rows($file->getRealPath(), $file->getClientOriginalExtension());
+        if (count($rows) < 2) {
+            return back()->withErrors(['file' => 'File kosong atau tak ada baris data di bawah header.']);
         }
+
+        $token = bin2hex(random_bytes(8));
+        Storage::disk('local')->put("kol-import/{$token}.json", json_encode($rows));
+
+        $platform = (string) $request->input('platform');
+        $saved = json_decode((string) AppSetting::get("kol_import_map_{$platform}", ''), true) ?: [];
+
+        return view('kols.affiliate.import-map', [
+            'token' => $token,
+            'platform' => $platform,
+            'filename' => $file->getClientOriginalName(),
+            'header' => $rows[0],
+            'preview' => array_slice($rows, 1, 20),
+            'guess' => $this->guessColMap($rows[0], is_array($saved) ? $saved : []),
+            'fields' => self::FIELD_LABELS,
+            'dateOrder' => AppSetting::get('kol_import_date_order', 'auto'),
+            'rowCount' => count($rows) - 1,
+        ]);
+    }
+
+    /** Langkah 2 wizard: terapkan pemetaan pilihan user + urutan tanggal → import. */
+    public function importCommit(Request $request, KolAffiliateService $svc): RedirectResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'regex:/^[a-f0-9]{16}$/'],
+            'platform' => ['required', Rule::in(['tiktok', 'shopee'])],
+            'filename' => ['nullable', 'string', 'max:255'],
+            'date_order' => ['required', 'in:auto,dmy,mdy'],
+            'map' => ['required', 'array'],
+            'map.*' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $path = "kol-import/{$data['token']}.json";
+        if (! Storage::disk('local')->exists($path)) {
+            return redirect()->route('kol-affiliate.import')->withErrors(['file' => 'Sesi import kedaluwarsa — unggah ulang filenya.']);
+        }
+        $rows = json_decode((string) Storage::disk('local')->get($path), true) ?: [];
+
+        // colMap dari pilihan user: buang yang kosong / field tak dikenal.
+        $colMap = [];
+        foreach ($data['map'] as $field => $idx) {
+            if ($idx !== null && $idx !== '' && isset(self::ALIASES[$field])) {
+                $colMap[$field] = (int) $idx;
+            }
+        }
+        if (! isset($colMap['order_id'], $colMap['username'])) {
+            return back()->withErrors(['map' => 'Kolom Order ID dan Username creator wajib dipetakan.'])->withInput();
+        }
+
+        $mapped = $this->buildRecords($rows, $colMap, $data['date_order']);
+        if ($mapped === []) {
+            return back()->withErrors(['map' => 'Tak ada baris data untuk diimport.'])->withInput();
+        }
+
+        $res = $svc->import($mapped, $data['platform'], $request->user()->id);
+
+        // Ingat pemetaan (field → nama header) + urutan tanggal untuk file berikutnya.
+        $header = $rows[0];
+        $savedMap = [];
+        foreach ($colMap as $field => $idx) {
+            $savedMap[$field] = (string) ($header[$idx] ?? '');
+        }
+        AppSetting::put("kol_import_map_{$data['platform']}", json_encode($savedMap));
+        AppSetting::put('kol_import_date_order', $data['date_order']);
+
+        $this->logBatch($request, $data['filename'] ?? 'wizard', 'wizard', $res);
+        Storage::disk('local')->delete($path);
+
+        return redirect()->route('kol-affiliate.index')->with('status',
+            "{$res['imported']} transaksi diimport — {$res['matched']} cocok, {$res['unmatched']} belum cocok.");
+    }
+
+    private function logBatch(Request $request, string $filename, string $source, array $res): void
+    {
+        KolImportBatch::create([
+            'platform' => (string) $request->input('platform'), 'source' => $source,
+            'filename' => $filename,
+            'imported' => $res['imported'], 'matched' => $res['matched'], 'unmatched' => $res['unmatched'],
+            'created_by' => $request->user()->id,
+        ]);
+        AuditService::log(action: 'import_kol_affiliate', targetType: 'kol_affiliate', targetId: 0,
+            after: ['platform' => $request->input('platform'), 'source' => $source] + $res);
+    }
+
+    /** Tebak field → index kolom: mapping tersimpan (field→nama header) menang, sisanya via alias. */
+    private function guessColMap(array $header, array $saved = []): array
+    {
         $norm = fn ($s) => preg_replace('/\s+/', ' ', trim(mb_strtolower((string) $s)));
+        $normHeader = array_map($norm, $header);
 
         $col = [];
-        foreach ($raw[0] as $i => $name) {
-            $n = $norm($name);
+        foreach ($saved as $field => $headerName) {
+            if (! isset(self::ALIASES[$field])) {
+                continue;
+            }
+            $idx = array_search($norm($headerName), $normHeader, true);
+            if ($idx !== false) {
+                $col[$field] = $idx;
+            }
+        }
+        foreach ($normHeader as $i => $n) {
             foreach (self::ALIASES as $field => $aliases) {
                 if (! isset($col[$field]) && in_array($n, $aliases, true)) {
                     $col[$field] = $i;
                 }
             }
         }
-        if (! isset($col['order_id'], $col['username'])) {
-            return []; // header wajib tak ketemu
-        }
 
+        return $col;
+    }
+
+    /** Baris → record sesuai colMap (field→index) + urutan tanggal; bersihkan angka. */
+    private function buildRecords(array $raw, array $colMap, string $dateOrder): array
+    {
         $out = [];
         foreach (array_slice($raw, 1) as $cells) {
             if (! array_filter($cells, fn ($c) => trim((string) $c) !== '')) {
                 continue;
             }
             $rec = [];
-            foreach ($col as $field => $i) {
+            foreach ($colMap as $field => $i) {
                 $rec[$field] = trim((string) ($cells[$i] ?? ''));
             }
             foreach (['gmv', 'commission', 'commission_settled', 'qty'] as $num) {
@@ -257,7 +375,7 @@ class KolAffiliateController extends Controller
                 }
             }
             if (! empty($rec['order_date'])) {
-                $rec['order_date'] = $this->parseDate($rec['order_date']);
+                $rec['order_date'] = $this->parseDate($rec['order_date'], $dateOrder);
             }
             $out[] = $rec;
         }
@@ -265,13 +383,40 @@ class KolAffiliateController extends Controller
         return $out;
     }
 
-    private function parseDate(string $v): ?string
+    /** Auto-map (buat importStore langsung): tebak header, wajib order_id+username. */
+    private function mapRows(array $raw): array
+    {
+        if ($raw === []) {
+            return [];
+        }
+        $col = $this->guessColMap($raw[0]);
+        if (! isset($col['order_id'], $col['username'])) {
+            return [];
+        }
+
+        return $this->buildRecords($raw, $col, 'auto');
+    }
+
+    /** Tanggal string → Y-m-d. dateOrder dmy/mdy menafsirkan "03/04/2026" secara tegas. */
+    private function parseDate(string $v, string $dateOrder = 'auto'): ?string
     {
         $v = trim($v);
+        if ($v === '') {
+            return null;
+        }
         if (preg_match('/^\d{10,13}$/', $v)) {
             $ts = strlen($v) >= 13 ? (int) ($v / 1000) : (int) $v;
 
             return Carbon::createFromTimestamp($ts)->toDateString();
+        }
+        // Urutan eksplisit: pisahkan komponen d/m/y, tafsirkan sesuai pilihan.
+        if ($dateOrder !== 'auto' && preg_match('#^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})#', $v, $mt)) {
+            $day = $dateOrder === 'dmy' ? (int) $mt[1] : (int) $mt[2];
+            $mon = $dateOrder === 'dmy' ? (int) $mt[2] : (int) $mt[1];
+            $yr = (int) (strlen($mt[3]) === 2 ? '20'.$mt[3] : $mt[3]);
+            if (checkdate($mon, $day, $yr)) {
+                return Carbon::create($yr, $mon, $day)->toDateString();
+            }
         }
         try {
             return Carbon::parse($v)->toDateString();

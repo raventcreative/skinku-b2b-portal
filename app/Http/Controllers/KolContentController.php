@@ -7,6 +7,7 @@ use App\Models\Kol;
 use App\Models\KolContent;
 use App\Models\KolContentSnapshot;
 use App\Models\KolDeal;
+use App\Models\KolMonthlyTarget;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -41,7 +42,8 @@ class KolContentController extends Controller
         $views = fn ($c) => (int) ($c->latestSnapshot->views ?? 0);
         $total = $contents->sum($views);
         $paid = $contents->where('label', 'paid')->sum($views);
-        $target = (int) AppSetting::get(self::TARGET_KEY, '1000000');
+        // Override target per-bulan menang atas setelan global (bila diisi).
+        $target = KolMonthlyTarget::forMonth($start)?->views_target ?? (int) AppSetting::get(self::TARGET_KEY, '1000000');
         $isCurrent = $month === now()->format('Y-m');
         $proj = $isCurrent ? (int) round($total * ($start->daysInMonth / max(1, now()->day))) : $total;
 
