@@ -241,4 +241,64 @@ class KolDealTest extends TestCase
 
         $this->assertSame('08110002222', $kol->fresh()->phone);   // tetap, tak terwipe
     }
+
+    /** Field baru deal (tipe, deliverables, jadwal, DP, catatan) tersimpan. */
+    public function test_field_deal_diperkaya_tersimpan(): void
+    {
+        $spec = $this->specialist('enrich', finance: true);
+        $kol = $this->kol();
+
+        $this->actingAs($spec)->post(route('kol-deals.store'), $this->payload($kol, [
+            'deal_type' => 'barter', 'other_cost' => 200_000,
+            'deliverables' => '1 video TikTok + 1 Story IG', 'posting_deadline' => '2026-09-10',
+            'usage_rights' => 'repost organik 3 bulan', 'internal_notes' => 'hasil nego alot',
+            'total_biaya' => 1_000_000, 'status_bayar' => 'dp', 'dp_percent' => 40,
+            'payment_note' => 'TF BCA 12 Agu',
+        ]))->assertRedirect();
+
+        $deal = KolDeal::latest('id')->first();
+        $this->assertSame('barter', $deal->deal_type);
+        $this->assertSame(200_000, $deal->other_cost);
+        $this->assertSame('1 video TikTok + 1 Story IG', $deal->deliverables);
+        $this->assertSame('2026-09-10', $deal->posting_deadline->format('Y-m-d'));
+        $this->assertSame('repost organik 3 bulan', $deal->usage_rights);
+        $this->assertSame('hasil nego alot', $deal->internal_notes);
+        $this->assertSame(40, $deal->dp_percent);
+        $this->assertSame('TF BCA 12 Agu', $deal->payment_note);
+        $this->assertSame(400_000, $deal->dpAmount());   // 40% × 1jt
+    }
+
+    /** Tanpa finance: field uang baru (other_cost/dp_percent/payment_note) dibuang; non-uang tetap. */
+    public function test_field_uang_baru_dibuang_tanpa_finance(): void
+    {
+        $spec = $this->specialist('enrichnf', finance: false);
+        $kol = $this->kol();
+
+        $this->actingAs($spec)->post(route('kol-deals.store'), $this->payload($kol, [
+            'deal_type' => 'affiliate_only', 'deliverables' => 'affiliate link di bio',
+            'other_cost' => 999_000, 'dp_percent' => 30, 'payment_note' => 'bocor',
+            'total_biaya' => 5_000_000,
+        ]))->assertRedirect();
+
+        $deal = KolDeal::latest('id')->first();
+        $this->assertSame('affiliate_only', $deal->deal_type);      // non-uang → tersimpan
+        $this->assertSame('affiliate link di bio', $deal->deliverables);
+        $this->assertSame(0, $deal->other_cost);                    // uang → dibuang (default 0)
+        $this->assertSame(0, $deal->dp_percent);
+        $this->assertNull($deal->payment_note);
+        $this->assertSame(0, $deal->total_biaya);
+    }
+
+    /** Grand total = fee + biaya lain + subtotal HPP sampel. */
+    public function test_grand_total_termasuk_biaya_lain_dan_sampel(): void
+    {
+        $spec = $this->specialist('gt', finance: true);
+        $kol = $this->kol();
+        $deal = KolDeal::create($this->payload($kol, [
+            'kode' => 'GT1', 'total_biaya' => 1_000_000, 'other_cost' => 250_000,
+        ]));
+        $deal->samples()->create(['kol_id' => $kol->id, 'product' => 'Serum', 'units' => 2, 'unit_cost' => 75_000]);
+
+        $this->assertSame(1_400_000, $deal->fresh()->grandTotal());   // 1jt + 250rb + (2×75rb)
+    }
 }

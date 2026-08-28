@@ -42,10 +42,17 @@
                     </div>
                 </div>
             </div>
-            <label class="text-[11px] font-semibold text-stone-500">Jenis
+            <label class="text-[11px] font-semibold text-stone-500">Jenis (format konten)
                 <select name="jenis" required class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     @foreach(\App\Models\KolDeal::JENIS as $j)
                         <option value="{{ $j }}" @selected(old('jenis', $deal->jenis) === $j)>{{ strtoupper($j) }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label class="text-[11px] font-semibold text-stone-500">Tipe deal
+                <select name="deal_type" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    @foreach(\App\Models\KolDeal::DEAL_TYPE_LABEL as $val => $lbl)
+                        <option value="{{ $val }}" @selected(old('deal_type', $deal->deal_type ?? 'paid') === $val)>{{ $lbl }}</option>
                     @endforeach
                 </select>
             </label>
@@ -96,6 +103,29 @@
             </label>
         </div>
 
+        {{-- Deliverables & jadwal (operasional) — terlihat semua pemegang kol.deal.manage. --}}
+        <div class="border-t border-stone-100 pt-4 mb-4">
+            <p class="text-[11px] font-bold uppercase tracking-wide text-stone-400 mb-2">Deliverables &amp; Jadwal</p>
+            <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                <label class="text-[11px] font-semibold text-stone-500 sm:col-span-2">Deliverables
+                    <textarea name="deliverables" rows="2" placeholder="mis. 1 video TikTok + 1 Story IG…"
+                        class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ old('deliverables', $deal->deliverables) }}</textarea>
+                </label>
+                <label class="text-[11px] font-semibold text-stone-500">Deadline posting <span class="text-stone-400 font-normal">— masuk reminder H-1</span>
+                    <input type="date" name="posting_deadline" value="{{ old('posting_deadline', $deal->posting_deadline?->format('Y-m-d')) }}"
+                        class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                </label>
+                <label class="text-[11px] font-semibold text-stone-500">Usage rights
+                    <input name="usage_rights" maxlength="255" value="{{ old('usage_rights', $deal->usage_rights) }}"
+                        placeholder="mis. boleh repost organik 3 bulan" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                </label>
+                <label class="text-[11px] font-semibold text-stone-500 sm:col-span-2">Catatan internal
+                    <textarea name="internal_notes" rows="2" placeholder="hasil nego, hal yang perlu diingat…"
+                        class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ old('internal_notes', $deal->internal_notes) }}</textarea>
+                </label>
+            </div>
+        </div>
+
         @if($canFinance)
             {{-- Blok finansial: HANYA dirender untuk pemegang kol.deal.finance.
                  Server tetap membuang field ini dari input siapa pun yang tak
@@ -104,8 +134,12 @@
             <div class="border-t border-stone-100 pt-4 mb-4">
                 <p class="text-[11px] font-bold uppercase tracking-wide text-stone-400 mb-2">Finansial</p>
                 <div class="grid sm:grid-cols-2 gap-3 text-sm">
-                    <label class="text-[11px] font-semibold text-stone-500">Total biaya (Rp)
-                        <input type="number" name="total_biaya" min="0" value="{{ old('total_biaya', $deal->total_biaya) }}"
+                    <label class="text-[11px] font-semibold text-stone-500">Total biaya / fee (Rp)
+                        <input type="number" id="fFee" name="total_biaya" min="0" value="{{ old('total_biaya', $deal->total_biaya) }}"
+                            class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">Biaya lain (Rp) <span class="text-stone-400 font-normal">— ongkir, boost, dsb.</span>
+                        <input type="number" id="fOther" name="other_cost" min="0" value="{{ old('other_cost', $deal->other_cost ?? 0) }}"
                             class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     </label>
                     <label class="text-[11px] font-semibold text-stone-500">Status bayar
@@ -114,6 +148,10 @@
                                 <option value="{{ $sb }}" @selected(old('status_bayar', $deal->status_bayar ?? 'belum') === $sb)>{{ $sb }}</option>
                             @endforeach
                         </select>
+                    </label>
+                    <label class="text-[11px] font-semibold text-stone-500">DP (%) <span class="text-stone-400 font-normal">— hanya bila status DP</span>
+                        <input type="number" name="dp_percent" min="0" max="99" value="{{ old('dp_percent', $deal->dp_percent ?: '') }}"
+                            placeholder="mis. 50" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     </label>
                     <label class="text-[11px] font-semibold text-stone-500">No. rekening
                         <input name="no_rekening" maxlength="50" value="{{ old('no_rekening', $deal->no_rekening) }}"
@@ -127,7 +165,17 @@
                         <input name="atas_nama" maxlength="150" value="{{ old('atas_nama', $deal->atas_nama) }}"
                             class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     </label>
+                    <label class="text-[11px] font-semibold text-stone-500">Bukti / catatan transfer
+                        <input name="payment_note" maxlength="255" value="{{ old('payment_note', $deal->payment_note) }}"
+                            placeholder="mis. TF BCA 12 Agu Rp 500.000" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    </label>
                 </div>
+                {{-- Live total: fee + biaya lain + subtotal HPP sampel; views-needed dari CPM anchor. --}}
+                <p class="mt-3 text-[12px] text-stone-500" id="dealTotalLine" data-anchor="{{ $cpmAnchor }}" data-sample="{{ $sampleSubtotal }}">
+                    Grand total <span id="dealTotal" class="tabular-nums font-semibold text-stone-800">Rp 0</span>
+                    <span id="dealViewsNeed"></span>
+                    @if($sampleSubtotal > 0)<span class="text-stone-400">· termasuk HPP sampel Rp {{ number_format($sampleSubtotal, 0, ',', '.') }}</span>@endif
+                </p>
             </div>
         @endif
 
@@ -175,10 +223,6 @@
                     </div>
                 @endif
             </div>
-        @endif
-
-        @if($errors->any())
-            <p class="mb-3 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">{{ $errors->first() }}</p>
         @endif
 
         <button class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">
@@ -320,6 +364,25 @@
     search.closest('form').addEventListener('submit', (e) => {
         if (!resolve(false)) { e.preventDefault(); miss.classList.remove('hidden'); search.focus(); }
     });
+})();
+
+// Live grand total (fee + biaya lain + subtotal HPP sampel) + perkiraan views yang perlu.
+(function () {
+    const line = document.getElementById('dealTotalLine');
+    if (!line) return;   // blok finansial tak dirender (non-finance)
+    const fee = document.getElementById('fFee'), other = document.getElementById('fOther');
+    const outTotal = document.getElementById('dealTotal'), outViews = document.getElementById('dealViewsNeed');
+    const anchor = parseInt(line.dataset.anchor || '0', 10), sample = parseInt(line.dataset.sample || '0', 10);
+    const idr = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+    function recalc() {
+        const total = (parseInt(fee.value || '0', 10) || 0) + (parseInt(other.value || '0', 10) || 0) + sample;
+        outTotal.textContent = idr(total);
+        outViews.textContent = (anchor > 0 && total > 0)
+            ? ' · perlu ≥ ' + Math.ceil(total / anchor * 1000).toLocaleString('id-ID') + ' views' : '';
+    }
+    fee.addEventListener('input', recalc);
+    other.addEventListener('input', recalc);
+    recalc();
 })();
 </script>
 @endsection

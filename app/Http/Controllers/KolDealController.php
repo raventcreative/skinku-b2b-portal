@@ -146,6 +146,8 @@ class KolDealController extends Controller
             'campaigns' => KolCampaign::orderBy('name')->get(['id', 'name']),
             'selectedKolId' => $selectedKolId,
             'sampleHppDefault' => (int) AppSetting::get('kol_sample_hpp', '0'),
+            'cpmAnchor' => (int) AppSetting::get(KolBudgetService::KEY_ANCHOR, '5000'),
+            'sampleSubtotal' => (int) $deal->samples->sum(fn ($s) => $s->subtotal),
         ];
     }
 
@@ -305,6 +307,7 @@ class KolDealController extends Controller
             'kol_id' => ['required', 'integer', 'exists:kols,id'],
             'kol_campaign_id' => ['nullable', 'integer', 'exists:kol_campaigns,id'],
             'jenis' => ['required', Rule::in(KolDeal::JENIS)],
+            'deal_type' => ['nullable', Rule::in(KolDeal::DEAL_TYPES)],
             'ratecard_deal' => ['required', 'integer', 'min:0'],
             'jumlah_slot' => ['required', 'integer', 'min:1'],
             'periode_mulai' => ['nullable', 'date'],
@@ -312,12 +315,20 @@ class KolDealController extends Controller
             'pic_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'link_mou' => ['nullable', 'url', 'max:255'],
             'status' => ['required', Rule::in(KolDeal::STATUSES)],
+            // Deliverables & jadwal (operasional, non-finansial).
+            'deliverables' => ['nullable', 'string', 'max:2000'],
+            'posting_deadline' => ['nullable', 'date'],
+            'usage_rights' => ['nullable', 'string', 'max:255'],
+            'internal_notes' => ['nullable', 'string', 'max:2000'],
             // Finansial — hanya berlaku bila lolos gerbang di bawah.
             'total_biaya' => ['nullable', 'integer', 'min:0'],
+            'other_cost' => ['nullable', 'integer', 'min:0'],
             'status_bayar' => ['nullable', Rule::in(KolDeal::STATUS_BAYAR)],
+            'dp_percent' => ['nullable', 'integer', 'min:0', 'max:99'],
             'no_rekening' => ['nullable', 'string', 'max:50'],
             'bank' => ['nullable', 'string', 'max:100'],
             'atas_nama' => ['nullable', 'string', 'max:150'],
+            'payment_note' => ['nullable', 'string', 'max:255'],
             // Laporan hasil endorse (evaluasi kinerja). CPM/ROMI/verdict dihitung di model.
             'hasil_tujuan' => ['nullable', Rule::in(KolDeal::TUJUAN)],
             'hasil_video_upload' => ['nullable', 'integer', 'min:0'],
@@ -341,8 +352,17 @@ class KolDealController extends Controller
         if (array_key_exists('total_biaya', $data)) {
             $data['total_biaya'] ??= 0;
         }
+        if (array_key_exists('other_cost', $data)) {
+            $data['other_cost'] ??= 0;
+        }
+        if (array_key_exists('dp_percent', $data)) {
+            $data['dp_percent'] ??= 0;
+        }
         if (array_key_exists('status_bayar', $data)) {
             $data['status_bayar'] ??= 'belum';
+        }
+        if (array_key_exists('deal_type', $data)) {
+            $data['deal_type'] ??= 'paid';
         }
 
         // Laporan hasil: tandai waktu diisi bila ada isian (tujuan/metrik).

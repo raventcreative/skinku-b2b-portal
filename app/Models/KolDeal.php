@@ -11,6 +11,15 @@ class KolDeal extends Model
 
     public const JENIS = ['vt', 'live'];
 
+    /** Tipe komersial deal (port Iyuro) — beda sumbu dari JENIS (format konten). */
+    public const DEAL_TYPES = ['paid', 'barter', 'affiliate_only'];
+
+    public const DEAL_TYPE_LABEL = [
+        'paid' => 'Paid promote',
+        'barter' => 'Barter produk',
+        'affiliate_only' => 'Affiliate (komisi saja)',
+    ];
+
     public const STATUSES = ['draft', 'berjalan', 'selesai', 'batal'];
 
     public const STATUS_BAYAR = ['belum', 'dp', 'lunas'];
@@ -31,12 +40,13 @@ class KolDeal extends Model
      * daftar dipakai controller (buang input) DAN test (pastikan tak bocor) —
      * dua salinan pasti pelan-pelan beda.
      */
-    public const FINANCE_FIELDS = ['total_biaya', 'status_bayar', 'no_rekening', 'bank', 'atas_nama'];
+    public const FINANCE_FIELDS = ['total_biaya', 'other_cost', 'dp_percent', 'status_bayar', 'no_rekening', 'bank', 'atas_nama', 'payment_note'];
 
     protected $fillable = [
-        'kode', 'kol_id', 'kol_campaign_id', 'jenis', 'ratecard_deal', 'jumlah_slot',
+        'kode', 'kol_id', 'kol_campaign_id', 'jenis', 'deal_type', 'ratecard_deal', 'jumlah_slot',
         'periode_mulai', 'periode_selesai', 'pic_user_id', 'link_mou', 'status',
-        'total_biaya', 'status_bayar', 'no_rekening', 'bank', 'atas_nama',
+        'deliverables', 'posting_deadline', 'usage_rights', 'internal_notes',
+        'total_biaya', 'other_cost', 'status_bayar', 'dp_percent', 'no_rekening', 'bank', 'atas_nama', 'payment_note',
         'hasil_tujuan', 'hasil_video_upload', 'hasil_video_fyp', 'hasil_views',
         'hasil_revenue', 'hasil_catatan', 'hasil_diisi_at',
     ];
@@ -46,8 +56,11 @@ class KolDeal extends Model
         return [
             'periode_mulai' => 'date',
             'periode_selesai' => 'date',
+            'posting_deadline' => 'date',
             'ratecard_deal' => 'integer',
             'total_biaya' => 'integer',
+            'other_cost' => 'integer',
+            'dp_percent' => 'integer',
             'jumlah_slot' => 'integer',
             'hasil_video_upload' => 'integer',
             'hasil_video_fyp' => 'integer',
@@ -55,6 +68,35 @@ class KolDeal extends Model
             'hasil_revenue' => 'integer',
             'hasil_diisi_at' => 'datetime',
         ];
+    }
+
+    /** Grand total biaya = fee (total_biaya) + biaya lain + subtotal HPP sampel. */
+    public function grandTotal(): int
+    {
+        return (int) $this->total_biaya + (int) $this->other_cost
+            + (int) $this->samples->sum(fn ($s) => $s->subtotal);
+    }
+
+    /** Nominal DP (Rp) bila status bayar = dp & persen terisi. */
+    public function dpAmount(): int
+    {
+        return $this->status_bayar === 'dp' && $this->dp_percent > 0
+            ? (int) round($this->total_biaya * $this->dp_percent / 100)
+            : 0;
+    }
+
+    /** Pembayaran lewat tenggat: masih belum lunas & periode_selesai sudah lewat. */
+    public function isPaymentOverdue(): bool
+    {
+        return $this->status_bayar !== 'lunas'
+            && $this->total_biaya > 0
+            && $this->periode_selesai !== null
+            && $this->periode_selesai->isPast();
+    }
+
+    public function dealTypeLabel(): string
+    {
+        return self::DEAL_TYPE_LABEL[$this->deal_type] ?? $this->deal_type;
     }
 
     /** Laporan hasil sudah pernah diisi? */
