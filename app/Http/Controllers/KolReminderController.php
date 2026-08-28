@@ -6,6 +6,7 @@ use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
 use App\Models\KolDeal;
 use App\Models\KolPipelineCard;
+use App\Models\KolSample;
 use App\Services\KolBudgetService;
 use Illuminate\Http\Request;
 
@@ -19,11 +20,22 @@ class KolReminderController extends Controller
     {
         $u = $request->user();
         $today = now()->startOfDay();
+        $besokDate = $today->copy()->addDay();
         $cards = KolPipelineCard::active()->with('kol')->get();
 
         $late = $cards->filter(fn ($c) => $c->next_action_at?->lt($today))->sortBy('next_action_at');
         $due = $cards->filter(fn ($c) => $c->next_action_at?->isSameDay($today));
+        // Lead time H-1: next action besok — supaya bisa disiapkan dari sekarang.
+        $besok = $cards->filter(fn ($c) => $c->next_action_at?->isSameDay($besokDate));
         $none = $cards->filter(fn ($c) => ! $c->next_action_at);
+
+        // Sampel tertahan: pending ≥ 3 hari, atau dikirim ≥ 7 hari belum diterima.
+        $stuckSamples = KolSample::with(['kol', 'deal'])
+            ->where(function ($q) {
+                $q->where(fn ($w) => $w->where('status', 'pending')->where('created_at', '<=', now()->subDays(3)))
+                    ->orWhere(fn ($w) => $w->where('status', 'shipped')->whereDate('shipped_at', '<=', now()->subDays(7)));
+            })
+            ->orderBy('created_at')->get();
 
         // Deadline posting: deal berjalan yang tenggatnya ≤ 3 hari lagi & belum ada konten.
         $postingDue = KolDeal::with('kol')->where('status', 'berjalan')
@@ -44,13 +56,15 @@ class KolReminderController extends Controller
         }
 
         return view('kols.reminder', [
-            'rows' => $late->concat($due)->concat($none)->values(),
+            'rows' => $late->concat($due)->concat($besok)->concat($none)->values(),
             'lateCount' => $late->count(),
             'dueCount' => $due->count(),
+            'besokCount' => $besok->count(),
             'noneCount' => $none->count(),
             'today' => $today,
             // Tagihan deal belum lunas — finance only (uang).
             'payments' => $u->canDo('kol.deal.finance') ? $budget->unpaid() : collect(),
+            'stuckSamples' => $u->canDo('kol.deal.manage') ? $stuckSamples : collect(),
             'postingDue' => $postingDue,
             'churn' => $churn,
         ]);
