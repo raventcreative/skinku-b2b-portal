@@ -10,7 +10,7 @@ class KolAffiliateTransaction extends Model
     public const CANCELLED = ['batal', 'cancelled', 'canceled', 'dibatalkan'];
 
     protected $fillable = [
-        'platform', 'order_id', 'kol_id', 'raw_username', 'gmv', 'commission',
+        'platform', 'order_id', 'kol_id', 'raw_username', 'gmv', 'commission', 'commission_settled',
         'qty', 'product', 'status', 'content_type', 'order_date', 'source', 'created_by',
     ];
 

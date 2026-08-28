@@ -400,6 +400,9 @@ Route::middleware(['auth', 'role'])->group(function () {
                 Route::post('/kol-affiliate/match', [KolAffiliateController::class, 'match'])->name('kol-affiliate.match');
                 Route::get('/kol-affiliate/import', [KolAffiliateController::class, 'importForm'])->name('kol-affiliate.import');
                 Route::post('/kol-affiliate/import', [KolAffiliateController::class, 'importStore'])->name('kol-affiliate.import.store');
+                Route::post('/kol-affiliate/gmv-target', [KolAffiliateController::class, 'saveGmvTarget'])->name('kol-affiliate.gmv-target');
+                Route::post('/kol-affiliate/weekly-stats', [KolAffiliateController::class, 'weeklyStatStore'])->name('kol-affiliate.weekly.store');
+                Route::delete('/kol-affiliate/weekly-stats/{stat}', [KolAffiliateController::class, 'weeklyStatDestroy'])->name('kol-affiliate.weekly.destroy');
             });
         });
 

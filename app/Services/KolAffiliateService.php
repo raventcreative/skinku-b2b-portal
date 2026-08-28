@@ -40,6 +40,7 @@ class KolAffiliateService
                     'raw_username' => $username ?: null,
                     'gmv' => (int) ($r['gmv'] ?? 0),
                     'commission' => isset($r['commission']) && $r['commission'] !== null ? (int) $r['commission'] : null,
+                    'commission_settled' => isset($r['commission_settled']) && $r['commission_settled'] !== null ? (int) $r['commission_settled'] : null,
                     'qty' => isset($r['qty']) && $r['qty'] !== null ? (int) $r['qty'] : null,
                     'product' => $r['product'] ?? null,
                     'status' => $r['status'] ?? null,
@@ -64,8 +65,18 @@ class KolAffiliateService
 
         return KolAffiliateTransaction::matched()->notCancelled()
             ->whereBetween('order_date', [$start, $end])
-            ->selectRaw('kol_id, SUM(gmv) as gmv, COUNT(*) as orders, SUM(commission) as commission')
+            ->selectRaw('kol_id, SUM(gmv) as gmv, COUNT(*) as orders, SUM(commission) as commission, SUM(commission_settled) as commission_settled')
             ->groupBy('kol_id')->orderByDesc('gmv')->with('kol')->get();
+    }
+
+    /** Views konten per creator bulan tsb (untuk RPM). kol_id => views. */
+    public function monthlyViews(Carbon $month): Collection
+    {
+        $start = $month->copy()->startOfMonth();
+        $end = $month->copy()->endOfMonth();
+
+        return KolContent::whereBetween('posted_at', [$start, $end])->with('latestSnapshot')->get()
+            ->groupBy('kol_id')->map(fn ($cs) => $cs->sum(fn ($c) => (int) ($c->latestSnapshot->views ?? 0)));
     }
 
     /** GMV per minggu (ISO) untuk satu KOL, lama → baru. Dipakai APS. */

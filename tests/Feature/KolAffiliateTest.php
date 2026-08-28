@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\AppSetting;
 use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
+use App\Models\KolImportBatch;
+use App\Models\KolWeeklyStat;
 use App\Models\User;
 use App\Services\KolAffiliateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -155,6 +158,41 @@ class KolAffiliateTest extends TestCase
 
         $this->actingAs($spec)->post(route('kol-affiliate.match'), ['raw_username' => 'orang_asing', 'kol_id' => $kol->id])->assertRedirect();
         $this->assertSame($kol->id, KolAffiliateTransaction::where('order_id', 'M1')->value('kol_id'));
+    }
+
+    public function test_weekly_stat_dan_gmv_target(): void
+    {
+        $spec = $this->user('kol_specialist', 'affws');
+        $kol = Kol::create(['tiktok_username' => 'wskol', 'followers' => 10_000]);
+
+        $this->actingAs($spec)->post(route('kol-affiliate.gmv-target'), ['gmv_target' => 50_000_000])->assertRedirect();
+        $this->assertSame('50000000', AppSetting::get('kol_gmv_target'));
+
+        $this->actingAs($spec)->post(route('kol-affiliate.weekly.store'), [
+            'kol_id' => $kol->id, 'week_start' => now()->startOfWeek()->toDateString(), 'gmv' => 1_000_000, 'orders' => 5, 'views' => 20_000,
+        ])->assertRedirect();
+        $ws = KolWeeklyStat::first();
+        $this->assertSame(1_000_000, $ws->gmv);
+
+        $this->actingAs($spec)->delete(route('kol-affiliate.weekly.destroy', $ws))->assertRedirect();
+        $this->assertSame(0, KolWeeklyStat::count());
+    }
+
+    public function test_import_log_batch_dan_komisi_settled(): void
+    {
+        $spec = $this->user('kol_specialist', 'affib');
+        Kol::create(['tiktok_username' => 'ibkol', 'followers' => 10_000]);
+        $csv = "Order ID,Creator Username,Total,Komisi,Actual Commission,Status,Tanggal\n"
+            ."Z1,@ibkol,100000,10000,9500,Completed,2026-08-20\n";
+        $file = UploadedFile::fake()->createWithContent('aff.csv', $csv);
+
+        $this->actingAs($spec)->post(route('kol-affiliate.import.store'), ['platform' => 'tiktok', 'file' => $file])
+            ->assertRedirect(route('kol-affiliate.index'));
+
+        $t = KolAffiliateTransaction::where('order_id', 'Z1')->first();
+        $this->assertSame(9500, (int) $t->commission_settled);
+        $this->assertSame(1, KolImportBatch::count());
+        $this->assertSame(1, (int) KolImportBatch::first()->imported);
     }
 
     public function test_import_csv_auto_map_header(): void

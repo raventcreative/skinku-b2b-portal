@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppSetting;
 use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
+use App\Models\KolImportBatch;
+use App\Models\KolWeeklyStat;
 use App\Services\AuditService;
 use App\Services\KolAffiliateService;
 use App\Services\KolScoringService;
@@ -27,9 +30,23 @@ class KolAffiliateController extends Controller
 
         $ranking = $svc->monthly($m);
         $unmatched = $svc->unmatched();
+        $canManage = $request->user()->canDo('kol.affiliate.manage');
 
         // APS per creator (skor potensi affiliate) — kol_id => hasil aps.
         $aps = $ranking->mapWithKeys(fn ($r) => [$r->kol_id => $scoring->aps($svc->apsInput((int) $r->kol_id, $m))]);
+
+        // Views + RPM per creator + agregat; sparkline GMV 4 minggu.
+        $viewsMap = $svc->monthlyViews($m);
+        $totalGmv = (int) $ranking->sum('gmv');
+        $totalViews = (int) $viewsMap->sum();
+        $upTo = $m->isSameMonth(now()) ? now() : $m->copy()->endOfMonth();
+        $rpmMap = $ranking->mapWithKeys(function ($r) use ($viewsMap) {
+            $v = (int) ($viewsMap[$r->kol_id] ?? 0);
+
+            return [$r->kol_id => ['views' => $v, 'rpm' => $v > 0 ? (int) round($r->gmv / $v * 1000) : null]];
+        });
+        $sparkMap = $ranking->mapWithKeys(fn ($r) => [$r->kol_id => $svc->weeklyGmv((int) $r->kol_id, $upTo, 4)]);
+        $gmvTarget = (int) AppSetting::get('kol_gmv_target', '0');
 
         return view('kols.affiliate.index', [
             'month' => $month,
@@ -37,16 +54,23 @@ class KolAffiliateController extends Controller
             'aps' => $aps,
             'apsLabels' => KolScoringService::APS_LABEL,
             'summary' => [
-                'gmv' => (int) $ranking->sum('gmv'),
+                'gmv' => $totalGmv,
                 'commission' => (int) $ranking->sum('commission'),
+                'settled' => (int) $ranking->sum('commission_settled'),
                 'orders' => (int) $ranking->sum('orders'),
                 'affiliates' => $ranking->count(),
+                'rpm' => $totalViews > 0 ? (int) round($totalGmv / $totalViews * 1000) : null,
+                'views' => $totalViews,
             ],
+            'gmvTarget' => $gmvTarget,
+            'rpmMap' => $rpmMap,
+            'sparkMap' => $sparkMap,
             'weekly' => $svc->monthlyWeeklyGmv($m),
             'unmatched' => $unmatched,
-            'canManage' => $request->user()->canDo('kol.affiliate.manage'),
-            'kols' => $request->user()->canDo('kol.affiliate.manage')
-                ? Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']) : collect(),
+            'canManage' => $canManage,
+            'kols' => $canManage ? Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username']) : collect(),
+            'weeklyStats' => $canManage ? KolWeeklyStat::with('kol')->latest('week_start')->latest('id')->limit(24)->get() : collect(),
+            'batches' => $canManage ? KolImportBatch::with('creator')->latest('id')->limit(10)->get() : collect(),
             'prevMonth' => $m->copy()->subMonth()->format('Y-m'),
             'nextMonth' => $m->copy()->addMonth()->format('Y-m'),
         ]);
@@ -116,12 +140,48 @@ class KolAffiliateController extends Controller
         return back()->with('status', "{$n} order ditautkan ke KOL.");
     }
 
+    public function saveGmvTarget(Request $request): RedirectResponse
+    {
+        $d = $request->validate(['gmv_target' => ['required', 'integer', 'min:0']]);
+        AppSetting::put('kol_gmv_target', (string) $d['gmv_target']);
+
+        return back()->with('status', 'Target GMV disimpan.');
+    }
+
+    /** Input statistik mingguan manual per creator (isi ulang minggu sama = perbarui). */
+    public function weeklyStatStore(Request $request): RedirectResponse
+    {
+        $d = $request->validate([
+            'kol_id' => ['required', 'integer', 'exists:kols,id'],
+            'week_start' => ['required', 'date'],
+            'gmv' => ['nullable', 'integer', 'min:0'], 'orders' => ['nullable', 'integer', 'min:0'],
+            'commission' => ['nullable', 'integer', 'min:0'], 'content_count' => ['nullable', 'integer', 'min:0'],
+            'views' => ['nullable', 'integer', 'min:0'],
+        ]);
+        KolWeeklyStat::updateOrCreate(
+            ['kol_id' => $d['kol_id'], 'week_start' => Carbon::parse($d['week_start'])->startOfWeek()->toDateString()],
+            ['gmv' => $d['gmv'] ?? 0, 'orders' => $d['orders'] ?? 0, 'commission' => $d['commission'] ?? 0,
+                'content_count' => $d['content_count'] ?? 0, 'views' => $d['views'] ?? 0, 'created_by' => $request->user()->id],
+        );
+
+        return back()->with('status', 'Statistik mingguan disimpan.');
+    }
+
+    public function weeklyStatDestroy(KolWeeklyStat $stat): RedirectResponse
+    {
+        $stat->delete();
+
+        return back()->with('status', 'Statistik mingguan dihapus.');
+    }
+
     /** Alias header umum (TikTok Affiliate Center / Shopee / export app Iyuro). */
     private const ALIASES = [
         'username' => ['username', 'creator username', 'creator', 'handle', 'nama creator', 'akun', 'creator name'],
         'order_id' => ['order id', 'order_id', 'id pesanan', 'no pesanan', 'nomor pesanan', 'order', 'order sn'],
         'gmv' => ['gmv', 'total', 'penjualan', 'total penjualan', 'omzet', 'sales', 'total amount', 'pay amount', 'subtotal'],
-        'commission' => ['commission', 'komisi', 'estimasi komisi', 'est commission', 'actual commission', 'estimated commission'],
+        'commission' => ['commission', 'komisi', 'estimasi komisi', 'est commission', 'estimated commission', 'komisi estimasi'],
+        'commission_settled' => ['actual commission', 'settled commission', 'komisi aktual', 'komisi bersih', 'komisi settled', 'net commission'],
+        'content_type' => ['content type', 'tipe konten', 'channel', 'kanal', 'jenis konten'],
         'qty' => ['qty', 'quantity', 'jumlah', 'item sold', 'units', 'kuantitas'],
         'product' => ['product', 'produk', 'product name', 'nama produk', 'item'],
         'status' => ['status', 'order status', 'status pesanan'],
@@ -148,6 +208,12 @@ class KolAffiliateController extends Controller
         }
 
         $res = $svc->import($mapped, (string) $request->input('platform'), $request->user()->id);
+        KolImportBatch::create([
+            'platform' => (string) $request->input('platform'), 'source' => 'import',
+            'filename' => $file->getClientOriginalName(),
+            'imported' => $res['imported'], 'matched' => $res['matched'], 'unmatched' => $res['unmatched'],
+            'created_by' => $request->user()->id,
+        ]);
         AuditService::log(action: 'import_kol_affiliate', targetType: 'kol_affiliate', targetId: 0,
             after: ['platform' => $request->input('platform')] + $res);
 
@@ -185,7 +251,7 @@ class KolAffiliateController extends Controller
             foreach ($col as $field => $i) {
                 $rec[$field] = trim((string) ($cells[$i] ?? ''));
             }
-            foreach (['gmv', 'commission', 'qty'] as $num) {
+            foreach (['gmv', 'commission', 'commission_settled', 'qty'] as $num) {
                 if (isset($rec[$num])) {
                     $rec[$num] = (int) preg_replace('/[^\d]/', '', $rec[$num]);
                 }
