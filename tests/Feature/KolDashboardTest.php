@@ -68,6 +68,23 @@ class KolDashboardTest extends TestCase
             ->assertOk()->assertSee('arsip');
     }
 
+    /** Daftar pengingat (≤8) + kartu GMV % target di dashboard. */
+    public function test_daftar_pengingat_dan_gmv_target(): void
+    {
+        $root = $this->user(User::ROLE_SUPER_ADMIN, 'dashrem');
+        $kol = Kol::create(['tiktok_username' => 'remk', 'followers' => 30_000]);
+        KolPipelineCard::create(['kol_id' => $kol->id, 'stage' => 'nego', 'next_action' => 'follow up', 'next_action_at' => now()->subDay()->toDateString()]);
+        AppSetting::put('kol_gmv_target', '10000000');
+        app(KolAffiliateService::class)->import([
+            ['order_id' => 'G1', 'username' => 'remk', 'gmv' => 5_000_000, 'order_date' => now()->toDateString()],
+        ], 'tiktok', $root->id);
+
+        $res = $this->actingAs($root)->get(route('kol-dashboard.index'))->assertOk()
+            ->assertSee('Pengingat terdekat')->assertSee('dari target');
+        $this->assertCount(1, $res->viewData('reminders'));
+        $this->assertSame(10_000_000, $res->viewData('gmvTarget'));   // 5jt = 50% target
+    }
+
     /** Kartu CPM paid + banner peringatan budget: datanya sudah dihitung KolBudgetService, kini tampil (finance-only). */
     public function test_kartu_cpm_dan_banner_peringatan_budget_finance(): void
     {

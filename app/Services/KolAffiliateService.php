@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
 use App\Models\KolContent;
+use App\Models\KolUsernameAlias;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -29,9 +30,13 @@ class KolAffiliateService
                 continue;
             }
             $username = ltrim(trim((string) ($r['username'] ?? '')), '@');
-            $kolId = $username !== ''
-                ? Kol::whereRaw('LOWER(tiktok_username) = ?', [mb_strtolower($username)])->value('id')
-                : null;
+            // Cocokkan ke tiktok_username langsung, lalu ke alias tersimpan.
+            $kolId = null;
+            if ($username !== '') {
+                $lower = mb_strtolower($username);
+                $kolId = Kol::whereRaw('LOWER(tiktok_username) = ?', [$lower])->value('id')
+                    ?? KolUsernameAlias::where('username', $lower)->value('kol_id');
+            }
 
             KolAffiliateTransaction::updateOrCreate(
                 ['platform' => $platform, 'order_id' => $orderId],
@@ -170,11 +175,21 @@ class KolAffiliateService
         ];
     }
 
-    /** Tautkan semua transaksi sebuah username ke KOL. Return jumlah baris tertaut. */
-    public function matchUsername(string $rawUsername, int $kolId): int
+    /** Tautkan semua transaksi sebuah username ke KOL + simpan alias (auto-cocok
+     *  import berikutnya). Return jumlah baris tertaut. */
+    public function matchUsername(string $rawUsername, int $kolId, ?int $actorId = null): int
     {
-        return KolAffiliateTransaction::whereNull('kol_id')
-            ->whereRaw('LOWER(raw_username) = ?', [mb_strtolower(ltrim(trim($rawUsername), '@'))])
+        $norm = KolUsernameAlias::norm($rawUsername);
+        $n = KolAffiliateTransaction::whereNull('kol_id')
+            ->whereRaw('LOWER(raw_username) = ?', [$norm])
             ->update(['kol_id' => $kolId]);
+
+        // Simpan alias hanya bila username asing (bukan tiktok_username KOL itu sendiri).
+        $isOwnHandle = Kol::whereKey($kolId)->whereRaw('LOWER(tiktok_username) = ?', [$norm])->exists();
+        if ($norm !== '' && ! $isOwnHandle) {
+            KolUsernameAlias::updateOrCreate(['username' => $norm], ['kol_id' => $kolId, 'created_by' => $actorId]);
+        }
+
+        return $n;
     }
 }

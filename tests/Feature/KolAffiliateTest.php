@@ -263,4 +263,24 @@ class KolAffiliateTest extends TestCase
         ])->assertSessionHasErrors('map');
         $this->assertSame(0, KolAffiliateTransaction::count());
     }
+
+    /** Match username menyimpan alias → import berikutnya untuk username sama auto-cocok. */
+    public function test_match_simpan_alias_auto_cocok_import_berikutnya(): void
+    {
+        $spec = $this->user('kol_specialist', 'aliaskol');
+        $kol = Kol::create(['tiktok_username' => 'realhandle', 'followers' => 10_000]);
+
+        // Order dgn username asing → belum cocok.
+        $this->svc()->import([['order_id' => 'AL1', 'username' => 'promo_akun', 'gmv' => 100_000, 'order_date' => now()->toDateString()]], 'tiktok', $spec->id);
+        $this->assertNull(KolAffiliateTransaction::where('order_id', 'AL1')->value('kol_id'));
+
+        // Tautkan manual → alias tersimpan + transaksi lama tertaut.
+        $this->svc()->matchUsername('promo_akun', $kol->id, $spec->id);
+        $this->assertSame($kol->id, (int) KolAffiliateTransaction::where('order_id', 'AL1')->value('kol_id'));
+        $this->assertDatabaseHas('kol_username_aliases', ['username' => 'promo_akun', 'kol_id' => $kol->id]);
+
+        // Import baru username sama → OTOMATIS cocok (tanpa tautan ulang).
+        $this->svc()->import([['order_id' => 'AL2', 'username' => '@promo_akun', 'gmv' => 200_000, 'order_date' => now()->toDateString()]], 'tiktok', $spec->id);
+        $this->assertSame($kol->id, (int) KolAffiliateTransaction::where('order_id', 'AL2')->value('kol_id'));
+    }
 }

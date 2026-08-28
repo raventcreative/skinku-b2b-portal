@@ -66,9 +66,21 @@ class KolContentController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        return view('kols.konten.form', $this->formData(new KolContent(['posted_at' => now()])));
+        // Prefill dari query (?deal / ?creator / ?url) — mis. dari halaman detail deal.
+        $content = new KolContent([
+            'posted_at' => now(),
+            'kol_id' => ctype_digit((string) $request->query('creator')) ? (int) $request->query('creator') : null,
+            'kol_deal_id' => ctype_digit((string) $request->query('deal')) ? (int) $request->query('deal') : null,
+            'url' => is_string($request->query('url')) ? $request->query('url') : null,
+        ]);
+        // Deal diberi tanpa creator → tarik creator dari deal (konten deal = paid).
+        if ($content->kol_deal_id && ! $content->kol_id) {
+            $content->kol_id = KolDeal::whereKey($content->kol_deal_id)->value('kol_id');
+        }
+
+        return view('kols.konten.form', $this->formData($content));
     }
 
     public function store(Request $request): RedirectResponse

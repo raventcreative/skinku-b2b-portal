@@ -33,13 +33,15 @@ class KolDashboardController extends Controller
         $monthEnd = $m->copy()->endOfMonth();
 
         // Pipeline
-        $cards = KolPipelineCard::active()->get();
+        $cards = KolPipelineCard::active()->with('kol')->get();
         $pipeline = [
             'active' => $cards->count(),
             'terlambat' => $cards->filter(fn ($c) => $c->next_action_at?->lt($today))->count(),
             'hariIni' => $cards->filter(fn ($c) => $c->next_action_at?->isSameDay($today))->count(),
             'tanpaAksi' => $cards->filter(fn ($c) => ! $c->next_action_at)->count(),
         ];
+        // Daftar pengingat: aksi terdekat (punya tenggat), urut tenggat, maks 8 baris.
+        $reminders = $cards->filter(fn ($c) => $c->next_action_at)->sortBy('next_action_at')->take(8)->values();
 
         // Konten & views bulan ini
         $contents = KolContent::whereBetween('posted_at', [$monthStart, $monthEnd])->with(['kol', 'latestSnapshot'])->get();
@@ -49,6 +51,7 @@ class KolDashboardController extends Controller
         // Override target per-bulan menang atas setelan global (bila diisi).
         $ov = KolMonthlyTarget::forMonth($m);
         $target = $ov?->views_target ?? (int) AppSetting::get('kol_views_target', '1000000');
+        $gmvTarget = $ov?->gmv_target ?? (int) AppSetting::get('kol_gmv_target', '0');
         $proj = $isCurrent ? (int) round($totalViews * ($m->daysInMonth / max(1, now()->day))) : $totalViews;
         $topContent = $contents->sortByDesc($views)->take(5)->values();
 
@@ -128,6 +131,8 @@ class KolDashboardController extends Controller
                 'gmvWeeks' => $gmvWeeks, 'gmvWeekLabels' => $gmvWeekLabels,
             ],
             'pipeline' => $pipeline,
+            'reminders' => $reminders,
+            'gmvTarget' => $gmvTarget,
             'totalViews' => $totalViews,
             'paidViews' => $paidViews,
             'earnedViews' => $totalViews - $paidViews,

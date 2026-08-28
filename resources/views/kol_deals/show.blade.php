@@ -105,7 +105,12 @@
     {{-- Konten tertaut + views agregat --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <div class="flex items-center justify-between mb-3">
-            <p class="text-[11px] font-bold uppercase tracking-wide text-stone-400">Konten Tertaut</p>
+            <div class="flex items-center gap-2">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-stone-400">Konten Tertaut</p>
+                @if(auth()->user()->canDo('kol.content.manage'))
+                    <a href="{{ route('kol-konten.create', ['deal' => $deal->id]) }}" class="text-[11px] text-red-600 hover:underline">+ tambah</a>
+                @endif
+            </div>
             <div class="flex items-center gap-4 text-xs">
                 <span class="text-stone-500">Total views: <b class="text-stone-800 tabular-nums">{{ number_format($contentViews, 0, ',', '.') }}</b></span>
                 @if($canFinance && $contentCpm !== null)<span class="text-stone-500">CPM aktual: <b class="text-stone-800 tabular-nums">{{ $rp($contentCpm) }}</b></span>@endif

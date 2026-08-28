@@ -84,6 +84,13 @@
             @if($aff)
                 <p class="text-2xl font-bold text-stone-800">{{ $rp($aff['gmv']) }}</p>
                 <p class="text-[11px] text-stone-400">{{ number_format($aff['orders'], 0, ',', '.') }} order · {{ $aff['affiliates'] }} affiliate</p>
+                @if($gmvTarget > 0)
+                    @php $gmvPct = (int) min(100, round($aff['gmv'] / $gmvTarget * 100)); @endphp
+                    <div class="mt-2">
+                        <div class="flex items-center justify-between text-[10px] text-stone-400 mb-0.5"><span>{{ $gmvPct }}% dari target</span><span class="tabular-nums">{{ $rp($gmvTarget) }}</span></div>
+                        <div class="h-1.5 bg-stone-100 rounded-full overflow-hidden"><div class="h-full {{ $gmvPct >= 95 ? 'bg-emerald-500' : 'bg-red-400' }}" style="width: {{ $gmvPct }}%"></div></div>
+                    </div>
+                @endif
             @else
                 <p class="text-sm text-stone-400 mt-2">🔒 butuh izin Affiliate</p>
             @endif
@@ -119,7 +126,10 @@
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
             <div class="flex items-center justify-between mb-2">
                 <p class="text-sm font-semibold text-stone-700">Top affiliate (GMV)</p>
-                @if($aff)<a href="{{ route('kol-affiliate.index') }}" class="text-xs text-indigo-600 hover:underline">Semua →</a>@endif
+                <div class="flex items-center gap-2">
+                    @if($aff && ($aff['dist']['new'] ?? 0) > 0)<span class="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500">{{ $aff['dist']['new'] }} baru</span>@endif
+                    @if($aff)<a href="{{ route('kol-affiliate.index') }}" class="text-xs text-indigo-600 hover:underline">Semua →</a>@endif
+                </div>
             </div>
             @if($aff && $aff['top']->isNotEmpty())
                 <div class="divide-y divide-stone-100">
@@ -193,6 +203,33 @@
         <a href="{{ route('kol-reminder.index') }}" class="block bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800 hover:bg-amber-100">
             ⏰ Ada <b>{{ $pipeline['terlambat'] }}</b> terlambat & <b>{{ $pipeline['hariIni'] }}</b> jatuh tempo hari ini di pipeline — buka Reminder →
         </a>
+    @endif
+
+    {{-- Daftar pengingat (aksi terdekat, maks 8) — ringkas di dashboard. --}}
+    @if($reminders->isNotEmpty())
+        @php $today = now()->startOfDay(); @endphp
+        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-sm font-semibold text-stone-700">Pengingat terdekat</p>
+                <a href="{{ route('kol-reminder.index') }}" class="text-xs text-indigo-600 hover:underline">Semua →</a>
+            </div>
+            <div class="divide-y divide-stone-50">
+                @foreach($reminders as $c)
+                    @php
+                        $late = $c->next_action_at->lt($today);
+                        $isToday = $c->next_action_at->isSameDay($today);
+                        $tone = $late ? 'text-rose-600' : ($isToday ? 'text-amber-600' : 'text-stone-400');
+                    @endphp
+                    <a href="{{ route('kol-pipeline.show', $c) }}" class="flex items-center justify-between gap-3 py-2 text-sm hover:bg-stone-50 -mx-2 px-2 rounded-lg">
+                        <span class="min-w-0 flex-1 truncate">
+                            <b class="text-stone-700">{{ '@'.($c->kol->tiktok_username ?? '?') }}</b>
+                            <span class="text-stone-400 text-xs">· {{ $c->next_action ?: $c->stage }}</span>
+                        </span>
+                        <span class="text-xs {{ $tone }} shrink-0 tabular-nums">{{ $c->next_action_at->translatedFormat('d M') }}{{ $late ? ' (lewat)' : ($isToday ? ' (hari ini)' : '') }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
     @endif
 </div>
 

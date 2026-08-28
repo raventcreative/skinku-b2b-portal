@@ -134,12 +134,12 @@ class KolAffiliateController extends Controller
             'kol_id' => ['required', 'integer', 'exists:kols,id'],
         ]);
 
-        $n = $svc->matchUsername($data['raw_username'], $data['kol_id']);
+        $n = $svc->matchUsername($data['raw_username'], $data['kol_id'], $request->user()->id);
 
         AuditService::log(action: 'match_kol_affiliate', targetType: 'kol', targetId: $data['kol_id'],
             after: ['username' => $data['raw_username'], 'orders' => $n]);
 
-        return back()->with('status', "{$n} order ditautkan ke KOL.");
+        return back()->with('status', "{$n} order ditautkan ke KOL — import berikutnya untuk username ini otomatis cocok.");
     }
 
     public function saveGmvTarget(Request $request): RedirectResponse

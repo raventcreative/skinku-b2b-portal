@@ -162,4 +162,18 @@ class KolContentTest extends TestCase
         $this->assertSame(1, KolContentSnapshot::count());
         $this->assertSame(4000, (int) $c1->refresh()->latestSnapshot->views);
     }
+
+    /** Form konten prefill dari ?deal / ?url — creator ditarik dari deal. */
+    public function test_create_prefill_dari_deal_dan_url(): void
+    {
+        $spec = $this->user('kol_specialist', 'prefill');
+        $kol = $this->kol();
+        $deal = KolDeal::create(['kode' => 'PF1', 'kol_id' => $kol->id, 'jenis' => 'vt', 'status' => 'berjalan']);
+
+        $res = $this->actingAs($spec)->get(route('kol-konten.create', ['deal' => $deal->id, 'url' => 'https://www.tiktok.com/@x/v/9']))->assertOk();
+        $content = $res->viewData('content');
+        $this->assertSame($deal->id, $content->kol_deal_id);
+        $this->assertSame($kol->id, $content->kol_id);     // ditarik dari deal
+        $this->assertSame('https://www.tiktok.com/@x/v/9', $content->url);
+    }
 }
