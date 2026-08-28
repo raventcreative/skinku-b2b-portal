@@ -396,6 +396,7 @@ Route::middleware(['auth', 'role'])->group(function () {
 
         // Skor — kalkulator KSS (Fase 3b). Kalkulator murni, gated kol.view.
         Route::match(['get', 'post'], '/kol-skor/kss', [KolScoringController::class, 'kss'])->name('kol-skor.kss');
+        Route::post('/kol-skor/aps-snapshot', [KolScoringController::class, 'snapshotAps'])->name('kol-skor.aps-snapshot');
     });
 
     // Deal KOL: gated kol.deal.manage SAJA (bukan kol.view) — penyetuju (admin)

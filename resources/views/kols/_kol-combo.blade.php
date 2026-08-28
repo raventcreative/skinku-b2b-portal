@@ -16,7 +16,8 @@
     <div class="combo-list hidden absolute z-30 mt-1 w-full max-h-56 overflow-auto bg-white border border-stone-200 rounded-lg shadow-lg text-sm">
         @foreach($kols as $k)
             <div class="combo-opt px-3 py-1.5 hover:bg-stone-100 cursor-pointer" data-value="{{ $k->id }}"
-                data-median="{{ $k->relationLoaded('latestScreening') && $k->latestScreening ? (int) $k->latestScreening->median_views : 0 }}">{{ ($atPrefix ? '@' : '').$k->tiktok_username }}</div>
+                data-median="{{ $k->relationLoaded('latestScreening') && $k->latestScreening ? (int) $k->latestScreening->median_views : 0 }}"
+                data-rate="{{ $k->relationLoaded('latestScreening') && $k->latestScreening ? (int) $k->latestScreening->ratecard : 0 }}">{{ ($atPrefix ? '@' : '').$k->tiktok_username }}</div>
         @endforeach
     </div>
 </div>
