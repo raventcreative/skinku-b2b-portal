@@ -264,6 +264,32 @@ class KolAffiliateTest extends TestCase
         $this->assertSame(0, KolAffiliateTransaction::count());
     }
 
+    /** "+ Jadikan KOL": angkat username belum-cocok jadi KOL affiliate + tautkan ordernya. */
+    public function test_jadikan_kol_dari_belum_cocok(): void
+    {
+        $spec = $this->user('kol_specialist', 'promokol');
+        $this->svc()->import([['order_id' => 'PR1', 'username' => 'affiliate_baru', 'gmv' => 500_000, 'order_date' => now()->toDateString()]], 'tiktok', $spec->id);
+        $this->assertNull(KolAffiliateTransaction::where('order_id', 'PR1')->value('kol_id'));
+        $this->assertSame(0, Kol::where('tiktok_username', 'affiliate_baru')->count());
+
+        $this->actingAs($spec)->post(route('kol-affiliate.promote'), ['raw_username' => 'affiliate_baru'])->assertRedirect();
+
+        $kol = Kol::where('tiktok_username', 'affiliate_baru')->first();
+        $this->assertNotNull($kol);
+        $this->assertSame('affiliate', $kol->role);                                           // peran affiliate
+        $this->assertSame($kol->id, (int) KolAffiliateTransaction::where('order_id', 'PR1')->value('kol_id')); // order tertaut
+    }
+
+    /** Jadikan-KOL untuk username yang sudah terdata → tak menduplikat. */
+    public function test_jadikan_kol_tak_duplikat_bila_sudah_ada(): void
+    {
+        $spec = $this->user('kol_specialist', 'promodup');
+        Kol::create(['tiktok_username' => 'sudahada', 'followers' => 10_000]);
+
+        $this->actingAs($spec)->post(route('kol-affiliate.promote'), ['raw_username' => '@sudahada'])->assertRedirect();
+        $this->assertSame(1, Kol::where('tiktok_username', 'sudahada')->count());   // tetap 1
+    }
+
     /** Match username menyimpan alias → import berikutnya untuk username sama auto-cocok. */
     public function test_match_simpan_alias_auto_cocok_import_berikutnya(): void
     {

@@ -7,6 +7,7 @@ use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
 use App\Models\KolImportBatch;
 use App\Models\KolMonthlyTarget;
+use App\Models\KolUsernameAlias;
 use App\Models\KolWeeklyStat;
 use App\Services\AuditService;
 use App\Services\KolAffiliateService;
@@ -140,6 +141,33 @@ class KolAffiliateController extends Controller
             after: ['username' => $data['raw_username'], 'orders' => $n]);
 
         return back()->with('status', "{$n} order ditautkan ke KOL — import berikutnya untuk username ini otomatis cocok.");
+    }
+
+    /**
+     * Angkat username affiliate belum-cocok jadi entri KOL baru (peran affiliate)
+     * + tautkan semua transaksinya. Kalau username sudah jadi KOL, cukup tautkan.
+     */
+    public function promote(Request $request, KolAffiliateService $svc): RedirectResponse
+    {
+        $data = $request->validate(['raw_username' => ['required', 'string', 'max:150']]);
+        $norm = KolUsernameAlias::norm($data['raw_username']);
+        if ($norm === '') {
+            return back()->withErrors(['raw_username' => 'Username kosong.']);
+        }
+
+        $kol = Kol::whereRaw('LOWER(tiktok_username) = ?', [$norm])->first();
+        $baru = $kol === null;
+        if ($baru) {
+            $kol = Kol::create(['tiktok_username' => $norm, 'role' => 'affiliate', 'followers' => 0]);
+        }
+        $n = $svc->matchUsername($data['raw_username'], $kol->id, $request->user()->id);
+
+        AuditService::log(action: 'promote_affiliate_to_kol', targetType: 'kol', targetId: $kol->id,
+            after: ['username' => $norm, 'baru' => $baru, 'orders' => $n]);
+
+        return back()->with('status', $baru
+            ? "@{$norm} ditambahkan ke Database KOL (peran: affiliate) — {$n} order tertaut."
+            : "@{$norm} sudah ada di Database KOL — {$n} order tertaut.");
     }
 
     public function saveGmvTarget(Request $request): RedirectResponse

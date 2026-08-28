@@ -94,18 +94,27 @@
                         <span class="text-stone-700 font-medium">{{ $row->raw_username }}</span>
                         <span class="text-stone-500 text-xs">{{ $rp($row->gmv) }} · {{ $row->orders }} order</span>
                         @if($canManage)
-                            <form method="POST" action="{{ route('kol-affiliate.match') }}" class="flex items-center gap-1">
-                                @csrf
-                                <input type="hidden" name="raw_username" value="{{ $row->raw_username }}">
-                                <input type="text" data-select-search="matchsel{{ $loop->index }}" placeholder="cari KOL…" class="w-28 px-2 py-1 border border-stone-300 rounded text-xs">
-                                <select name="kol_id" id="matchsel{{ $loop->index }}" required class="px-2 py-1 border border-stone-300 rounded text-xs bg-white">
-                                    <option value="">tautkan ke…</option>
-                                    @foreach($kols as $k)
-                                        <option value="{{ $k->id }}">{{ '@'.$k->tiktok_username }}</option>
-                                    @endforeach
-                                </select>
-                                <button class="px-2 py-1 bg-stone-700 hover:bg-stone-800 text-white text-xs rounded">Tautkan</button>
-                            </form>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <form method="POST" action="{{ route('kol-affiliate.match') }}" class="flex items-center gap-1">
+                                    @csrf
+                                    <input type="hidden" name="raw_username" value="{{ $row->raw_username }}">
+                                    <input type="text" data-select-search="matchsel{{ $loop->index }}" placeholder="cari KOL…" class="w-28 px-2 py-1 border border-stone-300 rounded text-xs">
+                                    <select name="kol_id" id="matchsel{{ $loop->index }}" required class="px-2 py-1 border border-stone-300 rounded text-xs bg-white">
+                                        <option value="">tautkan ke…</option>
+                                        @foreach($kols as $k)
+                                            <option value="{{ $k->id }}">{{ '@'.$k->tiktok_username }}</option>
+                                        @endforeach
+                                    </select>
+                                    <button class="px-2 py-1 bg-stone-700 hover:bg-stone-800 text-white text-xs rounded">Tautkan</button>
+                                </form>
+                                <span class="text-[10px] text-stone-400">atau</span>
+                                <form method="POST" action="{{ route('kol-affiliate.promote') }}"
+                                    onsubmit="return confirm('Tambahkan @{{ $row->raw_username }} ke Database KOL sebagai affiliate baru? Semua ordernya ikut tertaut.')">
+                                    @csrf
+                                    <input type="hidden" name="raw_username" value="{{ $row->raw_username }}">
+                                    <button class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded font-semibold">+ Jadikan KOL</button>
+                                </form>
+                            </div>
                         @endif
                     </div>
                 @endforeach
