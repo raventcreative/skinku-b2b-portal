@@ -9,8 +9,23 @@
 
     <p class="text-sm text-stone-500">Ringkasan {{ now()->translatedFormat('F Y') }} — pipeline, views, budget, dan affiliate dalam satu layar.</p>
 
+    {{-- Peringatan budget (finance): CPM paid di atas anchor / 1 KOL menyerap terlalu besar.
+         Datanya dari KolBudgetService::summary — sebelumnya dihitung tapi tak pernah tampil di sini. --}}
+    @if($budget && ($budget['overAnchor'] || $budget['overConcentration']))
+        <div class="bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 space-y-1.5">
+            <p class="text-xs font-bold uppercase tracking-wide text-rose-700">⚠ Peringatan budget</p>
+            @if($budget['overAnchor'])
+                <p class="text-sm text-rose-800">Blended CPM paid <b>{{ $rp($budget['cpm']) }}</b> di atas anchor {{ $rp($budget['anchor']) }} — biaya per 1.000 views kemahalan.</p>
+            @endif
+            @if($budget['overConcentration'])
+                <p class="text-sm text-rose-800">1 KOL menyerap <b>{{ $budget['topSharePct'] }}%</b> budget bulan ini — risiko terlalu bergantung ke satu creator.</p>
+            @endif
+            <a href="{{ route('kol-deals.index') }}" class="inline-block text-xs font-semibold text-rose-700 hover:underline">Kelola deal & budget →</a>
+        </div>
+    @endif
+
     {{-- Baris stat utama --}}
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="grid sm:grid-cols-2 {{ $budget ? 'lg:grid-cols-5' : 'lg:grid-cols-4' }} gap-3">
         {{-- Views vs target --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
             <div class="flex items-center justify-between">
@@ -52,6 +67,15 @@
                 <p class="text-xs text-stone-500">Konten bulan ini</p>
                 <p class="text-2xl font-bold text-stone-800">{{ $contentCount }}</p>
                 <p class="text-[11px] text-stone-400">paid {{ $rc($paidViews) }} · earned {{ $rc($earnedViews) }} views</p>
+            </div>
+        @endif
+
+        {{-- CPM paid (blended) vs anchor — finance. Hijau bila ≤ anchor, merah bila di atas. --}}
+        @if($budget)
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-xs text-stone-500">CPM paid (blended)</p>
+                <p class="text-2xl font-bold {{ $budget['cpm'] === null ? 'text-stone-800' : ($budget['overAnchor'] ? 'text-rose-600' : 'text-emerald-600') }}">{{ $budget['cpm'] !== null ? $rp($budget['cpm']) : '—' }}</p>
+                <p class="text-[11px] text-stone-400">{{ $budget['cpm'] !== null ? 'anchor '.$rp($budget['anchor']) : 'belum ada views paid' }}</p>
             </div>
         @endif
     </div>
