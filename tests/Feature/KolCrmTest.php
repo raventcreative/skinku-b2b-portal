@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Kol;
+use App\Models\KolAccount;
 use App\Models\KolContactLog;
+use App\Models\KolRateCard;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -91,5 +93,34 @@ class KolCrmTest extends TestCase
         $this->actingAs($this->user('kol_specialist', 'nokill'))->delete(route('kols.destroy', $kol))->assertForbidden();
         $this->actingAs($root)->delete(route('kols.destroy', $kol))->assertRedirect();
         $this->assertSoftDeleted('kols', ['id' => $kol->id]);
+    }
+
+    public function test_akun_platform_dan_rate_card(): void
+    {
+        $root = $this->user(User::ROLE_SUPER_ADMIN, 'multiroot');
+        $kol = Kol::create(['tiktok_username' => 'multikol', 'platform' => 'tiktok', 'followers' => 50_000]);
+
+        // Akun IG tambahan (akun utama tetap di kols).
+        $this->actingAs($root)->post(route('kols.accounts.store', $kol), [
+            'platform' => 'instagram', 'username' => 'multi.ig', 'followers' => 30_000,
+        ])->assertRedirect();
+        $this->assertSame(1, $kol->accounts()->count());
+        $acc = $kol->accounts()->first();
+
+        // Rate card per tipe.
+        $this->actingAs($root)->post(route('kols.rate-cards.store', $kol), [
+            'content_type' => 'tiktok_video', 'rate' => 750_000, 'note' => 'per video',
+        ])->assertRedirect();
+        $this->assertSame(750_000, (int) $kol->rateCards()->first()->rate);
+
+        $this->actingAs($root)->get(route('kols.show', $kol))->assertOk()
+            ->assertSee('Akun Platform')->assertSee('multi.ig')
+            ->assertSee('Rate Card per Tipe Konten')->assertSee('Video TikTok');
+
+        // Hapus.
+        $this->actingAs($root)->delete(route('kols.accounts.destroy', $acc))->assertRedirect();
+        $this->assertSame(0, KolAccount::count());
+        $this->actingAs($root)->delete(route('kols.rate-cards.destroy', $kol->rateCards()->first()))->assertRedirect();
+        $this->assertSame(0, KolRateCard::count());
     }
 }

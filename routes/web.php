@@ -337,6 +337,10 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::delete('/kols/{kol}', [KolController::class, 'destroy'])->name('kols.destroy');
             Route::post('/kols/{kol}/contact-log', [KolController::class, 'contactLogStore'])->name('kols.contact-log.store');
             Route::delete('/kol-contact-logs/{log}', [KolController::class, 'contactLogDestroy'])->name('kols.contact-log.destroy');
+            Route::post('/kols/{kol}/accounts', [KolController::class, 'accountStore'])->name('kols.accounts.store');
+            Route::delete('/kol-accounts/{account}', [KolController::class, 'accountDestroy'])->name('kols.accounts.destroy');
+            Route::post('/kols/{kol}/rate-cards', [KolController::class, 'rateCardStore'])->name('kols.rate-cards.store');
+            Route::delete('/kol-rate-cards/{rateCard}', [KolController::class, 'rateCardDestroy'])->name('kols.rate-cards.destroy');
             Route::get('/kol-screenings/create', [KolScreeningController::class, 'create'])->name('kol-screenings.create');
             Route::post('/kol-screenings', [KolScreeningController::class, 'store'])->name('kol-screenings.store');
             Route::patch('/kol-screenings/{screening}/ratecard', [KolScreeningController::class, 'updateRatecard'])->name('kol-screenings.ratecard');

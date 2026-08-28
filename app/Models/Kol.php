@@ -158,4 +158,16 @@ class Kol extends Model
     {
         return $this->hasMany(KolScore::class)->latest('captured_on')->latest('id');
     }
+
+    /** Akun platform tambahan (akun utama tetap di kolom kols). */
+    public function accounts()
+    {
+        return $this->hasMany(KolAccount::class)->orderBy('platform');
+    }
+
+    /** Rate card per tipe konten (append-only → riwayat, terbaru dulu). */
+    public function rateCards()
+    {
+        return $this->hasMany(KolRateCard::class)->latest('id');
+    }
 }

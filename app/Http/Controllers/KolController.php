@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolAccount;
 use App\Models\KolContactLog;
+use App\Models\KolRateCard;
 use App\Models\KolScore;
 use App\Models\KolScreening;
 use App\Models\User;
@@ -203,7 +205,7 @@ class KolController extends Controller
 
     public function show(Request $request, Kol $kol, KolAffiliateService $aff, KolScoringService $scoring)
     {
-        $kol->load(['screenings', 'deals.pic', 'contactLogs.creator', 'scores', 'pipelineCard']);
+        $kol->load(['screenings', 'deals.pic', 'contactLogs.creator', 'scores', 'pipelineCard', 'accounts', 'rateCards']);
         $canAffiliate = $request->user()->canDo('kol.affiliate.view');
 
         // Stat GMV/Views/APS bulan ini (butuh data affiliate — gated).
@@ -229,8 +231,51 @@ class KolController extends Controller
             'apsLabels' => KolScoringService::APS_LABEL,
             'decisionLabel' => KolScoringService::KSS_LABEL,
             'channels' => KolContactLog::CHANNEL_LABELS,
+            'rateTypes' => KolRateCard::TYPE_LABELS,
+            'platforms' => config('kol.platforms'),
             'recentContents' => $kol->contents()->with('latestSnapshot')->orderByDesc('posted_at')->limit(8)->get(),
         ]);
+    }
+
+    public function accountStore(Request $request, Kol $kol): RedirectResponse
+    {
+        $data = $request->validate([
+            'platform' => ['required', Rule::in(array_keys(config('kol.platforms')))],
+            'username' => ['required', 'string', 'max:150'],
+            'followers' => ['nullable', 'integer', 'min:0'],
+            'profile_link' => ['nullable', 'url', 'max:255'],
+        ]);
+        $kol->accounts()->create($data);
+
+        return redirect()->route('kols.show', $kol)->with('status', 'Akun platform ditambahkan.');
+    }
+
+    public function accountDestroy(KolAccount $account): RedirectResponse
+    {
+        $kolId = $account->kol_id;
+        $account->delete();
+
+        return redirect()->route('kols.show', $kolId)->with('status', 'Akun platform dihapus.');
+    }
+
+    public function rateCardStore(Request $request, Kol $kol): RedirectResponse
+    {
+        $data = $request->validate([
+            'content_type' => ['required', Rule::in(KolRateCard::TYPES)],
+            'rate' => ['required', 'integer', 'min:0'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ]);
+        $kol->rateCards()->create($data + ['created_by' => $request->user()->id]);
+
+        return redirect()->route('kols.show', $kol)->with('status', 'Rate card ditambahkan.');
+    }
+
+    public function rateCardDestroy(KolRateCard $rateCard): RedirectResponse
+    {
+        $kolId = $rateCard->kol_id;
+        $rateCard->delete();
+
+        return redirect()->route('kols.show', $kolId)->with('status', 'Rate card dihapus.');
     }
 
     /** Hapus KOL (arsip/soft-delete) — super_admin saja. */

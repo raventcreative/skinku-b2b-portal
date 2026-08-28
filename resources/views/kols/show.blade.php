@@ -124,6 +124,76 @@
     @endif
 </div>
 
+{{-- Akun platform (multi-akun additive) + Rate card per tipe konten --}}
+<div class="grid lg:grid-cols-2 gap-5 mb-5">
+    <div class="bg-white rounded-2xl border border-stone-200 p-5">
+        <p class="text-sm font-bold text-stone-800 mb-3">Akun Platform</p>
+        <div class="space-y-1.5 mb-3">
+            {{-- Akun utama dari kols --}}
+            <div class="flex items-center justify-between gap-2 text-sm">
+                <span><span class="text-[9px] uppercase tracking-wide text-stone-400 mr-1">{{ $kol->platformLabel() }}</span> {{ '@'.$kol->tiktok_username }} <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">utama</span></span>
+                <span class="text-xs text-stone-500">{{ number_format($kol->followers, 0, ',', '.') }}</span>
+            </div>
+            @foreach($kol->accounts as $acc)
+                <div class="flex items-center justify-between gap-2 text-sm">
+                    <span class="min-w-0">
+                        <span class="text-[9px] uppercase tracking-wide text-stone-400 mr-1">{{ $acc->platformLabel() }}</span>
+                        @if($acc->profile_link)<a href="{{ $acc->profile_link }}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline">{{ '@'.$acc->username }}</a>@else{{ '@'.$acc->username }}@endif
+                    </span>
+                    <span class="flex items-center gap-2 shrink-0">
+                        <span class="text-xs text-stone-500">{{ $acc->followers !== null ? number_format($acc->followers, 0, ',', '.') : '—' }}</span>
+                        @if($u->canDo('kol.screening.manage'))
+                            <form method="POST" action="{{ route('kols.accounts.destroy', $acc) }}" onsubmit="return confirm('Hapus akun ini?')"> @csrf @method('DELETE')<button class="text-[11px] text-rose-400 hover:text-rose-600">×</button></form>
+                        @endif
+                    </span>
+                </div>
+            @endforeach
+        </div>
+        @if($u->canDo('kol.screening.manage'))
+            <form method="POST" action="{{ route('kols.accounts.store', $kol) }}" class="grid grid-cols-2 gap-2 text-sm border-t border-stone-100 pt-3">
+                @csrf
+                <select name="platform" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs bg-white">
+                    @foreach($platforms as $key => $p)<option value="{{ $key }}">{{ $p['label'] }}</option>@endforeach
+                </select>
+                <input name="username" required maxlength="150" placeholder="username (tanpa @)" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
+                <input type="number" name="followers" min="0" placeholder="followers" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
+                <input name="profile_link" type="url" maxlength="255" placeholder="link (opsional)" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
+                <div class="col-span-2"><button class="px-3 py-1.5 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800">+ Tambah akun</button></div>
+            </form>
+        @endif
+    </div>
+
+    <div class="bg-white rounded-2xl border border-stone-200 p-5">
+        <p class="text-sm font-bold text-stone-800 mb-3">Rate Card per Tipe Konten</p>
+        <div class="space-y-1.5 mb-3">
+            @forelse($kol->rateCards as $rc)
+                <div class="flex items-center justify-between gap-2 text-sm">
+                    <span class="text-stone-600">{{ $rateTypes[$rc->content_type] ?? $rc->content_type }}{{ $rc->note ? ' · '.$rc->note : '' }} <span class="text-[10px] text-stone-400">{{ $rc->created_at?->format('d M Y') }}</span></span>
+                    <span class="flex items-center gap-2 shrink-0">
+                        <b class="text-stone-800">{{ $rp($rc->rate) }}</b>
+                        @if($u->canDo('kol.screening.manage'))
+                            <form method="POST" action="{{ route('kols.rate-cards.destroy', $rc) }}" onsubmit="return confirm('Hapus rate ini?')"> @csrf @method('DELETE')<button class="text-[11px] text-rose-400 hover:text-rose-600">×</button></form>
+                        @endif
+                    </span>
+                </div>
+            @empty
+                <p class="text-xs text-stone-400">Belum ada rate card.</p>
+            @endforelse
+        </div>
+        @if($u->canDo('kol.screening.manage'))
+            <form method="POST" action="{{ route('kols.rate-cards.store', $kol) }}" class="grid grid-cols-2 gap-2 text-sm border-t border-stone-100 pt-3">
+                @csrf
+                <select name="content_type" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs bg-white">
+                    @foreach($rateTypes as $val => $lbl)<option value="{{ $val }}">{{ $lbl }}</option>@endforeach
+                </select>
+                <input type="number" name="rate" min="0" required placeholder="rate (Rp)" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
+                <input name="note" maxlength="255" placeholder="catatan (opsional)" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs col-span-2">
+                <div class="col-span-2"><button class="px-3 py-1.5 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800">+ Tambah rate</button></div>
+            </form>
+        @endif
+    </div>
+</div>
+
 {{-- Stat bulan ini + pipeline (butuh izin affiliate untuk GMV/APS) --}}
 @if($canAffiliate)
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
