@@ -7,6 +7,7 @@
     $u = auth()->user();
     $canDeal = $u->canDo('kol.deal.manage');
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
+    $skorFmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 1, ',', '.'), '0'), ',');
     $levelBadge = [
         'Nano' => 'bg-stone-100 text-stone-600', 'Mikro' => 'bg-sky-100 text-sky-700',
         'Middle' => 'bg-indigo-100 text-indigo-700', 'Makro' => 'bg-violet-100 text-violet-700',
@@ -45,6 +46,16 @@
             <option value="">Semua status</option>
             @foreach(\App\Models\Kol::STATUSES as $st)<option value="{{ $st }}" @selected(($filters['status'] ?? '') === $st)>{{ $st }}</option>@endforeach
         </select>
+        <select name="platform" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+            <option value="">Semua platform</option>
+            @foreach($platforms as $key => $p)<option value="{{ $key }}" @selected(($filters['platform'] ?? '') === $key)>{{ $p['label'] }}</option>@endforeach
+        </select>
+        <select name="role" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+            <option value="">Semua peran</option>
+            @foreach($roleLabels as $val => $lbl)<option value="{{ $val }}" @selected(($filters['role'] ?? '') === $val)>{{ $lbl }}</option>@endforeach
+        </select>
+        <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="cari nama/manager/voucher…" class="px-2 py-1.5 border border-stone-300 rounded-lg w-44">
+        <button class="px-2 py-1.5 bg-stone-700 text-white rounded-lg">cari</button>
         {{-- Filter hasil kurasi: langsung saring yang layak / kemahalan. --}}
         <select name="verdict" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
             <option value="">Semua verdict</option>
@@ -81,6 +92,10 @@
     <form method="POST" action="{{ route('kols.store') }}" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
         @csrf
         <input name="tiktok_username" required maxlength="100" placeholder="username (tanpa @)" value="{{ old('tiktok_username') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
+        <input name="name" maxlength="150" placeholder="nama tampilan (opsional)" value="{{ old('name') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
+        <select name="role" class="px-3 py-2 border border-stone-300 rounded-lg">
+            @foreach($roleLabels as $val => $lbl)<option value="{{ $val }}" @selected(old('role', 'kol') === $val)>{{ $lbl }}</option>@endforeach
+        </select>
         <select name="platform" class="px-3 py-2 border border-stone-300 rounded-lg">
             @foreach(config('kol.platforms') as $key => $p)<option value="{{ $key }}" @selected(old('platform', 'tiktok') === $key)>{{ $p['label'] }}</option>@endforeach
         </select>
@@ -150,6 +165,9 @@
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari views MEDIAN (tengah) — ACUAN UTAMA, tahan dari 1 video viral">{!! $sortLink('verdict', 'Penilaian Median ⭐') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV = median views × 1,2% konversi × Rp38rb order rata-rata — hitungan sistem, BUKAN data asli">{!! $sortLink('gmv', 'GMV Estimasi · Viral · Fake') !!}</th>
                 <th rowspan="2" class="text-right align-bottom" title="GMV asli dari data KOL — diisi manual saat screening (— bila belum diisi)">GMV Asli</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="GMV affiliate bulan ini">GMV Bln</th>
+                <th rowspan="2" class="text-center px-2 align-bottom" title="Skor APS terakhir (jejak)">APS</th>
+                <th rowspan="2" class="text-center px-2 align-bottom" title="Skor KSS terakhir (jejak)">KSS</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
             </tr>
             <tr>
@@ -164,6 +182,9 @@
                         <a href="{{ $prof ?? route('kols.show', $kol) }}" @if($prof) target="_blank" rel="noopener" @endif
                             class="font-bold text-red-700 hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
                         <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $kol->platformLabel() }}</span>
+                        @if($kol->role !== 'kol')<span class="ml-1 text-[9px] px-1 py-0.5 rounded bg-sky-100 text-sky-700">{{ $roleLabels[$kol->role] ?? $kol->role }}</span>@endif
+                        @if($kol->isBlacklisted())<span class="ml-1 text-[9px] px-1 py-0.5 rounded bg-rose-100 text-rose-700">BLACKLIST</span>@endif
+                        @if($kol->name)<span class="block text-[10px] text-stone-500">{{ $kol->name }}</span>@endif
                         @if($kol->phone)
                             <span class="block text-[10px] text-stone-400">📱 <a href="{{ $kol->whatsappUrl() }}" target="_blank" rel="noopener" class="hover:text-emerald-600">{{ $kol->phone }}</a></span>
                         @endif
@@ -204,12 +225,16 @@
                     @else
                         <td colspan="20" class="px-3 text-stone-300">belum discreening</td>
                     @endif
+                    @php $gmvB = $gmvMap->get($kol->id)?->gmv; $apsS = $apsMap->get($kol->id); $kssS = $kssMap->get($kol->id); @endphp
+                    <td class="text-right px-2 text-stone-600">{{ $canAffiliate && $gmvB ? $rp($gmvB) : '—' }}</td>
+                    <td class="text-center px-2 font-semibold text-stone-700">{{ $canAffiliate && $apsS && $apsS->score !== null ? $skorFmt($apsS->score) : '—' }}</td>
+                    <td class="text-center px-2 font-semibold text-stone-700">{{ $kssS && $kssS->score !== null ? $skorFmt($kssS->score) : '—' }}</td>
                     <td class="text-right px-4">
                         <a href="{{ route('kols.show', $kol) }}" class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap">detail →</a>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="27" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="30" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>

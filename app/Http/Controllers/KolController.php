@@ -3,17 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolContactLog;
+use App\Models\KolScore;
 use App\Models\KolScreening;
+use App\Models\User;
 use App\Services\AuditService;
+use App\Services\KolAffiliateService;
+use App\Services\KolScoringService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class KolController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, KolAffiliateService $aff)
     {
-        $filters = $request->only(['level', 'kategori', 'status', 'verdict']);
+        $filters = $request->only(['level', 'kategori', 'status', 'verdict', 'platform', 'role', 'q']);
 
         // Arah & kolom sort divalidasi ke daftar putih — nilai ngawur jatuh ke default.
         $sortable = ['username', 'followers', 'level', 'kategori', 'status', 'agency',
@@ -23,10 +28,17 @@ class KolController extends Controller
             ? $request->query('sort') : 'username';
         $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
 
+        $q = trim((string) ($filters['q'] ?? ''));
         $kols = Kol::query()
             ->with('latestScreening')
-            ->when($filters['kategori'] ?? null, fn ($q, $v) => $q->where('kategori', $v))
-            ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
+            ->when($filters['kategori'] ?? null, fn ($qr, $v) => $qr->where('kategori', $v))
+            ->when($filters['status'] ?? null, fn ($qr, $v) => $qr->where('status', $v))
+            ->when($filters['platform'] ?? null, fn ($qr, $v) => $qr->where('platform', $v))
+            ->when($filters['role'] ?? null, fn ($qr, $v) => $qr->where('role', $v))
+            // Cari lintas-field: username, nama tampilan, manager, voucher.
+            ->when($q !== '', fn ($qr) => $qr->where(fn ($w) => $w
+                ->where('tiktok_username', 'like', "%{$q}%")->orWhere('name', 'like', "%{$q}%")
+                ->orWhere('manager_name', 'like', "%{$q}%")->orWhere('voucher_code', 'like', "%{$q}%")))
             ->orderBy('tiktok_username')
             ->get();
 
@@ -42,6 +54,13 @@ class KolController extends Controller
 
         $kols = $this->sorted($kols, $sort, $dir)->values();
 
+        // Kolom GMV bulan ini (affiliate) + APS/KSS terakhir (jejak skor).
+        $canAffiliate = $request->user()->canDo('kol.affiliate.view');
+        $gmvMap = $canAffiliate ? $aff->monthly(now())->keyBy('kol_id') : collect();
+        $scores = KolScore::whereIn('type', ['aps', 'kss'])->latest('captured_on')->latest('id')->get();
+        $apsMap = $scores->where('type', 'aps')->unique('kol_id')->keyBy('kol_id');
+        $kssMap = $scores->where('type', 'kss')->unique('kol_id')->keyBy('kol_id');
+
         return view('kols.index', [
             'kols' => $kols,
             // Daftar penuh (tak terpengaruh filter) buat kotak cari KOL — cukup
@@ -52,6 +71,12 @@ class KolController extends Controller
             'dir' => $dir,
             'levels' => ['Nano', 'Mikro', 'Middle', 'Makro', 'Mega', 'Super Mega'],
             'kategoriList' => config('kol.kategori'),
+            'roleLabels' => Kol::ROLE_LABELS,
+            'platforms' => config('kol.platforms'),
+            'canAffiliate' => $canAffiliate,
+            'gmvMap' => $gmvMap,
+            'apsMap' => $apsMap,
+            'kssMap' => $kssMap,
             // Rank global (kolom Z Excel) — daftar menampilkan rank milik
             // screening terakhir tiap KOL.
             'ranks' => $this->ranks(),
@@ -150,6 +175,8 @@ class KolController extends Controller
     {
         $data = $request->validate([
             'tiktok_username' => ['required', 'string', 'max:100', 'unique:kols,tiktok_username'],
+            'name' => ['nullable', 'string', 'max:150'],
+            'role' => ['nullable', Rule::in(Kol::ROLES)],
             'platform' => ['nullable', Rule::in(array_keys(config('kol.platforms')))],
             'tiktok_link' => ['nullable', 'url', 'max:255'],
             'followers' => ['required', 'integer', 'min:0'],
@@ -158,7 +185,8 @@ class KolController extends Controller
             'agency' => ['nullable', 'string', 'max:150'],
             'phone' => ['nullable', 'string', 'max:30'],
             'catatan' => ['nullable', 'string', 'max:2000'],
-        ]);
+        ] + $this->crmRules());
+        $data = $this->withBooleans($request, $data);
 
         $kol = Kol::create($data);
 
@@ -173,19 +201,101 @@ class KolController extends Controller
             ->with('status', "KOL @{$kol->tiktok_username} ditambahkan (level {$kol->level}).");
     }
 
-    public function show(Kol $kol)
+    public function show(Request $request, Kol $kol, KolAffiliateService $aff, KolScoringService $scoring)
     {
-        $kol->load(['screenings', 'deals.pic']);
+        $kol->load(['screenings', 'deals.pic', 'contactLogs.creator', 'scores', 'pipelineCard']);
+        $canAffiliate = $request->user()->canDo('kol.affiliate.view');
+
+        // Stat GMV/Views/APS bulan ini (butuh data affiliate — gated).
+        $gmvBulan = $viewsBulan = 0;
+        $aps = null;
+        $weeklyGmv = [];
+        if ($canAffiliate) {
+            $in = $aff->apsInput($kol->id, now());
+            $gmvBulan = (int) $in['monthGmv'];
+            $viewsBulan = (int) ($in['monthViews'] ?? 0);
+            $aps = $scoring->aps($in);
+            $weeklyGmv = $in['weeklyGmv'];
+        }
 
         return view('kols.show', [
             'kol' => $kol,
             'kategoriList' => config('kol.kategori'),
+            'canAffiliate' => $canAffiliate,
+            'gmvBulan' => $gmvBulan,
+            'viewsBulan' => $viewsBulan,
+            'aps' => $aps,
+            'weeklyGmv' => $weeklyGmv,
+            'apsLabels' => KolScoringService::APS_LABEL,
+            'decisionLabel' => KolScoringService::KSS_LABEL,
+            'channels' => KolContactLog::CHANNEL_LABELS,
+            'recentContents' => $kol->contents()->with('latestSnapshot')->orderByDesc('posted_at')->limit(8)->get(),
         ]);
+    }
+
+    /** Hapus KOL (arsip/soft-delete) — super_admin saja. */
+    public function destroy(Request $request, Kol $kol): RedirectResponse
+    {
+        abort_unless($request->user()->role === User::ROLE_SUPER_ADMIN, 403);
+
+        AuditService::log(action: 'delete_kol', targetType: 'kol', targetId: $kol->id,
+            before: ['username' => $kol->tiktok_username]);
+        $kol->delete(); // SoftDeletes — screening/deal tetap tersimpan
+
+        return redirect()->route('kols.index')->with('status', "KOL @{$kol->tiktok_username} diarsipkan.");
+    }
+
+    public function contactLogStore(Request $request, Kol $kol): RedirectResponse
+    {
+        $data = $request->validate([
+            'channel' => ['required', Rule::in(KolContactLog::CHANNELS)],
+            'note' => ['required', 'string', 'max:2000'],
+            'contacted_at' => ['required', 'date'],
+        ]);
+        $kol->contactLogs()->create($data + ['created_by' => $request->user()->id]);
+
+        return redirect()->route('kols.show', $kol)->with('status', 'Log kontak ditambahkan.');
+    }
+
+    public function contactLogDestroy(KolContactLog $log): RedirectResponse
+    {
+        $kolId = $log->kol_id;
+        $log->delete();
+
+        return redirect()->route('kols.show', $kolId)->with('status', 'Log kontak dihapus.');
+    }
+
+    /** Aturan validasi field CRM (dipakai store & update). */
+    private function crmRules(): array
+    {
+        return [
+            'manager_name' => ['nullable', 'string', 'max:150'],
+            'manager_contact' => ['nullable', 'string', 'max:150'],
+            'blacklist_reason' => ['nullable', 'string', 'max:2000'],
+            'barter_ok' => ['nullable', 'boolean'],
+            'tiktok_shop_active' => ['nullable', 'boolean'],
+            'shopee_affiliate_active' => ['nullable', 'boolean'],
+            'voucher_code' => ['nullable', 'string', 'max:100'],
+            'tracking_link' => ['nullable', 'url', 'max:255'],
+            'usage_rights' => ['nullable', 'string', 'max:2000'],
+        ];
+    }
+
+    /** Set flag boolean dari checkbox (absen = false, supaya uncheck ikut tersimpan). */
+    private function withBooleans(Request $request, array $data): array
+    {
+        foreach (['barter_ok', 'tiktok_shop_active', 'shopee_affiliate_active'] as $b) {
+            $data[$b] = $request->boolean($b);
+        }
+
+        return $data;
     }
 
     public function update(Request $request, Kol $kol): RedirectResponse
     {
         $data = $request->validate([
+            'name' => ['nullable', 'string', 'max:150'],
+            'role' => ['nullable', Rule::in(Kol::ROLES)],
             'platform' => ['nullable', Rule::in(array_keys(config('kol.platforms')))],
             'tiktok_link' => ['nullable', 'url', 'max:255'],
             'followers' => ['required', 'integer', 'min:0'],
@@ -195,7 +305,8 @@ class KolController extends Controller
             'phone' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(Kol::STATUSES)],
             'catatan' => ['nullable', 'string', 'max:2000'],
-        ]);
+        ] + $this->crmRules());
+        $data = $this->withBooleans($request, $data);
 
         $before = $kol->only(array_keys($data));
         $kol->update($data);

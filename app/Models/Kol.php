@@ -17,15 +17,41 @@ class Kol extends Model
 
     public const STATUS_NON_AKTIF = 'non_aktif';
 
-    public const STATUSES = [self::STATUS_PROSPEK, self::STATUS_AKTIF, self::STATUS_HOLD, self::STATUS_NON_AKTIF];
+    public const STATUS_BLACKLIST = 'blacklist';
+
+    public const STATUSES = [self::STATUS_PROSPEK, self::STATUS_AKTIF, self::STATUS_HOLD, self::STATUS_NON_AKTIF, self::STATUS_BLACKLIST];
+
+    public const ROLES = ['kol', 'affiliate', 'both'];
+
+    public const ROLE_LABELS = ['kol' => 'KOL', 'affiliate' => 'Affiliate', 'both' => 'KOL + Affiliate'];
 
     protected $fillable = [
-        'tiktok_username', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi', 'agency', 'phone', 'status', 'catatan',
+        'tiktok_username', 'name', 'role', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi',
+        'agency', 'manager_name', 'manager_contact', 'phone', 'status', 'blacklist_reason',
+        'barter_ok', 'tiktok_shop_active', 'shopee_affiliate_active', 'voucher_code', 'tracking_link', 'usage_rights', 'catatan',
     ];
+
+    protected $attributes = ['role' => 'kol'];
 
     protected function casts(): array
     {
-        return ['followers' => 'integer'];
+        return [
+            'followers' => 'integer',
+            'barter_ok' => 'boolean',
+            'tiktok_shop_active' => 'boolean',
+            'shopee_affiliate_active' => 'boolean',
+        ];
+    }
+
+    /** Nama tampilan (bila diisi) atau username sebagai fallback. */
+    public function getDisplayNameAttribute(): string
+    {
+        return filled($this->name) ? $this->name : $this->tiktok_username;
+    }
+
+    public function isBlacklisted(): bool
+    {
+        return $this->status === self::STATUS_BLACKLIST;
     }
 
     /** Handle bersih tanpa '@' — dasar merakit URL profil. */
@@ -119,5 +145,17 @@ class Kol extends Model
     public function contents()
     {
         return $this->hasMany(KolContent::class);
+    }
+
+    /** Log kontak (CRM) — histori komunikasi dengan KOL. */
+    public function contactLogs()
+    {
+        return $this->hasMany(KolContactLog::class)->latest('contacted_at')->latest('id');
+    }
+
+    /** Jejak skor (APS/KSS) tersimpan. */
+    public function scores()
+    {
+        return $this->hasMany(KolScore::class)->latest('captured_on')->latest('id');
     }
 }

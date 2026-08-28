@@ -334,6 +334,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::middleware('permission:kol.screening.manage')->group(function () {
             Route::post('/kols', [KolController::class, 'store'])->name('kols.store');
             Route::put('/kols/{kol}', [KolController::class, 'update'])->name('kols.update');
+            Route::delete('/kols/{kol}', [KolController::class, 'destroy'])->name('kols.destroy');
+            Route::post('/kols/{kol}/contact-log', [KolController::class, 'contactLogStore'])->name('kols.contact-log.store');
+            Route::delete('/kol-contact-logs/{log}', [KolController::class, 'contactLogDestroy'])->name('kols.contact-log.destroy');
             Route::get('/kol-screenings/create', [KolScreeningController::class, 'create'])->name('kol-screenings.create');
             Route::post('/kol-screenings', [KolScreeningController::class, 'store'])->name('kol-screenings.store');
             Route::patch('/kol-screenings/{screening}/ratecard', [KolScreeningController::class, 'updateRatecard'])->name('kol-screenings.ratecard');
