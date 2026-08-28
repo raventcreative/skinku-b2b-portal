@@ -114,6 +114,7 @@
                                 @if($a && $a['status'] === 'scored')
                                     @php $tone = ['bina_intensif' => 'bg-emerald-100 text-emerald-700', 'pantau' => 'bg-amber-100 text-amber-700', 'nurture' => 'bg-stone-100 text-stone-500'][$a['label']]; @endphp
                                     <span class="text-[10px] px-2 py-0.5 rounded-full {{ $tone }}" title="{{ $apsLabels[$a['label']] }}">{{ rtrim(rtrim(number_format($a['score'], 1, ',', '.'), '0'), ',') }}</span>
+                                    @if($a['capped'])<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700" title="Skor dibatasi 40 — 2 minggu tanpa posting">cap 40</span>@endif
                                 @else
                                     <span class="text-[10px] text-stone-300">new</span>
                                 @endif

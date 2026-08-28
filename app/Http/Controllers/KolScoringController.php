@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolScore;
 use App\Services\KolAffiliateService;
+use App\Services\KolScoreService;
 use App\Services\KolScoringService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,7 +16,7 @@ use Illuminate\Validation\Rule;
  */
 class KolScoringController extends Controller
 {
-    public function kss(Request $request, KolScoringService $svc, KolAffiliateService $aff)
+    public function kss(Request $request, KolScoringService $svc, KolAffiliateService $aff, KolScoreService $scores)
     {
         $result = null;
         $input = null;
@@ -40,6 +42,13 @@ class KolScoringController extends Controller
                 'history' => $input['history'],
                 'readiness' => $input['readiness'],
             ]);
+
+            // Persist skor KSS ke jejak historis bila dihitung untuk KOL tertentu.
+            if (! empty($input['kol_id'])) {
+                $scores->record((int) $input['kol_id'], KolScore::TYPE_KSS, $result['score'], $result['decision'],
+                    ['ecpm' => $result['ecpm'], 'rate' => (int) $input['rate'], 'median_views' => (int) $input['median_views']],
+                    $request->user()->id);
+            }
         }
 
         // Tab Ranking APS — hanya untuk pemegang izin Affiliate (butuh data GMV).
@@ -51,6 +60,8 @@ class KolScoringController extends Controller
                 'gmv' => (int) $r->gmv,
                 'aps' => $svc->aps($aff->apsInput((int) $r->kol_id, now())),
             ]);
+            // Rekam jejak APS harian (idempoten) dari ranking yang sudah dihitung.
+            $scores->snapshotAps($apsRanking, $request->user()->id);
         }
 
         return view('kols.skor.index', [

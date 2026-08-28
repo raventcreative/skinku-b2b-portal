@@ -22,7 +22,7 @@
     {{-- ===================== TAB: Ranking APS ===================== --}}
     @if($canAffiliate)
     <section data-panel="aps" class="{{ $tab === 'aps' ? '' : 'hidden' }}">
-        <p class="text-sm text-stone-500 mb-2">Siapa yang layak dibina — dari GMV & konten 4 minggu terakhir.</p>
+        <p class="text-sm text-stone-500 mb-2">Siapa yang layak dibina — dari GMV & konten 4 minggu terakhir. <span class="text-stone-400">◷ skor direkam otomatis (harian) untuk jejak historis.</span></p>
         <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -39,6 +39,7 @@
                                     @if($r['aps']['status'] === 'scored')
                                         @php $tone = ['bina_intensif' => 'bg-emerald-100 text-emerald-700', 'pantau' => 'bg-amber-100 text-amber-700', 'nurture' => 'bg-stone-100 text-stone-500'][$r['aps']['label']]; @endphp
                                         <span class="text-[10px] px-2 py-0.5 rounded-full {{ $tone }}">{{ $apsLabels[$r['aps']['label']] }}</span>
+                                        @if($r['aps']['capped'])<span class="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700" title="Skor dibatasi 40 — 2 minggu tanpa posting">cap 40</span>@endif
                                     @else
                                         <span class="text-[10px] text-stone-400">{{ $apsLabels['new'] }}</span>
                                     @endif
@@ -101,6 +102,9 @@
                             </div>
                         @endforeach
                     </div>
+                    @if(!empty($old['kol_id']))
+                        <p class="text-[11px] text-emerald-600 mt-3">✓ Skor ini tersimpan ke jejak historis KOL.</p>
+                    @endif
                 @else
                     <div class="h-full flex items-center justify-center text-center text-stone-400 text-sm py-10">Isi form → skor, keputusan, dan breakdown muncul di sini.</div>
                 @endif

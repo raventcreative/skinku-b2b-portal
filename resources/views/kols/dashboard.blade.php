@@ -96,7 +96,7 @@
                                 <span class="text-sm text-stone-700">{{ $rp($t['gmv']) }}</span>
                                 @if($t['aps']['status'] === 'scored')
                                     @php $tone = ['bina_intensif' => 'bg-emerald-100 text-emerald-700', 'pantau' => 'bg-amber-100 text-amber-700', 'nurture' => 'bg-stone-100 text-stone-500'][$t['aps']['label']]; @endphp
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full {{ $tone }}" title="APS {{ $apsLabels[$t['aps']['label']] }}">APS {{ rtrim(rtrim(number_format($t['aps']['score'], 1, ',', '.'), '0'), ',') }}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full {{ $tone }}" title="APS {{ $apsLabels[$t['aps']['label']] }}{{ $t['aps']['capped'] ? ' · cap 40' : '' }}">APS {{ rtrim(rtrim(number_format($t['aps']['score'], 1, ',', '.'), '0'), ',') }}{{ $t['aps']['capped'] ? ' ⚑' : '' }}</span>
                                 @else
                                     <span class="text-[10px] text-stone-300">new</span>
                                 @endif
