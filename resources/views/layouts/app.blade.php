@@ -335,9 +335,12 @@
                 </div>
             @endif
 
-            {{-- Rekomendasi AI (Discovery): cari KOL & tren produk dari web. Sama
-                 dengan rute: izin use_ai_discovery + bukan mitra ('internal'). --}}
-            @if($u->canDo('use_ai_discovery') && ! $u->isPartner())
+            {{-- Rekomendasi AI (Discovery): cari KOL & tren produk dari web.
+                 DIMATIKAN 2026-08-31 (user): hasil AI web-search tak akurat &
+                 lambat, tak sepadan; rencana ganti ke agen scraper. Kode/route
+                 masih ADA (dorman) — hidupkan lagi: ganti `false &&` di bawah
+                 jadi kondisi izin semula. --}}
+            @if(false && $u->canDo('use_ai_discovery') && ! $u->isPartner())
                 {!! navItem('discovery.index', 'Rekomendasi AI', 'discovery.*') !!}
             @endif
 
