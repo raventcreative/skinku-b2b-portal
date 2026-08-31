@@ -118,6 +118,7 @@ class TikTokIncomeN8nService
         '1736331387470317482' => ['Lotion' => 1],         // Body Lotion/Serum (listing baru)
         '1736331327684773802' => ['Serum wajah' => 1],    // Niacinamide (listing baru)
         '1736331393097303978' => ['UnderArm' => 1],       // REINA Underarm (listing baru)
+        '1736331520467240874' => ['Scrub' => 3],           // BUNDLING (3pcs) Japanese Pink Exfo Body Scrub (JPX-3, listing baru = Scrub 3 Pcs)
 
         // --- Produk baru ---
         '1736405151798560682' => ['Face Mist' => 1],                                     // HANA Glow Face Mist (versi operatif — lihat dokblok kelas)

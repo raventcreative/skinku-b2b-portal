@@ -248,11 +248,14 @@ class TikTokIncomeN8nServiceTest extends TestCase
      */
     public function test_sku_map_matches_operative_n8n_source_verbatim(): void
     {
-        $this->assertCount(29, TikTokIncomeN8nService::SKU_MAP);
+        $this->assertCount(30, TikTokIncomeN8nService::SKU_MAP);
 
         // Bundling.
         $this->assertSame(['Sabun' => 1, 'Lotion' => 1], TikTokIncomeN8nService::SKU_MAP['1734056032984729514']);
         $this->assertSame(['Scrub' => 1, 'Sabun' => 1, 'Lotion' => 1], TikTokIncomeN8nService::SKU_MAP['1734056077596329898']);
+
+        // SKU baru: BUNDLING (3pcs) Japanese Pink Exfo (JPX-3) = listing baru dari Scrub 3 Pcs.
+        $this->assertSame(['Scrub' => 3], TikTokIncomeN8nService::SKU_MAP['1736331520467240874']);
 
         // Varian "N Pcs" (unit fisik > 1 utk 1 SKU).
         $this->assertSame(['Scrub' => 3], TikTokIncomeN8nService::SKU_MAP['1734056004809426858']);
