@@ -2,6 +2,8 @@
 
 namespace App\Services\ReportBot;
 
+use App\Models\ReportSkuMap;
+
 /**
  * Task 11: port VERBATIM dari 2 node n8n (sumber:
  * scratchpad/n8n_income_nodes.txt, 378 baris) — "Cache Order CSV"
@@ -67,7 +69,7 @@ class TikTokIncomeN8nService
      * 2 execution context), isinya identik (diverifikasi otomatis), jadi di
      * sini disatukan jadi 1 const dipakai kedua method.
      */
-    private const CATEGORIES = [
+    public const CATEGORIES = [
         'Sabun', 'Lotion', 'Scrub', 'Serum wajah', 'Sabun Cair',
         'UnderArm', 'Retinol', 'BB cream', 'Mouth Spray', 'Face Mist',
     ];
@@ -128,6 +130,35 @@ class TikTokIncomeN8nService
         '1736331159132276650' => ['UnderArm' => 3],                                      // BUNDLING 3 pcs REINA UnderArm
         '1736470209629947818' => ['BB cream' => 1, 'Retinol' => 1],                      // Complete Day & Night Care (set)
     ];
+
+    /**
+     * Peta SKU aktif: dari DB (report_sku_maps) bila ada isinya; jika kosong →
+     * konstanta SKU_MAP (seed awal + jaring pengaman fresh install). Dihitung
+     * SEKALI per parse (bukan per baris) & TAK di-cache statik supaya tak bocor
+     * antar-test / antar-request.
+     *
+     * @return array<string,array<string,int>>
+     */
+    public static function activeMap(): array
+    {
+        // DB tak tersedia / tabel belum ada (fresh install, unit test tanpa app)
+        // → pakai konstanta. Degradasi aman: bot tetap jalan pakai peta seed.
+        try {
+            $rows = ReportSkuMap::all(['sku_id', 'category', 'qty']);
+        } catch (\Throwable) {
+            return self::SKU_MAP;
+        }
+        if ($rows->isEmpty()) {
+            return self::SKU_MAP;
+        }
+
+        $map = [];
+        foreach ($rows as $r) {
+            $map[$r->sku_id][$r->category] = (int) $r->qty;
+        }
+
+        return $map;
+    }
 
     /** OUTPUT_COLUMNS node n8n "Code Parse income" — urutan TERKUNCI, persis sumbernya (termasuk trailing-space pada 4 nama kolom). */
     private const OUTPUT_COLUMNS = [
@@ -211,6 +242,7 @@ class TikTokIncomeN8nService
         $rec = [];             // hanya index COL_OID/COL_SKU/COL_QTY yang pernah diisi
         $headerSkipped = false;
         $len = strlen($csv);
+        $map = self::activeMap();   // peta SKU aktif (DB bila ada, jika kosong → konstanta)
 
         for ($k = 0; $k < $len; $k++) {
             $ch = $csv[$k];
@@ -241,7 +273,7 @@ class TikTokIncomeN8nService
                 if ($field !== '' || $col > 0) {
                     [$field, $col] = self::pushCsvField($rec, $field, $col);
                 }
-                $headerSkipped = self::commitCsvRecord($rec, $headerSkipped, $index, $lineCount, $unmapped);
+                $headerSkipped = self::commitCsvRecord($rec, $headerSkipped, $index, $lineCount, $unmapped, $map);
                 $rec = [];
                 $col = 0;
             } elseif ($ch === "\r") {
@@ -255,7 +287,7 @@ class TikTokIncomeN8nService
         // `if (field !== "" || col > 0) endRecord();` di akhir sumber n8n.
         if ($field !== '' || $col > 0) {
             [$field, $col] = self::pushCsvField($rec, $field, $col);
-            self::commitCsvRecord($rec, $headerSkipped, $index, $lineCount, $unmapped);
+            self::commitCsvRecord($rec, $headerSkipped, $index, $lineCount, $unmapped, $map);
         }
 
         return ['index' => $index, 'lineCount' => $lineCount, 'unmapped' => $unmapped];
@@ -290,7 +322,7 @@ class TikTokIncomeN8nService
      * @param  array<string,bool>  $unmapped  akumulasi SKU di luar SKU_MAP (utk pesan diagnostik n8n)
      * @return bool $headerSkipped baru (selalu true setelah baris pertama)
      */
-    private static function commitCsvRecord(array $rec, bool $headerSkipped, array &$index, int &$lineCount, array &$unmapped): bool
+    private static function commitCsvRecord(array $rec, bool $headerSkipped, array &$index, int &$lineCount, array &$unmapped, array $map): bool
     {
         if (! $headerSkipped) {
             return true;
@@ -306,7 +338,7 @@ class TikTokIncomeN8nService
 
         $lineCount++;   // PERSIS n8n: dihitung SETELAH cek oid/sku, SEBELUM cek SKU_MAP
 
-        $comp = self::SKU_MAP[$sku] ?? null;
+        $comp = $map[$sku] ?? null;
         if ($comp === null) {
             $unmapped[$sku] = true;   // PERSIS n8n: catat SKU tak dikenal (tak throw)
 

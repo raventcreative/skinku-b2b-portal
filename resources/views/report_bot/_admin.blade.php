@@ -46,4 +46,9 @@
     @else
         <p class="text-xs text-stone-400">Belum ada chat yang aktif.</p>
     @endif
+
+    <div class="mt-5 pt-4 border-t border-stone-100 flex flex-wrap items-center gap-2">
+        <span class="text-[11px] text-stone-500">Peta SKU parser (kenali SKU produk baru tanpa deploy):</span>
+        <a href="{{ route('report-bot.sku-map') }}" class="px-3 py-1.5 text-xs bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50 font-semibold">🗺️ Kelola Peta SKU →</a>
+    </div>
 </div>

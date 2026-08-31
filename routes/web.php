@@ -641,6 +641,10 @@ Route::middleware(['auth', 'role'])->group(function () {
         // Report Bot Telegram: rotasi kode akses global + cabut akses per-chat.
         Route::post('/settings/report-bot/rotate', [ReportBotAdminController::class, 'rotate'])->name('report-bot.rotate');
         Route::post('/settings/report-bot/chats/{chat}/revoke', [ReportBotAdminController::class, 'revokeChat'])->name('report-bot.chat.revoke');
+        // Peta SKU parser (SKU ID → kategori × qty) — editable tanpa deploy.
+        Route::get('/settings/report-bot/sku-map', [ReportBotAdminController::class, 'skuMap'])->name('report-bot.sku-map');
+        Route::post('/settings/report-bot/sku-map', [ReportBotAdminController::class, 'skuStore'])->name('report-bot.sku-map.store');
+        Route::delete('/settings/report-bot/sku-map/{map}', [ReportBotAdminController::class, 'skuDestroy'])->name('report-bot.sku-map.destroy');
     });
 
     // Pengumuman dashboard per role (box catatan + popup banner).
