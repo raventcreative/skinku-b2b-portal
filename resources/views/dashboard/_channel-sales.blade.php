@@ -38,7 +38,7 @@
                 <a href="{{ $chPreset(now()->toDateString(), now()->toDateString()) }}" class="ch-preset px-2.5 py-1 text-[11px] rounded-lg border {{ $isToday ? 'bg-red-600 text-white border-red-600' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50' }}">Hari ini</a>
                 <a href="{{ $chPreset(now()->subDay()->toDateString(), now()->subDay()->toDateString()) }}" class="ch-preset px-2.5 py-1 text-[11px] rounded-lg border {{ $isYest ? 'bg-red-600 text-white border-red-600' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50' }}">Kemarin</a>
                 <a href="{{ $chPreset(now()->subDays(6)->toDateString(), now()->toDateString()) }}" class="ch-preset px-2.5 py-1 text-[11px] rounded-lg border {{ $is7 ? 'bg-red-600 text-white border-red-600' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50' }}">7 hari</a>
-                <a href="{{ $chPreset(null, null) }}" class="ch-preset px-2.5 py-1 text-[11px] rounded-lg border{{ ! $chActive ? 'bg-stone-800 text-white border-stone-800' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50' }}">Bulan ini</a>
+                <a href="{{ $chPreset(null, null) }}" class="ch-preset px-2.5 py-1 text-[11px] rounded-lg border {{ ! $chActive ? 'bg-stone-800 text-white border-stone-800' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50' }}">Bulan ini</a>
 
                 <form method="GET" action="{{ route('dashboard') }}" class="ch-form flex items-center gap-1 ml-auto text-[11px]">
                     <input type="hidden" name="bulan" value="{{ $chBulan }}">
