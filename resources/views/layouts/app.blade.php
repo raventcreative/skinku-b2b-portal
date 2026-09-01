@@ -4,6 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- Favicon SKINKU (monogram SK). ?v= cache-bust supaya ikon Laravel lama tak nyangkut. --}}
+    <link rel="icon" type="image/png" sizes="256x256" href="{{ asset('img/favicon.png') }}?v=2">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('img/favicon-32.png') }}?v=2">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=2">
+    <link rel="apple-touch-icon" href="{{ asset('img/favicon.png') }}?v=2">
     <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
