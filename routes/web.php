@@ -106,6 +106,8 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    // Fragment section "Penjualan per Channel" — filter tanggal via AJAX (staff-only, dicek di controller).
+    Route::get('/dashboard/channel-sales', [DashboardController::class, 'channelSalesFragment'])->name('dashboard.channel-sales');
 
     // Change own password (any authenticated user)
     Route::get('/account/password', [AuthController::class, 'showChangePassword'])->name('account.password');

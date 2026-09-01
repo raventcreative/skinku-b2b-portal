@@ -370,4 +370,33 @@ class ChannelSalesTest extends TestCase
         $this->assertEqualsWithDelta(1_000_000, $day['reseller']['confirmed'], 0.01);
         $this->assertEqualsWithDelta(500_000, $day['tiktok']['confirmed'], 0.01);
     }
+
+    /** Endpoint fragment AJAX (filter tanggal tanpa reload): staff-only + ikut rentang. */
+    public function test_fragment_channel_sales_ajax(): void
+    {
+        Carbon::setTestNow('2026-07-16 12:00:00');
+        $admin = User::create([
+            'name' => 'F', 'fullname' => 'F', 'username' => 'chfrag', 'email' => 'chf@skinku.test',
+            'password' => Hash::make('secret123'), 'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+        $this->po('PO-F1', 'completed', 1_000_000, '2026-07-05');
+        $this->po('PO-F2', 'completed', 2_000_000, '2026-07-10');
+
+        // Seluruh bulan → section + 3jt.
+        $this->actingAs($admin)->get(route('dashboard.channel-sales', ['bulan' => '2026-07']))
+            ->assertOk()->assertSee('Penjualan per Channel')->assertSee('3.000.000');
+
+        // Hanya 5 Jul → cuma 1jt (3jt tak muncul).
+        $this->actingAs($admin)->get(route('dashboard.channel-sales', ['bulan' => '2026-07', 'ch_dari' => '2026-07-05', 'ch_sampai' => '2026-07-05']))
+            ->assertOk()->assertSee('1.000.000')->assertDontSee('3.000.000');
+
+        // Non-staff → dilarang.
+        $partner = User::create([
+            'name' => 'P', 'fullname' => 'P', 'username' => 'chfragp', 'email' => 'chfp@skinku.test',
+            'password' => Hash::make('secret123'), 'role' => User::ROLE_RESELLER, 'status' => User::STATUS_ACTIVE,
+        ]);
+        $this->actingAs($partner)->get(route('dashboard.channel-sales'))->assertForbidden();
+
+        Carbon::setTestNow();
+    }
 }

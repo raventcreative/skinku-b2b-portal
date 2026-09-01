@@ -55,17 +55,8 @@ class DashboardController extends Controller
         $salesTrend = $this->reports->salesTrend('day', 31, $user, $bulan);
 
         // Penjualan per channel — data HQ, hanya untuk staff (mitra lihat PO sendiri).
-        // Filter tanggal KHUSUS section ini (?ch_dari & ?ch_sampai, YYYY-MM-DD);
-        // default = seluruh bulan Periode. Satu tanggal saja = hari itu.
-        $re = '/^\d{4}-\d{2}-\d{2}$/';
-        $chFrom = preg_match($re, (string) $request->query('ch_dari')) ? Carbon::parse($request->query('ch_dari'))->startOfDay() : null;
-        $chSampai = preg_match($re, (string) $request->query('ch_sampai')) ? Carbon::parse($request->query('ch_sampai'))->startOfDay() : null;
-        if ($chFrom && ! $chSampai) {
-            $chSampai = $chFrom->copy();
-        }
-        if ($chSampai && ! $chFrom) {
-            $chFrom = $chSampai->copy();
-        }
+        // Filter tanggal KHUSUS section ini (?ch_dari & ?ch_sampai) — lihat parseChannelDates.
+        [$chFrom, $chSampai] = $this->parseChannelDates($request);
         $channelSales = $user->isStaff() ? $this->reports->channelSales($bulan, $chFrom, $chSampai) : null;
 
         // Grand Total omzet SETAHUN (semua channel) — hanya staff.
@@ -133,5 +124,35 @@ class DashboardController extends Controller
         } catch (\Throwable $e) {
             return Carbon::now();
         }
+    }
+
+    /**
+     * ?ch_dari & ?ch_sampai (YYYY-MM-DD) → [from, to] Carbon (startOfDay) atau null.
+     * Satu tanggal saja = hari itu. Null = default seluruh bulan (di channelSales).
+     *
+     * @return array{0:?Carbon,1:?Carbon}
+     */
+    private function parseChannelDates(Request $request): array
+    {
+        $re = '/^\d{4}-\d{2}-\d{2}$/';
+        $from = preg_match($re, (string) $request->query('ch_dari')) ? Carbon::parse($request->query('ch_dari'))->startOfDay() : null;
+        $to = preg_match($re, (string) $request->query('ch_sampai')) ? Carbon::parse($request->query('ch_sampai'))->startOfDay() : null;
+        $from ??= $to?->copy();
+        $to ??= $from?->copy();
+
+        return [$from, $to];
+    }
+
+    /** Fragment HTML section "Penjualan per Channel" untuk update via AJAX (filter tanggal tanpa reload). */
+    public function channelSalesFragment(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user->isStaff(), 403);
+
+        $bulan = $this->parseMonth($request->query('bulan'));
+        [$chFrom, $chSampai] = $this->parseChannelDates($request);
+        $channelSales = $this->reports->channelSales($bulan, $chFrom, $chSampai);
+
+        return view('dashboard._channel-sales', compact('channelSales', 'bulan', 'chFrom', 'chSampai'));
     }
 }
