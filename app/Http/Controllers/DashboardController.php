@@ -55,7 +55,18 @@ class DashboardController extends Controller
         $salesTrend = $this->reports->salesTrend('day', 31, $user, $bulan);
 
         // Penjualan per channel — data HQ, hanya untuk staff (mitra lihat PO sendiri).
-        $channelSales = $user->isStaff() ? $this->reports->channelSales($bulan) : null;
+        // Filter tanggal KHUSUS section ini (?ch_dari & ?ch_sampai, YYYY-MM-DD);
+        // default = seluruh bulan Periode. Satu tanggal saja = hari itu.
+        $re = '/^\d{4}-\d{2}-\d{2}$/';
+        $chFrom = preg_match($re, (string) $request->query('ch_dari')) ? Carbon::parse($request->query('ch_dari'))->startOfDay() : null;
+        $chSampai = preg_match($re, (string) $request->query('ch_sampai')) ? Carbon::parse($request->query('ch_sampai'))->startOfDay() : null;
+        if ($chFrom && ! $chSampai) {
+            $chSampai = $chFrom->copy();
+        }
+        if ($chSampai && ! $chFrom) {
+            $chFrom = $chSampai->copy();
+        }
+        $channelSales = $user->isStaff() ? $this->reports->channelSales($bulan, $chFrom, $chSampai) : null;
 
         // Grand Total omzet SETAHUN (semua channel) — hanya staff.
         $yearlyOmzet = $user->isStaff() ? $this->reports->yearlyOmzet($bulan) : null;
@@ -107,7 +118,7 @@ class DashboardController extends Controller
                 ->get()
             : collect();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'yearlyOmzet', 'bulan', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'yearlyOmzet', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
     }
 
     /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */

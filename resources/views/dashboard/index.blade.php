@@ -305,11 +305,41 @@
         $estimasi = $sumConfirmed + $sumPipeline;
         $allOrders = $cs->sum('orders_n');
         $cancelRate = $allOrders > 0 ? round($sumCancelledN / $allOrders * 100, 1) : 0;
+        // Rentang aktif untuk section ini (default = bulan; ?ch_dari/?ch_sampai override).
+        $chActive = ($chFrom ?? null) && ($chSampai ?? null);
+        $chLabel = $chActive
+            ? ($chFrom->isSameDay($chSampai) ? $chFrom->translatedFormat('d M Y') : $chFrom->translatedFormat('d M').' – '.$chSampai->translatedFormat('d M Y'))
+            : $bulan->translatedFormat('F Y');
+        $chBulan = request('bulan');
     @endphp
     <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-6">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h3 class="text-sm font-bold text-stone-800">Penjualan per Channel</h3>
-            <span class="text-[11px] text-stone-400 ml-auto">{{ $bulan->translatedFormat('F Y') }} · berdasarkan tanggal order masuk</span>
+        <div class="mb-4">
+            <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-sm font-bold text-stone-800">Penjualan per Channel</h3>
+                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full {{ $chActive ? 'bg-red-50 text-red-700' : 'bg-stone-100 text-stone-500' }}">{{ $chLabel }}</span>
+                <span class="ml-auto text-[11px] text-stone-400">berdasarkan tanggal order masuk</span>
+            </div>
+            {{-- Filter tanggal khusus section ini (preset cepat + rentang bebas). Bulan Periode tetap dijaga. --}}
+            <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
+                @php
+                    $chPreset = fn ($d1, $d2) => route('dashboard', array_filter(['bulan' => $chBulan, 'ch_dari' => $d1, 'ch_sampai' => $d2]));
+                    $isToday = $chActive && $chFrom->isToday() && $chSampai->isToday();
+                    $isYest = $chActive && $chFrom->isYesterday() && $chSampai->isYesterday();
+                    $is7 = $chActive && $chFrom->isSameDay(now()->subDays(6)) && $chSampai->isToday();
+                @endphp
+                <a href="{{ $chPreset(now()->toDateString(), now()->toDateString()) }}" class="px-2.5 py-1 text-[11px] rounded-lg border {{ $isToday ? 'bg-red-600 text-white border-red-600' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50' }}">Hari ini</a>
+                <a href="{{ $chPreset(now()->subDay()->toDateString(), now()->subDay()->toDateString()) }}" class="px-2.5 py-1 text-[11px] rounded-lg border {{ $isYest ? 'bg-red-600 text-white border-red-600' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50' }}">Kemarin</a>
+                <a href="{{ $chPreset(now()->subDays(6)->toDateString(), now()->toDateString()) }}" class="px-2.5 py-1 text-[11px] rounded-lg border {{ $is7 ? 'bg-red-600 text-white border-red-600' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50' }}">7 hari</a>
+                <a href="{{ $chPreset(null, null) }}" class="px-2.5 py-1 text-[11px] rounded-lg border {{ ! $chActive ? 'bg-stone-800 text-white border-stone-800' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50' }}">Bulan ini</a>
+
+                <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-1 ml-auto text-[11px]">
+                    <input type="hidden" name="bulan" value="{{ $chBulan }}">
+                    <input type="date" name="ch_dari" value="{{ optional($chFrom ?? null)->toDateString() }}" class="px-2 py-1 border border-stone-300 rounded-lg">
+                    <span class="text-stone-400">–</span>
+                    <input type="date" name="ch_sampai" value="{{ optional($chSampai ?? null)->toDateString() }}" class="px-2 py-1 border border-stone-300 rounded-lg">
+                    <button class="px-2.5 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Terapkan</button>
+                </form>
+            </div>
         </div>
 
         {{-- Ringkasan: sudah jadi + masih jalan = estimasi; batal/belum-bayar dipisah --}}
@@ -325,7 +355,7 @@
                 <p class="text-[10px] text-amber-600">{{ $sumPipelineN }} order jalan</p>
             </div>
             <div class="rounded-xl bg-stone-800 p-3">
-                <p class="text-[10px] uppercase tracking-wide text-stone-300 font-semibold">Estimasi {{ $bulan->translatedFormat('M Y') }}</p>
+                <p class="text-[10px] uppercase tracking-wide text-stone-300 font-semibold">Estimasi {{ $chActive ? $chLabel : $bulan->translatedFormat('M Y') }}</p>
                 <p class="text-lg font-bold text-white mt-1">{{ $rp($estimasi) }}</p>
                 <p class="text-[10px] text-stone-400">terealisasi + berjalan</p>
             </div>

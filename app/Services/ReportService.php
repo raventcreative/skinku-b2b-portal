@@ -194,11 +194,13 @@ class ReportService
         ];
     }
 
-    public function channelSales(?Carbon $month = null): array
+    public function channelSales(?Carbon $month = null, ?Carbon $from = null, ?Carbon $to = null): array
     {
+        // Default = seluruh bulan; $from/$to (opsional) menimpa jadi rentang tanggal
+        // bebas (mis. "hari ini"). Semua pemanggil lama (month saja) tak berubah.
         $month ??= Carbon::now();
-        $start = $month->copy()->startOfMonth();
-        $end = $month->copy()->endOfMonth();
+        $start = ($from ?? $month->copy()->startOfMonth())->copy()->startOfDay();
+        $end = ($to ?? $month->copy()->endOfMonth())->copy()->endOfDay();
 
         // PO: pakai order_date bila diisi (entri back-date), jatuh ke created_at.
         // Marketplace: order_created_at.

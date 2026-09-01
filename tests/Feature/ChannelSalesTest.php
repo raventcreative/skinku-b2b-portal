@@ -347,4 +347,27 @@ class ChannelSalesTest extends TestCase
         $this->assertSame(2, substr_count($html, 'height:260px'));
         $this->assertSame(2, substr_count($html, 'maintainAspectRatio:false'));
     }
+
+    /** Filter rentang tanggal (?ch_dari/?ch_sampai) mempersempit dari bulan ke hari. */
+    public function test_filter_rentang_tanggal_persempit_ke_hari(): void
+    {
+        Carbon::setTestNow('2026-07-16 12:00:00');
+        $this->po('PO-A', 'completed', 1_000_000, '2026-07-05');
+        $this->po('PO-B', 'completed', 2_000_000, '2026-07-10');
+        TiktokOrder::create(['tiktok_order_id' => 'T-A', 'status' => 'COMPLETED', 'total_amount' => 500_000, 'order_created_at' => '2026-07-05 08:00:00', 'line_items' => []]);
+
+        $svc = app(ReportService::class);
+        $month = Carbon::parse('2026-07-16');
+
+        // Seluruh bulan → PO 3jt, TikTok 500rb.
+        $full = collect($svc->channelSales($month))->keyBy('key');
+        $this->assertEqualsWithDelta(3_000_000, $full['reseller']['confirmed'], 0.01);
+        $this->assertEqualsWithDelta(500_000, $full['tiktok']['confirmed'], 0.01);
+
+        // Hanya 5 Jul → PO-A (1jt) + TikTok jam 08:00 (500rb); PO-B (10 Jul) tak ikut.
+        $d = Carbon::parse('2026-07-05');
+        $day = collect($svc->channelSales($month, $d, $d))->keyBy('key');
+        $this->assertEqualsWithDelta(1_000_000, $day['reseller']['confirmed'], 0.01);
+        $this->assertEqualsWithDelta(500_000, $day['tiktok']['confirmed'], 0.01);
+    }
 }
