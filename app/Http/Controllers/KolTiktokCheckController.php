@@ -9,6 +9,7 @@ use App\Services\AuditService;
 use App\Services\TikTokAffiliateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -29,11 +30,20 @@ class KolTiktokCheckController extends Controller
         $conn = TiktokAffiliateConnection::latest('id')->first();
         $rate = (int) config('services.tiktok_affiliate.usd_idr_rate', 16000);
 
+        // Cache hasil per keyword 10 menit: TikTok punya rate limit BERSAMA
+        // (app-group, kode 36009002) yang dipakai bareng sync order/konten. Reload
+        // (habis Simpan/Jadikan Gapok) & pencarian ulang keyword sama → ambil dari
+        // cache, tak nembak TikTok lagi. Error TIDAK di-cache (remember cuma simpan
+        // nilai balik), jadi begitu limit reda, Cari lagi langsung jalan.
         $creators = [];
         $error = null;
         if ($q !== '' && $conn && $conn->shop_cipher) {
             try {
-                $creators = $this->svc->searchCreators($conn, $q);
+                $creators = Cache::remember(
+                    'tt_mkt:'.md5(mb_strtolower($q)),
+                    now()->addMinutes(10),
+                    fn () => $this->svc->searchCreators($conn, $q),
+                );
             } catch (\Throwable $e) {
                 $error = $e->getMessage();
             }

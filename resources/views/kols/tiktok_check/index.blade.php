@@ -46,7 +46,12 @@
 
     @if($error)
         <div class="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
-            Gagal ambil data: {{ $error }}
+            @if(str_contains($error, '36009002') || str_contains($error, 'Too many requests'))
+                <strong>TikTok lagi membatasi request (rate limit bersama).</strong> Ini batas yang dipakai barengan sama sync order/konten TikTok.
+                Tunggu <strong>~1 menit</strong>, terus klik <strong>Cari</strong> lagi. Hasil pencarian yang berhasil di-cache 10 menit, jadi reload/simpan tak nembak TikTok lagi.
+            @else
+                Gagal ambil data: {{ $error }}
+            @endif
         </div>
     @endif
 
