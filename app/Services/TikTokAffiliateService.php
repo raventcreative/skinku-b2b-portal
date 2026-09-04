@@ -165,6 +165,58 @@ class TikTokAffiliateService
     }
 
     /**
+     * Cari kreator di Creator Marketplace TikTok by keyword (username/nickname) →
+     * daftar kreator ternormalisasi untuk screening (GMV 30 hari, follower, dsb),
+     * TERMASUK yang belum pernah jadi affiliate kita. Butuh scope
+     * seller.creator_marketplace.read. Hasil di-map lewat mapMarketplaceCreator
+     * supaya bisa dites dengan JSON asli dari probe.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function searchCreators(TiktokAffiliateConnection $conn, string $keyword, int $pageSize = 12): array
+    {
+        $access = $this->freshToken($conn);
+        $data = $this->client->searchMarketplaceCreators($access, (string) $conn->shop_cipher, $keyword, $pageSize);
+        $conn->update(['last_synced_at' => now()]);
+
+        return array_map(fn ($c) => $this->mapMarketplaceCreator($c), $data['creators'] ?? []);
+    }
+
+    /**
+     * Satu item creators[] dari marketplace search → baris siap tampil. MURNI
+     * (tanpa I/O) → dites dengan JSON asli. GMV datang dalam USD (string) — biarkan
+     * sbg float USD; konversi ke Rupiah dilakukan di view pakai kurs config. Field
+     * gmv/video_gmv/live_gmv bisa TIDAK ADA utk kreator berdata tipis → null.
+     *
+     * @return array<string,mixed>
+     */
+    public function mapMarketplaceCreator(array $c): array
+    {
+        $gmv = data_get($c, 'gmv.amount');
+        $vgmv = data_get($c, 'video_gmv.amount');
+        $lgmv = data_get($c, 'live_gmv.amount');
+
+        return [
+            'open_id' => (string) ($c['creator_open_id'] ?? ''),
+            'username' => (string) ($c['username'] ?? ''),
+            'nickname' => (string) ($c['nickname'] ?? ''),
+            'avatar' => (string) data_get($c, 'avatar.url', ''),
+            'followers' => (int) ($c['follower_count'] ?? 0),
+            'gmv_usd' => ($gmv === null || $gmv === '') ? null : (float) $gmv,
+            'gmv_range' => (string) data_get($c, 'gmv_range.formatted_range', ''),
+            'video_gmv_usd' => ($vgmv === null || $vgmv === '') ? null : (float) $vgmv,
+            'live_gmv_usd' => ($lgmv === null || $lgmv === '') ? null : (float) $lgmv,
+            'avg_video_views' => (int) ($c['avg_ec_video_view_count'] ?? 0),
+            'avg_live_uv' => (int) ($c['avg_ec_live_uv'] ?? 0),
+            'region' => (string) ($c['selection_region'] ?? ''),
+            'gender' => (string) data_get($c, 'top_follower_demographics.major_gender.gender', ''),
+            // percentage TikTok = basis 10.000 (4694 = 46,94%).
+            'gender_pct' => round((float) data_get($c, 'top_follower_demographics.major_gender.percentage', 0) / 100, 1),
+            'age_ranges' => array_values((array) data_get($c, 'top_follower_demographics.age_ranges', [])),
+        ];
+    }
+
+    /**
      * Respons `data` (orders[].skus[]) → baris siap import. MURNI (tanpa I/O) →
      * dites dengan JSON asli. Satu SKU = satu baris (order_id sintetis
      * "{orderId}-{skuId}" agar unik & idempoten saat re-sync).

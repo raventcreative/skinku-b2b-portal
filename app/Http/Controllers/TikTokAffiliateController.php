@@ -116,8 +116,7 @@ class TikTokAffiliateController extends Controller
             try {
                 $mk = $client->searchMarketplaceCreators($access, $cipher, 'dewick02', 12);
                 $out['marketplace_search'] = $mk;
-                $openId = data_get($mk, 'creators.0.creator_id') ?? data_get($mk, 'creators.0.open_id')
-                    ?? data_get($mk, 'creators.0.id') ?? data_get($mk, 'creators.0.creator.id');
+                $openId = data_get($mk, 'creators.0.creator_open_id');
                 if ($openId) {
                     try {
                         $out['marketplace_performance'] = $client->getMarketplaceCreatorPerformance($access, $cipher, (string) $openId);

@@ -331,6 +331,7 @@
                     @if($u->canDo('kol.affiliate.view'))
                         {!! navItem('kol-affiliate.index', 'Affiliate & GMV', 'kol-affiliate.index') !!}
                         {!! navItem('kol-gapok.index', 'Tim Gapok', 'kol-gapok.*') !!}
+                        {!! navItem('kol-cek-tiktok.index', 'Cek Performa TikTok', 'kol-cek-tiktok.*') !!}
                     @endif
                     @if($u->canDo('kol.view'))
                         {!! navItem('kol-skor.kss', 'Skor', 'kol-skor.*') !!}

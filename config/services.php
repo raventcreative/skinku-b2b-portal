@@ -57,6 +57,10 @@ return [
         'auth_base' => env('TIKTOK_AUTH_BASE', 'https://auth.tiktok-shops.com'),
         'api_base' => env('TIKTOK_API_BASE', 'https://open-api.tiktokglobalshop.com'),
         'authorize_base' => env('TIKTOK_AUTHORIZE_BASE', 'https://services.tiktokshop.com'),
+        // Creator Marketplace mengembalikan GMV dalam USD. Kurs perkiraan utk
+        // menampilkan estimasi Rupiah di halaman "Cek Performa TikTok" (screening).
+        // Sesuaikan bila kurs bergerak jauh; hanya utk tampilan, tak menyimpan uang.
+        'usd_idr_rate' => (int) env('TIKTOK_USD_IDR_RATE', 16000),
     ],
 
     // Shopee Open Platform (akun "Shopee Seller" — app untuk toko sendiri).

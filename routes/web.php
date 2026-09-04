@@ -34,6 +34,7 @@ use App\Http\Controllers\KolSampleController;
 use App\Http\Controllers\KolScoringController;
 use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\KolSettingsController;
+use App\Http\Controllers\KolTiktokCheckController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MindmapController;
@@ -413,6 +414,10 @@ Route::middleware(['auth', 'role'])->group(function () {
                 Route::post('/kol-affiliate/weekly-stats', [KolAffiliateController::class, 'weeklyStatStore'])->name('kol-affiliate.weekly.store');
                 Route::delete('/kol-affiliate/weekly-stats/{stat}', [KolAffiliateController::class, 'weeklyStatDestroy'])->name('kol-affiliate.weekly.destroy');
             });
+
+            // Cek Performa TikTok — screening kreator via Creator Marketplace API
+            // (GMV/follower/views langsung dari TikTok, walau belum jadi affiliate).
+            Route::get('/kol-cek-tiktok', [KolTiktokCheckController::class, 'index'])->name('kol-cek-tiktok.index');
 
             // Tim Affiliate Gapok — performa affiliate gajian + gaji per bulan + ROI.
             Route::get('/kol-gapok', [KolGapokController::class, 'index'])->name('kol-gapok.index');

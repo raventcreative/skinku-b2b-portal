@@ -106,6 +106,66 @@ class TikTokAffiliateTest extends TestCase
         $this->assertSame(0, $rows[2]['commission']);
     }
 
+    /** Kunci normalizer marketplace ke bentuk respons ASLI TikTok (dari probe). */
+    public function test_map_marketplace_creator_dari_respons_asli(): void
+    {
+        $json = <<<'JSON'
+        {
+          "creators": [
+            { "creator_open_id": "3BzdFgAAAACfdiPXWgIvTgqReBLsIyJ9QYKEGiotoQXIyzNws1pXJw",
+              "username": "dewick02", "nickname": "D E W I C K",
+              "avatar": {"url": "https://cdn/x.webp"},
+              "follower_count": 5342130, "selection_region": "ID",
+              "avg_ec_live_uv": 4075, "avg_ec_video_view_count": 10980,
+              "gmv": {"amount": "124795.841805", "currency": "USD"},
+              "gmv_range": {"currency": "USD", "formatted_range": "Rp1JT+", "minimum_amount": "10000"},
+              "live_gmv": {"amount": "29069.218463", "currency": "USD"},
+              "video_gmv": {"amount": "92273.284029", "currency": "USD"},
+              "top_follower_demographics": {
+                "age_ranges": ["AGE_RANGE_25_34", "AGE_RANGE_18_24"],
+                "major_gender": {"gender": "FEMALE", "percentage": 4694}
+              } },
+            { "creator_open_id": "vw9XZQ", "username": "dewick021", "nickname": "dewick_",
+              "follower_count": 1164, "selection_region": "ID",
+              "gmv_range": {"formatted_range": "Rp1JT+"} }
+          ]
+        }
+        JSON;
+
+        $c = app(TikTokAffiliateService::class)->mapMarketplaceCreator(json_decode($json, true)['creators'][0]);
+
+        $this->assertSame('3BzdFgAAAACfdiPXWgIvTgqReBLsIyJ9QYKEGiotoQXIyzNws1pXJw', $c['open_id']);
+        $this->assertSame('dewick02', $c['username']);
+        $this->assertSame('D E W I C K', $c['nickname']);
+        $this->assertSame(5342130, $c['followers']);
+        $this->assertEqualsWithDelta(124795.841805, $c['gmv_usd'], 0.001);
+        $this->assertSame('Rp1JT+', $c['gmv_range']);
+        $this->assertEqualsWithDelta(92273.284029, $c['video_gmv_usd'], 0.001);
+        $this->assertEqualsWithDelta(29069.218463, $c['live_gmv_usd'], 0.001);
+        $this->assertSame(10980, $c['avg_video_views']);
+        $this->assertSame(4075, $c['avg_live_uv']);
+        $this->assertSame('ID', $c['region']);
+        $this->assertSame('FEMALE', $c['gender']);
+        $this->assertSame(46.9, $c['gender_pct']); // 4694 / 100
+        $this->assertSame(['AGE_RANGE_25_34', 'AGE_RANGE_18_24'], $c['age_ranges']);
+
+        // Kreator berdata tipis: cuma punya gmv_range (tanpa angka gmv) → USD null.
+        $c2 = app(TikTokAffiliateService::class)->mapMarketplaceCreator(json_decode($json, true)['creators'][1]);
+        $this->assertNull($c2['gmv_usd']);
+        $this->assertNull($c2['video_gmv_usd']);
+        $this->assertSame('Rp1JT+', $c2['gmv_range']);
+    }
+
+    public function test_halaman_cek_tiktok_render_dan_gate(): void
+    {
+        // gudang tak punya kol.affiliate.view → forbidden
+        $this->actingAs($this->user(User::ROLE_GUDANG, 'gd3'))->get(route('kol-cek-tiktok.index'))->assertForbidden();
+
+        // kol_specialist → OK; tanpa ?q tak ada panggilan API, cuma render form + notis belum terhubung.
+        $this->actingAs($this->user('kol_specialist', 'sp9'))->get(route('kol-cek-tiktok.index'))
+            ->assertOk()->assertSee('Cek Performa TikTok')->assertSee('belum terhubung');
+    }
+
     /** End-to-end: respons API → parser → import → muncul di Tim Gapok. */
     public function test_sync_map_mengalir_ke_tim_gapok(): void
     {
