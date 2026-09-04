@@ -80,7 +80,10 @@
                                         <input type="hidden" name="kol_id" value="{{ $r['kol']->id }}">
                                         <input type="hidden" name="bulan" value="{{ $month }}">
                                         <span class="text-stone-400 text-xs">Rp</span>
-                                        <input type="number" name="monthly_salary" min="0" value="{{ $r['salary'] }}" class="w-28 px-2 py-1 border border-stone-300 rounded text-right text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                                        <input type="hidden" name="monthly_salary" value="{{ $r['salary'] }}">
+                                        <input type="text" inputmode="numeric" placeholder="0"
+                                               value="{{ $r['salary'] ? number_format($r['salary'], 0, ',', '.') : '' }}"
+                                               class="salary-input w-28 px-2 py-1 border border-stone-300 rounded text-right text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                                         <button class="text-xs text-red-600 hover:underline">simpan</button>
                                     </form>
                                 @else
@@ -132,7 +135,9 @@
                 <form method="POST" action="{{ route('kol-gapok.toggle') }}" class="flex flex-wrap items-center gap-2">
                     @csrf
                     <input type="hidden" name="is_gapok" value="1">
-                    <select name="kol_id" required class="px-3 py-2 border border-stone-300 rounded-xl text-sm min-w-[220px] focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <input type="text" id="gapokSearch" placeholder="🔍 ketik nama / username…" autocomplete="off"
+                           class="px-3 py-2 border border-stone-300 rounded-xl text-sm w-56 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <select id="gapokSelect" name="kol_id" required class="px-3 py-2 border border-stone-300 rounded-xl text-sm min-w-[220px] focus:outline-none focus:ring-2 focus:ring-red-500">
                         <option value="">— pilih kreator —</option>
                         @foreach($nonGapok as $k)
                             <option value="{{ $k->id }}">{{ $k->name ? $k->name.' (@'.$k->tiktok_username.')' : '@'.$k->tiktok_username }}</option>
@@ -150,4 +155,35 @@
         ROI = GMV ÷ gaji (🟢 ≥3× sehat · 🟡 1–3× · 🔴 &lt;1× gaji lebih besar dari hasil).
     </p>
 </div>
+
+<script>
+(function () {
+    // Input gaji: tampilkan ribuan bertitik saat diketik; kirim angka mentah via hidden.
+    document.querySelectorAll('.salary-input').forEach(function (inp) {
+        inp.addEventListener('input', function () {
+            var raw = this.value.replace(/\D/g, '');
+            var hidden = this.closest('form').querySelector('input[name="monthly_salary"]');
+            if (hidden) hidden.value = raw;
+            this.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+        });
+    });
+
+    // Cari anggota: ketik → saring opsi select (nama/username); auto-pilih bila unik.
+    var search = document.getElementById('gapokSearch');
+    var select = document.getElementById('gapokSelect');
+    if (search && select) {
+        search.addEventListener('input', function () {
+            var q = this.value.trim().toLowerCase();
+            var visible = [];
+            Array.prototype.forEach.call(select.options, function (o) {
+                if (o.value === '') { o.hidden = false; return; }
+                var match = !q || o.textContent.toLowerCase().indexOf(q) !== -1;
+                o.hidden = !match;
+                if (match) visible.push(o);
+            });
+            select.value = visible.length === 1 ? visible[0].value : '';
+        });
+    }
+})();
+</script>
 @endsection
