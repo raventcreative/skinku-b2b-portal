@@ -96,6 +96,44 @@ class TikTokClient
     }
 
     /**
+     * Performa video toko (Analytics) — daftar video + metrik + info kreator. Scope
+     * data.shop_analytics.public.read. Tanggal ISO 8601 YYYY-MM-DD (zona toko);
+     * end_date_lt EKSKLUSIF. account_type=AFFILIATE_ACCOUNTS → video affiliate.
+     */
+    public function getShopVideoPerformance(string $accessToken, string $shopCipher, string $startDate, string $endDate, int $pageSize = 100, string $pageToken = '', string $accountType = 'AFFILIATE_ACCOUNTS'): array
+    {
+        return $this->request('GET', '/analytics/202605/shop_videos/performance', $accessToken, $shopCipher,
+            $this->analyticsQuery($startDate, $endDate, $pageSize, $pageToken, $accountType));
+    }
+
+    /**
+     * Performa LIVE toko (Analytics) — daftar sesi LIVE + metrik. Scope
+     * data.shop_analytics.public.read. Catatan TikTok: seller hanya bisa query
+     * room ID milik akun creator resmi sendiri → data affiliate bisa terbatas.
+     */
+    public function getShopLivePerformance(string $accessToken, string $shopCipher, string $startDate, string $endDate, int $pageSize = 100, string $pageToken = '', string $accountType = 'AFFILIATE_ACCOUNTS'): array
+    {
+        return $this->request('GET', '/analytics/202509/shop_lives/performance', $accessToken, $shopCipher,
+            $this->analyticsQuery($startDate, $endDate, $pageSize, $pageToken, $accountType));
+    }
+
+    /** @return array<string,mixed> query bersama endpoint analytics video/LIVE. */
+    private function analyticsQuery(string $startDate, string $endDate, int $pageSize, string $pageToken, string $accountType): array
+    {
+        $query = [
+            'start_date_ge' => $startDate,
+            'end_date_lt' => $endDate,
+            'page_size' => $pageSize,
+            'account_type' => $accountType,
+        ];
+        if ($pageToken !== '') {
+            $query['page_token'] = $pageToken;
+        }
+
+        return $query;
+    }
+
+    /**
      * Cari order — TERBARU dulu (sort create_time DESC). Satu halaman.
      *
      * @param  array  $filters  body filter, mis. ['update_time_ge' => epoch] untuk menangkap

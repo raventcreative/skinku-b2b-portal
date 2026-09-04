@@ -94,17 +94,33 @@ class TikTokAffiliateController extends Controller
 
         try {
             $access = $this->svc->freshToken($conn);
-            $data = $this->svc->client()->searchSellerAffiliateOrders(
-                $access, $conn->shop_cipher, 5, '', now()->subDays(7)->timestamp, now()->timestamp
-            );
+            $client = $this->svc->client();
+            $cipher = (string) $conn->shop_cipher;
+            $start = now()->subDays(30)->toDateString();
+            $end = now()->addDay()->toDateString(); // end_date_lt eksklusif → +1 hari biar hari ini masuk
+
+            $out = [];
+            $out['orders'] = $client->searchSellerAffiliateOrders($access, $cipher, 3, '', now()->subDays(7)->timestamp, now()->timestamp);
+            // Video & LIVE dipisah try — kalau salah satu ditolak, yang lain tetap kelihatan.
+            try {
+                $out['videos'] = $client->getShopVideoPerformance($access, $cipher, $start, $end, 3);
+            } catch (\Throwable $e) {
+                $out['videos_ERROR'] = $e->getMessage();
+            }
+            try {
+                $out['lives'] = $client->getShopLivePerformance($access, $cipher, $start, $end, 3);
+            } catch (\Throwable $e) {
+                $out['lives_ERROR'] = $e->getMessage();
+            }
+
             $conn->update(['last_synced_at' => now()]);
 
             session()->flash('affiliate_probe', [
-                'keys' => array_keys($data),
-                'json' => json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'keys' => array_keys($out),
+                'json' => json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ]);
 
-            return redirect()->route('tiktok-affiliate.index')->with('status', 'Probe sukses — lihat struktur respons di bawah.');
+            return redirect()->route('tiktok-affiliate.index')->with('status', 'Probe sukses — struktur orders + videos + lives di bawah.');
         } catch (\Throwable $e) {
             return redirect()->route('tiktok-affiliate.index')->with('error', 'Probe gagal: '.$e->getMessage());
         }
