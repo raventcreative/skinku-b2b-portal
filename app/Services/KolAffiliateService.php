@@ -48,6 +48,7 @@ class KolAffiliateService
                     'commission_settled' => isset($r['commission_settled']) && $r['commission_settled'] !== null ? (int) $r['commission_settled'] : null,
                     'qty' => isset($r['qty']) && $r['qty'] !== null ? (int) $r['qty'] : null,
                     'product' => $r['product'] ?? null,
+                    'content_type' => $r['content_type'] ?? null,
                     'status' => $r['status'] ?? null,
                     'order_date' => $r['order_date'] ?? now()->toDateString(),
                     'source' => $source,

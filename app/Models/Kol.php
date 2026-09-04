@@ -26,7 +26,7 @@ class Kol extends Model
     public const ROLE_LABELS = ['kol' => 'KOL', 'affiliate' => 'Affiliate', 'both' => 'KOL + Affiliate'];
 
     protected $fillable = [
-        'tiktok_username', 'name', 'role', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi',
+        'tiktok_username', 'name', 'role', 'is_gapok', 'platform', 'tiktok_link', 'followers', 'kategori', 'provinsi',
         'agency', 'manager_name', 'manager_contact', 'phone', 'status', 'blacklist_reason',
         'barter_ok', 'tiktok_shop_active', 'shopee_affiliate_active', 'voucher_code', 'tracking_link', 'usage_rights', 'catatan',
     ];
@@ -37,6 +37,7 @@ class Kol extends Model
     {
         return [
             'followers' => 'integer',
+            'is_gapok' => 'boolean',
             'barter_ok' => 'boolean',
             'tiktok_shop_active' => 'boolean',
             'shopee_affiliate_active' => 'boolean',
@@ -169,5 +170,17 @@ class Kol extends Model
     public function rateCards()
     {
         return $this->hasMany(KolRateCard::class)->latest('id');
+    }
+
+    /** Gaji pokok bulanan (Tim Affiliate Gapok), terbaru dulu. */
+    public function gapokSalaries()
+    {
+        return $this->hasMany(KolGapokSalary::class)->latest('period');
+    }
+
+    /** Hanya anggota Tim Affiliate Gapok. */
+    public function scopeGapok($q)
+    {
+        return $q->where('is_gapok', true);
     }
 }

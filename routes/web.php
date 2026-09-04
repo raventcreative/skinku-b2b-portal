@@ -26,6 +26,7 @@ use App\Http\Controllers\KolContentController;
 use App\Http\Controllers\KolController;
 use App\Http\Controllers\KolDashboardController;
 use App\Http\Controllers\KolDealController;
+use App\Http\Controllers\KolGapokController;
 use App\Http\Controllers\KolImportController;
 use App\Http\Controllers\KolPipelineController;
 use App\Http\Controllers\KolReminderController;
@@ -410,6 +411,13 @@ Route::middleware(['auth', 'role'])->group(function () {
                 Route::post('/kol-affiliate/gmv-target', [KolAffiliateController::class, 'saveGmvTarget'])->name('kol-affiliate.gmv-target');
                 Route::post('/kol-affiliate/weekly-stats', [KolAffiliateController::class, 'weeklyStatStore'])->name('kol-affiliate.weekly.store');
                 Route::delete('/kol-affiliate/weekly-stats/{stat}', [KolAffiliateController::class, 'weeklyStatDestroy'])->name('kol-affiliate.weekly.destroy');
+            });
+
+            // Tim Affiliate Gapok — performa affiliate gajian + gaji per bulan + ROI.
+            Route::get('/kol-gapok', [KolGapokController::class, 'index'])->name('kol-gapok.index');
+            Route::middleware('permission:kol.affiliate.manage')->group(function () {
+                Route::post('/kol-gapok/toggle', [KolGapokController::class, 'toggle'])->name('kol-gapok.toggle');
+                Route::post('/kol-gapok/salary', [KolGapokController::class, 'saveSalary'])->name('kol-gapok.salary');
             });
         });
 
