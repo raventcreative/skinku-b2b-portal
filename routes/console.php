@@ -63,6 +63,10 @@ Schedule::command('tiktok:describe')->hourly()->withoutOverlapping(20);
 // dari jendela update_time (mis. cron sempat mati lama).
 Schedule::command('tiktok:sync --full')->dailyAt('03:30')->withoutOverlapping(30);
 
+// Order affiliate (Tim Gapok) tiap 6 jam — 30 hari terakhir. Komisi jarang
+// berubah tiap menit; cukup beberapa kali sehari. Lewati sendiri bila belum connect.
+Schedule::command('tiktok:affiliate-sync')->everySixHours()->withoutOverlapping(30);
+
 /*
  * Pekerja antrean OKR (generate draf di background). Numpang cron scheduler yang
  * sudah ada — tanpa worker permanen. Tiap menit: proses job yang ada lalu berhenti

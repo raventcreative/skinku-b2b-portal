@@ -538,6 +538,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/tiktok-affiliate/connect', [TikTokAffiliateController::class, 'connect'])->name('tiktok-affiliate.connect');
         Route::get('/tiktok-affiliate/callback', [TikTokAffiliateController::class, 'callback'])->name('tiktok-affiliate.callback');
         Route::post('/tiktok-affiliate/probe', [TikTokAffiliateController::class, 'probe'])->name('tiktok-affiliate.probe');
+        Route::post('/tiktok-affiliate/sync', [TikTokAffiliateController::class, 'syncNow'])->name('tiktok-affiliate.sync');
         Route::post('/tiktok-affiliate/disconnect', [TikTokAffiliateController::class, 'disconnect'])->name('tiktok-affiliate.disconnect');
 
         Route::post('/tiktok/sync-orders', [TikTokController::class, 'syncOrders'])->name('tiktok.sync-orders');

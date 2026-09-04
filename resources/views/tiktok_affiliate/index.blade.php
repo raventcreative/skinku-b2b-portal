@@ -34,9 +34,13 @@ TIKTOK_AFFILIATE_SERVICE_ID=(ID app "Seller Analitik")</pre>
                 @endif
             </div>
             <div class="flex flex-wrap items-center gap-2 mt-4">
+                <form method="POST" action="{{ route('tiktok-affiliate.sync') }}">
+                    @csrf
+                    <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">⬇ Sync sekarang (30 hari)</button>
+                </form>
                 <form method="POST" action="{{ route('tiktok-affiliate.probe') }}">
                     @csrf
-                    <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">🔍 Probe (tarik 5 order → lihat struktur)</button>
+                    <button class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">🔍 Probe (lihat struktur)</button>
                 </form>
                 <a href="{{ route('tiktok-affiliate.connect') }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">↻ Re-authorize</a>
                 <form method="POST" action="{{ route('tiktok-affiliate.disconnect') }}" onsubmit="return confirm('Putuskan koneksi app affiliate?')">
@@ -44,6 +48,7 @@ TIKTOK_AFFILIATE_SERVICE_ID=(ID app "Seller Analitik")</pre>
                     <button class="px-4 py-2 text-stone-400 hover:text-rose-600 text-sm rounded-xl">Putuskan</button>
                 </form>
             </div>
+            <p class="text-xs text-stone-400 mt-2">Sync otomatis tiap 6 jam. Setelah sync, data muncul di <a href="{{ route('kol-gapok.index') }}" class="text-red-600 hover:underline">Tim Gapok</a> (kreator yang cocok ke KOL). Yang belum cocok → tautkan di <a href="{{ route('kol-affiliate.index') }}" class="text-red-600 hover:underline">Affiliate &amp; GMV</a>.</p>
         @else
             <a href="{{ route('tiktok-affiliate.connect') }}" class="inline-block px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">🔗 Hubungkan toko (authorize)</a>
             <p class="text-xs text-stone-400 mt-2">Kamu akan diarahkan ke TikTok untuk memberi izin. Setelah itu balik ke sini otomatis.</p>
