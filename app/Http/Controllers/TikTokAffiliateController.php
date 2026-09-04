@@ -112,6 +112,22 @@ class TikTokAffiliateController extends Controller
             } catch (\Throwable $e) {
                 $out['lives_ERROR'] = $e->getMessage();
             }
+            // Creator Marketplace: cari kreator contoh + performa (buat screening).
+            try {
+                $mk = $client->searchMarketplaceCreators($access, $cipher, 'dewick02', 12);
+                $out['marketplace_search'] = $mk;
+                $openId = data_get($mk, 'creators.0.creator_id') ?? data_get($mk, 'creators.0.open_id')
+                    ?? data_get($mk, 'creators.0.id') ?? data_get($mk, 'creators.0.creator.id');
+                if ($openId) {
+                    try {
+                        $out['marketplace_performance'] = $client->getMarketplaceCreatorPerformance($access, $cipher, (string) $openId);
+                    } catch (\Throwable $e) {
+                        $out['marketplace_performance_ERROR'] = $e->getMessage();
+                    }
+                }
+            } catch (\Throwable $e) {
+                $out['marketplace_search_ERROR'] = $e->getMessage();
+            }
 
             $conn->update(['last_synced_at' => now()]);
 

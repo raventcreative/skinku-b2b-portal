@@ -117,6 +117,34 @@ class TikTokClient
             $this->analyticsQuery($startDate, $endDate, $pageSize, $pageToken, $accountType));
     }
 
+    /**
+     * Cari kreator di Creator Marketplace by keyword (username/nickname). Scope
+     * seller.creator_marketplace.read. Data 30 hari terakhir (termasuk GMV).
+     * page_size WAJIB 12 atau 20.
+     */
+    public function searchMarketplaceCreators(string $accessToken, string $shopCipher, string $keyword, int $pageSize = 12, string $pageToken = '', array $gmvRanges = []): array
+    {
+        $query = ['page_size' => $pageSize];
+        if ($pageToken !== '') {
+            $query['page_token'] = $pageToken;
+        }
+        $body = array_filter([
+            'keyword' => $keyword !== '' ? $keyword : null,
+            'gmv_ranges' => $gmvRanges !== [] ? $gmvRanges : null,
+        ], fn ($v) => $v !== null);
+
+        return $this->request('POST', '/affiliate_seller/202608/marketplace_creators/search', $accessToken, $shopCipher, $query, $body);
+    }
+
+    /**
+     * Performa satu kreator marketplace by Open ID (30 hari): BASIC/CONTENT/
+     * FOLLOWER/COLLABORATION/SALES_AND_GMV. Tanpa data_groups = ambil semua.
+     */
+    public function getMarketplaceCreatorPerformance(string $accessToken, string $shopCipher, string $openId): array
+    {
+        return $this->request('GET', '/affiliate_seller/202608/marketplace_creators/'.rawurlencode($openId), $accessToken, $shopCipher);
+    }
+
     /** @return array<string,mixed> query bersama endpoint analytics video/LIVE. */
     private function analyticsQuery(string $startDate, string $endDate, int $pageSize, string $pageToken, string $accountType): array
     {
