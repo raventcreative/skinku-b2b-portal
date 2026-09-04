@@ -18,7 +18,9 @@ class TikTokMarketplaceSyncCommand extends Command
 {
     protected $signature = 'tiktok:marketplace-sync
         {--limit=40 : Maksimum KOL diproses sekali jalan}
-        {--sleep=3 : Jeda detik antar panggilan (jaga rate limit)}
+        {--sleep=7 : Jeda detik antar panggilan (rate limit marketplace ~10/menit → jangan terlalu kecil)}
+        {--cooldown=90 : Detik menunggu saat kena rate limit sebelum coba lagi}
+        {--retries=3 : Berapa kali menunggu-lalu-coba-lagi saat rate limit sebelum menyerah}
         {--stale-days=30 : Cek ulang KOL yang terakhir dicek lebih lama dari ini}
         {--force : Abaikan penanda tiktok_checked_at, cek semua}';
 
@@ -35,6 +37,8 @@ class TikTokMarketplaceSyncCommand extends Command
 
         $limit = max(1, (int) $this->option('limit'));
         $sleep = max(0, (int) $this->option('sleep'));
+        $cooldown = max(1, (int) $this->option('cooldown'));
+        $retries = max(0, (int) $this->option('retries'));
         $staleDays = max(0, (int) $this->option('stale-days'));
         $force = (bool) $this->option('force');
 
@@ -53,22 +57,41 @@ class TikTokMarketplaceSyncCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->info("Proses {$kols->count()} KOL (limit {$limit}, jeda {$sleep}s)…");
+        $this->info("Proses {$kols->count()} KOL (limit {$limit}, jeda {$sleep}s, cooldown {$cooldown}s×{$retries})…");
         $saved = $skipped = $errors = 0;
+        $lastIndex = $kols->count() - 1;
 
         foreach ($kols as $i => $kol) {
             $uname = mb_strtolower(trim((string) $kol->tiktok_username));
 
-            try {
-                $creators = $svc->searchCreators($conn, (string) $kol->tiktok_username, 12);
-            } catch (\Throwable $e) {
-                if (str_contains($e->getMessage(), '36009002') || stripos($e->getMessage(), 'too many requests') !== false) {
-                    $this->warn("Rate limit TikTok kena di @{$uname}. BERHENTI — jalankan lagi nanti untuk lanjut (yang sudah tersimpan dilewati).");
-                    break;
-                }
-                $this->warn("@{$uname}: gagal — {$e->getMessage()}");
-                $errors++;
+            // Ambil dgn auto-backoff: kalau kena rate limit, TUNGGU cooldown lalu coba
+            // lagi (bukan langsung nyerah) — biar 1 run bisa nembus jendela per-menit.
+            $creators = null;
+            $tries = 0;
+            while ($creators === null) {
+                try {
+                    $creators = $svc->searchCreators($conn, (string) $kol->tiktok_username, 12);
+                } catch (\Throwable $e) {
+                    $limited = str_contains($e->getMessage(), '36009002') || stripos($e->getMessage(), 'too many requests') !== false;
+                    if ($limited && $tries < $retries) {
+                        $tries++;
+                        $this->warn("  … rate limit — tunggu {$cooldown}s lalu coba lagi (#{$tries}/{$retries})…");
+                        sleep($cooldown);
 
+                        continue;
+                    }
+                    if ($limited) {
+                        $this->warn("Rate limit TikTok belum reda setelah {$retries}× tunggu (~".($retries * $cooldown).'s). BERHENTI — jalankan lagi nanti; yang sudah tersimpan dilewati.');
+                        $this->info("Selesai (berhenti di rate limit): {$saved} tersimpan · {$skipped} tak cocok · {$errors} error.");
+
+                        return self::SUCCESS;
+                    }
+                    $this->warn("@{$uname}: gagal — {$e->getMessage()}");
+                    $errors++;
+                    break; // creators tetap null → lewati KOL ini
+                }
+            }
+            if ($creators === null) {
                 continue;
             }
 
@@ -86,7 +109,7 @@ class TikTokMarketplaceSyncCommand extends Command
                 $this->line("  ✓ @{$uname}: tersimpan.");
             }
 
-            if ($sleep > 0 && $i < $kols->count() - 1) {
+            if ($sleep > 0 && $i < $lastIndex) {
                 sleep($sleep);
             }
         }
