@@ -224,7 +224,7 @@ class TikTokAffiliateTest extends TestCase
 
         $html = $this->actingAs($this->user('kol_specialist', 'sp13'))->get(route('kols.index'))->assertOk()->getContent();
         $this->assertStringContainsString('Demografi', $html);   // header kolom
-        $this->assertStringContainsString('♀ P 50.4%', $html);   // isi sel demografi
+        $this->assertStringContainsString('♀ P 50,4%', $html);   // gender mayoritas (format Indonesia)
         $this->assertStringContainsString('18–24, 25–34', $html);
     }
 

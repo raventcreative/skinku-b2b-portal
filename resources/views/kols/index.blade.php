@@ -212,16 +212,21 @@
                     <td class="text-stone-600">{{ $kol->kategori ?: '—' }}</td>
                     <td class="text-stone-600">{{ $kol->status }}</td>
                     <td class="text-stone-600">{{ $kol->agency ?: '—' }}</td>
-                    <td class="text-[11px] text-stone-500">
+                    <td>
                         @php
                             $tpp = $kol->tiktokProfile;
-                            $demo = null;
-                            if ($tpp && ($tpp->gender || $tpp->age_ranges)) {
+                            $genderLine = null;
+                            if ($tpp && $tpp->gender) {
                                 $g = $tpp->gender === 'FEMALE' ? '♀ P' : ($tpp->gender === 'MALE' ? '♂ L' : '');
-                                $demo = trim(($g ? $g.($tpp->gender_pct ? ' '.$tpp->gender_pct.'%' : '') : '').($tpp->age_ranges ? ' · '.$tpp->age_ranges : ''), ' ·');
+                                $genderLine = $g.($tpp->gender_pct ? ' '.number_format($tpp->gender_pct, 1, ',', '.').'%' : '');
                             }
                         @endphp
-                        @if($demo)<span title="Demografi audiens TikTok · {{ $tpp->region }}">{{ $demo }}</span>@else<span class="text-stone-300">—</span>@endif
+                        @if($tpp && ($genderLine || $tpp->age_ranges))
+                            @if($genderLine)<span class="text-sm font-bold text-stone-800" title="Gender mayoritas audiens">{{ $genderLine }}</span>@endif
+                            @if($tpp->age_ranges)<span class="block text-[11px] font-semibold text-stone-500" title="Umur dominan">{{ $tpp->age_ranges }} th</span>@endif
+                        @else
+                            <span class="text-stone-300">—</span>
+                        @endif
                     </td>
                     @php $ls = $kol->latestScreening; @endphp
                     @if($ls)
