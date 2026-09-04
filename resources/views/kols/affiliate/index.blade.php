@@ -143,7 +143,10 @@
                     @forelse($ranking as $i => $r)
                         <tr>
                             <td class="px-4 py-2.5 text-stone-400">{{ $i + 1 }}</td>
-                            <td class="px-4 py-2.5"><a href="{{ route('kols.show', $r->kol_id) }}" class="text-indigo-600 hover:underline">{{ '@'.$r->kol->tiktok_username }}</a></td>
+                            <td class="px-4 py-2.5">
+                                <a href="{{ route('kols.show', $r->kol_id) }}" class="text-indigo-600 hover:underline">{{ '@'.$r->kol->tiktok_username }}</a>
+                                <a href="{{ route('kol-gapok.contents', ['kol' => $r->kol_id, 'bulan' => $month]) }}" class="ml-1 text-[11px] text-stone-400 hover:text-red-600" title="Lihat daftar video &amp; LIVE">🎬</a>
+                            </td>
                             <td class="px-4 py-2.5 text-right font-medium text-stone-800">{{ $rp($r->gmv) }}</td>
                             <td class="px-4 py-2.5 text-right text-stone-600">{{ number_format((int) $r->orders, 0, ',', '.') }}</td>
                             <td class="px-4 py-2.5 text-right text-stone-600">{{ $rc($r->commission) }} <span class="text-stone-300">/</span> {{ $r->commission_settled ? $rc($r->commission_settled) : '—' }}</td>
