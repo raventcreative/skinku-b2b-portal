@@ -25,7 +25,7 @@ class KolController extends Controller
         // Arah & kolom sort divalidasi ke daftar putih — nilai ngawur jatuh ke default.
         $sortable = ['username', 'followers', 'level', 'kategori', 'status', 'agency',
             'ratecard', 'total', 'avg', 'median', 'ratio', 'cpm_mean', 'cpm', 'cpv', 'rank',
-            'verdict_mean', 'verdict', 'gmv'];
+            'verdict_mean', 'verdict', 'gmv', 'gmv_real'];
         $sort = in_array($request->query('sort'), $sortable, true)
             ? $request->query('sort') : 'username';
         $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
@@ -54,11 +54,12 @@ class KolController extends Controller
             $kols = $kols->filter(fn (Kol $k) => $this->verdictKey($k) === $filters['verdict']);
         }
 
-        $kols = $this->sorted($kols, $sort, $dir)->values();
-
-        // Kolom GMV bulan ini (affiliate) + APS/KSS terakhir (jejak skor).
+        // GMV affiliate bulan ini (real) — dihitung SEBELUM sort supaya bisa jadi
+        // kunci urut kolom "GMV Bln". APS/KSS terakhir = jejak skor.
         $canAffiliate = $request->user()->canDo('kol.affiliate.view');
         $gmvMap = $canAffiliate ? $aff->monthly(now())->keyBy('kol_id') : collect();
+
+        $kols = $this->sorted($kols, $sort, $dir, $gmvMap)->values();
         $scores = KolScore::whereIn('type', ['aps', 'kss'])->latest('captured_on')->latest('id')->get();
         $apsMap = $scores->where('type', 'aps')->unique('kol_id')->keyBy('kol_id');
         $kssMap = $scores->where('type', 'kss')->unique('kol_id')->keyBy('kol_id');
@@ -134,7 +135,7 @@ class KolController extends Controller
         return $ranks;
     }
 
-    private function sorted($kols, string $sort, string $dir)
+    private function sorted($kols, string $sort, string $dir, $gmvMap = null)
     {
         // Kolom turunan screening — SEMUA header angka bisa diurutkan, seperti
         // Excel. Yang belum discreening SELALU di bawah, apa pun arahnya:
@@ -148,6 +149,8 @@ class KolController extends Controller
             'median' => fn (Kol $k) => $k->latestScreening?->median_views,
             'ratio' => fn (Kol $k) => $k->latestScreening?->ratio,
             'gmv' => fn (Kol $k) => $k->latestScreening?->gmv_estimate,
+            // GMV Bln = GMV affiliate REAL bulan ini (dari $gmvMap), bukan estimasi screening.
+            'gmv_real' => fn (Kol $k) => $gmvMap?->get($k->id)?->gmv,
             // Indikator/CPM Mean pakai CPM rata sebagai nilai sort-nya.
             'cpm_mean', 'verdict_mean' => fn (Kol $k) => $k->latestScreening?->cpm_rata,
             'cpm', 'cpv', 'rank', 'verdict' => fn (Kol $k) => $k->latestScreening?->cpm_median,

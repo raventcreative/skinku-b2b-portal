@@ -165,7 +165,7 @@
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari views MEDIAN (tengah) — ACUAN UTAMA, tahan dari 1 video viral">{!! $sortLink('verdict', 'Penilaian Median ⭐') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV = median views × 1,2% konversi × Rp38rb order rata-rata — hitungan sistem, BUKAN data asli">{!! $sortLink('gmv', 'GMV Estimasi · Viral · Fake') !!}</th>
                 <th rowspan="2" class="text-right align-bottom" title="GMV asli dari data KOL — diisi manual saat screening (— bila belum diisi)">GMV Asli</th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="GMV affiliate bulan ini">GMV Bln</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="GMV affiliate REAL bulan ini — penjualan SKINKU dari kreator ini (sama sumber dgn Affiliate & GMV). Bukan estimasi.">{!! $sortLink('gmv_real', 'GMV Bln') !!}</th>
                 <th rowspan="2" class="text-center px-2 align-bottom" title="Skor APS terakhir (jejak)">APS</th>
                 <th rowspan="2" class="text-center px-2 align-bottom" title="Skor KSS terakhir (jejak)">KSS</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
@@ -183,6 +183,7 @@
                             class="font-bold text-red-700 hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
                         <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $kol->platformLabel() }}</span>
                         @if($kol->role !== 'kol')<span class="ml-1 text-[9px] px-1 py-0.5 rounded bg-sky-100 text-sky-700">{{ $roleLabels[$kol->role] ?? $kol->role }}</span>@endif
+                        @if($kol->is_gapok)<span class="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title="Anggota Tim Affiliate Gapok">💰 GAPOK</span>@endif
                         @if($kol->isBlacklisted())<span class="ml-1 text-[9px] px-1 py-0.5 rounded bg-rose-100 text-rose-700">BLACKLIST</span>@endif
                         @if($kol->name)<span class="block text-[10px] text-stone-500">{{ $kol->name }}</span>@endif
                         @if($kol->phone)
