@@ -79,8 +79,11 @@
                     @forelse($rows as $r)
                         <tr class="hover:bg-stone-50" data-gmv="{{ $r['gmv'] }}">
                             <td class="px-4 py-3">
-                                <p class="font-semibold text-stone-800">{{ $r['kol']->display_name }}</p>
-                                <p class="text-xs text-stone-400">{{ '@'.$r['kol']->tiktok_username }}</p>
+                                @php $profil = $r['kol']->profileUrl() ?: 'https://www.tiktok.com/@'.$r['kol']->handle(); @endphp
+                                <a href="{{ $profil }}" target="_blank" rel="noopener" class="group inline-block" title="Buka profil TikTok @{{ $r['kol']->handle() }}">
+                                    <p class="font-semibold text-stone-800 group-hover:text-red-600 group-hover:underline">{{ $r['kol']->display_name }}</p>
+                                    <p class="text-xs text-stone-400 group-hover:text-red-500">{{ '@'.$r['kol']->tiktok_username }} <span class="text-[9px]">↗</span></p>
+                                </a>
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <p class="font-semibold text-stone-800">{{ $rp($r['gmv']) }}</p>
