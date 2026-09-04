@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Kol;
 use App\Models\KolScreening;
 use App\Models\KolTiktokProfile;
+use App\Models\TiktokAffiliateConnection;
 use App\Models\User;
 use App\Services\KolAffiliateService;
 use App\Services\KolGapokService;
@@ -13,6 +14,7 @@ use App\Services\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class TikTokAffiliateTest extends TestCase
@@ -235,6 +237,46 @@ class TikTokAffiliateTest extends TestCase
             ->post(route('kol-cek-tiktok.save'), ['username' => 'belumada99', 'followers' => 100])
             ->assertRedirect();
         $this->assertDatabaseMissing('kols', ['tiktok_username' => 'belumada99']);
+    }
+
+    public function test_marketplace_sync_command_tanpa_koneksi_gagal(): void
+    {
+        $this->artisan('tiktok:marketplace-sync')->assertFailed();
+    }
+
+    public function test_marketplace_sync_command_isi_yang_cocok_lewati_yang_tidak(): void
+    {
+        config([
+            'services.tiktok_affiliate.app_key' => 'k', 'services.tiktok_affiliate.app_secret' => 's',
+            'services.tiktok_affiliate.usd_idr_rate' => 16000,
+        ]);
+        TiktokAffiliateConnection::create([
+            'shop_id' => 'S1', 'shop_cipher' => 'CIPHER', 'access_token' => 'tok', 'refresh_token' => 'ref',
+            'access_expires_at' => now()->addDays(5), 'refresh_expires_at' => now()->addDays(30),
+        ]);
+        $cocok = Kol::create(['tiktok_username' => 'dewick02', 'followers' => 0]);
+        $tak = Kol::create(['tiktok_username' => 'nomatchxyz', 'followers' => 0]);
+
+        // Marketplace search selalu balikin dewick02 (fuzzy) — cuma yg username-nya
+        // PERSIS yang disimpan; nomatchxyz ditandai sudah-dicek lalu dilewati.
+        Http::fake(['*marketplace_creators/search*' => Http::response(['code' => 0, 'data' => ['creators' => [[
+            'creator_open_id' => 'OID', 'username' => 'dewick02', 'nickname' => 'D', 'follower_count' => 5_342_130,
+            'gmv' => ['amount' => '1000', 'currency' => 'USD'], 'avg_ec_video_view_count' => 10_980, 'avg_ec_live_uv' => 4075,
+            'selection_region' => 'ID', 'top_follower_demographics' => ['age_ranges' => ['AGE_RANGE_25_34'], 'major_gender' => ['gender' => 'FEMALE', 'percentage' => 4694]],
+        ]]]], 200)]);
+
+        $this->artisan('tiktok:marketplace-sync', ['--sleep' => 0])->assertSuccessful();
+
+        $tp = $cocok->fresh()->tiktokProfile;
+        $this->assertNotNull($tp);
+        $this->assertSame(5_342_130, $tp->followers);
+        $this->assertSame(16_000_000, $tp->gmv_idr);
+        $this->assertSame('FEMALE', $tp->gender);
+        $this->assertNotNull($cocok->fresh()->tiktok_checked_at);
+
+        // Yang tak cocok: tak dibuatin profil, tapi ditandai sudah dicek (biar tak diulang).
+        $this->assertNull($tak->fresh()->tiktokProfile);
+        $this->assertNotNull($tak->fresh()->tiktok_checked_at);
     }
 
     /** End-to-end: respons API → parser → import → muncul di Tim Gapok. */

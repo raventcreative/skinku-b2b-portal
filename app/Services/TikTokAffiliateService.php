@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Kol;
 use App\Models\KolCreatorContent;
 use App\Models\KolCreatorContentStat;
+use App\Models\KolTiktokProfile;
 use App\Models\KolUsernameAlias;
 use App\Models\TiktokAffiliateConnection;
 use Illuminate\Support\Carbon;
@@ -180,6 +181,60 @@ class TikTokAffiliateService
         $conn->update(['last_synced_at' => now()]);
 
         return array_map(fn ($c) => $this->mapMarketplaceCreator($c), $data['creators'] ?? []);
+    }
+
+    /**
+     * Tulis satu kreator (ternormalisasi, hasil mapMarketplaceCreator ATAU subset
+     * {username,open_id,followers,gmv_usd}) ke record Database KOL-nya:
+     *  - kols.followers + tiktok_checked_at
+     *  - GMV asli → screening terbaru (kolom "GMV Asli") bila ada
+     *  - snapshot penuh → kol_tiktok_profiles
+     * Dipakai bareng oleh tombol "Simpan ke Database" & sync massal.
+     *
+     * @return array{gmv_saved:bool,gmv_idr:int|null}
+     */
+    public function applyCreatorToKol(Kol $kol, array $c): array
+    {
+        $rate = (int) config('services.tiktok_affiliate.usd_idr_rate', 16000);
+        $idr = fn (?float $usd) => $usd === null ? null : (int) round($usd * $rate);
+
+        $followers = isset($c['followers']) ? (int) $c['followers'] : null;
+        $kol->update(array_filter([
+            'followers' => $followers,
+            'tiktok_checked_at' => now(),
+        ], fn ($v) => $v !== null));
+
+        // GMV asli → screening terbaru (kolom "GMV Asli" nempel di screening).
+        $gmvIdr = $idr(isset($c['gmv_usd']) ? (float) $c['gmv_usd'] : null);
+        $gmvSaved = false;
+        if ($gmvIdr !== null && ($screening = $kol->latestScreening()->first())) {
+            $screening->update(['gmv' => $gmvIdr]);
+            $gmvSaved = true;
+        }
+
+        // Snapshot: null di-buang (updateOrCreate tak menghapus nilai lama saat data
+        // parsial, mis. dari tombol tanpa cache).
+        $ageLabel = fn ($a) => str_replace(['AGE_RANGE_', '_'], ['', '–'], (string) $a);
+        $ages = $c['age_ranges'] ?? null;
+        KolTiktokProfile::updateOrCreate(['kol_id' => $kol->id], array_filter([
+            'open_id' => ($c['open_id'] ?? '') ?: null,
+            'followers' => $followers,
+            'gmv_usd' => isset($c['gmv_usd']) ? (float) $c['gmv_usd'] : null,
+            'gmv_idr' => $gmvIdr,
+            'gmv_range' => ($c['gmv_range'] ?? '') ?: null,
+            'video_gmv_idr' => $idr(isset($c['video_gmv_usd']) ? (float) $c['video_gmv_usd'] : null),
+            'live_gmv_idr' => $idr(isset($c['live_gmv_usd']) ? (float) $c['live_gmv_usd'] : null),
+            'avg_video_views' => isset($c['avg_video_views']) ? (int) $c['avg_video_views'] : null,
+            'avg_live_uv' => isset($c['avg_live_uv']) ? (int) $c['avg_live_uv'] : null,
+            'region' => ($c['region'] ?? '') ?: null,
+            'gender' => ($c['gender'] ?? '') ?: null,
+            'gender_pct' => ($c['gender_pct'] ?? 0) ?: null,
+            'age_ranges' => is_array($ages) && $ages !== [] ? implode(', ', array_map($ageLabel, $ages)) : null,
+            'usd_idr_rate' => $rate,
+            'synced_at' => now(),
+        ], fn ($v) => $v !== null));
+
+        return ['gmv_saved' => $gmvSaved, 'gmv_idr' => $gmvIdr];
     }
 
     /**

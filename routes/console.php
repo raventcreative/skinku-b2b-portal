@@ -71,6 +71,11 @@ Schedule::command('tiktok:affiliate-sync')->everySixHours()->withoutOverlapping(
 // banyak halaman Analytics). Bulan berjalan.
 Schedule::command('tiktok:affiliate-content-sync')->dailyAt('04:00')->withoutOverlapping(60);
 
+// Profil Creator Marketplace (follower/GMV/demografi) ke Database KOL — batch kecil
+// sekali sehari biar tak boros rate limit BERSAMA. Bertahap ngisi/nyegerin semua KOL;
+// untuk isi awal cepat, jalankan manual: php artisan tiktok:marketplace-sync.
+Schedule::command('tiktok:marketplace-sync --limit=25 --sleep=3')->dailyAt('05:00')->withoutOverlapping(60);
+
 /*
  * Pekerja antrean OKR (generate draf di background). Numpang cron scheduler yang
  * sudah ada — tanpa worker permanen. Tiap menit: proses job yang ada lalu berhenti

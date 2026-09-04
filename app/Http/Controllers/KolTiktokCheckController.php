@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
-use App\Models\KolTiktokProfile;
 use App\Models\KolUsernameAlias;
 use App\Models\TiktokAffiliateConnection;
 use App\Services\AuditService;
@@ -105,65 +104,31 @@ class KolTiktokCheckController extends Controller
             return back()->with('error', "@{$norm} belum ada di Database KOL — klik \"Jadikan Gapok\" dulu.");
         }
 
-        // Data lengkap dari cache pencarian (kalau masih ada) → snapshot penuh.
-        $c = $this->cachedCreator((string) ($d['q'] ?? ''), (string) ($d['open_id'] ?? ''), $norm);
-
-        $rate = (int) config('services.tiktok_affiliate.usd_idr_rate', 16000);
-        $followers = $c['followers'] ?? ($d['followers'] ?? null);
-        $gmvUsd = $c['gmv_usd'] ?? (isset($d['gmv_usd']) ? (float) $d['gmv_usd'] : null);
-        $idr = fn (?float $usd) => $usd === null ? null : (int) round($usd * $rate);
-
-        if ($followers !== null) {
-            $kol->update(['followers' => (int) $followers]);
-        }
-
-        // GMV asli TikTok → screening terbaru (kolom "GMV Asli" nempel di screening).
-        $gmvIdr = $idr($gmvUsd);
-        $gmvSaved = false;
-        if ($gmvIdr !== null && ($screening = $kol->latestScreening()->first())) {
-            $screening->update(['gmv' => $gmvIdr]);
-            $gmvSaved = true;
-        }
-
-        // Snapshot penuh → kol_tiktok_profiles (updateOrCreate: field yg tak diketahui
-        // saat cache habis TIDAK ikut dikirim → nilai lama tak kehapus).
-        $snap = array_filter([
-            'open_id' => $c['open_id'] ?? ($d['open_id'] ?? null),
-            'followers' => $followers !== null ? (int) $followers : null,
-            'gmv_usd' => $gmvUsd,
-            'gmv_idr' => $gmvIdr,
-            'usd_idr_rate' => $rate,
-            'synced_at' => now(),
+        // Data lengkap dari cache pencarian (kalau masih ada) → snapshot penuh; kalau
+        // cache habis, pakai nilai dasar yang diposkan kartu (follower + GMV).
+        $cached = $this->cachedCreator((string) ($d['q'] ?? ''), (string) ($d['open_id'] ?? ''), $norm);
+        $c = $cached ?? array_filter([
+            'username' => $norm,
+            'open_id' => $d['open_id'] ?? null,
+            'followers' => $d['followers'] ?? null,
+            'gmv_usd' => isset($d['gmv_usd']) ? (float) $d['gmv_usd'] : null,
         ], fn ($v) => $v !== null);
-        if ($c) {
-            $ageLabel = fn ($a) => str_replace(['AGE_RANGE_', '_'], ['', '–'], (string) $a);
-            $snap += [
-                'gmv_range' => $c['gmv_range'] ?: null,
-                'video_gmv_idr' => $idr($c['video_gmv_usd']),
-                'live_gmv_idr' => $idr($c['live_gmv_usd']),
-                'avg_video_views' => (int) $c['avg_video_views'],
-                'avg_live_uv' => (int) $c['avg_live_uv'],
-                'region' => $c['region'] ?: null,
-                'gender' => $c['gender'] ?: null,
-                'gender_pct' => $c['gender_pct'] ?: null,
-                'age_ranges' => $c['age_ranges'] ? implode(', ', array_map($ageLabel, $c['age_ranges'])) : null,
-            ];
-        }
-        KolTiktokProfile::updateOrCreate(['kol_id' => $kol->id], $snap);
+
+        $res = $this->svc->applyCreatorToKol($kol, $c);
 
         AuditService::log(action: 'save_tiktok_perf_to_kol', targetType: 'kol', targetId: $kol->id,
-            after: ['followers' => $followers, 'gmv' => $gmvSaved ? $gmvIdr : null, 'full' => (bool) $c]);
+            after: ['followers' => $c['followers'] ?? null, 'gmv' => $res['gmv_saved'] ? $res['gmv_idr'] : null, 'full' => (bool) $cached]);
 
         $parts = [];
-        if ($followers !== null) {
-            $parts[] = number_format((int) $followers, 0, ',', '.').' follower';
+        if (isset($c['followers'])) {
+            $parts[] = number_format((int) $c['followers'], 0, ',', '.').' follower';
         }
-        if ($gmvSaved) {
-            $parts[] = 'GMV Asli Rp'.number_format($gmvIdr, 0, ',', '.');
+        if ($res['gmv_saved']) {
+            $parts[] = 'GMV Asli Rp'.number_format($res['gmv_idr'], 0, ',', '.');
         }
-        $parts[] = $c ? 'profil lengkap (buka Detail KOL)' : 'data dasar';
+        $parts[] = $cached ? 'profil lengkap (buka Detail KOL)' : 'data dasar';
         $msg = "Data TikTok @{$norm} disimpan ke Database KOL (".implode(' · ', $parts).').';
-        if ($gmvIdr !== null && ! $gmvSaved) {
+        if (($res['gmv_idr'] ?? null) !== null && ! $res['gmv_saved']) {
             $msg .= ' Catatan: GMV Asli butuh screening dulu — data lain tetap tersimpan.';
         }
 
