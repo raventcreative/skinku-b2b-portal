@@ -279,6 +279,25 @@ class TikTokAffiliateTest extends TestCase
         $this->assertNotNull($tak->fresh()->tiktok_checked_at);
     }
 
+    public function test_marketplace_sync_keluar_cepat_saat_kuota_habis(): void
+    {
+        config(['services.tiktok_affiliate.app_key' => 'k', 'services.tiktok_affiliate.app_secret' => 's']);
+        TiktokAffiliateConnection::create([
+            'shop_id' => 'S1', 'shop_cipher' => 'CIPHER', 'access_token' => 'tok', 'refresh_token' => 'ref',
+            'access_expires_at' => now()->addDays(5), 'refresh_expires_at' => now()->addDays(30),
+        ]);
+        $kol = Kol::create(['tiktok_username' => 'dewick02', 'followers' => 0]);
+
+        // Panggilan pertama langsung kena rate limit → keluar cepat, tanpa nunggu.
+        Http::fake(['*marketplace_creators/search*' => Http::response(['code' => 36009002, 'message' => 'Too many requests'], 200)]);
+
+        $this->artisan('tiktok:marketplace-sync', ['--sleep' => 0])->assertSuccessful();
+
+        // Tak tersimpan & TAK ditandai (biar dicoba lagi nanti saat kuota pulih).
+        $this->assertNull($kol->fresh()->tiktokProfile);
+        $this->assertNull($kol->fresh()->tiktok_checked_at);
+    }
+
     /** End-to-end: respons API → parser → import → muncul di Tim Gapok. */
     public function test_sync_map_mengalir_ke_tim_gapok(): void
     {

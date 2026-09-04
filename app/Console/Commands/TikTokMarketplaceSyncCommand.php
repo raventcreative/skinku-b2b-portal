@@ -73,6 +73,14 @@ class TikTokMarketplaceSyncCommand extends Command
                     $creators = $svc->searchCreators($conn, (string) $kol->tiktok_username, 12);
                 } catch (\Throwable $e) {
                     $limited = str_contains($e->getMessage(), '36009002') || stripos($e->getMessage(), 'too many requests') !== false;
+                    // Kalau kena limit SEJAK panggilan pertama (belum ada yg tersimpan),
+                    // kuota memang lagi HABIS (blokir panjang, bukan jendela per-menit) →
+                    // keluar cepat, tak usah buang waktu nunggu cooldown percuma.
+                    if ($limited && $saved === 0 && $i === 0) {
+                        $this->warn('Kuota marketplace TikTok lagi HABIS (kena limit dari panggilan pertama). Ini BUKAN error — TikTok lagi membatasi karena kebanyakan permintaan. Tunggu beberapa jam / besok pagi, JANGAN diulang cepat-cepat (malah bikin makin lama diblokir).');
+
+                        return self::SUCCESS;
+                    }
                     if ($limited && $tries < $retries) {
                         $tries++;
                         $this->warn("  … rate limit — tunggu {$cooldown}s lalu coba lagi (#{$tries}/{$retries})…");
