@@ -20,7 +20,7 @@ class KolController extends Controller
 {
     public function index(Request $request, KolAffiliateService $aff)
     {
-        $filters = $request->only(['level', 'kategori', 'status', 'verdict', 'platform', 'role', 'q']);
+        $filters = $request->only(['level', 'kategori', 'status', 'verdict', 'platform', 'role', 'q', 'gapok']);
 
         // Arah & kolom sort divalidasi ke daftar putih — nilai ngawur jatuh ke default.
         $sortable = ['username', 'followers', 'level', 'kategori', 'status', 'agency',
@@ -37,6 +37,7 @@ class KolController extends Controller
             ->when($filters['status'] ?? null, fn ($qr, $v) => $qr->where('status', $v))
             ->when($filters['platform'] ?? null, fn ($qr, $v) => $qr->where('platform', $v))
             ->when($filters['role'] ?? null, fn ($qr, $v) => $qr->where('role', $v))
+            ->when(($filters['gapok'] ?? '') === '1', fn ($qr) => $qr->where('is_gapok', true))
             // Cari lintas-field: username, nama tampilan, manager, voucher.
             ->when($q !== '', fn ($qr) => $qr->where(fn ($w) => $w
                 ->where('tiktok_username', 'like', "%{$q}%")->orWhere('name', 'like', "%{$q}%")

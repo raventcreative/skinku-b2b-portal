@@ -65,6 +65,11 @@
             <option value="tanpa_harga" @selected(($filters['verdict'] ?? '') === 'tanpa_harga')>⚪ Belum ada ratecard</option>
             <option value="belum" @selected(($filters['verdict'] ?? '') === 'belum')>Belum discreening</option>
         </select>
+        {{-- Filter Tim Gapok: tampilkan cuma anggota gajian. --}}
+        <select name="gapok" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+            <option value="">Semua anggota</option>
+            <option value="1" @selected(($filters['gapok'] ?? '') === '1')>💰 Gapok saja</option>
+        </select>
         {{-- Sort aktif ikut dipertahankan saat ganti filter. --}}
         <input type="hidden" name="sort" value="{{ $sort }}">
         <input type="hidden" name="dir" value="{{ $dir }}">
