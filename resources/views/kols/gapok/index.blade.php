@@ -24,15 +24,32 @@
         <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ $errors->first() }}</div>
     @endif
 
-    {{-- Bulan --}}
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2 text-sm">
-            <a href="{{ route('kol-gapok.index', ['bulan' => $prevMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">←</a>
-            <span class="font-semibold text-stone-700">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}</span>
-            <a href="{{ route('kol-gapok.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
+    {{-- Filter periode: nav bulan + preset harian + rentang custom --}}
+    <div class="bg-white rounded-2xl border border-stone-200 p-3 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-1.5">
+                <a href="{{ route('kol-gapok.index', ['bulan' => $prevMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">←</a>
+                <a href="{{ route('kol-gapok.index', ['bulan' => \Illuminate\Support\Carbon::parse($from)->format('Y-m')]) }}"
+                   class="px-3 py-1 text-sm rounded-lg border font-semibold {{ $mode === 'month' ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-300 text-stone-600 hover:bg-stone-50' }}">{{ \Illuminate\Support\Carbon::parse($from)->translatedFormat('M Y') }}</a>
+                <a href="{{ route('kol-gapok.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
+                <span class="mx-1 text-stone-300">|</span>
+                @foreach(['today' => 'Hari ini', '7d' => '7 hari', '30d' => '30 hari'] as $key => $lbl)
+                    <a href="{{ route('kol-gapok.index', ['preset' => $key]) }}"
+                       class="px-3 py-1 text-sm rounded-lg border {{ $mode === $key ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-300 text-stone-600 hover:bg-stone-50' }}">{{ $lbl }}</a>
+                @endforeach
+            </div>
+            <a href="{{ route('kol-affiliate.index', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">📈 Semua affiliate</a>
         </div>
-        <a href="{{ route('kol-affiliate.index', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">📈 Semua affiliate</a>
+        <form method="GET" action="{{ route('kol-gapok.index') }}" class="flex flex-wrap items-center gap-2 text-sm">
+            <span class="text-stone-400 text-xs">Rentang custom:</span>
+            <input type="date" name="dari" value="{{ $mode === 'custom' ? $from : '' }}" class="px-2 py-1 border border-stone-300 rounded-lg text-sm">
+            <span class="text-stone-400">–</span>
+            <input type="date" name="sampai" value="{{ $mode === 'custom' ? $to : '' }}" class="px-2 py-1 border border-stone-300 rounded-lg text-sm">
+            <button class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg">Terapkan</button>
+        </form>
     </div>
+
+    <p class="text-xs text-stone-500">Performa periode: <strong class="text-stone-700">{{ $periodLabel }}</strong>. <span class="text-stone-400">Gaji &amp; ROI dihitung dari gaji bulanan (ROI = GMV periode ÷ gaji bulan).</span></p>
 
     {{-- Ringkasan tim --}}
     <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">

@@ -36,7 +36,14 @@ TIKTOK_AFFILIATE_SERVICE_ID=(ID app "Seller Analitik")</pre>
             <div class="flex flex-wrap items-center gap-2 mt-4">
                 <form method="POST" action="{{ route('tiktok-affiliate.sync') }}">
                     @csrf
-                    <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">⬇ Sync sekarang (7 hari)</button>
+                    <input type="hidden" name="days" value="7">
+                    <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">⬇ Sync 7 hari</button>
+                </form>
+                <form method="POST" action="{{ route('tiktok-affiliate.sync') }}"
+                      onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='⏳ Menarik 30 hari… (sebentar)';">
+                    @csrf
+                    <input type="hidden" name="days" value="30">
+                    <button class="px-4 py-2 border border-red-300 text-red-700 hover:bg-red-50 text-sm font-semibold rounded-xl">⬇ Sync 30 hari</button>
                 </form>
                 <form method="POST" action="{{ route('tiktok-affiliate.probe') }}">
                     @csrf

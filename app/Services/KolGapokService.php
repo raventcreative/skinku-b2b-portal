@@ -26,9 +26,20 @@ class KolGapokService
      */
     public function monthly(Carbon $month): Collection
     {
-        $start = $month->copy()->startOfMonth();
-        $end = $month->copy()->endOfMonth();
-        $period = $start->toDateString();
+        return $this->range($month->copy()->startOfMonth(), $month->copy()->endOfMonth(), $month);
+    }
+
+    /**
+     * Performa anggota gapok di rentang [from,to] (harian/custom). Gaji bersifat
+     * bulanan → diambil dari bulan $salaryMonth; ROI = GMV rentang ÷ gaji bulan.
+     *
+     * @return Collection<int,array{kol:Kol,gmv:int,orders:int,commission:int,gmv_live:int,gmv_video:int,salary:int,roi:?float}>
+     */
+    public function range(Carbon $from, Carbon $to, Carbon $salaryMonth): Collection
+    {
+        $start = $from->copy();
+        $end = $to->copy();
+        $period = $salaryMonth->copy()->startOfMonth()->toDateString();
 
         $gapok = Kol::gapok()->orderBy('tiktok_username')->get();
         if ($gapok->isEmpty()) {

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\KolAffiliateService;
 use App\Services\KolGapokService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -110,5 +111,25 @@ class KolGapokTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame(1_000_000, (int) $kol->gapokSalaries()->first()->monthly_salary);
+    }
+
+    public function test_range_menyaring_per_tanggal(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'rg', 'followers' => 10_000, 'is_gapok' => true]);
+        app(KolAffiliateService::class)->import([
+            ['order_id' => 'D1', 'username' => 'rg', 'gmv' => 100_000, 'order_date' => '2026-09-01'],
+            ['order_id' => 'D2', 'username' => 'rg', 'gmv' => 200_000, 'order_date' => '2026-09-10'],
+        ], 'tiktok', null);
+
+        $svc = app(KolGapokService::class);
+        $sal = Carbon::parse('2026-09-01');
+
+        // 1–5 Sep → hanya D1
+        $r = $svc->range(Carbon::parse('2026-09-01')->startOfDay(), Carbon::parse('2026-09-05')->endOfDay(), $sal);
+        $this->assertSame(100_000, $r->first()['gmv']);
+
+        // 1–15 Sep → dua-duanya
+        $r2 = $svc->range(Carbon::parse('2026-09-01')->startOfDay(), Carbon::parse('2026-09-15')->endOfDay(), $sal);
+        $this->assertSame(300_000, $r2->first()['gmv']);
     }
 }

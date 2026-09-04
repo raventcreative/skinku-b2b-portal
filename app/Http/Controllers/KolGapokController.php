@@ -18,15 +18,17 @@ class KolGapokController extends Controller
 {
     public function index(Request $request, KolGapokService $svc)
     {
-        $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
-            ? (string) $request->query('bulan') : now()->format('Y-m');
-        $m = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
-
-        $rows = $svc->monthly($m);
+        [$from, $to, $mode, $label] = $this->resolveRange($request);
+        $m = $from->copy()->startOfMonth();
+        $rows = $svc->range($from, $to, $from); // gaji dari bulan tanggal-mulai
         $canManage = $request->user()->canDo('kol.affiliate.manage');
 
         return view('kols.gapok.index', [
-            'month' => $month,
+            'month' => $from->format('Y-m'),
+            'mode' => $mode,                 // month | today | 7d | 30d | custom
+            'periodLabel' => $label,
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
             'rows' => $rows,
             'totals' => $svc->totals($rows),
             'canManage' => $canManage,
@@ -37,6 +39,45 @@ class KolGapokController extends Controller
             'prevMonth' => $m->copy()->subMonth()->format('Y-m'),
             'nextMonth' => $m->copy()->addMonth()->format('Y-m'),
         ]);
+    }
+
+    /**
+     * Rentang tanggal aktif dari query: ?dari&?sampai (custom), ?preset
+     * (today|7d|30d), atau ?bulan / default (bulan berjalan).
+     *
+     * @return array{0:Carbon,1:Carbon,2:string,3:string} [from, to, mode, label]
+     */
+    private function resolveRange(Request $request): array
+    {
+        $re = '/^\d{4}-\d{2}-\d{2}$/';
+        $dari = (string) $request->query('dari');
+        if (preg_match($re, $dari)) {
+            $from = Carbon::parse($dari)->startOfDay();
+            $sampai = (string) $request->query('sampai');
+            $to = (preg_match($re, $sampai) ? Carbon::parse($sampai) : $from->copy())->endOfDay();
+            if ($to->lt($from)) {
+                $to = $from->copy()->endOfDay();
+            }
+
+            return [$from, $to, 'custom', $from->translatedFormat('d M Y').' – '.$to->translatedFormat('d M Y')];
+        }
+
+        $preset = (string) $request->query('preset');
+        if ($preset === 'today') {
+            return [now()->startOfDay(), now()->endOfDay(), 'today', 'Hari ini'];
+        }
+        if ($preset === '7d') {
+            return [now()->subDays(6)->startOfDay(), now()->endOfDay(), '7d', '7 hari terakhir'];
+        }
+        if ($preset === '30d') {
+            return [now()->subDays(29)->startOfDay(), now()->endOfDay(), '30d', '30 hari terakhir'];
+        }
+
+        $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
+            ? (string) $request->query('bulan') : now()->format('Y-m');
+        $m = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+
+        return [$m->copy()->startOfMonth(), $m->copy()->endOfMonth(), 'month', $m->translatedFormat('F Y')];
     }
 
     /** Tandai atau lepas seorang KOL sebagai anggota Tim Gapok. */
