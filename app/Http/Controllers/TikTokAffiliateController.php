@@ -110,14 +110,18 @@ class TikTokAffiliateController extends Controller
         }
     }
 
-    /** Sync order affiliate 30 hari terakhir → pipeline Tim Gapok. */
+    /**
+     * Sync manual 7 hari terakhir → pipeline Tim Gapok. Sengaja pendek (bukan 30
+     * hari) supaya request web tak timeout saat volume order besar; rentang penuh
+     * 30 hari ditangani cron tiap 6 jam.
+     */
     public function syncNow(Request $request): RedirectResponse
     {
         $conn = TiktokAffiliateConnection::latest('id')->first();
         abort_unless($conn && $conn->shop_cipher, 400, 'Belum terhubung ke TikTok (app affiliate).');
 
         try {
-            $r = $this->svc->syncOrders($conn, now()->subDays(30), now(), $request->user()->id);
+            $r = $this->svc->syncOrders($conn, now()->subDays(7), now(), $request->user()->id);
 
             return back()->with('status', "Sync sukses: {$r['imported']} baris affiliate ({$r['matched']} cocok ke KOL, {$r['unmatched']} belum) dari {$r['pages']} halaman. Cek Tim Gapok.");
         } catch (\Throwable $e) {
