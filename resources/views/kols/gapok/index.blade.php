@@ -135,12 +135,10 @@
                 <form method="POST" action="{{ route('kol-gapok.toggle') }}" class="flex flex-wrap items-center gap-2">
                     @csrf
                     <input type="hidden" name="is_gapok" value="1">
-                    <input type="text" id="gapokSearch" placeholder="🔍 ketik nama / username…" autocomplete="off"
-                           class="px-3 py-2 border border-stone-300 rounded-xl text-sm w-56 focus:outline-none focus:ring-2 focus:ring-red-500">
-                    <select id="gapokSelect" name="kol_id" required class="px-3 py-2 border border-stone-300 rounded-xl text-sm min-w-[220px] focus:outline-none focus:ring-2 focus:ring-red-500">
-                        <option value="">— pilih kreator —</option>
+                    <select name="kol_id" required class="px-3 py-2 border border-stone-300 rounded-xl text-sm min-w-[260px] focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="">— pilih kreator (klik lalu ketik namanya) —</option>
                         @foreach($nonGapok as $k)
-                            <option value="{{ $k->id }}">{{ $k->name ? $k->name.' (@'.$k->tiktok_username.')' : '@'.$k->tiktok_username }}</option>
+                            <option value="{{ $k->id }}">{{ $k->tiktok_username }}{{ $k->name ? ' — '.$k->name : '' }}</option>
                         @endforeach
                     </select>
                     <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Tambahkan</button>
@@ -167,23 +165,6 @@
             this.value = raw ? Number(raw).toLocaleString('id-ID') : '';
         });
     });
-
-    // Cari anggota: ketik → saring opsi select (nama/username); auto-pilih bila unik.
-    var search = document.getElementById('gapokSearch');
-    var select = document.getElementById('gapokSelect');
-    if (search && select) {
-        search.addEventListener('input', function () {
-            var q = this.value.trim().toLowerCase();
-            var visible = [];
-            Array.prototype.forEach.call(select.options, function (o) {
-                if (o.value === '') { o.hidden = false; return; }
-                var match = !q || o.textContent.toLowerCase().indexOf(q) !== -1;
-                o.hidden = !match;
-                if (match) visible.push(o);
-            });
-            select.value = visible.length === 1 ? visible[0].value : '';
-        });
-    }
 })();
 </script>
 @endsection
