@@ -46,6 +46,19 @@ return [
         'authorize_base' => env('TIKTOK_AUTHORIZE_BASE', 'https://services.tiktokshop.com'),
     ],
 
+    // TikTok Shop Affiliate Seller API — app TERPISAH "Seller Analitik" (Seller
+    // inhouse developer). Scope seller.affiliate_collaboration.read + Live Data +
+    // TikTok Shop Analytics. Kredensial WAJIB di .env server (jangan commit);
+    // endpoint TikTok sama dengan app Shop, cuma beda app_key/secret + service_id.
+    'tiktok_affiliate' => [
+        'app_key' => env('TIKTOK_AFFILIATE_APP_KEY'),
+        'app_secret' => env('TIKTOK_AFFILIATE_APP_SECRET'),
+        'service_id' => env('TIKTOK_AFFILIATE_SERVICE_ID'),
+        'auth_base' => env('TIKTOK_AUTH_BASE', 'https://auth.tiktok-shops.com'),
+        'api_base' => env('TIKTOK_API_BASE', 'https://open-api.tiktokglobalshop.com'),
+        'authorize_base' => env('TIKTOK_AUTHORIZE_BASE', 'https://services.tiktokshop.com'),
+    ],
+
     // Shopee Open Platform (akun "Shopee Seller" — app untuk toko sendiri).
     // partner_key WAJIB diisi di .env server — jangan pernah commit.
     // Catatan: access_token Shopee hanya berlaku ~4 JAM (TikTok 7 hari), jadi

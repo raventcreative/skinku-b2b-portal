@@ -56,6 +56,7 @@ use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockReceiptController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TelegramWebhookController;
+use App\Http\Controllers\TikTokAffiliateController;
 use App\Http\Controllers\TikTokController;
 use App\Http\Controllers\TikTokIncomeController;
 use App\Http\Controllers\UserController;
@@ -531,6 +532,14 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/tiktok', [TikTokController::class, 'index'])->name('tiktok.index');
         Route::get('/tiktok/connect', [TikTokController::class, 'connect'])->name('tiktok.connect');
         Route::get('/tiktok/callback', [TikTokController::class, 'callback'])->name('tiktok.callback');
+
+        // Affiliate Seller API (app "Seller Analitik", Fase B) — data affiliate per kreator → Tim Gapok.
+        Route::get('/tiktok-affiliate', [TikTokAffiliateController::class, 'index'])->name('tiktok-affiliate.index');
+        Route::get('/tiktok-affiliate/connect', [TikTokAffiliateController::class, 'connect'])->name('tiktok-affiliate.connect');
+        Route::get('/tiktok-affiliate/callback', [TikTokAffiliateController::class, 'callback'])->name('tiktok-affiliate.callback');
+        Route::post('/tiktok-affiliate/probe', [TikTokAffiliateController::class, 'probe'])->name('tiktok-affiliate.probe');
+        Route::post('/tiktok-affiliate/disconnect', [TikTokAffiliateController::class, 'disconnect'])->name('tiktok-affiliate.disconnect');
+
         Route::post('/tiktok/sync-orders', [TikTokController::class, 'syncOrders'])->name('tiktok.sync-orders');
         Route::get('/tiktok/orders', [TikTokController::class, 'orderList'])->name('tiktok.orders');
         Route::get('/tiktok/stok', [TikTokController::class, 'stockFunnel'])->name('tiktok.stock');

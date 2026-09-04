@@ -23,10 +23,14 @@ class TikTokClient
 
     private string $appSecret;
 
-    public function __construct()
+    private string $configKey;
+
+    /** $configKey: blok config app — 'tiktok' (Shop) atau 'tiktok_affiliate' (Affiliate Seller). */
+    public function __construct(string $configKey = 'tiktok')
     {
-        $this->appKey = (string) config('services.tiktok.app_key');
-        $this->appSecret = (string) config('services.tiktok.app_secret');
+        $this->configKey = $configKey;
+        $this->appKey = (string) config("services.{$configKey}.app_key");
+        $this->appSecret = (string) config("services.{$configKey}.app_secret");
     }
 
     public function configured(): bool
@@ -37,8 +41,8 @@ class TikTokClient
     /** URL yang dibuka seller untuk memberi izin (redirect balik ke callback dgn ?code=). */
     public function authorizeUrl(): string
     {
-        return rtrim(config('services.tiktok.authorize_base'), '/')
-            .'/open/authorize?service_id='.urlencode((string) config('services.tiktok.service_id'));
+        return rtrim(config("services.{$this->configKey}.authorize_base"), '/')
+            .'/open/authorize?service_id='.urlencode((string) config("services.{$this->configKey}.service_id"));
     }
 
     /** Tukar auth_code jadi access/refresh token. */
@@ -67,6 +71,28 @@ class TikTokClient
     public function getShops(string $accessToken): array
     {
         return $this->request('GET', '/authorization/202309/shops', $accessToken)['shops'] ?? [];
+    }
+
+    /**
+     * Cari order affiliate seller (Affiliate Seller API) — order layak komisi affiliate
+     * di toko. Butuh scope seller.affiliate_collaboration.read + shop_cipher app affiliate.
+     * create_time_ge/lt = epoch UTC (maks rentang 3 bulan/permintaan; kosong = 3 bulan
+     * terakhir). Satu halaman; pagination via next_page_token di data respons.
+     *
+     * @return array data mentah TikTok (struktur field diverifikasi via tiktok:affiliate-probe)
+     */
+    public function searchSellerAffiliateOrders(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = '', ?int $createTimeGe = null, ?int $createTimeLt = null): array
+    {
+        $query = ['page_size' => $pageSize];
+        if ($pageToken !== '') {
+            $query['page_token'] = $pageToken;
+        }
+        $body = array_filter([
+            'create_time_ge' => $createTimeGe,
+            'create_time_lt' => $createTimeLt,
+        ], fn ($v) => $v !== null);
+
+        return $this->request('POST', '/affiliate_seller/202410/orders/search', $accessToken, $shopCipher, $query, $body);
     }
 
     /**
@@ -124,7 +150,7 @@ class TikTokClient
 
     private function authCall(string $path, array $query): array
     {
-        $res = Http::acceptJson()->get(rtrim(config('services.tiktok.auth_base'), '/').$path, $query);
+        $res = Http::acceptJson()->get(rtrim(config("services.{$this->configKey}.auth_base"), '/').$path, $query);
         $json = $res->json() ?? [];
         if (($json['code'] ?? -1) !== 0) {
             throw new RuntimeException('TikTok auth error: '.($json['message'] ?? $res->body()));
@@ -146,7 +172,7 @@ class TikTokClient
         $bodyString = $body === null ? '' : json_encode((object) $body);
         $query['sign'] = $this->sign($path, $query, $bodyString);
 
-        $url = rtrim(config('services.tiktok.api_base'), '/').$path;
+        $url = rtrim(config("services.{$this->configKey}.api_base"), '/').$path;
         $http = Http::withHeaders(['x-tts-access-token' => $accessToken])->acceptJson();
 
         $res = $method === 'GET'
