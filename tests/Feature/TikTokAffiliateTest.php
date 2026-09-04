@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Kol;
+use App\Models\KolScreening;
 use App\Models\User;
 use App\Services\KolAffiliateService;
 use App\Services\KolGapokService;
@@ -164,6 +165,30 @@ class TikTokAffiliateTest extends TestCase
         // kol_specialist → OK; tanpa ?q tak ada panggilan API, cuma render form + notis belum terhubung.
         $this->actingAs($this->user('kol_specialist', 'sp9'))->get(route('kol-cek-tiktok.index'))
             ->assertOk()->assertSee('Cek Performa TikTok')->assertSee('belum terhubung');
+    }
+
+    public function test_simpan_performa_tiktok_isi_follower_dan_gmv_asli(): void
+    {
+        config(['services.tiktok_affiliate.usd_idr_rate' => 16000]);
+        $kol = Kol::create(['tiktok_username' => 'nidaawafa', 'followers' => 0]);
+        KolScreening::create(['kol_id' => $kol->id, 'tanggal_listing' => '2026-09-01', 'ratecard' => 100_000, 'gmv' => null]);
+
+        $this->actingAs($this->user('kol_specialist', 'sp10'))
+            ->post(route('kol-cek-tiktok.save'), ['username' => 'nidaawafa', 'followers' => 620_000, 'gmv_usd' => 1000])
+            ->assertRedirect();
+
+        $kol->refresh();
+        $this->assertSame(620_000, $kol->followers);
+        $this->assertSame(16_000_000, (int) $kol->latestScreening()->first()->gmv); // 1000 USD × 16.000
+    }
+
+    public function test_simpan_performa_username_asing_tak_error(): void
+    {
+        // Username belum ada di database → redirect dgn pesan error, bukan 500.
+        $this->actingAs($this->user('kol_specialist', 'sp11'))
+            ->post(route('kol-cek-tiktok.save'), ['username' => 'belumada99', 'followers' => 100])
+            ->assertRedirect();
+        $this->assertDatabaseMissing('kols', ['tiktok_username' => 'belumada99']);
     }
 
     /** End-to-end: respons API → parser → import → muncul di Tim Gapok. */

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolUsernameAlias;
 use App\Models\TiktokAffiliateConnection;
+use App\Services\AuditService;
 use App\Services\TikTokAffiliateService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -51,6 +54,72 @@ class KolTiktokCheckController extends Controller
             }
         }
 
-        return view('kols.tiktok_check.index', compact('q', 'conn', 'creators', 'error', 'known', 'rate'));
+        return view('kols.tiktok_check.index', [
+            'q' => $q,
+            'conn' => $conn,
+            'creators' => $creators,
+            'error' => $error,
+            'known' => $known,
+            'rate' => $rate,
+            'canManage' => $request->user()->canDo('kol.affiliate.manage'),
+        ]);
+    }
+
+    /**
+     * Simpan performa TikTok kreator ke record Database KOL-nya: follower (kolom
+     * kols.followers) + GMV asli (screening terbaru → kolom "GMV Asli"). Angka
+     * dikirim dari kartu hasil (data server kita sendiri, bukan ketikan user).
+     * GMV USD dikonversi ke Rupiah pakai kurs config. Kreator harus SUDAH ada di
+     * database (dibuat lewat "Jadikan Gapok" dulu). Gate kol.affiliate.manage.
+     */
+    public function save(Request $request): RedirectResponse
+    {
+        $d = $request->validate([
+            'username' => ['required', 'string', 'max:150'],
+            'followers' => ['nullable', 'integer', 'min:0'],
+            'gmv_usd' => ['nullable', 'numeric', 'min:0'],
+            'open_id' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $norm = KolUsernameAlias::norm($d['username']);
+        $kol = Kol::whereRaw('LOWER(tiktok_username) = ?', [$norm])->first()
+            ?? Kol::find(KolUsernameAlias::where('username', $norm)->value('kol_id'));
+        if (! $kol) {
+            return back()->with('error', "@{$norm} belum ada di Database KOL — klik \"Jadikan Gapok\" dulu.");
+        }
+
+        if (isset($d['followers'])) {
+            $kol->update(['followers' => (int) $d['followers']]);
+        }
+
+        // GMV asli TikTok (USD→Rp) → screening terbaru. Butuh minimal 1 screening
+        // (kolom "GMV Asli" nempel di record screening).
+        $rate = (int) config('services.tiktok_affiliate.usd_idr_rate', 16000);
+        $gmvIdr = isset($d['gmv_usd']) ? (int) round(((float) $d['gmv_usd']) * $rate) : null;
+        $gmvSaved = false;
+        if ($gmvIdr !== null) {
+            $screening = $kol->latestScreening()->first();
+            if ($screening) {
+                $screening->update(['gmv' => $gmvIdr]);
+                $gmvSaved = true;
+            }
+        }
+
+        AuditService::log(action: 'save_tiktok_perf_to_kol', targetType: 'kol', targetId: $kol->id,
+            after: ['followers' => $d['followers'] ?? null, 'gmv' => $gmvSaved ? $gmvIdr : null]);
+
+        $parts = [];
+        if (isset($d['followers'])) {
+            $parts[] = number_format((int) $d['followers'], 0, ',', '.').' follower';
+        }
+        if ($gmvSaved) {
+            $parts[] = 'GMV Asli Rp'.number_format($gmvIdr, 0, ',', '.');
+        }
+        $msg = "Data TikTok @{$norm} disimpan ke Database KOL".($parts ? ' ('.implode(' · ', $parts).').' : '.');
+        if ($gmvIdr !== null && ! $gmvSaved) {
+            $msg .= ' Catatan: GMV Asli butuh screening dulu — follower tetap tersimpan.';
+        }
+
+        return back()->with('status', $msg);
     }
 }

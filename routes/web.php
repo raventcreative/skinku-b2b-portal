@@ -426,6 +426,8 @@ Route::middleware(['auth', 'role'])->group(function () {
                 Route::post('/kol-gapok/toggle', [KolGapokController::class, 'toggle'])->name('kol-gapok.toggle');
                 Route::post('/kol-gapok/add-username', [KolGapokController::class, 'addByUsername'])->name('kol-gapok.add-username');
                 Route::post('/kol-gapok/salary', [KolGapokController::class, 'saveSalary'])->name('kol-gapok.salary');
+                // Simpan performa TikTok (follower + GMV asli) ke record Database KOL.
+                Route::post('/kol-cek-tiktok/simpan', [KolTiktokCheckController::class, 'save'])->name('kol-cek-tiktok.save');
             });
         });
 

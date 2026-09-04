@@ -141,6 +141,37 @@
                     @if($demoStr)
                         <p class="text-[11px] text-stone-500 border-t border-stone-100 pt-2">{{ $demoStr }}</p>
                     @endif
+
+                    {{-- Aksi: rekrut ke gapok + simpan performa ke Database KOL --}}
+                    @if($canManage && $c['username'])
+                        <div class="flex flex-wrap gap-2 pt-2 border-t border-stone-100 mt-auto">
+                            @if($k)
+                                <form method="POST" action="{{ route('kol-cek-tiktok.save') }}" class="flex-1 min-w-[8rem]">
+                                    @csrf
+                                    <input type="hidden" name="username" value="{{ $c['username'] }}">
+                                    <input type="hidden" name="open_id" value="{{ $c['open_id'] }}">
+                                    <input type="hidden" name="followers" value="{{ $c['followers'] }}">
+                                    @if($c['gmv_usd'] !== null)<input type="hidden" name="gmv_usd" value="{{ $c['gmv_usd'] }}">@endif
+                                    <button type="submit" class="w-full text-xs font-semibold rounded-lg border border-stone-300 text-stone-700 px-3 py-1.5 hover:bg-stone-50"
+                                        title="Simpan follower + GMV asli TikTok ke record KOL ini">💾 Simpan ke Database</button>
+                                </form>
+                                @unless($k->is_gapok)
+                                    <form method="POST" action="{{ route('kol-gapok.add-username') }}">
+                                        @csrf
+                                        <input type="hidden" name="username" value="{{ $c['username'] }}">
+                                        <button type="submit" class="text-xs font-semibold rounded-lg bg-emerald-600 text-white px-3 py-1.5 hover:bg-emerald-700 whitespace-nowrap">+ Gapok</button>
+                                    </form>
+                                @endunless
+                            @else
+                                <form method="POST" action="{{ route('kol-gapok.add-username') }}" class="flex-1">
+                                    @csrf
+                                    <input type="hidden" name="username" value="{{ $c['username'] }}">
+                                    <button type="submit" class="w-full text-xs font-semibold rounded-lg bg-emerald-600 text-white px-3 py-1.5 hover:bg-emerald-700"
+                                        title="Buat KOL baru (peran affiliate) + tandai Tim Gapok">+ Jadikan Gapok</button>
+                                </form>
+                            @endif
+                        </div>
+                    @endif
                 </div>
             @empty
                 <div class="col-span-full bg-white rounded-2xl border border-stone-200 px-4 py-10 text-center text-stone-400 text-sm">
