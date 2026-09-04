@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolUsernameAlias;
 use App\Services\AuditService;
+use App\Services\KolAffiliateService;
 use App\Services\KolGapokService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -94,6 +96,37 @@ class KolGapokController extends Controller
             after: ['is_gapok' => (bool) $d['is_gapok']]);
 
         return back()->with('status', $d['is_gapok'] ? 'Anggota gapok ditambahkan.' : 'Dikeluarkan dari Tim Gapok.');
+    }
+
+    /**
+     * Tambah anggota gapok cukup dengan username — bikin KOL baru (peran affiliate)
+     * kalau belum ada, lalu tandai gapok + tautkan transaksi affiliate lama yang
+     * username-nya cocok (biar angkanya langsung muncul kalau memang sudah jualan).
+     */
+    public function addByUsername(Request $request, KolAffiliateService $aff): RedirectResponse
+    {
+        $d = $request->validate(['username' => ['required', 'string', 'max:150']]);
+        $norm = KolUsernameAlias::norm($d['username']);
+        if ($norm === '') {
+            return back()->withErrors(['username' => 'Username kosong.']);
+        }
+
+        $kol = Kol::whereRaw('LOWER(tiktok_username) = ?', [$norm])->first()
+            ?? Kol::find(KolUsernameAlias::where('username', $norm)->value('kol_id'));
+
+        $baru = $kol === null;
+        if ($baru) {
+            $kol = Kol::create(['tiktok_username' => $norm, 'role' => 'affiliate', 'followers' => 0, 'is_gapok' => true]);
+        } else {
+            $kol->update(['is_gapok' => true]);
+        }
+        $aff->matchUsername($norm, $kol->id, $request->user()->id);
+
+        AuditService::log(action: 'add_gapok_by_username', targetType: 'kol', targetId: $kol->id, after: ['username' => $norm, 'baru' => $baru]);
+
+        return back()->with('status', $baru
+            ? "@{$norm} dibuat & ditandai gapok — isi gajinya di baris tabel."
+            : "@{$norm} ditandai gapok.");
     }
 
     /** Simpan gaji pokok satu anggota untuk bulan terpilih (AJAX → JSON). */

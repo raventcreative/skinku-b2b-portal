@@ -113,6 +113,23 @@ class KolGapokTest extends TestCase
         $this->assertSame(1_000_000, (int) $kol->gapokSalaries()->first()->monthly_salary);
     }
 
+    public function test_add_by_username_bikin_kol_baru_lalu_tandai(): void
+    {
+        $spec = $this->user('kol_specialist', 'spu');
+
+        // Username baru (belum jadi KOL) → dibuatin + ditandai gapok.
+        $this->actingAs($spec)->post(route('kol-gapok.add-username'), ['username' => '@dianci22'])->assertRedirect();
+        $baru = Kol::whereRaw('LOWER(tiktok_username) = ?', ['dianci22'])->first();
+        $this->assertNotNull($baru);
+        $this->assertTrue($baru->is_gapok);
+        $this->assertSame('affiliate', $baru->role);
+
+        // Username yang sudah jadi KOL → cukup ditandai gapok.
+        $ada = Kol::create(['tiktok_username' => 'sudahada', 'followers' => 100]);
+        $this->actingAs($spec)->post(route('kol-gapok.add-username'), ['username' => 'sudahada'])->assertRedirect();
+        $this->assertTrue($ada->fresh()->is_gapok);
+    }
+
     public function test_save_salary_ajax_balikin_json(): void
     {
         $kol = Kol::create(['tiktok_username' => 'gajax', 'followers' => 5_000, 'is_gapok' => true]);

@@ -144,22 +144,37 @@
 
     {{-- Tambah anggota --}}
     @if($canManage)
-        <div class="bg-white rounded-2xl border border-stone-200 p-4">
-            <p class="text-sm font-semibold text-stone-700 mb-2">+ Tambah anggota gapok</p>
-            @if($nonGapok->isEmpty())
-                <p class="text-xs text-stone-400">Semua KOL sudah jadi anggota gapok. Kreator baru? Tambahkan dulu lewat <a href="{{ route('kol-affiliate.index') }}" class="text-red-600 hover:underline">Affiliate &amp; GMV</a> atau Database KOL.</p>
-            @else
-                <form method="POST" action="{{ route('kol-gapok.toggle') }}" class="flex flex-wrap items-center gap-2">
-                    @csrf
-                    <input type="hidden" name="is_gapok" value="1">
-                    <select name="kol_id" required class="px-3 py-2 border border-stone-300 rounded-xl text-sm min-w-[260px] focus:outline-none focus:ring-2 focus:ring-red-500">
-                        <option value="">— pilih kreator (klik lalu ketik namanya) —</option>
-                        @foreach($nonGapok as $k)
-                            <option value="{{ $k->id }}">{{ $k->tiktok_username }}{{ $k->name ? ' — '.$k->name : '' }}</option>
-                        @endforeach
-                    </select>
-                    <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Tambahkan</button>
-                </form>
+        <div class="bg-white rounded-2xl border border-stone-200 p-4 space-y-3">
+            <p class="text-sm font-semibold text-stone-700">+ Tambah anggota gapok</p>
+
+            {{-- Cara tercepat: ketik username (dibuatin kalau belum ada di KOL) --}}
+            <form method="POST" action="{{ route('kol-gapok.add-username') }}" class="flex flex-wrap items-center gap-2">
+                @csrf
+                <span class="text-stone-500 text-sm">Ketik username:</span>
+                <div class="flex items-center">
+                    <span class="px-2 py-2 border border-r-0 border-stone-300 rounded-l-xl text-stone-400 text-sm bg-stone-50">@</span>
+                    <input type="text" name="username" required placeholder="mis. dianci22" autocomplete="off"
+                           class="px-3 py-2 border border-stone-300 rounded-r-xl text-sm w-52 focus:outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Tambahkan</button>
+            </form>
+            <p class="text-xs text-stone-400">Kalau username-nya belum ada di Database KOL, <strong>otomatis dibuatin</strong> (peran affiliate). Angkanya keisi sendiri begitu dia mulai jualan &amp; ke-sync — pas buat gapok baru yang masih 0. 👍</p>
+
+            @if($nonGapok->isNotEmpty())
+                <div class="pt-2 border-t border-stone-100">
+                    <form method="POST" action="{{ route('kol-gapok.toggle') }}" class="flex flex-wrap items-center gap-2">
+                        @csrf
+                        <input type="hidden" name="is_gapok" value="1">
+                        <span class="text-stone-500 text-sm">atau pilih dari KOL yang ada:</span>
+                        <select name="kol_id" required class="px-3 py-2 border border-stone-300 rounded-xl text-sm min-w-[240px] focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <option value="">— pilih kreator (klik lalu ketik) —</option>
+                            @foreach($nonGapok as $k)
+                                <option value="{{ $k->id }}">{{ $k->tiktok_username }}{{ $k->name ? ' — '.$k->name : '' }}</option>
+                            @endforeach
+                        </select>
+                        <button class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">Tambahkan</button>
+                    </form>
+                </div>
             @endif
         </div>
     @endif

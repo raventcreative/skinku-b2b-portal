@@ -418,6 +418,7 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::get('/kol-gapok', [KolGapokController::class, 'index'])->name('kol-gapok.index');
             Route::middleware('permission:kol.affiliate.manage')->group(function () {
                 Route::post('/kol-gapok/toggle', [KolGapokController::class, 'toggle'])->name('kol-gapok.toggle');
+                Route::post('/kol-gapok/add-username', [KolGapokController::class, 'addByUsername'])->name('kol-gapok.add-username');
                 Route::post('/kol-gapok/salary', [KolGapokController::class, 'saveSalary'])->name('kol-gapok.salary');
             });
         });
