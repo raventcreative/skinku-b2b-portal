@@ -71,10 +71,12 @@ Schedule::command('tiktok:affiliate-sync')->everySixHours()->withoutOverlapping(
 // banyak halaman Analytics). Bulan berjalan.
 Schedule::command('tiktok:affiliate-content-sync')->dailyAt('04:00')->withoutOverlapping(60);
 
-// Profil Creator Marketplace (follower/GMV/demografi) ke Database KOL — batch kecil
-// sekali sehari biar tak boros rate limit BERSAMA. Bertahap ngisi/nyegerin semua KOL;
-// untuk isi awal cepat, jalankan manual: php artisan tiktok:marketplace-sync.
-Schedule::command('tiktok:marketplace-sync --limit=25')->dailyAt('05:00')->withoutOverlapping(120);
+// Profil Creator Marketplace (follower/GMV/demografi) ke Database KOL. Kuota HARIAN
+// endpoint ini besar (10.000/hari) — pembatas sebenarnya cuma burst limit BERSAMA
+// jangka-pendek (36009002). Jadi: TRICKLE — batch kecil tiap 15 menit, jeda lebar,
+// biar selalu di bawah burst limit & nyicil semua KOL hands-off dalam ~sehari. Kalau
+// pas kena burst, command keluar cepat & siklus berikutnya lanjut sendiri (self-heal).
+Schedule::command('tiktok:marketplace-sync --limit=5 --sleep=12')->everyFifteenMinutes()->withoutOverlapping(20);
 
 /*
  * Pekerja antrean OKR (generate draf di background). Numpang cron scheduler yang
