@@ -32,7 +32,7 @@ class KolController extends Controller
 
         $q = trim((string) ($filters['q'] ?? ''));
         $kols = Kol::query()
-            ->with('latestScreening')
+            ->with(['latestScreening', 'tiktokProfile'])
             ->when($filters['kategori'] ?? null, fn ($qr, $v) => $qr->where('kategori', $v))
             ->when($filters['status'] ?? null, fn ($qr, $v) => $qr->where('status', $v))
             ->when($filters['platform'] ?? null, fn ($qr, $v) => $qr->where('platform', $v))

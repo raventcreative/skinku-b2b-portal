@@ -165,6 +165,7 @@
                 <th rowspan="2" class="text-left align-bottom">{!! $sortLink('kategori', 'Kategori') !!}</th>
                 <th rowspan="2" class="text-left align-bottom">{!! $sortLink('status', 'Status') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Agency / Non-Agency">{!! $sortLink('agency', 'Agency') !!}</th>
+                <th rowspan="2" class="text-left align-bottom" title="Demografi audiens TikTok (gender mayoritas + umur dominan) — dari Cek Performa TikTok. Kosong = belum disimpan.">Demografi</th>
                 {{-- SEMUA kolom angka bisa diurutkan, seperti Excel. Yang belum
                      discreening selalu tenggelam ke bawah apa pun arahnya. --}}
                 <th rowspan="2" class="text-right align-bottom" title="Harga kerjasama yang diminta (screening terakhir)">{!! $sortLink('ratecard', 'Ratecard') !!}</th>
@@ -211,6 +212,17 @@
                     <td class="text-stone-600">{{ $kol->kategori ?: '—' }}</td>
                     <td class="text-stone-600">{{ $kol->status }}</td>
                     <td class="text-stone-600">{{ $kol->agency ?: '—' }}</td>
+                    <td class="text-[11px] text-stone-500">
+                        @php
+                            $tpp = $kol->tiktokProfile;
+                            $demo = null;
+                            if ($tpp && ($tpp->gender || $tpp->age_ranges)) {
+                                $g = $tpp->gender === 'FEMALE' ? '♀ P' : ($tpp->gender === 'MALE' ? '♂ L' : '');
+                                $demo = trim(($g ? $g.($tpp->gender_pct ? ' '.$tpp->gender_pct.'%' : '') : '').($tpp->age_ranges ? ' · '.$tpp->age_ranges : ''), ' ·');
+                            }
+                        @endphp
+                        @if($demo)<span title="Demografi audiens TikTok · {{ $tpp->region }}">{{ $demo }}</span>@else<span class="text-stone-300">—</span>@endif
+                    </td>
                     @php $ls = $kol->latestScreening; @endphp
                     @if($ls)
                         <td class="text-right text-stone-700">{{ $ls->ratecard !== null ? $rp($ls->ratecard) : '—' }}</td>
@@ -251,7 +263,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="30" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="31" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>

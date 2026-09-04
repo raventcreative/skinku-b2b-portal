@@ -214,6 +214,20 @@ class TikTokAffiliateTest extends TestCase
         $this->assertSame(5_342_130, $kol->fresh()->followers); // kols.followers ikut ter-update
     }
 
+    public function test_database_kol_nampilin_kolom_demografi(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'demokol', 'followers' => 500_000]);
+        KolTiktokProfile::create([
+            'kol_id' => $kol->id, 'followers' => 500_000, 'gender' => 'FEMALE', 'gender_pct' => 50.4,
+            'age_ranges' => '18–24, 25–34', 'region' => 'ID',
+        ]);
+
+        $html = $this->actingAs($this->user('kol_specialist', 'sp13'))->get(route('kols.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('Demografi', $html);   // header kolom
+        $this->assertStringContainsString('♀ P 50.4%', $html);   // isi sel demografi
+        $this->assertStringContainsString('18–24, 25–34', $html);
+    }
+
     public function test_simpan_performa_username_asing_tak_error(): void
     {
         // Username belum ada di database → redirect dgn pesan error, bukan 500.
