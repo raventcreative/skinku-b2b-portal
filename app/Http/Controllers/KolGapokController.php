@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolCreatorContent;
 use App\Models\KolUsernameAlias;
 use App\Services\AuditService;
 use App\Services\KolAffiliateService;
@@ -96,6 +97,25 @@ class KolGapokController extends Controller
             after: ['is_gapok' => (bool) $d['is_gapok']]);
 
         return back()->with('status', $d['is_gapok'] ? 'Anggota gapok ditambahkan.' : 'Dikeluarkan dari Tim Gapok.');
+    }
+
+    /** Detail konten (video/LIVE) satu kreator untuk satu bulan — daftar + link. */
+    public function contents(Request $request, Kol $kol)
+    {
+        $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
+            ? (string) $request->query('bulan') : now()->format('Y-m');
+        $period = Carbon::createFromFormat('Y-m', $month)->startOfMonth()->toDateString();
+
+        $items = KolCreatorContent::where('kol_id', $kol->id)->where('period', $period)
+            ->orderByDesc('gmv')->get();
+
+        return view('kols.gapok.contents', [
+            'kol' => $kol,
+            'month' => $month,
+            'videos' => $items->where('type', 'video')->values(),
+            'lives' => $items->where('type', 'live')->values(),
+            'focus' => in_array($request->query('type'), ['video', 'live'], true) ? (string) $request->query('type') : 'video',
+        ]);
     }
 
     /**

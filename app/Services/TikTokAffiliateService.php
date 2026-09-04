@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Kol;
+use App\Models\KolCreatorContent;
 use App\Models\KolCreatorContentStat;
 use App\Models\KolUsernameAlias;
 use App\Models\TiktokAffiliateConnection;
@@ -69,38 +70,52 @@ class TikTokAffiliateService
         $end = $month->copy()->endOfMonth()->addDay()->toDateString(); // end_date_lt eksklusif
         $period = $month->copy()->startOfMonth()->toDateString();
 
-        $videos = $this->tally(fn ($pt) => $this->client->getShopVideoPerformance($access, $cipher, $start, $end, 100, $pt), 'videos', $maxPages);
-        $lives = $this->tally(fn ($pt) => $this->client->getShopLivePerformance($access, $cipher, $start, $end, 100, $pt), 'live_stream_sessions', $maxPages);
+        $videos = $this->collect(fn ($pt) => $this->client->getShopVideoPerformance($access, $cipher, $start, $end, 100, $pt), 'videos', 'video', $maxPages);
+        $lives = $this->collect(fn ($pt) => $this->client->getShopLivePerformance($access, $cipher, $start, $end, 100, $pt), 'live_stream_sessions', 'live', $maxPages);
 
         $usernames = array_unique(array_merge(array_keys($videos), array_keys($lives)));
-        $stored = 0;
+        $stored = $vTotal = $lTotal = 0;
         foreach ($usernames as $u) {
             $kolId = Kol::whereRaw('LOWER(tiktok_username) = ?', [$u])->value('id')
                 ?? KolUsernameAlias::where('username', $u)->value('kol_id');
             if (! $kolId) {
                 continue; // bukan KOL → tak disimpan
             }
+            $vids = $videos[$u] ?? [];
+            $lvs = $lives[$u] ?? [];
+            $vTotal += count($vids);
+            $lTotal += count($lvs);
+
             KolCreatorContentStat::updateOrCreate(
                 ['kol_id' => $kolId, 'period' => $period],
-                ['videos' => $videos[$u] ?? 0, 'lives' => $lives[$u] ?? 0],
+                ['videos' => count($vids), 'lives' => count($lvs)],
             );
+
+            // Snapshot detail: ganti isi bulan ini utk kreator ini.
+            KolCreatorContent::where('kol_id', $kolId)->where('period', $period)->delete();
+            $rows = [];
+            foreach (array_merge($vids, $lvs) as $it) {
+                $rows[] = $it + ['kol_id' => $kolId, 'period' => $period, 'created_at' => now(), 'updated_at' => now()];
+            }
+            if ($rows !== []) {
+                KolCreatorContent::insert($rows);
+            }
             $stored++;
         }
         $conn->update(['last_synced_at' => now()]);
 
-        return ['videos' => array_sum($videos), 'lives' => array_sum($lives), 'creators' => $stored];
+        return ['videos' => $vTotal, 'lives' => $lTotal, 'creators' => $stored];
     }
 
     /**
-     * Page-through list API, hitung item per username (lowercase). $fetch($pageToken)
-     * kembalikan `data` respons; $listKey = kunci array item. Berhenti bila token
-     * habis / berulang (jaga dari loop tak maju) / kena cap halaman.
+     * Page-through list API → kumpulkan item ternormalisasi per username (lowercase).
+     * Berhenti saat token habis / berulang (loop tak maju) / kena cap halaman.
      *
-     * @return array<string,int> username => jumlah
+     * @return array<string,array<int,array<string,mixed>>> username => item[]
      */
-    private function tally(callable $fetch, string $listKey, int $maxPages): array
+    private function collect(callable $fetch, string $listKey, string $type, int $maxPages): array
     {
-        $counts = [];
+        $byUser = [];
         $pt = '';
         $seen = [];
         for ($page = 0; $page < $maxPages; $page++) {
@@ -108,7 +123,7 @@ class TikTokAffiliateService
             foreach (($data[$listKey] ?? []) as $item) {
                 $u = mb_strtolower(trim((string) ($item['username'] ?? data_get($item, 'creator.user_name', ''))));
                 if ($u !== '') {
-                    $counts[$u] = ($counts[$u] ?? 0) + 1;
+                    $byUser[$u][] = $this->normalizeContent($item, $type);
                 }
             }
             $pt = (string) ($data['next_page_token'] ?? '');
@@ -118,7 +133,35 @@ class TikTokAffiliateService
             $seen[$pt] = true;
         }
 
-        return $counts;
+        return $byUser;
+    }
+
+    /** Item API video/LIVE → baris kol_creator_contents (tanpa kol_id/period). */
+    private function normalizeContent(array $item, string $type): array
+    {
+        if ($type === 'video') {
+            return [
+                'type' => 'video',
+                'content_id' => (string) ($item['id'] ?? ''),
+                'title' => mb_substr((string) ($item['title'] ?? ''), 0, 255),
+                'views' => (int) ($item['views'] ?? 0),
+                'gmv' => (int) round((float) data_get($item, 'gmv.amount', 0)),
+                'items_sold' => (int) ($item['items_sold'] ?? 0),
+                'sku_orders' => (int) ($item['sku_orders'] ?? 0),
+                'occurred_at' => $item['video_post_time'] ?? null,
+            ];
+        }
+
+        return [
+            'type' => 'live',
+            'content_id' => (string) ($item['id'] ?? ''),
+            'title' => mb_substr((string) ($item['title'] ?? ''), 0, 255),
+            'views' => null,
+            'gmv' => (int) round((float) data_get($item, 'sales_performance.gmv.amount', 0)),
+            'items_sold' => (int) data_get($item, 'sales_performance.items_sold', 0),
+            'sku_orders' => (int) data_get($item, 'sales_performance.sku_orders', 0),
+            'occurred_at' => isset($item['start_time']) ? Carbon::createFromTimestamp((int) $item['start_time'])->toDateTimeString() : null,
+        ];
     }
 
     /**

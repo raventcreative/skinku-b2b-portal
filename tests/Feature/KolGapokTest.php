@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Kol;
+use App\Models\KolCreatorContent;
 use App\Models\KolCreatorContentStat;
 use App\Models\User;
 use App\Services\KolAffiliateService;
@@ -157,6 +158,20 @@ class KolGapokTest extends TestCase
         $totals = app(KolGapokService::class)->totals($rows);
         $this->assertSame(12, $totals['videos']);
         $this->assertSame(3, $totals['lives']);
+    }
+
+    public function test_halaman_detail_konten_video_dan_live(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'kn', 'followers' => 10_000, 'is_gapok' => true]);
+        $period = now()->startOfMonth()->toDateString();
+        KolCreatorContent::create(['kol_id' => $kol->id, 'period' => $period, 'type' => 'video',
+            'content_id' => '123', 'title' => 'Video Uji Coba', 'views' => 1000, 'gmv' => 500_000, 'sku_orders' => 10]);
+        KolCreatorContent::create(['kol_id' => $kol->id, 'period' => $period, 'type' => 'live',
+            'content_id' => '456', 'title' => 'LIVE Malam', 'gmv' => 200_000, 'sku_orders' => 5, 'items_sold' => 7]);
+
+        $this->actingAs($this->user('kol_specialist', 'spk'))
+            ->get(route('kol-gapok.contents', ['kol' => $kol->id, 'bulan' => now()->format('Y-m')]))
+            ->assertOk()->assertSee('Video Uji Coba')->assertSee('LIVE Malam');
     }
 
     public function test_range_menyaring_per_tanggal(): void

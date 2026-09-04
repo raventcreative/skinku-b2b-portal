@@ -416,6 +416,7 @@ Route::middleware(['auth', 'role'])->group(function () {
 
             // Tim Affiliate Gapok — performa affiliate gajian + gaji per bulan + ROI.
             Route::get('/kol-gapok', [KolGapokController::class, 'index'])->name('kol-gapok.index');
+            Route::get('/kol-gapok/{kol}/konten', [KolGapokController::class, 'contents'])->name('kol-gapok.contents');
             Route::middleware('permission:kol.affiliate.manage')->group(function () {
                 Route::post('/kol-gapok/toggle', [KolGapokController::class, 'toggle'])->name('kol-gapok.toggle');
                 Route::post('/kol-gapok/add-username', [KolGapokController::class, 'addByUsername'])->name('kol-gapok.add-username');

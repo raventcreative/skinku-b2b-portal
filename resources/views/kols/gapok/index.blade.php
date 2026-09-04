@@ -95,8 +95,16 @@
                             </td>
                             <td class="px-4 py-3 text-right text-stone-700">{{ number_format($r['orders'], 0, ',', '.') }}</td>
                             <td class="px-4 py-3 text-right text-stone-700">{{ $rp($r['commission']) }}</td>
-                            <td class="px-4 py-3 text-right text-stone-700">{{ $r['videos'] ? number_format($r['videos'], 0, ',', '.') : '—' }}</td>
-                            <td class="px-4 py-3 text-right text-stone-700">{{ $r['lives'] ? number_format($r['lives'], 0, ',', '.') : '—' }}</td>
+                            <td class="px-4 py-3 text-right">
+                                @if($r['videos'])
+                                    <a href="{{ route('kol-gapok.contents', ['kol' => $r['kol']->id, 'bulan' => $month, 'type' => 'video']) }}" class="text-red-600 hover:underline font-semibold" title="Lihat daftar video">{{ number_format($r['videos'], 0, ',', '.') }}</a>
+                                @else <span class="text-stone-400">—</span> @endif
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                @if($r['lives'])
+                                    <a href="{{ route('kol-gapok.contents', ['kol' => $r['kol']->id, 'bulan' => $month, 'type' => 'live']) }}" class="text-red-600 hover:underline font-semibold" title="Lihat daftar LIVE">{{ number_format($r['lives'], 0, ',', '.') }}</a>
+                                @else <span class="text-stone-400">—</span> @endif
+                            </td>
                             <td class="px-4 py-3 text-right">
                                 @if($canManage)
                                     <form method="POST" action="{{ route('kol-gapok.salary') }}" class="salary-form flex items-center justify-end gap-1">
