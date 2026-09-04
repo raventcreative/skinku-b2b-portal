@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
+use App\Models\KolTiktokProfile;
 use App\Models\KolUsernameAlias;
 use App\Models\TiktokAffiliateConnection;
 use App\Services\AuditService;
@@ -76,16 +77,22 @@ class KolTiktokCheckController extends Controller
     }
 
     /**
-     * Simpan performa TikTok kreator ke record Database KOL-nya: follower (kolom
-     * kols.followers) + GMV asli (screening terbaru → kolom "GMV Asli"). Angka
-     * dikirim dari kartu hasil (data server kita sendiri, bukan ketikan user).
-     * GMV USD dikonversi ke Rupiah pakai kurs config. Kreator harus SUDAH ada di
-     * database (dibuat lewat "Jadikan Gapok" dulu). Gate kol.affiliate.manage.
+     * Simpan performa TikTok kreator ke record Database KOL-nya:
+     *  - follower → kols.followers (dipakai juga buat Level)
+     *  - GMV asli → screening terbaru (kolom "GMV Asli")
+     *  - SNAPSHOT LENGKAP (GMV split video/LIVE, rata-rata views, demografi, dst)
+     *    → tabel kol_tiktok_profiles (tampil di halaman Detail KOL)
+     *
+     * Data lengkap diambil dari CACHE hasil pencarian (data server kita sendiri,
+     * di-key keyword `q`) — bukan nembak TikTok lagi & bukan ketikan user. Kalau
+     * cache habis (>10 mnt), jatuh ke nilai dasar yang diposkan kartu (follower +
+     * GMV), demografi di-skip. Kreator harus SUDAH ada di DB. Gate kol.affiliate.manage.
      */
     public function save(Request $request): RedirectResponse
     {
         $d = $request->validate([
             'username' => ['required', 'string', 'max:150'],
+            'q' => ['nullable', 'string', 'max:150'],
             'followers' => ['nullable', 'integer', 'min:0'],
             'gmv_usd' => ['nullable', 'numeric', 'min:0'],
             'open_id' => ['nullable', 'string', 'max:120'],
@@ -98,38 +105,98 @@ class KolTiktokCheckController extends Controller
             return back()->with('error', "@{$norm} belum ada di Database KOL — klik \"Jadikan Gapok\" dulu.");
         }
 
-        if (isset($d['followers'])) {
-            $kol->update(['followers' => (int) $d['followers']]);
+        // Data lengkap dari cache pencarian (kalau masih ada) → snapshot penuh.
+        $c = $this->cachedCreator((string) ($d['q'] ?? ''), (string) ($d['open_id'] ?? ''), $norm);
+
+        $rate = (int) config('services.tiktok_affiliate.usd_idr_rate', 16000);
+        $followers = $c['followers'] ?? ($d['followers'] ?? null);
+        $gmvUsd = $c['gmv_usd'] ?? (isset($d['gmv_usd']) ? (float) $d['gmv_usd'] : null);
+        $idr = fn (?float $usd) => $usd === null ? null : (int) round($usd * $rate);
+
+        if ($followers !== null) {
+            $kol->update(['followers' => (int) $followers]);
         }
 
-        // GMV asli TikTok (USD→Rp) → screening terbaru. Butuh minimal 1 screening
-        // (kolom "GMV Asli" nempel di record screening).
-        $rate = (int) config('services.tiktok_affiliate.usd_idr_rate', 16000);
-        $gmvIdr = isset($d['gmv_usd']) ? (int) round(((float) $d['gmv_usd']) * $rate) : null;
+        // GMV asli TikTok → screening terbaru (kolom "GMV Asli" nempel di screening).
+        $gmvIdr = $idr($gmvUsd);
         $gmvSaved = false;
-        if ($gmvIdr !== null) {
-            $screening = $kol->latestScreening()->first();
-            if ($screening) {
-                $screening->update(['gmv' => $gmvIdr]);
-                $gmvSaved = true;
-            }
+        if ($gmvIdr !== null && ($screening = $kol->latestScreening()->first())) {
+            $screening->update(['gmv' => $gmvIdr]);
+            $gmvSaved = true;
         }
+
+        // Snapshot penuh → kol_tiktok_profiles (updateOrCreate: field yg tak diketahui
+        // saat cache habis TIDAK ikut dikirim → nilai lama tak kehapus).
+        $snap = array_filter([
+            'open_id' => $c['open_id'] ?? ($d['open_id'] ?? null),
+            'followers' => $followers !== null ? (int) $followers : null,
+            'gmv_usd' => $gmvUsd,
+            'gmv_idr' => $gmvIdr,
+            'usd_idr_rate' => $rate,
+            'synced_at' => now(),
+        ], fn ($v) => $v !== null);
+        if ($c) {
+            $ageLabel = fn ($a) => str_replace(['AGE_RANGE_', '_'], ['', '–'], (string) $a);
+            $snap += [
+                'gmv_range' => $c['gmv_range'] ?: null,
+                'video_gmv_idr' => $idr($c['video_gmv_usd']),
+                'live_gmv_idr' => $idr($c['live_gmv_usd']),
+                'avg_video_views' => (int) $c['avg_video_views'],
+                'avg_live_uv' => (int) $c['avg_live_uv'],
+                'region' => $c['region'] ?: null,
+                'gender' => $c['gender'] ?: null,
+                'gender_pct' => $c['gender_pct'] ?: null,
+                'age_ranges' => $c['age_ranges'] ? implode(', ', array_map($ageLabel, $c['age_ranges'])) : null,
+            ];
+        }
+        KolTiktokProfile::updateOrCreate(['kol_id' => $kol->id], $snap);
 
         AuditService::log(action: 'save_tiktok_perf_to_kol', targetType: 'kol', targetId: $kol->id,
-            after: ['followers' => $d['followers'] ?? null, 'gmv' => $gmvSaved ? $gmvIdr : null]);
+            after: ['followers' => $followers, 'gmv' => $gmvSaved ? $gmvIdr : null, 'full' => (bool) $c]);
 
         $parts = [];
-        if (isset($d['followers'])) {
-            $parts[] = number_format((int) $d['followers'], 0, ',', '.').' follower';
+        if ($followers !== null) {
+            $parts[] = number_format((int) $followers, 0, ',', '.').' follower';
         }
         if ($gmvSaved) {
             $parts[] = 'GMV Asli Rp'.number_format($gmvIdr, 0, ',', '.');
         }
-        $msg = "Data TikTok @{$norm} disimpan ke Database KOL".($parts ? ' ('.implode(' · ', $parts).').' : '.');
+        $parts[] = $c ? 'profil lengkap (buka Detail KOL)' : 'data dasar';
+        $msg = "Data TikTok @{$norm} disimpan ke Database KOL (".implode(' · ', $parts).').';
         if ($gmvIdr !== null && ! $gmvSaved) {
-            $msg .= ' Catatan: GMV Asli butuh screening dulu — follower tetap tersimpan.';
+            $msg .= ' Catatan: GMV Asli butuh screening dulu — data lain tetap tersimpan.';
         }
 
         return back()->with('status', $msg);
+    }
+
+    /**
+     * Ambil satu kreator (ternormalisasi) dari cache hasil pencarian keyword $q,
+     * dicocokkan by open_id (utama) atau username. null bila cache habis/tak cocok.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function cachedCreator(string $q, string $openId, string $norm): ?array
+    {
+        if ($q === '') {
+            return null;
+        }
+        $cached = Cache::get('tt_mkt:'.md5(mb_strtolower($q)));
+        if (! is_array($cached)) {
+            return null;
+        }
+
+        foreach ($cached as $x) {
+            if ($openId !== '' && (string) ($x['open_id'] ?? '') === $openId) {
+                return $x;
+            }
+        }
+        foreach ($cached as $x) {
+            if (mb_strtolower((string) ($x['username'] ?? '')) === $norm) {
+                return $x;
+            }
+        }
+
+        return null;
     }
 }

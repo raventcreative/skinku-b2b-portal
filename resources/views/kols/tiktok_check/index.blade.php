@@ -154,6 +154,7 @@
                                 <form method="POST" action="{{ route('kol-cek-tiktok.save') }}" class="flex-1 min-w-[8rem]">
                                     @csrf
                                     <input type="hidden" name="username" value="{{ $c['username'] }}">
+                                    <input type="hidden" name="q" value="{{ $q }}">
                                     <input type="hidden" name="open_id" value="{{ $c['open_id'] }}">
                                     <input type="hidden" name="followers" value="{{ $c['followers'] }}">
                                     @if($c['gmv_usd'] !== null)<input type="hidden" name="gmv_usd" value="{{ $c['gmv_usd'] }}">@endif

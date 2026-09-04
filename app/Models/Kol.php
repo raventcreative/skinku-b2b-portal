@@ -183,4 +183,10 @@ class Kol extends Model
     {
         return $q->where('is_gapok', true);
     }
+
+    /** Snapshot performa TikTok Creator Marketplace (dari "Cek Performa TikTok"). */
+    public function tiktokProfile()
+    {
+        return $this->hasOne(KolTiktokProfile::class);
+    }
 }

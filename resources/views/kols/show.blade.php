@@ -124,6 +124,57 @@
     @endif
 </div>
 
+{{-- Snapshot performa TikTok (Creator Marketplace) — diisi dari "Cek Performa TikTok". --}}
+@if($canAffiliate && $kol->tiktokProfile)
+    @php $tp = $kol->tiktokProfile; $genderLabel = ['FEMALE' => 'Perempuan', 'MALE' => 'Laki-laki']; @endphp
+    <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-5">
+        <div class="flex items-center justify-between gap-2 mb-3">
+            <p class="text-sm font-bold text-stone-800">📊 Performa TikTok <span class="text-xs font-normal text-stone-400">(Creator Marketplace)</span></p>
+            <a href="{{ route('kol-cek-tiktok.index', ['q' => $kol->tiktok_username]) }}" class="text-[11px] text-red-600 hover:underline whitespace-nowrap">Perbarui →</a>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="bg-stone-50 rounded-xl px-3 py-2.5 sm:col-span-2">
+                <p class="text-[10px] uppercase tracking-wide text-stone-400 font-semibold">GMV 30 hari</p>
+                <p class="text-lg font-bold text-stone-800 leading-tight">{{ $tp->gmv_idr !== null ? '≈ '.$rp($tp->gmv_idr) : ($tp->gmv_range ?: '—') }}</p>
+                <p class="text-[11px] text-stone-400">
+                    @if($tp->gmv_usd !== null)${{ number_format($tp->gmv_usd, 0, '.', ',') }}@endif
+                    @if($tp->gmv_range) · {{ $tp->gmv_range }}@endif
+                </p>
+                @if($tp->video_gmv_idr !== null || $tp->live_gmv_idr !== null)
+                    <p class="text-[11px] text-stone-500 mt-1">
+                        @if($tp->video_gmv_idr !== null)🎬 {{ $rp($tp->video_gmv_idr) }}@endif
+                        @if($tp->live_gmv_idr !== null) · 🔴 {{ $rp($tp->live_gmv_idr) }}@endif
+                    </p>
+                @endif
+            </div>
+            <div class="bg-stone-50 rounded-xl px-3 py-2.5 text-center flex flex-col justify-center">
+                <p class="text-base font-bold text-stone-800">{{ number_format($tp->followers, 0, ',', '.') }}</p>
+                <p class="text-[10px] text-stone-400">follower</p>
+            </div>
+            <div class="bg-stone-50 rounded-xl px-3 py-2.5 grid grid-cols-2 gap-2 text-center items-center">
+                <div>
+                    <p class="text-base font-bold text-stone-800">{{ $tp->avg_video_views ? number_format($tp->avg_video_views, 0, ',', '.') : '—' }}</p>
+                    <p class="text-[10px] text-stone-400">views video</p>
+                </div>
+                <div>
+                    <p class="text-base font-bold text-stone-800">{{ $tp->avg_live_uv ? number_format($tp->avg_live_uv, 0, ',', '.') : '—' }}</p>
+                    <p class="text-[10px] text-stone-400">penonton LIVE</p>
+                </div>
+            </div>
+        </div>
+        @php
+            $demo = [];
+            if ($tp->region) { $demo[] = $tp->region; }
+            if ($tp->gender) { $demo[] = 'mayoritas '.($genderLabel[$tp->gender] ?? strtolower($tp->gender)).($tp->gender_pct ? ' '.$tp->gender_pct.'%' : ''); }
+            if ($tp->age_ranges) { $demo[] = $tp->age_ranges.' th'; }
+        @endphp
+        @if($demo)
+            <p class="text-xs text-stone-500 mt-3">👥 {{ implode(' · ', $demo) }}</p>
+        @endif
+        <p class="text-[11px] text-stone-400 mt-2">Snapshot Creator Marketplace{{ $tp->synced_at ? ' · disimpan '.$tp->synced_at->translatedFormat('d M Y H:i') : '' }} · Rupiah estimasi (kurs Rp{{ number_format($tp->usd_idr_rate ?: 16000, 0, ',', '.') }}).</p>
+    </div>
+@endif
+
 {{-- Akun platform (multi-akun additive) + Rate card per tipe konten --}}
 <div class="grid lg:grid-cols-2 gap-5 mb-5">
     <div class="bg-white rounded-2xl border border-stone-200 p-5">

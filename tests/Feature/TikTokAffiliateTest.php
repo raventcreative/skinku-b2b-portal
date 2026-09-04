@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\Kol;
 use App\Models\KolScreening;
+use App\Models\KolTiktokProfile;
 use App\Models\User;
 use App\Services\KolAffiliateService;
 use App\Services\KolGapokService;
 use App\Services\TikTokAffiliateService;
 use App\Services\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -180,6 +182,36 @@ class TikTokAffiliateTest extends TestCase
         $kol->refresh();
         $this->assertSame(620_000, $kol->followers);
         $this->assertSame(16_000_000, (int) $kol->latestScreening()->first()->gmv); // 1000 USD × 16.000
+    }
+
+    public function test_simpan_snapshot_lengkap_dari_cache(): void
+    {
+        config(['services.tiktok_affiliate.usd_idr_rate' => 16000]);
+        $kol = Kol::create(['tiktok_username' => 'dewick02', 'followers' => 0]);
+
+        // Seed cache seolah kartu baru dicari (bentuk = hasil mapMarketplaceCreator).
+        Cache::put('tt_mkt:'.md5('dewick02'), [[
+            'open_id' => 'OPEN123', 'username' => 'dewick02', 'nickname' => 'D E W I C K', 'avatar' => '',
+            'followers' => 5_342_130, 'gmv_usd' => 1000.0, 'gmv_range' => 'Rp1JT+',
+            'video_gmv_usd' => 800.0, 'live_gmv_usd' => 200.0,
+            'avg_video_views' => 10_980, 'avg_live_uv' => 4075, 'region' => 'ID',
+            'gender' => 'FEMALE', 'gender_pct' => 46.9, 'age_ranges' => ['AGE_RANGE_25_34', 'AGE_RANGE_18_24'],
+        ]], now()->addMinutes(10));
+
+        $this->actingAs($this->user('kol_specialist', 'sp12'))
+            ->post(route('kol-cek-tiktok.save'), ['username' => 'dewick02', 'q' => 'dewick02', 'open_id' => 'OPEN123'])
+            ->assertRedirect();
+
+        $tp = KolTiktokProfile::where('kol_id', $kol->id)->first();
+        $this->assertNotNull($tp);
+        $this->assertSame(5_342_130, $tp->followers);
+        $this->assertSame(16_000_000, $tp->gmv_idr);        // 1000 USD × 16.000
+        $this->assertSame(12_800_000, $tp->video_gmv_idr);  // 800 × 16.000
+        $this->assertSame(3_200_000, $tp->live_gmv_idr);    // 200 × 16.000
+        $this->assertSame(10_980, $tp->avg_video_views);
+        $this->assertSame('FEMALE', $tp->gender);
+        $this->assertSame('25–34, 18–24', $tp->age_ranges);
+        $this->assertSame(5_342_130, $kol->fresh()->followers); // kols.followers ikut ter-update
     }
 
     public function test_simpan_performa_username_asing_tak_error(): void
