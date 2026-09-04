@@ -134,9 +134,20 @@
             @if($aff && $aff['top']->isNotEmpty())
                 <div class="divide-y divide-stone-100">
                     @foreach($aff['top'] as $t)
-                        <div class="flex items-center justify-between py-2">
-                            <a href="{{ route('kols.show', $t['kol']->id) }}" class="text-sm text-indigo-600 hover:underline">{{ '@'.$t['kol']->tiktok_username }}</a>
-                            <div class="flex items-center gap-2">
+                        @php
+                            $tpp = $t['kol']->tiktokProfile;
+                            $demoShort = null;
+                            if ($tpp && ($tpp->gender || $tpp->age_ranges)) {
+                                $g = $tpp->gender === 'FEMALE' ? '♀ P' : ($tpp->gender === 'MALE' ? '♂ L' : '');
+                                $demoShort = trim(($g ? $g.($tpp->gender_pct ? ' '.$tpp->gender_pct.'%' : '') : '').($tpp->age_ranges ? ' · '.$tpp->age_ranges.' th' : ''), ' ·');
+                            }
+                        @endphp
+                        <div class="flex items-center justify-between py-2 gap-2">
+                            <div class="min-w-0">
+                                <a href="{{ route('kols.show', $t['kol']->id) }}" class="text-sm text-indigo-600 hover:underline">{{ '@'.$t['kol']->tiktok_username }}</a>
+                                @if($demoShort)<span class="block text-[10px] text-stone-400 truncate" title="Demografi audiens TikTok">👥 {{ $demoShort }}</span>@endif
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
                                 <span class="text-sm text-stone-700">{{ $rp($t['gmv']) }}</span>
                                 @if($t['aps']['status'] === 'scored')
                                     @php $tone = ['bina_intensif' => 'bg-emerald-100 text-emerald-700', 'pantau' => 'bg-amber-100 text-amber-700', 'nurture' => 'bg-stone-100 text-stone-500'][$t['aps']['label']]; @endphp

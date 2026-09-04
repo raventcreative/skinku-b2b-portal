@@ -162,16 +162,29 @@
                 </div>
             </div>
         </div>
-        @php
-            $demo = [];
-            if ($tp->region) { $demo[] = $tp->region; }
-            if ($tp->gender) { $demo[] = 'mayoritas '.($genderLabel[$tp->gender] ?? strtolower($tp->gender)).($tp->gender_pct ? ' '.$tp->gender_pct.'%' : ''); }
-            if ($tp->age_ranges) { $demo[] = $tp->age_ranges.' th'; }
-        @endphp
-        @if($demo)
-            <p class="text-xs text-stone-500 mt-3">👥 {{ implode(' · ', $demo) }}</p>
+        @if($tp->region || $tp->gender || $tp->age_ranges)
+            <div class="mt-4 border-t border-stone-100 pt-3">
+                <p class="text-xs uppercase tracking-wide text-stone-400 font-semibold mb-2">👥 Demografi Audiens</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="bg-indigo-50/60 rounded-xl px-4 py-3">
+                        <p class="text-[11px] text-stone-400">Region</p>
+                        <p class="text-base font-bold text-stone-800">{{ $tp->region ?: '—' }}</p>
+                    </div>
+                    <div class="bg-indigo-50/60 rounded-xl px-4 py-3">
+                        <p class="text-[11px] text-stone-400">Gender mayoritas</p>
+                        <p class="text-base font-bold text-stone-800">
+                            {{ $tp->gender ? ($genderLabel[$tp->gender] ?? ucfirst(strtolower($tp->gender))) : '—' }}
+                            @if($tp->gender_pct)<span class="text-sm font-semibold text-indigo-600">{{ $tp->gender_pct }}%</span>@endif
+                        </p>
+                    </div>
+                    <div class="bg-indigo-50/60 rounded-xl px-4 py-3">
+                        <p class="text-[11px] text-stone-400">Kelompok umur dominan</p>
+                        <p class="text-base font-bold text-stone-800">{{ $tp->age_ranges ? $tp->age_ranges.' th' : '—' }}</p>
+                    </div>
+                </div>
+            </div>
         @endif
-        <p class="text-[11px] text-stone-400 mt-2">Snapshot Creator Marketplace{{ $tp->synced_at ? ' · disimpan '.$tp->synced_at->translatedFormat('d M Y H:i') : '' }} · Rupiah estimasi (kurs Rp{{ number_format($tp->usd_idr_rate ?: 16000, 0, ',', '.') }}).</p>
+        <p class="text-[11px] text-stone-400 mt-3">Snapshot Creator Marketplace{{ $tp->synced_at ? ' · disimpan '.$tp->synced_at->translatedFormat('d M Y H:i') : '' }} · Rupiah estimasi (kurs Rp{{ number_format($tp->usd_idr_rate ?: 16000, 0, ',', '.') }}).</p>
     </div>
 @endif
 

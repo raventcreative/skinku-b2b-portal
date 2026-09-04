@@ -63,7 +63,7 @@ class KolDashboardController extends Controller
         if ($u->canDo('kol.affiliate.view')) {
             $ranking = $aff->monthly($m);
             $top = $ranking->take(5)->map(fn ($r) => [
-                'kol' => $r->kol,
+                'kol' => $r->kol->loadMissing('tiktokProfile'), // demografi TikTok (bila sudah disimpan)
                 'gmv' => (int) $r->gmv,
                 'aps' => $scoring->aps($aff->apsInput((int) $r->kol_id, $m)),
             ]);

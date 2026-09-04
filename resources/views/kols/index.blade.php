@@ -129,9 +129,20 @@
     Kalau keduanya beda jauh, artinya ada video yang meledak sendiri — percayai yang <b>Median ⭐</b>.
 </p>
 
+<style>
+    #kolTable .v7col { display: none; }
+    #kolTable.show-v7 .v7col { display: table-cell; }
+</style>
+<div class="flex items-center gap-2 mb-2">
+    <button type="button" onclick="toggleV7()" class="text-[11px] px-3 py-1.5 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50 whitespace-nowrap">
+        <span id="v7label">▸ Tampilkan 7 kolom views</span>
+    </button>
+    <span class="text-[11px] text-stone-400">Ringkas: Total · Rata-rata · Median tetap tampil. Klik buat lihat rincian 7 video terakhir.</span>
+</div>
+
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
     <div class="overflow-x-auto">
-    <table class="w-full text-xs whitespace-nowrap">
+    <table id="kolTable" class="w-full text-xs whitespace-nowrap">
         @php
             // Header = tautan sort. Klik pertama asc, klik lagi balik arah;
             // filter aktif ikut terbawa. Panah menandai kolom yang sedang dipakai.
@@ -157,7 +168,7 @@
                 {{-- SEMUA kolom angka bisa diurutkan, seperti Excel. Yang belum
                      discreening selalu tenggelam ke bawah apa pun arahnya. --}}
                 <th rowspan="2" class="text-right align-bottom" title="Harga kerjasama yang diminta (screening terakhir)">{!! $sortLink('ratecard', 'Ratecard') !!}</th>
-                <th colspan="7" class="text-center py-1.5 border-b border-stone-200">Views 7 Video Terakhir</th>
+                <th colspan="7" class="text-center py-1.5 border-b border-stone-200 v7col">Views 7 Video Terakhir</th>
                 <th rowspan="2" class="text-right align-bottom">{!! $sortLink('total', 'Total') !!}</th>
                 <th rowspan="2" class="text-right align-bottom" title="Rata-rata views per video">{!! $sortLink('avg', 'Rata-rata') !!}</th>
                 <th rowspan="2" class="text-right align-bottom" title="Views tengah (median) — nilai yang paling wajar, tahan dari 1 video viral">{!! $sortLink('median', 'Median') !!}</th>
@@ -176,7 +187,7 @@
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
             </tr>
             <tr>
-                @for($i = 1; $i <= 7; $i++)<th class="text-right px-2 py-1">{{ $i }}</th>@endfor
+                @for($i = 1; $i <= 7; $i++)<th class="text-right px-2 py-1 v7col">{{ $i }}</th>@endfor
             </tr>
         </thead>
         <tbody>
@@ -203,9 +214,9 @@
                     @php $ls = $kol->latestScreening; @endphp
                     @if($ls)
                         <td class="text-right text-stone-700">{{ $ls->ratecard !== null ? $rp($ls->ratecard) : '—' }}</td>
-                        {{-- Satu kolom per video, rata kanan — rapi seperti Excel. --}}
+                        {{-- Satu kolom per video, rata kanan — rapi seperti Excel. Bisa disembunyikan (v7col). --}}
                         @foreach($ls->views() as $v)
-                            <td class="text-right px-2 text-stone-600">{{ number_format($v, 0, ',', '.') }}</td>
+                            <td class="text-right px-2 text-stone-600 v7col">{{ number_format($v, 0, ',', '.') }}</td>
                         @endforeach
                         <td class="text-right text-stone-500">{{ number_format($ls->total_views, 0, ',', '.') }}</td>
                         <td class="text-right text-stone-500">{{ number_format($ls->rata_views, 0, ',', '.') }}</td>
@@ -303,6 +314,27 @@
         if (combo) combo.addEventListener('combo:select', function (e) {
             if (e.detail.value) window.location = '{{ url('/kols') }}/' + e.detail.value;
         });
+    })();
+
+    // Sembunyikan/tampilkan 7 kolom "views video terakhir" (default sembunyi,
+    // preferensi diingat per-browser). Total/Rata-rata/Median tetap tampil.
+    function toggleV7() {
+        var t = document.getElementById('kolTable');
+        if (!t) return;
+        var on = t.classList.toggle('show-v7');
+        try { localStorage.setItem('kol_show_v7', on ? '1' : '0'); } catch (e) {}
+        var lbl = document.getElementById('v7label');
+        if (lbl) lbl.textContent = on ? '▾ Sembunyikan 7 kolom views' : '▸ Tampilkan 7 kolom views';
+    }
+    (function () {
+        var show = false;
+        try { show = localStorage.getItem('kol_show_v7') === '1'; } catch (e) {}
+        if (show) {
+            var t = document.getElementById('kolTable');
+            if (t) t.classList.add('show-v7');
+            var lbl = document.getElementById('v7label');
+            if (lbl) lbl.textContent = '▾ Sembunyikan 7 kolom views';
+        }
     })();
 </script>
 @endsection
