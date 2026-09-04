@@ -70,6 +70,8 @@
                         <th class="px-4 py-3 text-right">GMV</th>
                         <th class="px-4 py-3 text-right">Order</th>
                         <th class="px-4 py-3 text-right">Komisi</th>
+                        <th class="px-4 py-3 text-right">Video</th>
+                        <th class="px-4 py-3 text-right">LIVE</th>
                         <th class="px-4 py-3 text-right">Gaji pokok</th>
                         <th class="px-4 py-3 text-right">ROI</th>
                         @if($canManage)<th class="px-4 py-3"></th>@endif
@@ -93,6 +95,8 @@
                             </td>
                             <td class="px-4 py-3 text-right text-stone-700">{{ number_format($r['orders'], 0, ',', '.') }}</td>
                             <td class="px-4 py-3 text-right text-stone-700">{{ $rp($r['commission']) }}</td>
+                            <td class="px-4 py-3 text-right text-stone-700">{{ $r['videos'] ? number_format($r['videos'], 0, ',', '.') : '—' }}</td>
+                            <td class="px-4 py-3 text-right text-stone-700">{{ $r['lives'] ? number_format($r['lives'], 0, ',', '.') : '—' }}</td>
                             <td class="px-4 py-3 text-right">
                                 @if($canManage)
                                     <form method="POST" action="{{ route('kol-gapok.salary') }}" class="salary-form flex items-center justify-end gap-1">
@@ -125,7 +129,7 @@
                             @endif
                         </tr>
                     @empty
-                        <tr><td colspan="{{ $canManage ? 7 : 6 }}" class="px-4 py-10 text-center text-stone-400 text-sm">Belum ada anggota Tim Gapok.@if($canManage) Tambah dari form di bawah.@endif</td></tr>
+                        <tr><td colspan="{{ $canManage ? 9 : 8 }}" class="px-4 py-10 text-center text-stone-400 text-sm">Belum ada anggota Tim Gapok.@if($canManage) Tambah dari form di bawah.@endif</td></tr>
                     @endforelse
                 </tbody>
                 @if($rows->isNotEmpty())
@@ -135,6 +139,8 @@
                             <td class="px-4 py-3 text-right">{{ $rp($totals['gmv']) }}</td>
                             <td class="px-4 py-3 text-right">{{ number_format($totals['orders'], 0, ',', '.') }}</td>
                             <td class="px-4 py-3 text-right">{{ $rp($totals['commission']) }}</td>
+                            <td class="px-4 py-3 text-right">{{ number_format($totals['videos'], 0, ',', '.') }}</td>
+                            <td class="px-4 py-3 text-right">{{ number_format($totals['lives'], 0, ',', '.') }}</td>
                             <td class="px-4 py-3 text-right" id="totSalary">{{ $rp($totals['salary']) }}</td>
                             <td class="px-4 py-3 text-right" id="totRoi">{{ $roiFmt($teamRoi) }}</td>
                             @if($canManage)<td></td>@endif
@@ -184,7 +190,8 @@
 
     <p class="text-xs text-stone-400 leading-relaxed">
         Angka performa (GMV/order/komisi) diambil dari data affiliate yang sama dengan halaman <strong>Affiliate &amp; GMV</strong> —
-        otomatis dari TikTok API setelah tersambung, atau dari import manual. <strong>Gaji &amp; ROI</strong> khusus Tim Gapok.
+        otomatis dari TikTok API setelah tersambung, atau dari import manual. <strong>Video &amp; LIVE</strong> = jumlah konten
+        per kreator dari TikTok Analytics (sync harian, per bulan). <strong>Gaji &amp; ROI</strong> khusus Tim Gapok.
         ROI = GMV ÷ gaji (🟢 ≥3× sehat · 🟡 1–3× · 🔴 &lt;1× gaji lebih besar dari hasil).
     </p>
 </div>

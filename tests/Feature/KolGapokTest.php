@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Kol;
+use App\Models\KolCreatorContentStat;
 use App\Models\User;
 use App\Services\KolAffiliateService;
 use App\Services\KolGapokService;
@@ -139,6 +140,23 @@ class KolGapokTest extends TestCase
             ->assertOk()->assertJson(['ok' => true, 'salary' => 2_000_000]);
 
         $this->assertSame(2_000_000, (int) $kol->gapokSalaries()->first()->monthly_salary);
+    }
+
+    public function test_video_live_count_muncul_di_gapok(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'vc', 'followers' => 10_000, 'is_gapok' => true]);
+        KolCreatorContentStat::create([
+            'kol_id' => $kol->id, 'period' => now()->startOfMonth()->toDateString(), 'videos' => 12, 'lives' => 3,
+        ]);
+
+        $rows = app(KolGapokService::class)->monthly(now());
+        $r = $rows->first();
+        $this->assertSame(12, $r['videos']);
+        $this->assertSame(3, $r['lives']);
+
+        $totals = app(KolGapokService::class)->totals($rows);
+        $this->assertSame(12, $totals['videos']);
+        $this->assertSame(3, $totals['lives']);
     }
 
     public function test_range_menyaring_per_tanggal(): void

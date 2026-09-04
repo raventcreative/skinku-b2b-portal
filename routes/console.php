@@ -67,6 +67,10 @@ Schedule::command('tiktok:sync --full')->dailyAt('03:30')->withoutOverlapping(30
 // berubah tiap menit; cukup beberapa kali sehari. Lewati sendiri bila belum connect.
 Schedule::command('tiktok:affiliate-sync')->everySixHours()->withoutOverlapping(30);
 
+// Jumlah video & LIVE per kreator (Tim Gapok) — sekali sehari (berat: page-through
+// banyak halaman Analytics). Bulan berjalan.
+Schedule::command('tiktok:affiliate-content-sync')->dailyAt('04:00')->withoutOverlapping(60);
+
 /*
  * Pekerja antrean OKR (generate draf di background). Numpang cron scheduler yang
  * sudah ada — tanpa worker permanen. Tiap menit: proses job yang ada lalu berhenti

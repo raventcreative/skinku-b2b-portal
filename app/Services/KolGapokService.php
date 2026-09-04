@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
+use App\Models\KolCreatorContentStat;
 use App\Models\KolGapokSalary;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -63,12 +64,17 @@ class KolGapokService
         $salaries = KolGapokSalary::where('period', $period)
             ->whereIn('kol_id', $ids)->get()->keyBy('kol_id');
 
-        return $gapok->map(function ($kol) use ($agg, $byType, $salaries) {
+        // Jumlah video & LIVE per kreator (bulan $period) dari Analytics API.
+        $content = KolCreatorContentStat::where('period', $period)
+            ->whereIn('kol_id', $ids)->get()->keyBy('kol_id');
+
+        return $gapok->map(function ($kol) use ($agg, $byType, $salaries, $content) {
             $a = $agg[$kol->id] ?? null;
             $gmv = (int) ($a->gmv ?? 0);
             $salary = (int) ($salaries[$kol->id]->monthly_salary ?? 0);
             $types = $byType[$kol->id] ?? collect();
             $gmvOf = fn (string $t) => (int) (optional($types->firstWhere('ct', $t))->gmv ?? 0);
+            $c = $content[$kol->id] ?? null;
 
             return [
                 'kol' => $kol,
@@ -77,6 +83,8 @@ class KolGapokService
                 'commission' => (int) ($a->commission ?? 0),
                 'gmv_live' => $gmvOf('live'),
                 'gmv_video' => $gmvOf('video'),
+                'videos' => (int) ($c->videos ?? 0),
+                'lives' => (int) ($c->lives ?? 0),
                 'salary' => $salary,
                 'roi' => $salary > 0 ? round($gmv / $salary, 1) : null,
             ];
@@ -90,6 +98,8 @@ class KolGapokService
             'gmv' => (int) $rows->sum('gmv'),
             'orders' => (int) $rows->sum('orders'),
             'commission' => (int) $rows->sum('commission'),
+            'videos' => (int) $rows->sum('videos'),
+            'lives' => (int) $rows->sum('lives'),
             'salary' => (int) $rows->sum('salary'),
             'members' => $rows->count(),
         ];

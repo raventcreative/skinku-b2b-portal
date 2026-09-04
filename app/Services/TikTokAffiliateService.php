@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Kol;
+use App\Models\KolCreatorContentStat;
+use App\Models\KolUsernameAlias;
 use App\Models\TiktokAffiliateConnection;
 use Illuminate\Support\Carbon;
 
@@ -49,6 +52,73 @@ class TikTokAffiliateService
         $conn->update(['last_synced_at' => now()]);
 
         return $res + ['pages' => $pages];
+    }
+
+    /**
+     * Sync jumlah video & LIVE per kreator (bulan tsb) dari Analytics API →
+     * kol_creator_content_stats. Page-through semua (di-cap), tally per username,
+     * simpan untuk kreator yang cocok ke KOL. Berat → dipakai cron, bukan tombol web.
+     *
+     * @return array{videos:int,lives:int,creators:int}
+     */
+    public function syncContentStats(TiktokAffiliateConnection $conn, Carbon $month, int $maxPages = 60): array
+    {
+        $access = $this->freshToken($conn);
+        $cipher = (string) $conn->shop_cipher;
+        $start = $month->copy()->startOfMonth()->toDateString();
+        $end = $month->copy()->endOfMonth()->addDay()->toDateString(); // end_date_lt eksklusif
+        $period = $month->copy()->startOfMonth()->toDateString();
+
+        $videos = $this->tally(fn ($pt) => $this->client->getShopVideoPerformance($access, $cipher, $start, $end, 100, $pt), 'videos', $maxPages);
+        $lives = $this->tally(fn ($pt) => $this->client->getShopLivePerformance($access, $cipher, $start, $end, 100, $pt), 'live_stream_sessions', $maxPages);
+
+        $usernames = array_unique(array_merge(array_keys($videos), array_keys($lives)));
+        $stored = 0;
+        foreach ($usernames as $u) {
+            $kolId = Kol::whereRaw('LOWER(tiktok_username) = ?', [$u])->value('id')
+                ?? KolUsernameAlias::where('username', $u)->value('kol_id');
+            if (! $kolId) {
+                continue; // bukan KOL → tak disimpan
+            }
+            KolCreatorContentStat::updateOrCreate(
+                ['kol_id' => $kolId, 'period' => $period],
+                ['videos' => $videos[$u] ?? 0, 'lives' => $lives[$u] ?? 0],
+            );
+            $stored++;
+        }
+        $conn->update(['last_synced_at' => now()]);
+
+        return ['videos' => array_sum($videos), 'lives' => array_sum($lives), 'creators' => $stored];
+    }
+
+    /**
+     * Page-through list API, hitung item per username (lowercase). $fetch($pageToken)
+     * kembalikan `data` respons; $listKey = kunci array item. Berhenti bila token
+     * habis / berulang (jaga dari loop tak maju) / kena cap halaman.
+     *
+     * @return array<string,int> username => jumlah
+     */
+    private function tally(callable $fetch, string $listKey, int $maxPages): array
+    {
+        $counts = [];
+        $pt = '';
+        $seen = [];
+        for ($page = 0; $page < $maxPages; $page++) {
+            $data = $fetch($pt);
+            foreach (($data[$listKey] ?? []) as $item) {
+                $u = mb_strtolower(trim((string) ($item['username'] ?? data_get($item, 'creator.user_name', ''))));
+                if ($u !== '') {
+                    $counts[$u] = ($counts[$u] ?? 0) + 1;
+                }
+            }
+            $pt = (string) ($data['next_page_token'] ?? '');
+            if ($pt === '' || isset($seen[$pt])) {
+                break;
+            }
+            $seen[$pt] = true;
+        }
+
+        return $counts;
     }
 
     /**
