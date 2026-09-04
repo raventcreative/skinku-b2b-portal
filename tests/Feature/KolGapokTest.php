@@ -113,6 +113,17 @@ class KolGapokTest extends TestCase
         $this->assertSame(1_000_000, (int) $kol->gapokSalaries()->first()->monthly_salary);
     }
 
+    public function test_save_salary_ajax_balikin_json(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'gajax', 'followers' => 5_000, 'is_gapok' => true]);
+
+        $this->actingAs($this->user('kol_specialist', 'spj'))
+            ->postJson(route('kol-gapok.salary'), ['kol_id' => $kol->id, 'bulan' => now()->format('Y-m'), 'monthly_salary' => 2_000_000])
+            ->assertOk()->assertJson(['ok' => true, 'salary' => 2_000_000]);
+
+        $this->assertSame(2_000_000, (int) $kol->gapokSalaries()->first()->monthly_salary);
+    }
+
     public function test_range_menyaring_per_tanggal(): void
     {
         $kol = Kol::create(['tiktok_username' => 'rg', 'followers' => 10_000, 'is_gapok' => true]);

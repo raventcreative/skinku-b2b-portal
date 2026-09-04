@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Kol;
 use App\Services\AuditService;
 use App\Services\KolGapokService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -95,8 +96,8 @@ class KolGapokController extends Controller
         return back()->with('status', $d['is_gapok'] ? 'Anggota gapok ditambahkan.' : 'Dikeluarkan dari Tim Gapok.');
     }
 
-    /** Simpan gaji pokok satu anggota untuk bulan terpilih. */
-    public function saveSalary(Request $request, KolGapokService $svc): RedirectResponse
+    /** Simpan gaji pokok satu anggota untuk bulan terpilih (AJAX → JSON). */
+    public function saveSalary(Request $request, KolGapokService $svc): RedirectResponse|JsonResponse
     {
         $d = $request->validate([
             'kol_id' => ['required', 'integer', 'exists:kols,id'],
@@ -106,6 +107,10 @@ class KolGapokController extends Controller
         ]);
         $m = Carbon::createFromFormat('Y-m', $d['bulan'])->startOfMonth();
         $svc->setSalary((int) $d['kol_id'], $m, (int) $d['monthly_salary'], $d['note'] ?? null, $request->user()->id);
+
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, 'salary' => (int) $d['monthly_salary']]);
+        }
 
         return back()->with('status', 'Gaji disimpan.');
     }

@@ -56,8 +56,8 @@
         <div class="bg-white rounded-2xl border border-stone-200 p-4"><p class="text-xs text-stone-500">GMV tim</p><p class="text-xl font-bold text-stone-800">{{ $rc($totals['gmv']) }}</p></div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4"><p class="text-xs text-stone-500">Komisi</p><p class="text-xl font-bold text-stone-800">{{ $rc($totals['commission']) }}</p></div>
         <div class="bg-white rounded-2xl border border-stone-200 p-4"><p class="text-xs text-stone-500">Order</p><p class="text-xl font-bold text-stone-800">{{ number_format($totals['orders'], 0, ',', '.') }}</p></div>
-        <div class="bg-white rounded-2xl border border-stone-200 p-4"><p class="text-xs text-stone-500">Total gaji</p><p class="text-xl font-bold text-stone-800">{{ $rc($totals['salary']) }}</p></div>
-        <div class="rounded-2xl border border-stone-200 p-4 {{ $roiColor($teamRoi) }}"><p class="text-xs opacity-70">ROI tim (GMV÷gaji)</p><p class="text-xl font-bold">{{ $roiFmt($teamRoi) }}</p></div>
+        <div class="bg-white rounded-2xl border border-stone-200 p-4"><p class="text-xs text-stone-500">Total gaji</p><p id="sumSalary" class="text-xl font-bold text-stone-800">{{ $rc($totals['salary']) }}</p></div>
+        <div id="sumRoiCard" class="rounded-2xl border border-stone-200 p-4 {{ $roiColor($teamRoi) }}"><p class="text-xs opacity-70">ROI tim (GMV÷gaji)</p><p id="sumRoi" class="text-xl font-bold">{{ $roiFmt($teamRoi) }}</p></div>
     </div>
 
     {{-- Tabel performa --}}
@@ -77,7 +77,7 @@
                 </thead>
                 <tbody class="divide-y divide-stone-100">
                     @forelse($rows as $r)
-                        <tr class="hover:bg-stone-50">
+                        <tr class="hover:bg-stone-50" data-gmv="{{ $r['gmv'] }}">
                             <td class="px-4 py-3">
                                 <p class="font-semibold text-stone-800">{{ $r['kol']->display_name }}</p>
                                 <p class="text-xs text-stone-400">{{ '@'.$r['kol']->tiktok_username }}</p>
@@ -92,7 +92,7 @@
                             <td class="px-4 py-3 text-right text-stone-700">{{ $rp($r['commission']) }}</td>
                             <td class="px-4 py-3 text-right">
                                 @if($canManage)
-                                    <form method="POST" action="{{ route('kol-gapok.salary') }}" class="flex items-center justify-end gap-1">
+                                    <form method="POST" action="{{ route('kol-gapok.salary') }}" class="salary-form flex items-center justify-end gap-1">
                                         @csrf
                                         <input type="hidden" name="kol_id" value="{{ $r['kol']->id }}">
                                         <input type="hidden" name="bulan" value="{{ $month }}">
@@ -108,7 +108,7 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-right">
-                                <span class="inline-block px-2 py-1 rounded-lg text-xs font-bold {{ $roiColor($r['roi']) }}">{{ $roiFmt($r['roi']) }}</span>
+                                <span class="roi-badge inline-block px-2 py-1 rounded-lg text-xs font-bold {{ $roiColor($r['roi']) }}">{{ $roiFmt($r['roi']) }}</span>
                             </td>
                             @if($canManage)
                                 <td class="px-4 py-3 text-right">
@@ -132,8 +132,8 @@
                             <td class="px-4 py-3 text-right">{{ $rp($totals['gmv']) }}</td>
                             <td class="px-4 py-3 text-right">{{ number_format($totals['orders'], 0, ',', '.') }}</td>
                             <td class="px-4 py-3 text-right">{{ $rp($totals['commission']) }}</td>
-                            <td class="px-4 py-3 text-right">{{ $rp($totals['salary']) }}</td>
-                            <td class="px-4 py-3 text-right">{{ $roiFmt($teamRoi) }}</td>
+                            <td class="px-4 py-3 text-right" id="totSalary">{{ $rp($totals['salary']) }}</td>
+                            <td class="px-4 py-3 text-right" id="totRoi">{{ $roiFmt($teamRoi) }}</td>
                             @if($canManage)<td></td>@endif
                         </tr>
                     </tfoot>
@@ -173,14 +173,62 @@
 
 <script>
 (function () {
-    // Input gaji: tampilkan ribuan bertitik saat diketik; kirim angka mentah via hidden.
-    document.querySelectorAll('.salary-input').forEach(function (inp) {
-        inp.addEventListener('input', function () {
-            var raw = this.value.replace(/\D/g, '');
-            var hidden = this.closest('form').querySelector('input[name="monthly_salary"]');
-            if (hidden) hidden.value = raw;
-            this.value = raw ? Number(raw).toLocaleString('id-ID') : '';
-        });
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    var csrf = meta ? meta.getAttribute('content') : '';
+    var teamGmv = Number('{{ (int) $totals['gmv'] }}');
+
+    function rp(n) { return 'Rp ' + Number(n).toLocaleString('id-ID'); }
+    function rc(n) { return n >= 1000000 ? 'Rp ' + (Math.round(n / 1000000 * 10) / 10) + ' jt' : rp(n); }
+    function fmtRoi(roi) { return roi === null ? '—' : (Math.round(roi * 10) / 10).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '×'; }
+    function roiClass(roi) { if (roi === null) return 'bg-stone-100 text-stone-400'; if (roi >= 3) return 'bg-emerald-50 text-emerald-700'; if (roi >= 1) return 'bg-amber-50 text-amber-700'; return 'bg-rose-50 text-rose-700'; }
+    function set(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
+    function flash(el, ok) { if (!el) return; el.style.transition = 'background-color .3s'; el.style.backgroundColor = ok ? '#d1fae5' : '#ffe4e6'; setTimeout(function () { el.style.backgroundColor = ''; }, 900); }
+
+    function recalcTotals() {
+        var total = 0;
+        document.querySelectorAll('input[name="monthly_salary"]').forEach(function (h) { total += Number(h.value || 0); });
+        var roi = total > 0 ? teamGmv / total : null;
+        set('sumSalary', rc(total)); set('totSalary', rp(total));
+        set('sumRoi', fmtRoi(roi)); set('totRoi', fmtRoi(roi));
+        var card = document.getElementById('sumRoiCard');
+        if (card) card.className = 'rounded-2xl border border-stone-200 p-4 ' + roiClass(roi);
+    }
+
+    document.querySelectorAll('.salary-form').forEach(function (form) {
+        var display = form.querySelector('.salary-input');
+        var hidden = form.querySelector('input[name="monthly_salary"]');
+        var row = form.closest('tr');
+        var saved = hidden.value;
+
+        function doSave() {
+            var raw = Number(hidden.value || 0);
+            fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: new FormData(form)
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (!d || !d.ok) throw new Error('gagal');
+                saved = hidden.value;
+                flash(display, true);
+                var gmv = Number(row.dataset.gmv || 0);
+                var roi = raw > 0 ? gmv / raw : null;
+                var badge = row.querySelector('.roi-badge');
+                if (badge) { badge.textContent = fmtRoi(roi); badge.className = 'roi-badge inline-block px-2 py-1 rounded-lg text-xs font-bold ' + roiClass(roi); }
+                recalcTotals();
+            }).catch(function () { flash(display, false); });
+        }
+
+        if (display) {
+            // Format ribuan bertitik saat diketik; angka mentah ke hidden.
+            display.addEventListener('input', function () {
+                var raw = this.value.replace(/\D/g, '');
+                hidden.value = raw;
+                this.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+            });
+            display.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
+            display.addEventListener('blur', function () { if (hidden.value !== saved) doSave(); }); // auto-save
+        }
+        form.addEventListener('submit', function (e) { e.preventDefault(); doSave(); });
     });
 })();
 </script>
