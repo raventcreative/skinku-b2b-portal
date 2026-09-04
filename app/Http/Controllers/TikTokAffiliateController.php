@@ -51,31 +51,48 @@ class TikTokAffiliateController extends Controller
 
         try {
             $token = $this->client->getToken($code);
-            $access = $token['access_token'];
-            $shops = $this->client->getShops($access);
-            $shop = $shops[0] ?? [];
-
-            TiktokAffiliateConnection::updateOrCreate(
-                ['shop_id' => $shop['id'] ?? ($token['open_id'] ?? 'default')],
-                [
-                    'shop_cipher' => $shop['cipher'] ?? null,
-                    'shop_name' => $shop['name'] ?? ($token['seller_name'] ?? null),
-                    'region' => $shop['region'] ?? ($token['seller_base_region'] ?? null),
-                    'seller_name' => $token['seller_name'] ?? null,
-                    'access_token' => $access,
-                    'refresh_token' => $token['refresh_token'] ?? null,
-                    'access_expires_at' => $this->toTime($token['access_token_expire_in'] ?? null),
-                    'refresh_expires_at' => $this->toTime($token['refresh_token_expire_in'] ?? null),
-                    'connected_by' => $request->user()->id,
-                ],
-            );
-
-            AuditService::log(action: 'connect_tiktok_affiliate', targetType: 'tiktok', after: ['shop' => $shop['name'] ?? null]);
-
-            return redirect()->route('tiktok-affiliate.index')->with('status', 'App affiliate terhubung: '.($shop['name'] ?? 'toko'));
         } catch (\Throwable $e) {
-            return redirect()->route('tiktok-affiliate.index')->with('error', 'Gagal menghubungkan: '.$e->getMessage());
+            return redirect()->route('tiktok-affiliate.index')->with('error', 'Gagal tukar token (app_key/secret salah?): '.$e->getMessage());
         }
+
+        $access = $token['access_token'] ?? '';
+        // Diagnostik: scope yang BENAR-BENAR dibawa token ini (bukti apakah otorisasi
+        // sudah menyertakan seller.authorization.info atau masih pakai grant lama).
+        $granted = $token['granted_scopes'] ?? ($token['scope'] ?? null);
+        $grantedStr = $granted === null ? '(TikTok tak mengirim daftar granted_scopes)'
+            : (is_array($granted) ? implode(', ', $granted) : (string) $granted);
+
+        try {
+            $shops = $this->client->getShops($access);
+        } catch (\Throwable $e) {
+            return redirect()->route('tiktok-affiliate.index')->with('error',
+                'Token BERHASIL didapat, tapi ambil toko (getShops /authorization/202309/shops) DITOLAK: '.$e->getMessage()
+                .' ┃ Scope yang dibawa token: ['.$grantedStr.']. '
+                .(str_contains($grantedStr, 'seller.authorization.info')
+                    ? 'Scope-nya ADA di token — kemungkinan propagasi TikTok belum sinkron, tunggu beberapa menit & coba lagi.'
+                    : 'Scope "seller.authorization.info" TIDAK ada di token → otorisasi lama dipakai ulang. CABUT otorisasi app "Seller Analitik" di Seller Center, lalu authorize ulang.'));
+        }
+
+        $shop = $shops[0] ?? [];
+
+        TiktokAffiliateConnection::updateOrCreate(
+            ['shop_id' => $shop['id'] ?? ($token['open_id'] ?? 'default')],
+            [
+                'shop_cipher' => $shop['cipher'] ?? null,
+                'shop_name' => $shop['name'] ?? ($token['seller_name'] ?? null),
+                'region' => $shop['region'] ?? ($token['seller_base_region'] ?? null),
+                'seller_name' => $token['seller_name'] ?? null,
+                'access_token' => $access,
+                'refresh_token' => $token['refresh_token'] ?? null,
+                'access_expires_at' => $this->toTime($token['access_token_expire_in'] ?? null),
+                'refresh_expires_at' => $this->toTime($token['refresh_token_expire_in'] ?? null),
+                'connected_by' => $request->user()->id,
+            ],
+        );
+
+        AuditService::log(action: 'connect_tiktok_affiliate', targetType: 'tiktok', after: ['shop' => $shop['name'] ?? null]);
+
+        return redirect()->route('tiktok-affiliate.index')->with('status', 'App affiliate terhubung: '.($shop['name'] ?? 'toko').' ┃ scope token: ['.$grantedStr.']');
     }
 
     /**
