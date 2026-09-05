@@ -162,4 +162,42 @@ class MemberDormancyTest extends TestCase
             ->assertSessionHasErrors('login'); // ditolak karena status != active
         $this->assertGuest();
     }
+
+    public function test_gate_izin_dan_render(): void
+    {
+        // reseller (mitra) tak punya izin → 403.
+        $this->actingAs($this->member(User::ROLE_RESELLER, 'g1'))->get(route('member-dormancy.index'))->assertForbidden();
+        // Task 6 menambah assertion admin bisa buka halaman (butuh view).
+    }
+
+    public function test_save_rules_set_activated_at_saat_dinyalakan(): void
+    {
+        $admin = $this->member(User::ROLE_ADMIN, 'sr1');
+        $this->actingAs($admin)->post(route('member-dormancy.rules'), [
+            'rules' => [
+                'grand_distributor' => ['enabled' => '1', 'inactive_months' => 6, 'basis' => 'order'],
+                'distributor' => ['inactive_months' => 3, 'basis' => 'order'], // enabled tak dicentang
+                'reseller' => ['inactive_months' => 3, 'basis' => 'login'],
+                'reseller_bronze' => ['inactive_months' => 3, 'basis' => 'login'],
+                'reseller_gold' => ['inactive_months' => 3, 'basis' => 'login'],
+                'sponsor' => ['inactive_months' => 3, 'basis' => 'login'],
+            ],
+        ])->assertRedirect();
+
+        $grand = MemberDormancyRule::where('role', 'grand_distributor')->first();
+        $this->assertTrue($grand->enabled);
+        $this->assertNotNull($grand->activated_at); // masa tenggang mulai
+        $this->assertFalse(MemberDormancyRule::where('role', 'distributor')->first()->enabled);
+    }
+
+    public function test_reactivate_balikin_aktif(): void
+    {
+        $admin = $this->member(User::ROLE_ADMIN, 'ra1');
+        $beku = $this->member(User::ROLE_RESELLER, 'ra2', ['status' => User::STATUS_INACTIVE, 'disabled_at' => now()]);
+
+        $this->actingAs($admin)->post(route('member-dormancy.reactivate', $beku))->assertRedirect();
+
+        $this->assertSame(User::STATUS_ACTIVE, $beku->fresh()->status);
+        $this->assertNull($beku->fresh()->disabled_at);
+    }
 }

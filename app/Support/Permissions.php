@@ -61,6 +61,7 @@ class Permissions
         'use_ai_assistant' => 'Asisten AI',
         'use_ai_discovery' => 'Rekomendasi AI (Discovery KOL & Tren Produk)',
         'manage_join_packages' => 'Kelola Paket Join',
+        'manage_member_dormancy' => 'Kelola Dormansi Member',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -137,6 +138,7 @@ class Permissions
         'use_ai_discovery' => [User::ROLE_ADMIN, 'kol_specialist'],
         // Katalog Paket Join (Onboarding) = admin-only (super_admin selalu ikut).
         'manage_join_packages' => [User::ROLE_ADMIN],
+        'manage_member_dormancy' => [User::ROLE_ADMIN],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */

@@ -37,6 +37,7 @@ use App\Http\Controllers\KolSettingsController;
 use App\Http\Controllers\KolTiktokCheckController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\MaterialController;
+use App\Http\Controllers\MemberDormancyController;
 use App\Http\Controllers\MindmapController;
 use App\Http\Controllers\OkrController;
 use App\Http\Controllers\OnboardingController;
@@ -639,6 +640,13 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     Route::middleware('permission:delete_users')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    });
+
+    /* ---------------- Dormansi Member ---------------- */
+    Route::middleware('permission:manage_member_dormancy')->group(function () {
+        Route::get('/member-dormancy', [MemberDormancyController::class, 'index'])->name('member-dormancy.index');
+        Route::post('/member-dormancy/rules', [MemberDormancyController::class, 'saveRules'])->name('member-dormancy.rules');
+        Route::post('/member-dormancy/{user}/reactivate', [MemberDormancyController::class, 'reactivate'])->name('member-dormancy.reactivate');
     });
 
     /* ---------------- Masuk sebagai (impersonation) ---------------- */
