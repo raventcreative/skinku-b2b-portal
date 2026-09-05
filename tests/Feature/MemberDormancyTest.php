@@ -202,4 +202,24 @@ class MemberDormancyTest extends TestCase
         $this->assertSame(User::STATUS_ACTIVE, $beku->fresh()->status);
         $this->assertNull($beku->fresh()->disabled_at);
     }
+
+    public function test_reactivate_tolak_role_non_managed(): void
+    {
+        $admin = $this->member(User::ROLE_ADMIN, 'ra3');
+        $target = $this->member(User::ROLE_ADMIN, 'ra4', ['status' => User::STATUS_INACTIVE, 'disabled_at' => now()]);
+
+        $this->actingAs($admin)->post(route('member-dormancy.reactivate', $target))->assertForbidden();
+        $this->assertSame(User::STATUS_INACTIVE, $target->fresh()->status);
+    }
+
+    public function test_auto_freeze_menahan_upline_berdownline_aktif(): void
+    {
+        $this->rule(User::ROLE_DISTRIBUTOR, 'order', 3, Carbon::parse('2020-01-01'));
+        $up = $this->member(User::ROLE_DISTRIBUTOR, 'up1', ['created_at' => Carbon::parse('2020-01-01')]); // no PO → dorman
+        $this->member(User::ROLE_RESELLER, 'dn1', ['upline_id' => $up->id]); // downline masih aktif
+
+        $this->artisan('members:auto-freeze')->assertSuccessful();
+
+        $this->assertSame(User::STATUS_ACTIVE, $up->fresh()->status); // ditahan, tidak dibekukan
+    }
 }

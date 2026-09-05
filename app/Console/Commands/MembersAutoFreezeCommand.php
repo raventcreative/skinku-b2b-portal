@@ -34,6 +34,11 @@ class MembersAutoFreezeCommand extends Command
                 if (! $svc->isDormant($user, $rule, $now)) {
                     continue;
                 }
+                if ($svc->hasActiveDownlines($user)) {
+                    $this->line("  \u{00b7} @{$user->username} ({$rule->role}) dorman tapi punya downline aktif → ditahan (tidak dibekukan).");
+
+                    continue;
+                }
                 if ($dry) {
                     $this->line("  [dry] @{$user->username} ({$rule->role}) → akan dibekukan.");
                 } else {

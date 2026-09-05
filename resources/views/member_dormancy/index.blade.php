@@ -86,6 +86,32 @@
         </div>
     </div>
 
+    {{-- Ditahan — dorman tapi punya downline aktif --}}
+    <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+        <div class="px-4 py-3 border-b border-stone-200 bg-sky-50">
+            <p class="text-sm font-semibold text-sky-700">Ditahan — punya downline aktif ({{ $held->count() }})</p>
+            <p class="text-xs text-sky-600 mt-0.5">Dorman, tapi tak dibekukan karena masih punya downline aktif. Tindak manual bila perlu.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead><tr class="text-left text-xs text-stone-500 border-b border-stone-200">
+                    <th class="px-4 py-2">Member</th><th class="px-4 py-2">Role</th><th class="px-4 py-2">Sinyal</th>
+                </tr></thead>
+                <tbody class="divide-y divide-stone-100">
+                    @forelse($held as $row)
+                        <tr>
+                            <td class="px-4 py-2 text-stone-800">{{ '@'.$row['user']->username }} <span class="text-xs text-stone-400">{{ $row['user']->fullname }}</span></td>
+                            <td class="px-4 py-2 text-stone-600">{{ $roleLabel[$row['user']->role] ?? $row['user']->role }}</td>
+                            <td class="px-4 py-2 text-stone-500">{{ $basisLabel[$row['basis']] ?? $row['basis'] }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="3" class="px-4 py-6 text-center text-stone-400">Tak ada.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     {{-- Sudah beku --}}
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
         <div class="px-4 py-3 border-b border-stone-200 bg-stone-50"><p class="text-sm font-semibold text-stone-700">Sudah dibekukan — {{ $frozen->count() }}</p></div>

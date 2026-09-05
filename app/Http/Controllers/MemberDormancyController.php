@@ -34,14 +34,17 @@ class MemberDormancyController extends Controller
             ->orderByDesc('disabled_at')->get();
 
         $atRisk = collect();
+        $held = collect();
         foreach ($rules->where('enabled', true) as $rule) {
             User::where('role', $rule->role)->where('status', User::STATUS_ACTIVE)->get()
-                ->each(function (User $u) use ($rule, $now, $atRisk) {
+                ->each(function (User $u) use ($rule, $now, $atRisk, $held) {
                     if (! $this->svc->isDormant($u, $rule, $now)) {
                         $days = $this->svc->atRiskDays($u, $rule, $now);
                         if ($days <= 14) {
                             $atRisk->push(['user' => $u, 'days' => $days, 'basis' => $rule->basis]);
                         }
+                    } elseif ($this->svc->hasActiveDownlines($u)) {
+                        $held->push(['user' => $u, 'basis' => $rule->basis]);
                     }
                 });
         }
@@ -52,6 +55,7 @@ class MemberDormancyController extends Controller
             'bases' => MemberDormancyRule::BASES,
             'frozen' => $frozen,
             'atRisk' => $atRisk->sortBy('days')->values(),
+            'held' => $held->values(),
         ]);
     }
 
@@ -64,6 +68,9 @@ class MemberDormancyController extends Controller
         ]);
 
         foreach (self::MANAGED_ROLES as $role) {
+            if (! $request->has("rules.{$role}")) {
+                continue;
+            }
             $enabled = $request->boolean("rules.{$role}.enabled");
             $rule = MemberDormancyRule::firstOrNew(['role' => $role]);
             if ($enabled && ! $rule->enabled) {
@@ -82,6 +89,8 @@ class MemberDormancyController extends Controller
 
     public function reactivate(Request $request, User $user): RedirectResponse
     {
+        abort_unless(in_array($user->role, self::MANAGED_ROLES, true), 403);
+
         $this->svc->reactivate($user);
 
         return back()->with('status', "@{$user->username} diaktifkan kembali.");

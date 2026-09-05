@@ -82,6 +82,12 @@ class MemberDormancyService
         );
     }
 
+    /** Punya minimal 1 downline (upline_id) yang masih aktif? */
+    public function hasActiveDownlines(User $user): bool
+    {
+        return User::where('upline_id', $user->id)->where('status', User::STATUS_ACTIVE)->exists();
+    }
+
     /** Aktifkan kembali (manual dari HQ). */
     public function reactivate(User $user): void
     {
