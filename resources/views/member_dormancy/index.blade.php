@@ -101,7 +101,7 @@
                             <td class="px-4 py-2 text-stone-600">{{ $roleLabel[$u->role] ?? $u->role }}</td>
                             <td class="px-4 py-2 text-stone-500 text-xs">{{ optional($u->disabled_at)->translatedFormat('d M Y') ?? '—' }}</td>
                             <td class="px-4 py-2 text-right">
-                                <form method="POST" action="{{ route('member-dormancy.reactivate', $u) }}" onsubmit="return confirm('Aktifkan kembali @{{ $u->username }}?')">
+                                <form method="POST" action="{{ route('member-dormancy.reactivate', $u) }}" onsubmit="return confirm('Aktifkan kembali {{ '@'.$u->username }}?')">
                                     @csrf
                                     <button class="text-xs font-semibold rounded-lg bg-emerald-600 text-white px-3 py-1.5 hover:bg-emerald-700">Aktifkan lagi</button>
                                 </form>

@@ -383,9 +383,9 @@
 
             @php
                 // Grup accordion "Mitra & Jaringan": Kelola Anggota + Struktur Jaringan + Paket Join.
-                $mitraGroupOpen = request()->routeIs('users.index') || request()->routeIs('struktur-jaringan.*') || request()->routeIs('join-packages.*');
+                $mitraGroupOpen = request()->routeIs('users.index') || request()->routeIs('struktur-jaringan.*') || request()->routeIs('join-packages.*') || request()->routeIs('member-dormancy.*');
             @endphp
-            @if($u->canDo('manage_users') || $u->canDo('manage_join_packages'))
+            @if($u->canDo('manage_users') || $u->canDo('manage_join_packages') || $u->canDo('manage_member_dormancy'))
                 <button type="button" onclick="toggleNavGroup('grpMitra')"
                     class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $mitraGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-mitra') !!}<span>Mitra &amp; Jaringan</span></span>
