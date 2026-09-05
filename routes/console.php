@@ -88,3 +88,7 @@ Schedule::command('tiktok:marketplace-sync --limit=20 --sleep=12')->dailyAt('07:
  */
 Schedule::command('queue:work --stop-when-empty --tries=1 --timeout=290')
     ->everyMinute()->name('okr-queue-worker')->withoutOverlapping(10);
+
+// Dormansi member: bekukan akun tak aktif sesuai aturan per-role (aturan default
+// OFF → nol efek sampai HQ nyalakan). Harian, di luar jam sync berat.
+Schedule::command('members:auto-freeze')->dailyAt('03:00')->withoutOverlapping(60);

@@ -117,4 +117,49 @@ class MemberDormancyTest extends TestCase
         $this->assertTrue($svc->isDormant($dorman, $rule, $now)); // 5 bln lalu > 3 bln
         $this->assertSame(0, $svc->atRiskDays($dorman, $rule, $now));
     }
+
+    public function test_command_bekukan_dorman_lewati_aktif_dan_staff(): void
+    {
+        $this->rule(User::ROLE_RESELLER, 'login', 3, Carbon::parse('2020-01-01'));
+
+        $dorman = $this->member(User::ROLE_RESELLER, 'cf1', ['created_at' => Carbon::parse('2020-01-01'), 'last_login_at' => now()->subMonths(5)]);
+        $aktif = $this->member(User::ROLE_RESELLER, 'cf2', ['created_at' => Carbon::parse('2020-01-01'), 'last_login_at' => now()->subDays(3)]);
+        // Admin punya last_login lama TAPI tak boleh kena (staff + tak ada rule role admin).
+        $admin = $this->member(User::ROLE_ADMIN, 'cf3', ['last_login_at' => now()->subYears(2)]);
+
+        $this->artisan('members:auto-freeze')->assertSuccessful();
+
+        $this->assertSame(User::STATUS_INACTIVE, $dorman->fresh()->status);
+        $this->assertNotNull($dorman->fresh()->disabled_at);
+        $this->assertSame(User::STATUS_ACTIVE, $aktif->fresh()->status);
+        $this->assertSame(User::STATUS_ACTIVE, $admin->fresh()->status);
+    }
+
+    public function test_command_hormati_enabled_dan_dry_run(): void
+    {
+        // Aturan NONAKTIF → tak boleh ada yang dibekukan.
+        MemberDormancyRule::updateOrCreate(['role' => User::ROLE_RESELLER], ['enabled' => false, 'basis' => 'login', 'inactive_months' => 3, 'activated_at' => Carbon::parse('2020-01-01')]);
+        $u = $this->member(User::ROLE_RESELLER, 'df1', ['created_at' => Carbon::parse('2020-01-01'), 'last_login_at' => now()->subMonths(9)]);
+        $this->artisan('members:auto-freeze')->assertSuccessful();
+        $this->assertSame(User::STATUS_ACTIVE, $u->fresh()->status);
+
+        // Aktifkan + dry-run → tetap tak berubah.
+        $this->rule(User::ROLE_RESELLER, 'login', 3, Carbon::parse('2020-01-01'));
+        $this->artisan('members:auto-freeze', ['--dry-run' => true])->assertSuccessful();
+        $this->assertSame(User::STATUS_ACTIVE, $u->fresh()->status);
+    }
+
+    public function test_member_beku_tak_bisa_login(): void
+    {
+        // Rangkaian: dorman → command bekukan → login ditolak (mekanisme AuthController).
+        $this->rule(User::ROLE_RESELLER, 'login', 3, Carbon::parse('2020-01-01'));
+        $u = $this->member(User::ROLE_RESELLER, 'fl1', ['created_at' => Carbon::parse('2020-01-01'), 'last_login_at' => now()->subMonths(9)]);
+
+        $this->artisan('members:auto-freeze')->assertSuccessful();
+        $this->assertSame(User::STATUS_INACTIVE, $u->fresh()->status);
+
+        $this->post('/login', ['login' => 'fl1', 'password' => 'secret123'])
+            ->assertSessionHasErrors('login'); // ditolak karena status != active
+        $this->assertGuest();
+    }
 }
