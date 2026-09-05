@@ -74,6 +74,7 @@ class AuthController extends Controller
         }
 
         Auth::login($user, $request->boolean('remember'));
+        $user->update(['last_login_at' => now()]); // last-online (login asli, bukan impersonasi)
         $request->session()->regenerate();
 
         AuditService::log(

@@ -41,4 +41,24 @@ class MemberDormancyTest extends TestCase
         $this->assertSame('login', $sponsor->basis);
         $this->assertSame(3, $sponsor->inactive_months);
     }
+
+    public function test_login_asli_menstempel_last_login_at(): void
+    {
+        $u = $this->member(User::ROLE_RESELLER, 'lg1');
+        $this->assertNull($u->last_login_at);
+
+        $this->post('/login', ['login' => 'lg1', 'password' => 'secret123'])->assertRedirect();
+
+        $this->assertNotNull($u->fresh()->last_login_at);
+    }
+
+    public function test_impersonasi_tidak_menstempel_last_login(): void
+    {
+        $admin = $this->member(User::ROLE_SUPER_ADMIN, 'sa1');
+        $target = $this->member(User::ROLE_DISTRIBUTOR, 'tg1');
+
+        $this->actingAs($admin)->post(route('users.impersonate', $target))->assertRedirect();
+
+        $this->assertNull($target->fresh()->last_login_at);
+    }
 }

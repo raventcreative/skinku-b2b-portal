@@ -58,7 +58,7 @@ class User extends Authenticatable
         'role', 'company_name', 'phone', 'address', 'status', 'region', 'city',
         'upline_id', 'sponsor_id', 'member_id',
         'bank', 'no_rekening', 'atas_nama',
-        'email_verified_at', 'disabled_at', 'created_by', 'updated_by',
+        'email_verified_at', 'disabled_at', 'last_login_at', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -70,6 +70,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'disabled_at' => 'datetime',
+            'last_login_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
