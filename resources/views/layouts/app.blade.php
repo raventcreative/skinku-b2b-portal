@@ -396,6 +396,9 @@
                         {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
                         {!! navItem('struktur-jaringan.index', 'Struktur Jaringan', 'struktur-jaringan.index') !!}
                     @endif
+                    @if($u->canDo('manage_member_dormancy'))
+                        {!! navItem('member-dormancy.index', 'Dormansi Member', 'member-dormancy.*') !!}
+                    @endif
                     @if($u->canDo('manage_join_packages'))
                         {!! navItem('join-packages.index', 'Paket Join', 'join-packages.*') !!}
                     @endif

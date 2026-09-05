@@ -167,7 +167,9 @@ class MemberDormancyTest extends TestCase
     {
         // reseller (mitra) tak punya izin → 403.
         $this->actingAs($this->member(User::ROLE_RESELLER, 'g1'))->get(route('member-dormancy.index'))->assertForbidden();
-        // Task 6 menambah assertion admin bisa buka halaman (butuh view).
+
+        $this->actingAs($this->member(User::ROLE_ADMIN, 'g2'))->get(route('member-dormancy.index'))
+            ->assertOk()->assertSee('Dormansi Member');
     }
 
     public function test_save_rules_set_activated_at_saat_dinyalakan(): void
