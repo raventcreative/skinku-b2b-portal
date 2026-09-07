@@ -4,11 +4,9 @@
 
 @section('content')
 @php
-    $roleLabel = [
-        'grand_distributor' => 'Grand Distributor', 'distributor' => 'Distributor',
-        'reseller' => 'Reseller', 'reseller_bronze' => 'Reseller Bronze',
-        'reseller_gold' => 'Reseller Gold', 'sponsor' => 'Sponsor',
-    ];
+    // Label role diambil dinamis dari tabel roles (mendukung role baru/custom).
+    // Fallback: prettify slug bila labelnya tak ada.
+    $rl = fn ($r) => $roleLabels[$r] ?? ucwords(str_replace('_', ' ', $r));
     $basisLabel = ['order' => 'Order / RO', 'login' => 'Login (last-online)', 'recruit' => 'Rekrut baru'];
 @endphp
 
@@ -37,7 +35,7 @@
                     @foreach($managedRoles as $role)
                         @php $r = $rules->get($role); @endphp
                         <tr>
-                            <td class="px-4 py-2 font-medium text-stone-800">{{ $roleLabel[$role] ?? $role }}</td>
+                            <td class="px-4 py-2 font-medium text-stone-800">{{ $rl($role) }}</td>
                             <td class="px-4 py-2">
                                 <input type="checkbox" name="rules[{{ $role }}][enabled]" value="1" @checked($r?->enabled)>
                             </td>
@@ -74,7 +72,7 @@
                     @forelse($atRisk as $row)
                         <tr>
                             <td class="px-4 py-2 text-stone-800">{{ '@'.$row['user']->username }} <span class="text-xs text-stone-400">{{ $row['user']->fullname }}</span></td>
-                            <td class="px-4 py-2 text-stone-600">{{ $roleLabel[$row['user']->role] ?? $row['user']->role }}</td>
+                            <td class="px-4 py-2 text-stone-600">{{ $rl($row['user']->role) }}</td>
                             <td class="px-4 py-2 text-stone-500">{{ $basisLabel[$row['basis']] ?? $row['basis'] }}</td>
                             <td class="px-4 py-2 text-right font-semibold text-amber-700">{{ $row['days'] }} hr</td>
                         </tr>
@@ -101,7 +99,7 @@
                     @forelse($held as $row)
                         <tr>
                             <td class="px-4 py-2 text-stone-800">{{ '@'.$row['user']->username }} <span class="text-xs text-stone-400">{{ $row['user']->fullname }}</span></td>
-                            <td class="px-4 py-2 text-stone-600">{{ $roleLabel[$row['user']->role] ?? $row['user']->role }}</td>
+                            <td class="px-4 py-2 text-stone-600">{{ $rl($row['user']->role) }}</td>
                             <td class="px-4 py-2 text-stone-500">{{ $basisLabel[$row['basis']] ?? $row['basis'] }}</td>
                         </tr>
                     @empty
@@ -124,7 +122,7 @@
                     @forelse($frozen as $u)
                         <tr>
                             <td class="px-4 py-2 text-stone-800">{{ '@'.$u->username }} <span class="text-xs text-stone-400">{{ $u->fullname }}</span></td>
-                            <td class="px-4 py-2 text-stone-600">{{ $roleLabel[$u->role] ?? $u->role }}</td>
+                            <td class="px-4 py-2 text-stone-600">{{ $rl($u->role) }}</td>
                             <td class="px-4 py-2 text-stone-500 text-xs">{{ optional($u->disabled_at)->translatedFormat('d M Y') ?? '—' }}</td>
                             <td class="px-4 py-2 text-right">
                                 <form method="POST" action="{{ route('member-dormancy.reactivate', $u) }}" onsubmit="return confirm('Aktifkan kembali {{ '@'.$u->username }}?')">

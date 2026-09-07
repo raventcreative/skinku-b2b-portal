@@ -203,13 +203,36 @@ class MemberDormancyTest extends TestCase
         $this->assertNull($beku->fresh()->disabled_at);
     }
 
-    public function test_reactivate_tolak_role_non_managed(): void
+    public function test_reactivate_tolak_super_admin(): void
     {
+        // super_admin satu-satunya role yang TIDAK di-manage dormansi → reactivate ditolak.
         $admin = $this->member(User::ROLE_ADMIN, 'ra3');
-        $target = $this->member(User::ROLE_ADMIN, 'ra4', ['status' => User::STATUS_INACTIVE, 'disabled_at' => now()]);
+        $target = $this->member(User::ROLE_SUPER_ADMIN, 'ra4', ['status' => User::STATUS_INACTIVE, 'disabled_at' => now()]);
 
         $this->actingAs($admin)->post(route('member-dormancy.reactivate', $target))->assertForbidden();
         $this->assertSame(User::STATUS_INACTIVE, $target->fresh()->status);
+    }
+
+    public function test_auto_freeze_bisa_bekukan_gudang_bila_aturannya_aktif(): void
+    {
+        // Role staf (mis. gudang) kini bisa dibekukan kalau aturannya sengaja diaktifkan.
+        $this->rule(User::ROLE_GUDANG, 'login', 3, Carbon::parse('2020-01-01'));
+        $g = $this->member(User::ROLE_GUDANG, 'gd9', ['created_at' => Carbon::parse('2020-01-01'), 'last_login_at' => now()->subMonths(6)]);
+
+        $this->artisan('members:auto-freeze')->assertSuccessful();
+
+        $this->assertSame(User::STATUS_INACTIVE, $g->fresh()->status);
+    }
+
+    public function test_super_admin_tak_pernah_dibekukan(): void
+    {
+        // Walau aturannya diaktifkan & jelas dorman, super_admin dilindungi.
+        $this->rule(User::ROLE_SUPER_ADMIN, 'login', 3, Carbon::parse('2020-01-01'));
+        $sa = $this->member(User::ROLE_SUPER_ADMIN, 'saf', ['created_at' => Carbon::parse('2020-01-01'), 'last_login_at' => now()->subYears(2)]);
+
+        $this->artisan('members:auto-freeze')->assertSuccessful();
+
+        $this->assertSame(User::STATUS_ACTIVE, $sa->fresh()->status);
     }
 
     public function test_auto_freeze_menahan_upline_berdownline_aktif(): void

@@ -25,9 +25,11 @@ class MembersAutoFreezeCommand extends Command
         $frozen = 0;
 
         foreach (MemberDormancyRule::where('enabled', true)->get() as $rule) {
+            // super_admin tak pernah dibekukan (cegah lockout). Role lain (termasuk
+            // admin/gudang/custom) bisa, TAPI hanya kalau aturannya sengaja diaktifkan.
             $users = User::where('role', $rule->role)
                 ->where('status', User::STATUS_ACTIVE)
-                ->whereNotIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_GUDANG])
+                ->where('role', '!=', User::ROLE_SUPER_ADMIN)
                 ->get();
 
             foreach ($users as $user) {

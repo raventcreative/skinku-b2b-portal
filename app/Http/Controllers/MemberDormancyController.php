@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\MemberDormancyRule;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\MemberDormancyService;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,21 +17,32 @@ use Illuminate\Validation\Rule;
  */
 class MemberDormancyController extends Controller
 {
-    /** Role member yang diatur dormansinya (Fase 1). */
-    public const MANAGED_ROLES = [
-        User::ROLE_GRAND_DISTRIBUTOR, User::ROLE_DISTRIBUTOR,
-        User::ROLE_RESELLER, User::ROLE_RESELLER_BRONZE, User::ROLE_RESELLER_GOLD,
-        User::ROLE_SPONSOR,
-    ];
-
     public function __construct(private MemberDormancyService $svc) {}
+
+    /**
+     * Semua role yang bisa diatur dormansinya = SELURUH role KECUALI super_admin
+     * (super_admin tak boleh dibekukan). Dinamis dari tabel roles → role baru
+     * (termasuk custom) otomatis ikut, tanpa ubah kode.
+     *
+     * @return array<int,string>
+     */
+    public static function managedRoles(): array
+    {
+        $roles = Role::ordered()->pluck('name')->all();
+        if ($roles === []) {
+            $roles = Permissions::roleNames(); // fallback pra-seed
+        }
+
+        return array_values(array_filter($roles, fn ($r) => $r !== User::ROLE_SUPER_ADMIN));
+    }
 
     public function index()
     {
-        $rules = MemberDormancyRule::whereIn('role', self::MANAGED_ROLES)->get()->keyBy('role');
+        $managed = self::managedRoles();
+        $rules = MemberDormancyRule::whereIn('role', $managed)->get()->keyBy('role');
         $now = now();
 
-        $frozen = User::whereIn('role', self::MANAGED_ROLES)
+        $frozen = User::whereIn('role', $managed)
             ->where('status', User::STATUS_INACTIVE)->whereNotNull('disabled_at')
             ->orderByDesc('disabled_at')->get();
 
@@ -51,7 +64,8 @@ class MemberDormancyController extends Controller
 
         return view('member_dormancy.index', [
             'rules' => $rules,
-            'managedRoles' => self::MANAGED_ROLES,
+            'managedRoles' => $managed,
+            'roleLabels' => Role::ordered()->pluck('label', 'name'),
             'bases' => MemberDormancyRule::BASES,
             'frozen' => $frozen,
             'atRisk' => $atRisk->sortBy('days')->values(),
@@ -67,7 +81,7 @@ class MemberDormancyController extends Controller
             'rules.*.basis' => ['required', Rule::in(MemberDormancyRule::BASES)],
         ]);
 
-        foreach (self::MANAGED_ROLES as $role) {
+        foreach (self::managedRoles() as $role) {
             if (! $request->has("rules.{$role}")) {
                 continue;
             }
@@ -89,7 +103,8 @@ class MemberDormancyController extends Controller
 
     public function reactivate(Request $request, User $user): RedirectResponse
     {
-        abort_unless(in_array($user->role, self::MANAGED_ROLES, true), 403);
+        // super_admin tak pernah jadi target dormansi → tak bisa di-reaktivasi lewat sini.
+        abort_unless(in_array($user->role, self::managedRoles(), true), 403);
 
         $this->svc->reactivate($user);
 
