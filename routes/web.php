@@ -640,6 +640,8 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     Route::middleware('permission:delete_users')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        // Pulihkan user terhapus — binding withTrashed() agar user soft-deleted ter-resolve.
+        Route::post('/users/{user}/restore', [UserController::class, 'restore'])->name('users.restore')->withTrashed();
     });
 
     /* ---------------- Dormansi Member ---------------- */

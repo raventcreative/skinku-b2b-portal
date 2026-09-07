@@ -104,7 +104,15 @@
                                 </form>
                             @endif
                         @else
-                            <span class="text-stone-400">—</span>
+                            @if($isSuper)
+                                <form method="POST" action="{{ route('users.restore', $row) }}" class="inline"
+                                    onsubmit="return confirm('Pulihkan {{ $row->fullname }}? Akun akan aktif & bisa login lagi.')">
+                                    @csrf
+                                    <button class="text-emerald-600 hover:text-emerald-800 font-semibold">Pulihkan</button>
+                                </form>
+                            @else
+                                <span class="text-stone-400">—</span>
+                            @endif
                         @endif
                     </td>
                 </tr>

@@ -33,7 +33,12 @@ class UserController extends Controller
         $sort = in_array($request->query('sort'), $sortable, true) ? $request->query('sort') : 'created_at';
         $dir = $request->query('dir') === 'asc' ? 'asc' : 'desc';
 
+        // Status "deleted" = user yang di-soft-delete → butuh onlyTrashed (kalau tidak,
+        // global scope SoftDeletes menyembunyikannya). Status lain: query normal.
+        $isDeletedView = ($filters['status'] ?? null) === User::STATUS_DELETED;
+
         $users = User::query()
+            ->when($isDeletedView, fn ($query) => $query->onlyTrashed())
             ->with('activeJoinTransaction')
             ->when($filters['q'] ?? null, function ($query, $q) {
                 $query->where(function ($sub) use ($q) {
@@ -45,7 +50,7 @@ class UserController extends Controller
                 });
             })
             ->when($filters['role'] ?? null, fn ($query, $role) => $query->where('role', $role))
-            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when(($filters['status'] ?? null) && ! $isDeletedView, fn ($query) => $query->where('status', $filters['status']))
             ->orderBy($sort, $dir)
             ->paginate(15)
             ->withQueryString();
@@ -282,6 +287,38 @@ class UserController extends Controller
         );
 
         return back()->with('status', "Akun {$user->fullname} berhasil dihapus (soft delete).");
+    }
+
+    /**
+     * Pulihkan user yang di-soft-delete: batalkan soft delete + set status aktif.
+     * Gate delete_users (route + cek defensif). Route binding {user} pakai
+     * withTrashed() supaya user terhapus bisa di-resolve.
+     */
+    public function restore(Request $request, User $user): RedirectResponse
+    {
+        $actor = $request->user();
+        if (! $actor->canDo('delete_users')) {
+            abort(403, 'Anda tidak memiliki hak akses untuk memulihkan pengguna.');
+        }
+        if (! $user->trashed()) {
+            return back()->withErrors(['user' => 'User ini tidak sedang terhapus.']);
+        }
+
+        $user->restore();
+        $user->status = User::STATUS_ACTIVE;
+        $user->updated_by = $actor->id;
+        $user->save();
+
+        AuditService::log(
+            action: 'restore_user',
+            targetType: 'user',
+            targetId: $user->id,
+            after: ['status' => User::STATUS_ACTIVE],
+            targetUserId: $user->id,
+            targetEmail: $user->email,
+        );
+
+        return back()->with('status', "Akun {$user->fullname} dipulihkan & diaktifkan kembali.");
     }
 
     /* ----------------------- privilege helpers ----------------------- */
