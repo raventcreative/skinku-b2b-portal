@@ -22,7 +22,10 @@ class PurchaseOrderController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filters = $request->only(['status', 'q', 'bayar', 'product']);
+        $filters = $request->only(['status', 'q', 'bayar', 'product', 'dari', 'sampai']);
+        $re = '/^\d{4}-\d{2}-\d{2}$/';
+        $dari = preg_match($re, $filters['dari'] ?? '') ? $filters['dari'] : null;
+        $sampai = preg_match($re, $filters['sampai'] ?? '') ? $filters['sampai'] : null;
 
         // Filter "PO yang memuat produk X" — untuk menemukan PO lama tanpa buka
         // satu-satu (mis. saat mencari asal barang buat retur).
@@ -51,6 +54,9 @@ class PurchaseOrderController extends Controller
                         ->orWhere('company_name', 'like', "%{$term}%");
                 });
             })
+            // Rentang tanggal PO (kolom TANGGAL = created_at). Dikelompokkan per tanggal.
+            ->when($dari, fn ($q) => $q->whereDate('created_at', '>=', $dari))
+            ->when($sampai, fn ($q) => $q->whereDate('created_at', '<=', $sampai))
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -64,6 +70,8 @@ class PurchaseOrderController extends Controller
                 ->when($productId, fn ($q, $pid) => $q->whereHas('items', fn ($i) => $i->where('product_id', $pid)))
                 ->where('payment_status', '!=', PurchaseOrder::PAYMENT_PAID)
                 ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DRAFT])
+                ->when($dari, fn ($q) => $q->whereDate('created_at', '>=', $dari))
+                ->when($sampai, fn ($q) => $q->whereDate('created_at', '<=', $sampai))
                 ->withSum('payments', 'amount')
                 ->withSum('appliedReturns', 'credit_amount')
                 ->get()
