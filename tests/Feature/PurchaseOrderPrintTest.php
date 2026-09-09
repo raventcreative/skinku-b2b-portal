@@ -77,4 +77,32 @@ class PurchaseOrderPrintTest extends TestCase
             ->get(route('purchase-orders.print', ['purchaseOrder' => $po, 'docs' => 'label']))
             ->assertForbidden();
     }
+
+    public function test_label_ada_logo_dan_barcode_dari_resi(): void
+    {
+        $admin = $this->make(User::ROLE_ADMIN);
+        $mitra = $this->make(User::ROLE_RESELLER);
+        $po = $this->poWithItem($mitra);
+        $po->update(['no_resi' => 'JT0123456789']);
+
+        $this->actingAs($admin)
+            ->get(route('purchase-orders.print', ['purchaseOrder' => $po, 'docs' => 'label']))
+            ->assertOk()
+            ->assertSee('skinku-logo.jpg')        // logo terpasang
+            ->assertSee('JT0123456789')           // teks di bawah barcode = resi
+            ->assertDontSee('Resi belum diisi');
+    }
+
+    public function test_label_tanpa_resi_tampilkan_placeholder(): void
+    {
+        // Barcode HANYA dari No. Resi — tak ada fallback ke No. PO.
+        $admin = $this->make(User::ROLE_ADMIN);
+        $mitra = $this->make(User::ROLE_RESELLER);
+        $po = $this->poWithItem($mitra); // no_resi kosong
+
+        $this->actingAs($admin)
+            ->get(route('purchase-orders.print', ['purchaseOrder' => $po, 'docs' => 'label']))
+            ->assertOk()
+            ->assertSee('Resi belum diisi');
+    }
 }

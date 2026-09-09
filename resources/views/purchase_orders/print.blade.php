@@ -5,7 +5,8 @@
     $recipientAddr = $po->shipping_address ?: ($po->user->address ?? '-');
     $recipientCity = $po->user->city ?? '';
     $recipientPhone = $po->user->phone ?? '';
-    $barcodeValue = $po->no_resi ?: $po->po_number;
+    $noResi = trim((string) $po->no_resi);
+    $logoSrc = asset('img/skinku-logo.jpg');
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $tanggal = $po->orderDate()->format('d M Y');
 @endphp
@@ -52,7 +53,10 @@
             </div>
             <div class="sec">
                 <span class="muted">Pengirim</span>
-                <div><strong>{{ $sender['name'] ?: '—' }}</strong></div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+                    <img src="{{ $logoSrc }}" alt="SKINKU" style="height:26px; width:auto; object-fit:contain;">
+                    <strong>{{ $sender['name'] ?: '—' }}</strong>
+                </div>
                 <div>{{ $sender['address'] }}{{ $sender['city'] ? ', '.$sender['city'] : '' }}</div>
                 <div>{{ $sender['phone'] }}</div>
             </div>
@@ -63,8 +67,12 @@
                 <div>{{ $recipientPhone }}</div>
             </div>
             <div class="sec">
-                <div class="barcode">{!! Barcode::code128($barcodeValue) !!}</div>
-                <div style="text-align:center; font-family: monospace; letter-spacing: 2px;">{{ $barcodeValue }}</div>
+                @if($noResi !== '')
+                    <div class="barcode">{!! Barcode::code128($noResi) !!}</div>
+                    <div style="text-align:center; font-family: monospace; letter-spacing: 2px;">{{ $noResi }}</div>
+                @else
+                    <div style="text-align:center; padding:14px 4px; color:#b91c1c; font-weight:700; letter-spacing:1px;">— Resi belum diisi —</div>
+                @endif
             </div>
             <div class="sec row">
                 <div><span class="muted">Jumlah</span> <strong>{{ $totalQty }} pcs</strong></div>
