@@ -85,16 +85,20 @@ class ExportController extends Controller
             (int) $r['awal'], (int) $r['produksi'], (int) $r['masuk_lain'],
             (int) $r['tiktok'], (int) $r['shopee'], (int) $r['reseller'],
             (int) $r['keluar_lain'], (int) $r['penyesuaian'], (int) $r['akhir'],
+            (float) $r['product']->cogs, (float) $r['nilai_hpp'],
+            (float) $r['product']->price_retail, (float) $r['nilai_jual'],
         ]);
         $t = $report['totals'];
         $rows->push(['TOTAL', '', (int) $t['awal'], (int) $t['produksi'], (int) $t['masuk_lain'],
             (int) $t['tiktok'], (int) $t['shopee'], (int) $t['reseller'],
-            (int) $t['keluar_lain'], (int) $t['penyesuaian'], (int) $t['akhir']]);
+            (int) $t['keluar_lain'], (int) $t['penyesuaian'], (int) $t['akhir'],
+            '', (float) $t['nilai_hpp'], '', (float) $t['nilai_jual']]);
 
         return XlsxWriter::download('laporan-stok-hq-'.$mode.'-'.$anchor->format('Y-m-d').'.xlsx', [
             'Mutasi Stok HQ' => [
                 'headers' => ['Produk', 'SKU', 'Stok Awal', 'Produksi', 'Masuk Lain',
-                    'TikTok', 'Shopee', 'Reseller', 'Keluar Lain', 'Penyesuaian', 'Stok Akhir'],
+                    'TikTok', 'Shopee', 'Reseller', 'Keluar Lain', 'Penyesuaian', 'Stok Akhir',
+                    'HPP/Unit', 'Nilai HPP', 'Jual/Unit', 'Nilai Jual'],
                 'rows' => $rows,
             ],
         ]);

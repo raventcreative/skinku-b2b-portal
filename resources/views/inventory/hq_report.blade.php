@@ -6,6 +6,7 @@
 @php
     $n = fn ($v) => number_format((int) $v, 0, ',', '.');
     $sign = fn ($v) => ((int) $v > 0 ? '+' : '').number_format((int) $v, 0, ',', '.');
+    $rpn = fn ($v) => number_format((float) $v, 0, ',', '.'); // nilai Rupiah
     $showMasukLain = ($totals['masuk_lain'] ?? 0) != 0;
     $showKeluarLain = ($totals['keluar_lain'] ?? 0) != 0;
     // jumlah kolom untuk colspan grup
@@ -88,6 +89,7 @@
                 <th class="text-center px-3 py-1.5 border-l border-stone-200 bg-rose-50/50 text-rose-700" colspan="{{ $keluarCols }}">Keluar</th>
                 <th rowspan="2" class="text-right px-3 py-2 border-l border-stone-200">Penyesuaian</th>
                 <th rowspan="2" class="text-right px-3 py-2 border-l border-stone-200 bg-stone-100 text-stone-700">Stok Akhir</th>
+                <th class="text-center px-3 py-1.5 border-l-2 border-stone-300 bg-amber-50/50 text-amber-800" colspan="4">Nilai Persediaan (Stok Akhir)</th>
             </tr>
             <tr class="bg-stone-50 text-stone-500 uppercase text-[10px]">
                 <th class="text-right px-3 py-1.5 border-l border-stone-200">Produksi</th>
@@ -96,6 +98,10 @@
                 <th class="text-right px-3 py-1.5">Shopee</th>
                 <th class="text-right px-3 py-1.5">Reseller</th>
                 @if($showKeluarLain)<th class="text-right px-3 py-1.5">Lain</th>@endif
+                <th class="text-right px-3 py-1.5 border-l-2 border-stone-300">HPP/Unit</th>
+                <th class="text-right px-3 py-1.5">Nilai HPP</th>
+                <th class="text-right px-3 py-1.5">Jual/Unit</th>
+                <th class="text-right px-3 py-1.5">Nilai Jual</th>
             </tr>
         </thead>
         <tbody id="hqTbody">
@@ -116,6 +122,10 @@
                     @if($showKeluarLain)<td class="text-right px-3 py-2 font-mono text-rose-600">{{ $r['keluar_lain'] ? $n($r['keluar_lain']) : '·' }}</td>@endif
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-100 {{ $r['penyesuaian'] > 0 ? 'text-emerald-600' : ($r['penyesuaian'] < 0 ? 'text-rose-600' : 'text-stone-300') }}">{{ $r['penyesuaian'] ? $sign($r['penyesuaian']) : '·' }}</td>
                     <td class="text-right px-3 py-2 font-mono font-bold border-l border-stone-100 bg-stone-50 text-stone-800">{{ $n($r['akhir']) }}</td>
+                    <td class="text-right px-3 py-2 font-mono border-l-2 border-stone-200 text-stone-500">{{ $rpn($r['product']->cogs) }}</td>
+                    <td class="text-right px-3 py-2 font-mono text-amber-800">{{ $rpn($r['nilai_hpp']) }}</td>
+                    <td class="text-right px-3 py-2 font-mono text-stone-500">{{ $rpn($r['product']->price_retail) }}</td>
+                    <td class="text-right px-3 py-2 font-mono text-emerald-700">{{ $rpn($r['nilai_jual']) }}</td>
                 </tr>
             @empty
                 <tr><td colspan="20" class="px-4 py-10 text-center text-stone-400">Tidak ada pergerakan stok pada periode ini.</td></tr>
@@ -134,6 +144,10 @@
                     @if($showKeluarLain)<td class="text-right px-3 py-2 font-mono">{{ $n($totals['keluar_lain']) }}</td>@endif
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-200">{{ $sign($totals['penyesuaian']) }}</td>
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-200">{{ $n($totals['akhir']) }}</td>
+                    <td class="text-right px-3 py-2 font-mono border-l-2 border-stone-300 text-stone-400">—</td>
+                    <td class="text-right px-3 py-2 font-mono text-amber-800">{{ $rpn($totals['nilai_hpp']) }}</td>
+                    <td class="text-right px-3 py-2 font-mono text-stone-400">—</td>
+                    <td class="text-right px-3 py-2 font-mono text-emerald-700">{{ $rpn($totals['nilai_jual']) }}</td>
                 </tr>
             </tfoot>
         @endif
@@ -144,6 +158,7 @@
     Rumus: <b>Stok Akhir = Stok Awal + Produksi + Penyesuaian − (TikTok + Shopee + Reseller)</b>.
     Kolom TikTok terisi dari order yang sudah kamu <b>Potong Stok</b>. Shopee 0 (belum integrasi). Titik <b>·</b> = nol.
     <br>💡 Klik <b>nama produk</b> untuk lihat rincian tiap pergerakannya (buku besar) pada periode ini.
+    <br>💰 <b>Nilai Persediaan</b> (Rupiah) = Stok Akhir × harga/unit. <b>Nilai HPP</b> pakai harga pokok (cogs) = modal barang tersimpan; <b>Nilai Jual</b> pakai harga retail = potensi omzet.
 </p>
 @endsection
 

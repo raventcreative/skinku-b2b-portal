@@ -64,12 +64,17 @@ class HqStockReportService
         unset($b);
 
         $rows = [];
-        $totals = $this->emptyBuckets() + ['awal' => 0, 'akhir' => 0];
+        $totals = $this->emptyBuckets() + ['awal' => 0, 'akhir' => 0, 'nilai_hpp' => 0.0, 'nilai_jual' => 0.0];
         foreach ($products as $p) {
             $now = $stockNow[$p->id] ?? 0;
             $awal = $now - (int) ($fromStart[$p->id] ?? 0);
             $akhir = $now - (int) ($afterEnd[$p->id] ?? 0);
             $b = $buckets[$p->id] ?? $this->emptyBuckets();
+
+            // Nilai persediaan = Stok Akhir × harga per unit. HPP = modal (cogs),
+            // Jual = potensi omzet (harga retail). Pakai harga terkini produk.
+            $nilaiHpp = $akhir * (float) $p->cogs;
+            $nilaiJual = $akhir * (float) $p->price_retail;
 
             // Produk benar-benar tak bergerak & saldo nol = "kosong". Default-nya
             // dilewati (dipakai Export). UI web memanggil includeEmpty=true supaya
@@ -79,7 +84,8 @@ class HqStockReportService
                 continue;
             }
 
-            $row = $b + ['product' => $p, 'awal' => $awal, 'akhir' => $akhir, 'empty' => ! $moved];
+            $row = $b + ['product' => $p, 'awal' => $awal, 'akhir' => $akhir, 'empty' => ! $moved,
+                'nilai_hpp' => $nilaiHpp, 'nilai_jual' => $nilaiJual];
             $rows[] = $row;
 
             foreach ($this->emptyBuckets() as $k => $_) {
@@ -87,6 +93,8 @@ class HqStockReportService
             }
             $totals['awal'] += $awal;
             $totals['akhir'] += $akhir;
+            $totals['nilai_hpp'] += $nilaiHpp;
+            $totals['nilai_jual'] += $nilaiJual;
         }
 
         $baselineRaw = StockMovement::whereNull('user_id')->where('reference_type', 'opname')->min('created_at');
