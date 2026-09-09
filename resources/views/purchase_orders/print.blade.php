@@ -18,8 +18,12 @@
         @page { size: {{ $size }}; margin: 4mm; }
         * { box-sizing: border-box; }
         body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; font-size: 11px; }
-        .doc-page { page-break-after: always; padding: 2mm; }
-        .doc-page:last-child { page-break-after: auto; }
+        /* Dokumen mengalir berurutan; hanya Faktur yang wajib mulai di lembar baru.
+           Label + Daftar Pengemasan boleh berbagi satu lembar (hemat kertas) kalau muat,
+           dipisah garis potong putus-putus. */
+        .doc-page { padding: 2mm; }
+        .doc-page + .doc-page:not(.doc-faktur) { margin-top: 6mm; padding-top: 6mm; border-top: 1px dashed #999; }
+        .doc-faktur { break-before: page; page-break-before: always; }
         .bd { border: 1px solid #000; }
         .row { display: flex; justify-content: space-between; gap: 8px; }
         .muted { color: #333; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
@@ -90,7 +94,7 @@
 @endif
 
 @if(in_array('faktur', $docs, true))
-    <div class="doc-page">
+    <div class="doc-page doc-faktur">
         <div class="row" style="margin-bottom:6px">
             <div><strong>{{ $sender['name'] ?: config('app.name') }}</strong><div class="muted">{{ $sender['address'] }}</div></div>
             <div style="text-align:right"><h2 class="doc-title">FAKTUR / NOTA</h2><div>{{ $po->po_number }}</div><div class="muted">{{ $tanggal }}</div></div>
