@@ -47,17 +47,32 @@ class PurchaseOrderShowCetakButtonTest extends TestCase
             ->assertOk()->assertDontSee('Cetak Dokumen');
     }
 
-    public function test_po_selesai_sembunyikan_tombol_cetak_dan_form_resi(): void
+    public function test_po_completed_tetap_tampilkan_cetak_dan_resi(): void
     {
-        // Samakan dengan form Ongkir: begitu PO completed/cancelled/deleted,
-        // form Kurir & Resi dan tombol Cetak Dokumen tidak muncul lagi.
+        // PO completed JUSTRU sering perlu cetak faktur/label + koreksi resi,
+        // jadi tombol Cetak & form Resi tetap muncul di status completed.
         $admin = $this->make(User::ROLE_ADMIN);
         $po = $this->po($admin);
         $po->update(['status' => PurchaseOrder::STATUS_COMPLETED]);
 
+        // Pakai teks tanpa '&' — assertSee meng-escape '&' jadi '&amp;' sehingga
+        // 'Kurir & Resi' (teks statis) tak pernah cocok. 'Simpan Resi' = tombol form resi.
+        $this->actingAs($admin)->get(route('purchase-orders.show', $po))
+            ->assertOk()
+            ->assertSee('Cetak Dokumen')
+            ->assertSee('Simpan Resi');
+    }
+
+    public function test_po_batal_sembunyikan_cetak_dan_resi(): void
+    {
+        // PO batal/hapus = void, tak perlu cetak label/isi resi.
+        $admin = $this->make(User::ROLE_ADMIN);
+        $po = $this->po($admin);
+        $po->update(['status' => PurchaseOrder::STATUS_CANCELLED]);
+
         $this->actingAs($admin)->get(route('purchase-orders.show', $po))
             ->assertOk()
             ->assertDontSee('Cetak Dokumen')
-            ->assertDontSee('Kurir & Resi');
+            ->assertDontSee('Simpan Resi');
     }
 }

@@ -106,8 +106,8 @@
             </div>
         @endif
 
-        {{-- Kurir & Resi (staf) — sembunyikan kalau PO sudah selesai/batal, samakan dgn Ongkir --}}
-        @if($u->canDo('update_po_status') && !in_array($po->status, ['completed','cancelled','deleted']))
+        {{-- Kurir & Resi (staf) — sembunyikan hanya kalau PO batal/hapus; completed tetap bisa (isi/koreksi resi) --}}
+        @if($u->canDo('update_po_status') && !in_array($po->status, ['cancelled','deleted']))
         <div class="bg-white rounded-2xl border border-stone-200 p-5">
             <h4 class="text-sm font-bold text-stone-800">Kurir & Resi</h4>
             <form method="POST" action="{{ route('purchase-orders.resi', $po) }}" class="mt-3 space-y-3">
@@ -127,8 +127,8 @@
         </div>
         @endif
 
-        {{-- Cetak Dokumen (staf) — sembunyikan kalau PO sudah selesai/batal, samakan dgn Ongkir --}}
-        @if($u->canDo('update_po_status') && !in_array($po->status, ['completed','cancelled','deleted']))
+        {{-- Cetak Dokumen (staf) — sembunyikan hanya kalau PO batal/hapus; completed tetap bisa cetak label/faktur --}}
+        @if($u->canDo('update_po_status') && !in_array($po->status, ['cancelled','deleted']))
         <div class="bg-white rounded-2xl border border-stone-200 p-5">
             <button type="button" onclick="document.getElementById('cetakDialog').showModal()"
                     class="inline-flex items-center gap-2 rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 py-2">
