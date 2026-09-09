@@ -106,6 +106,27 @@
             </div>
         @endif
 
+        {{-- Kurir & Resi (staf) --}}
+        @if($u->canDo('update_po_status'))
+        <div class="bg-white rounded-2xl border border-stone-200 p-5">
+            <h4 class="text-sm font-bold text-stone-800">Kurir & Resi</h4>
+            <form method="POST" action="{{ route('purchase-orders.resi', $po) }}" class="mt-3 space-y-3">
+                @csrf
+                <div>
+                    <label class="block text-xs font-semibold text-stone-600 mb-1">Kurir</label>
+                    <input type="text" name="kurir" value="{{ $po->kurir }}" maxlength="50"
+                           class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" placeholder="mis. J&T Express">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-stone-600 mb-1">No. Resi</label>
+                    <input type="text" name="no_resi" value="{{ $po->no_resi }}" maxlength="64"
+                           class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" placeholder="No. resi / AWB">
+                </div>
+                <button type="submit" class="rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 py-2">Simpan Resi</button>
+            </form>
+        </div>
+        @endif
+
         {{-- Pembayaran --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-5">
             <h3 class="text-sm font-bold text-stone-800 mb-3">Pembayaran</h3>

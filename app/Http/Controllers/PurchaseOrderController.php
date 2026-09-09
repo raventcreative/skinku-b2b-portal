@@ -416,6 +416,27 @@ class PurchaseOrderController extends Controller
         return back()->with('status', 'Ongkir & total PO berhasil diperbarui.');
     }
 
+    /**
+     * Simpan kurir + no resi PO (input manual staf; nanti bisa diisi API kurir).
+     * Gate route = update_po_status (admin/gudang), jadi tak perlu cek ulang.
+     */
+    public function saveResi(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $data = $request->validate([
+            'kurir' => ['nullable', 'string', 'max:50'],
+            'no_resi' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $purchaseOrder->update([
+            'kurir' => isset($data['kurir']) ? trim($data['kurir']) : null,
+            'no_resi' => isset($data['no_resi']) ? trim($data['no_resi']) : null,
+        ]);
+
+        AuditService::log(action: 'update_po_resi', targetType: 'purchase_order', targetId: $purchaseOrder->id, after: $data);
+
+        return back()->with('status', 'Resi & kurir disimpan.');
+    }
+
     /** Buyer uploads a transfer proof image. */
     public function uploadPayment(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
     {

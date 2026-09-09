@@ -151,6 +151,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/purchase-orders/bulk-status', [PurchaseOrderController::class, 'bulkStatus'])->name('purchase-orders.bulk-status');
         Route::post('/purchase-orders/{purchaseOrder}/status', [PurchaseOrderController::class, 'updateStatus'])->name('purchase-orders.status');
         Route::post('/purchase-orders/{purchaseOrder}/shipping', [PurchaseOrderController::class, 'setShipping'])->name('purchase-orders.shipping');
+        Route::post('/purchase-orders/{purchaseOrder}/resi', [PurchaseOrderController::class, 'saveResi'])->name('purchase-orders.resi');
         Route::post('/purchase-orders/{purchaseOrder}/verify-payment', [PurchaseOrderController::class, 'verifyPayment'])->name('purchase-orders.verify-payment');
         Route::post('/purchase-orders/{purchaseOrder}/tempo', [PurchaseOrderController::class, 'setTempo'])->name('purchase-orders.tempo');
         Route::post('/purchase-orders/{purchaseOrder}/payments', [PurchaseOrderController::class, 'storePayment'])->name('purchase-orders.payments');
