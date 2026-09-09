@@ -46,4 +46,18 @@ class PurchaseOrderShowCetakButtonTest extends TestCase
         $this->actingAs($reseller)->get(route('purchase-orders.show', $po))
             ->assertOk()->assertDontSee('Cetak Dokumen');
     }
+
+    public function test_po_selesai_sembunyikan_tombol_cetak_dan_form_resi(): void
+    {
+        // Samakan dengan form Ongkir: begitu PO completed/cancelled/deleted,
+        // form Kurir & Resi dan tombol Cetak Dokumen tidak muncul lagi.
+        $admin = $this->make(User::ROLE_ADMIN);
+        $po = $this->po($admin);
+        $po->update(['status' => PurchaseOrder::STATUS_COMPLETED]);
+
+        $this->actingAs($admin)->get(route('purchase-orders.show', $po))
+            ->assertOk()
+            ->assertDontSee('Cetak Dokumen')
+            ->assertDontSee('Kurir & Resi');
+    }
 }
