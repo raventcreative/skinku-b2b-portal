@@ -71,6 +71,39 @@
         @error('ro_cashback')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
     </div>
 
+    {{-- Pengirim (HQ) — identitas gudang pusat yang dicetak di blok pengirim
+         label pengiriman PO. --}}
+    <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
+        <h3 class="text-sm font-bold text-stone-800">Pengirim (HQ)</h3>
+        <p class="text-xs text-stone-500 mt-1">Identitas pengirim di label pengiriman PO (gudang pusat).</p>
+        <form method="POST" action="{{ route('settings.sender.save') }}" class="mt-4 space-y-3">
+            @csrf
+            <div>
+                <label class="block text-xs font-semibold text-stone-600 mb-1">Nama</label>
+                <input type="text" name="hq_sender_name" value="{{ $sender['name'] }}" maxlength="100"
+                       class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" placeholder="SKINKU HQ">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-stone-600 mb-1">Alamat</label>
+                <input type="text" name="hq_sender_address" value="{{ $sender['address'] }}" maxlength="255"
+                       class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" placeholder="Jl. ...">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-stone-600 mb-1">Kota</label>
+                    <input type="text" name="hq_sender_city" value="{{ $sender['city'] }}" maxlength="100"
+                           class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-stone-600 mb-1">No. HP</label>
+                    <input type="text" name="hq_sender_phone" value="{{ $sender['phone'] }}" maxlength="40"
+                           class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">
+                </div>
+            </div>
+            <button type="submit" class="rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 py-2">Simpan Pengirim</button>
+        </form>
+    </div>
+
     {{-- Insentif Volume Grand — tier bonus tahunan. Kalau total belanja GD ke HQ per
          tahun tembus threshold → hak = total × rate% (tier tertinggi, model top-up).
          Fitur AKTIF hanya kalau ada >=1 tier. --}}

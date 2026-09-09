@@ -45,6 +45,12 @@ class SettingController extends Controller
                 'provider' => AppSetting::get('ai_provider', (string) config('services.ai.provider')),
                 'model' => AppSetting::get('ai_model', (string) config('services.ai.default_model')),
             ],
+            'sender' => [
+                'name' => AppSetting::get('hq_sender_name', ''),
+                'address' => AppSetting::get('hq_sender_address', ''),
+                'city' => AppSetting::get('hq_sender_city', ''),
+                'phone' => AppSetting::get('hq_sender_phone', ''),
+            ],
             'reportBot' => [
                 'access_code' => AppSetting::get('report_bot_access_code'),
                 // Hanya chat yang SUDAH terotorisasi (authorized_at terisi) — chat yang
@@ -114,6 +120,28 @@ class SettingController extends Controller
         AuditService::log(action: 'save_ai_settings', targetType: 'app_setting', after: ['provider' => $data['ai_provider'], 'model' => $data['ai_model']]);
 
         return back()->with('status', 'Pengaturan Asisten AI disimpan.');
+    }
+
+    /**
+     * Simpan identitas Pengirim (HQ) — dipakai di blok pengirim label
+     * pengiriman PO. Bukan kredensial, hanya alamat/kontak gudang pusat.
+     */
+    public function saveSender(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'hq_sender_name' => ['nullable', 'string', 'max:100'],
+            'hq_sender_address' => ['nullable', 'string', 'max:255'],
+            'hq_sender_city' => ['nullable', 'string', 'max:100'],
+            'hq_sender_phone' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        foreach ($data as $key => $value) {
+            AppSetting::put($key, $value !== null ? trim($value) : null);
+        }
+
+        AuditService::log(action: 'save_sender_settings', targetType: 'app_setting', after: $data);
+
+        return back()->with('status', 'Setelan Pengirim disimpan.');
     }
 
     /**
