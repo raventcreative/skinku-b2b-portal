@@ -155,6 +155,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/purchase-orders/{purchaseOrder}/verify-payment', [PurchaseOrderController::class, 'verifyPayment'])->name('purchase-orders.verify-payment');
         Route::post('/purchase-orders/{purchaseOrder}/tempo', [PurchaseOrderController::class, 'setTempo'])->name('purchase-orders.tempo');
         Route::post('/purchase-orders/{purchaseOrder}/payments', [PurchaseOrderController::class, 'storePayment'])->name('purchase-orders.payments');
+        Route::get('/purchase-orders/{purchaseOrder}/cetak', [PurchaseOrderController::class, 'print'])->name('purchase-orders.print');
     });
 
     Route::middleware('permission:delete_po')->group(function () {

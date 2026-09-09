@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppSetting;
 use App\Models\PoReturnItem;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
@@ -435,6 +436,41 @@ class PurchaseOrderController extends Controller
         AuditService::log(action: 'update_po_resi', targetType: 'purchase_order', targetId: $purchaseOrder->id, after: $data);
 
         return back()->with('status', 'Resi & kurir disimpan.');
+    }
+
+    /**
+     * Halaman cetak dokumen PO (standalone, browser-print). ?docs= subset dari
+     * label,packing,faktur (default label); ?size= A6|A4 (default A6). Gate route
+     * = update_po_status (staf) — mitra tak boleh cetak label HQ.
+     */
+    public function print(Request $request, PurchaseOrder $purchaseOrder)
+    {
+        $allowed = ['label', 'packing', 'faktur'];
+        $docs = collect(explode(',', (string) $request->query('docs')))
+            ->map(fn ($d) => trim($d))
+            ->filter(fn ($d) => in_array($d, $allowed, true))
+            ->values()->all();
+        if ($docs === []) {
+            $docs = ['label'];
+        }
+
+        $size = strtoupper((string) $request->query('size')) === 'A4' ? 'A4' : 'A6';
+
+        $purchaseOrder->load('items', 'user');
+
+        $sender = [
+            'name' => AppSetting::get('hq_sender_name', config('app.name')),
+            'address' => AppSetting::get('hq_sender_address', ''),
+            'city' => AppSetting::get('hq_sender_city', ''),
+            'phone' => AppSetting::get('hq_sender_phone', ''),
+        ];
+
+        return view('purchase_orders.print', [
+            'po' => $purchaseOrder,
+            'docs' => $docs,
+            'size' => $size,
+            'sender' => $sender,
+        ]);
     }
 
     /** Buyer uploads a transfer proof image. */
