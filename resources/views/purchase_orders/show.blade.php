@@ -127,6 +127,49 @@
         </div>
         @endif
 
+        {{-- Cetak Dokumen (staf) --}}
+        @if($u->canDo('update_po_status'))
+        <div class="bg-white rounded-2xl border border-stone-200 p-5">
+            <button type="button" onclick="document.getElementById('cetakDialog').showModal()"
+                    class="inline-flex items-center gap-2 rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 py-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Cetak Dokumen
+            </button>
+
+            <dialog id="cetakDialog" class="rounded-2xl p-0 backdrop:bg-black/40" style="border:none; max-width:340px;">
+                <form method="dialog" class="p-5">
+                    <h4 class="text-sm font-bold text-stone-800 mb-3">Cetak Dokumen PO</h4>
+                    <label class="flex items-center gap-2 text-sm mb-2"><input type="checkbox" name="doc" value="label" checked> Label Pengiriman</label>
+                    <label class="flex items-center gap-2 text-sm mb-2"><input type="checkbox" name="doc" value="packing" checked> Daftar Pengemasan</label>
+                    <label class="flex items-center gap-2 text-sm mb-3"><input type="checkbox" name="doc" value="faktur"> Faktur / Nota</label>
+                    <label class="block text-xs font-semibold text-stone-600 mb-1">Ukuran</label>
+                    <select id="cetakSize" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm mb-4">
+                        <option value="A6" selected>A6 (label)</option>
+                        <option value="A4">A4</option>
+                    </select>
+                    <div class="flex justify-end gap-2">
+                        <button value="cancel" class="rounded-lg border border-stone-300 text-sm font-semibold px-4 py-2">Batal</button>
+                        <button type="button" onclick="cetakDokumen({{ $po->id }})" class="rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 py-2">Cetak</button>
+                    </div>
+                </form>
+            </dialog>
+        </div>
+
+        @push('scripts')
+        <script>
+            function cetakDokumen(poId) {
+                var dlg = document.getElementById('cetakDialog');
+                var docs = Array.from(dlg.querySelectorAll('input[name="doc"]:checked')).map(function (c) { return c.value; });
+                if (docs.length === 0) docs = ['label'];
+                var size = document.getElementById('cetakSize').value;
+                var url = '{{ url('purchase-orders') }}/' + poId + '/cetak?docs=' + docs.join(',') + '&size=' + size;
+                window.open(url, '_blank');
+                dlg.close();
+            }
+        </script>
+        @endpush
+        @endif
+
         {{-- Pembayaran --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-5">
             <h3 class="text-sm font-bold text-stone-800 mb-3">Pembayaran</h3>
