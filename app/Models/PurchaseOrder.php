@@ -108,7 +108,7 @@ class PurchaseOrder extends Model
         'is_tempo', 'tempo_due_date', 'tempo_notes',
         'status', 'subtotal', 'discount', 'shipping_cost', 'total_amount',
         'payment_status', 'payment_note', 'paid_at', 'payment_verified_by',
-        'shipping_address', 'notes', 'revision_notes', 'completed_at', 'stock_skipped', 'deleted_by',
+        'shipping_address', 'kurir', 'no_resi', 'notes', 'revision_notes', 'completed_at', 'stock_skipped', 'deleted_by',
     ];
 
     protected function casts(): array
