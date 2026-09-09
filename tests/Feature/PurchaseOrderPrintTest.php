@@ -89,6 +89,7 @@ class PurchaseOrderPrintTest extends TestCase
             ->get(route('purchase-orders.print', ['purchaseOrder' => $po, 'docs' => 'label']))
             ->assertOk()
             ->assertSee('skinku-logo.jpg')        // logo terpasang
+            ->assertSee('Skinku Official')        // default nama pengirim (hq_sender_name belum diset)
             ->assertSee('JT0123456789')           // teks di bawah barcode = resi
             ->assertDontSee('Resi belum diisi');
     }

@@ -459,7 +459,7 @@ class PurchaseOrderController extends Controller
         $purchaseOrder->load('items', 'user');
 
         $sender = [
-            'name' => AppSetting::get('hq_sender_name', config('app.name')),
+            'name' => AppSetting::get('hq_sender_name', 'Skinku Official'),
             'address' => AppSetting::get('hq_sender_address', ''),
             'city' => AppSetting::get('hq_sender_city', ''),
             'phone' => AppSetting::get('hq_sender_phone', ''),

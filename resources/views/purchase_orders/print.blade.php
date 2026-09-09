@@ -47,16 +47,16 @@
 @if(in_array('label', $docs, true))
     <div class="doc-page">
         <div class="bd">
+            <div class="sec" style="text-align:center; padding:8px 6px;">
+                <img src="{{ $logoSrc }}" alt="SKINKU Official" style="height:44px; width:auto; object-fit:contain; display:inline-block;">
+            </div>
             <div class="sec row">
                 <div><span class="muted">Kurir</span><div class="big">{{ $po->kurir ?: '—' }}</div></div>
                 <div style="text-align:right"><span class="muted">No. PO</span><div>{{ $po->po_number }}</div><div class="muted">{{ $tanggal }}</div></div>
             </div>
             <div class="sec">
                 <span class="muted">Pengirim</span>
-                <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
-                    <img src="{{ $logoSrc }}" alt="SKINKU" style="height:26px; width:auto; object-fit:contain;">
-                    <strong>{{ $sender['name'] ?: '—' }}</strong>
-                </div>
+                <div><strong>{{ $sender['name'] ?: '—' }}</strong></div>
                 <div>{{ $sender['address'] }}{{ $sender['city'] ? ', '.$sender['city'] : '' }}</div>
                 <div>{{ $sender['phone'] }}</div>
             </div>
