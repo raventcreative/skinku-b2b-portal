@@ -346,14 +346,20 @@
 <script>
     const trend = @json($salesTrend);
     const poStatus = @json($poStatus);
+    const trendByChannel = @json($trendByChannel ?? null);
 
+    // Staff/HQ: garis per channel (PO/TikTok/Shopee). Mitra: garis tunggal miliknya
+    // (trendByChannel = null) — data marketplace tak bocor ke mitra.
     new Chart(document.getElementById('salesTrendChart'), {
         type: 'line',
-        data: {
+        data: trendByChannel ? {
+            labels: trendByChannel.labels,
+            datasets: trendByChannel.channels.map(c => ({ label: c.label, data: c.data, borderColor: c.color, backgroundColor: 'transparent', fill: false, tension: .3, pointRadius: 2 }))
+        } : {
             labels: trend.map(r => r.label),
             datasets: [{ label: 'Penjualan', data: trend.map(r => r.total), borderColor: '#0f4c3a', backgroundColor: 'rgba(15,76,58,.1)', fill: true, tension: .3 }]
         },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        options: { plugins: { legend: { display: !!trendByChannel } }, scales: { y: { beginAtZero: true } } }
     });
 
     new Chart(document.getElementById('poStatusChart'), {

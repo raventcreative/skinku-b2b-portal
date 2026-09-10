@@ -59,6 +59,10 @@ class DashboardController extends Controller
         [$chFrom, $chSampai] = $this->parseChannelDates($request);
         $channelSales = $user->isStaff() ? $this->reports->channelSales($bulan, $chFrom, $chSampai) : null;
 
+        // Tren penjualan per channel untuk grafik — HANYA staff/HQ. Mitra dapat null
+        // → grafik jatuh ke garis tunggal miliknya (salesTrend), tanpa bocor TikTok/Shopee.
+        $trendByChannel = $user->isStaff() ? $this->reports->salesTrendByChannel($bulan) : null;
+
         // Grand Total omzet SETAHUN (semua channel) — hanya staff.
         $yearlyOmzet = $user->isStaff() ? $this->reports->yearlyOmzet($bulan) : null;
 
@@ -109,7 +113,7 @@ class DashboardController extends Controller
                 ->get()
             : collect();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'channelSales', 'yearlyOmzet', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'trendByChannel', 'channelSales', 'yearlyOmzet', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
     }
 
     /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */

@@ -407,6 +407,76 @@ class ReportService
     }
 
     /**
+     * Tren penjualan HARIAN per channel (Reseller/PO, TikTok, Shopee) sepanjang
+     * $month — untuk grafik Dashboard. HANYA staff/HQ: channel marketplace itu
+     * level pusat, jangan dipakai untuk mitra. SENGAJA TERPISAH dari salesTrend()
+     * (yang dipakai Export & Laporan) supaya perubahan grafik ini tak merembet.
+     *
+     * @return array{labels: array<int,string>, channels: array<int, array{key:string, label:string, color:string, data: array<int,float>}>}
+     */
+    public function salesTrendByChannel(?Carbon $month = null): array
+    {
+        $month ??= Carbon::now();
+        $driver = DB::connection()->getDriverName();
+
+        // Label hari: tgl 1 s/d akhir bulan; bulan berjalan berhenti di HARI INI
+        // (hari yang belum terjadi tak digambar sebagai 0).
+        $start = $month->copy()->startOfMonth();
+        $end = $month->copy()->endOfMonth();
+        $today = Carbon::today();
+        if ($end->gt($today) && ! $start->gt($today)) {
+            $end = $today;
+        }
+        $labels = [];
+        for ($c = $start->copy(); ! $c->gt($end); $c->addDay()) {
+            $labels[] = $c->toDateString();
+        }
+
+        $startDt = $start->copy()->startOfDay();
+        $endDt = $end->copy()->endOfDay();
+
+        // Selaraskan hasil grouped-by-day (bucket=>total) dengan $labels; hari
+        // tanpa penjualan = 0.
+        $align = fn ($byDay) => array_map(fn ($d) => round((float) ($byDay[$d] ?? 0), 2), $labels);
+
+        // Reseller/PO — samakan persis dgn garis lama (salesTrend): completed, HQ
+        // langsung (seller_id null), bucket COALESCE(order_date, DATE(completed_at)).
+        $poFmt = $this->dateFormatExpr('COALESCE(order_date, DATE(completed_at))', 'day', $driver);
+        $poDay = PurchaseOrder::query()
+            ->where('status', self::REVENUE_STATUS)
+            ->whereNull('seller_id')
+            ->whereNotNull('completed_at')
+            ->whereRaw("$poFmt BETWEEN ? AND ?", [$startDt->toDateString(), $endDt->toDateString()])
+            ->selectRaw("$poFmt as bucket, SUM(total_amount) as total")
+            ->groupBy('bucket')
+            ->pluck('total', 'bucket');
+
+        // Marketplace: order_created_at + status "delivered". Guard tabel (bisa belum ada).
+        $mpDay = function (string $table, string $model, array $statuses) use ($driver, $startDt, $endDt) {
+            if (! Schema::hasTable($table)) {
+                return collect();
+            }
+            $fmt = $this->dateFormatExpr('order_created_at', 'day', $driver);
+
+            return $model::query()
+                ->whereIn('status', $statuses)
+                ->whereBetween('order_created_at', [$startDt, $endDt])
+                ->selectRaw("$fmt as bucket, SUM(total_amount) as total")
+                ->groupBy('bucket')
+                ->pluck('total', 'bucket');
+        };
+
+        return [
+            'labels' => $labels,
+            'channels' => [
+                ['key' => 'reseller', 'label' => 'Reseller / PO', 'color' => '#0f4c3a', 'data' => $align($poDay)],
+                ['key' => 'tiktok', 'label' => 'TikTok', 'color' => '#ef4444', 'data' => $align($mpDay('tiktok_orders', TiktokOrder::class, TiktokOrder::DELIVERED_STATUSES))],
+                ['key' => 'shopee', 'label' => 'Shopee', 'color' => '#f97316', 'data' => $align($mpDay('shopee_orders', ShopeeOrder::class, ShopeeOrder::DELIVERED_STATUSES))],
+            ],
+        ];
+    }
+
+    /**
      * Lengkapi deret harian sepanjang $month (tgl 1 s/d akhir bulan) dengan
      * titik bernilai 0 untuk hari yang tak punya penjualan.
      *
