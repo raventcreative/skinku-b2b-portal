@@ -29,8 +29,8 @@
         .row { display: flex; justify-content: space-between; gap: 8px; }
         .muted { color: #333; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
         .big { font-size: 15px; font-weight: 700; }
-        .sec { padding: 6px; border-bottom: 1px solid #000; }
-        .sec:last-child { border-bottom: 0; }
+        /* Tanpa garis pemisah antar bagian — sisakan bingkai luar (.bd) saja biar lega. */
+        .sec { padding: 6px; }
         table { width: 100%; border-collapse: collapse; }
         th, td { text-align: left; padding: 3px 4px; border-bottom: 1px solid #ccc; }
         th { font-size: 9px; text-transform: uppercase; color: #333; }
