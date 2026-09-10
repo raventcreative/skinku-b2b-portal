@@ -28,6 +28,7 @@
                 <th class="text-right">Reseller</th>
                 <th class="text-right">Retail</th>
                 <th class="text-right">HPP</th>
+                <th class="text-right">Berat</th>
                 <th class="text-right">Stok Pusat</th>
                 <th class="text-left">Status</th>
                 <th class="text-right px-4">Aksi</th>
@@ -66,6 +67,7 @@
                             Rp {{ number_format($p->cogs, 0, ',', '.') }}
                         @endif
                     </td>
+                    <td class="text-right {{ (int) $p->weight_grams <= 0 ? 'text-amber-600 font-semibold' : 'text-stone-600' }}">{{ (int) $p->weight_grams > 0 ? number_format($p->weight_grams, 0, ',', '.').' g' : 'belum diisi' }}</td>
                     <td class="text-right font-bold {{ $p->hq_stock <= 0 ? 'text-rose-600' : 'text-stone-800' }}">{{ $p->hq_stock }}</td>
                     <td><span class="px-2 py-0.5 rounded-full text-[10px] {{ $p->status==='active' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-600' }}">{{ $p->status }}</span></td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
@@ -75,7 +77,7 @@
                         @if($p->status !== 'deleted')
                             @php $gallery = $p->fileGallery(\App\Models\Product::GALLERY); @endphp
                             <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                                onclick='openProduct({{ json_encode($p->only(["id","name","sku","category","description","price_grand","price_distributor","price_reseller","price_retail","cogs","hq_stock","status"]) + ["gallery" => $gallery]) }})'>Edit</button>
+                                onclick='openProduct({{ json_encode($p->only(["id","name","sku","category","description","price_grand","price_distributor","price_reseller","price_retail","cogs","weight_grams","hq_stock","status"]) + ["gallery" => $gallery]) }})'>Edit</button>
                             <form method="POST" action="{{ route('products.destroy', $p) }}" class="inline" onsubmit="return confirm('Hapus produk ini (soft delete)?')">
                                 @csrf @method('DELETE')
                                 <button class="ml-2 text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
@@ -84,7 +86,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="11" class="px-4 py-6 text-center text-stone-400">Belum ada produk.</td></tr>
+                <tr><td colspan="12" class="px-4 py-6 text-center text-stone-400">Belum ada produk.</td></tr>
             @endforelse
         </tbody>
     </table>

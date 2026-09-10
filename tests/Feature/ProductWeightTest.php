@@ -58,4 +58,16 @@ class ProductWeightTest extends TestCase
 
         $this->assertSame(0, (int) Product::where('sku', 'B1')->value('weight_grams'));
     }
+
+    public function test_halaman_produk_tampilkan_kolom_berat(): void
+    {
+        Product::create($this->payload(['name' => 'Isi', 'sku' => 'W1', 'weight_grams' => 250]));
+        Product::create($this->payload(['name' => 'Kosong', 'sku' => 'W0', 'weight_grams' => 0]));
+
+        $this->actingAs($this->admin())->get(route('products.index'))
+            ->assertOk()
+            ->assertSee('250 g')          // kolom berat produk terisi
+            ->assertSee('belum diisi')    // produk berat 0 ditandai
+            ->assertSee('weight_grams');  // ikut di data tombol Edit → tak ke-reset 0 saat edit
+    }
 }
