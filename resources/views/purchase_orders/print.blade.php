@@ -47,7 +47,7 @@
 @if(in_array('label', $docs, true))
     <div class="doc-page">
         <div class="bd">
-            <div class="sec" style="text-align:center; padding:8px 6px;">
+            <div class="sec" style="text-align:center; padding:10px 6px; border-bottom:0;">
                 <img src="{{ $logoSrc }}" alt="SKINKU Official" style="height:44px; width:auto; object-fit:contain; display:inline-block;">
             </div>
             <div class="sec row">
