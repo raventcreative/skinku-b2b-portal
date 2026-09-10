@@ -56,7 +56,7 @@ class ProductController extends Controller
             action: 'create_product',
             targetType: 'product',
             targetId: $product->id,
-            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'hq_stock', 'status']),
+            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'status']),
         );
 
         return back()->with('status', "Produk {$product->name} berhasil ditambahkan.");
@@ -66,7 +66,7 @@ class ProductController extends Controller
     {
         $data = $this->validateData($request, $product);
 
-        $before = $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'hq_stock', 'status']);
+        $before = $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'status']);
 
         $product->update(Arr::except($data, ['images', 'remove_files']));
 
@@ -90,7 +90,7 @@ class ProductController extends Controller
             targetType: 'product',
             targetId: $product->id,
             before: $before,
-            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'hq_stock', 'status']),
+            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'status']),
         );
 
         return back()->with('status', "Produk {$product->name} berhasil diperbarui.");
@@ -115,7 +115,7 @@ class ProductController extends Controller
 
     private function validateData(Request $request, ?Product $product = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'sku' => ['required', 'string', 'max:80', Rule::unique('products', 'sku')->ignore($product?->id)],
             'category' => ['nullable', 'string', 'max:80'],
@@ -125,6 +125,7 @@ class ProductController extends Controller
             'price_reseller' => ['required', 'numeric', 'min:0'],
             'price_retail' => ['required', 'numeric', 'min:0'],
             'cogs' => ['required', 'numeric', 'min:0'],
+            'weight_grams' => ['nullable', 'integer', 'min:0'],
             'hq_stock' => ['required', 'integer', 'min:0'],
             'status' => ['required', Rule::in([Product::STATUS_ACTIVE, Product::STATUS_INACTIVE])],
             // Up to 8 photos; each auto-resized server-side, so allow large originals.
@@ -133,5 +134,13 @@ class ProductController extends Controller
             'remove_files' => ['nullable', 'array'],
             'remove_files.*' => ['integer'],
         ]);
+
+        // Kolom berat NOT NULL default 0: input kosong → null, jadikan 0. Kalau field
+        // tak dikirim sama sekali, jangan disentuh (biar update tak menimpa jadi 0).
+        if (array_key_exists('weight_grams', $data)) {
+            $data['weight_grams'] = (int) $data['weight_grams'];
+        }
+
+        return $data;
     }
 }

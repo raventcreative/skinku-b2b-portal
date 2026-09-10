@@ -110,6 +110,7 @@
             <div><label class="block text-xs font-semibold mb-1">Harga Reseller *</label><input type="number" step="0.01" name="price_reseller" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">Harga Retail *</label><input type="number" step="0.01" name="price_retail" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">HPP / COGS *</label><input type="number" step="0.01" name="cogs" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
+            <div><label class="block text-xs font-semibold mb-1">Berat (gram)</label><input type="number" name="weight_grams" min="0" step="1" class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="untuk booking kurir"></div>
             <div><label class="block text-xs font-semibold mb-1">Stok Pusat *</label><input type="number" name="hq_stock" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">Status *</label>
                 <select name="status" class="w-full px-3 py-2 border border-stone-300 rounded-lg"><option value="active">active</option><option value="inactive">inactive</option></select>
@@ -140,7 +141,7 @@
             f.action = '/products/' + p.id;
             document.getElementById('productMethod').value = 'PUT';
             document.getElementById('productModalTitle').textContent = 'Edit Produk';
-            for (const k of ['name','sku','category','description','price_grand','price_distributor','price_reseller','price_retail','cogs','hq_stock','status']) {
+            for (const k of ['name','sku','category','description','price_grand','price_distributor','price_reseller','price_retail','cogs','weight_grams','hq_stock','status']) {
                 if (f.querySelector('[name='+k+']')) f.querySelector('[name='+k+']').value = p[k] ?? '';
             }
             // render existing gallery with "hapus" checkboxes

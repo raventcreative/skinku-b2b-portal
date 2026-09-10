@@ -23,7 +23,7 @@ class Product extends Model
     protected $fillable = [
         'name', 'sku', 'category', 'description', 'image',
         'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs',
-        'hq_stock', 'status',
+        'weight_grams', 'hq_stock', 'status',
     ];
 
     protected function casts(): array
@@ -34,6 +34,7 @@ class Product extends Model
             'price_reseller' => 'decimal:2',
             'price_retail' => 'decimal:2',
             'cogs' => 'decimal:2',
+            'weight_grams' => 'integer',
             'hq_stock' => 'integer',
         ];
     }
