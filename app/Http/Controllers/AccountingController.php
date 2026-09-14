@@ -306,26 +306,27 @@ class AccountingController extends Controller
         $seen = []; // hitung kemunculan sidik jari yang identik DALAM 1 batch impor
 
         foreach ($data['journals'] as $j) {
-            $date = (string) ($j['date'] ?? '');
-            // Tanggal harus ada di kalender. HARI tak valid (mis. "2026-08-52" — itu
-            // angka catatan user, bukan tanggal; Carbon "toleran" malah menggulungnya ke
-            // September) → BULAN & tahun jelas, jadi dibukukan TANGGAL 1 bulan itu
-            // (adjusted). Kalau bulan/tahun pun tak terbaca → baru dilewati (badDate).
-            // Satu baris rusak tak boleh menggagalkan seluruh batch.
-            $dmy = explode('-', substr($date, 0, 10));
+            // Ambil komponen dari string PENUH (JANGAN substr — hari bisa >2 digit, mis.
+            // "2026-08-287"; substr(0,10) keliru memotongnya jadi "2026-08-28" yg valid,
+            // lalu "2026-08-287" mentah lolos ke Carbon → 500). HARI tak valid (0, 32, 52,
+            // 287, 336… — angka catatan user, bukan tanggal) → dibukukan TANGGAL 1 bulan itu
+            // (adjusted). SELALU dibentuk ulang jadi Y-m-d kanonik → tak ada string aneh ke
+            // Carbon. Bulan/tahun tak terbaca → dilewati (badDate). 1 baris rusak tak
+            // menggagalkan seluruh batch.
+            $dmy = explode('-', (string) ($j['date'] ?? ''));
             $yy = (int) ($dmy[0] ?? 0);
             $mm = (int) ($dmy[1] ?? 0);
             $dd = (int) ($dmy[2] ?? 0);
-            if (count($dmy) === 3 && checkdate($mm, $dd, $yy)) {
-                // valid — biarkan
-            } elseif ($yy >= 2000 && $mm >= 1 && $mm <= 12) {
-                $date = sprintf('%04d-%02d-01', $yy, $mm);
-                $adjusted++;
-            } else {
+            if ($yy < 2000 || $mm < 1 || $mm > 12) {
                 $badDate++;
 
                 continue;
             }
+            if (! checkdate($mm, $dd, $yy)) {
+                $dd = 1;
+                $adjusted++;
+            }
+            $date = sprintf('%04d-%02d-%02d', $yy, $mm, $dd);
             $reference = mb_substr(trim($j['reference'] ?? ($data['source_label'] ?? 'Impor Excel')), 0, 150);
             $lines = array_map(fn ($l) => [
                 'account_id' => (int) $l['account_id'],

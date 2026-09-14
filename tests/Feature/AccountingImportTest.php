@@ -142,15 +142,19 @@ class AccountingImportTest extends TestCase
             'journals' => [
                 ['date' => '2026-08-03', 'reference' => 'A', 'description' => 'Valid', 'lines' => $line($this->bank->id, $this->penjualan->id, 1000)],
                 ['date' => '2026-08-52', 'reference' => 'B', 'description' => 'Angka catatan 52', 'lines' => $line($this->bank->id, $this->penjualan->id, 2000)],
+                // Hari 3 digit "287" — substr(0,10) dulu keliru meloloskannya → "2026-08-287" ke Carbon → 500.
+                ['date' => '2026-08-287', 'reference' => 'D', 'description' => 'Angka catatan 287', 'lines' => $line($this->bank->id, $this->penjualan->id, 4000)],
                 ['date' => '2026-08-04', 'reference' => 'C', 'description' => $longDesc, 'lines' => $line($this->bank->id, $this->penjualan->id, 3000)],
             ],
         ]);
 
-        $res->assertOk()->assertJson(['ok' => true, 'imported' => 3, 'adjusted' => 1]);
-        // yg "52" tetap masuk, digeser ke tanggal 1 Agustus
-        $b = AccJournal::where('reference', 'B')->first();
-        $this->assertNotNull($b);
-        $this->assertStringStartsWith('2026-08-01', (string) $b->date);
+        $res->assertOk()->assertJson(['ok' => true, 'imported' => 4, 'adjusted' => 2]);
+        // "52" dan "287" tetap masuk, digeser ke tanggal 1 Agustus (tak boleh 500)
+        foreach (['B', 'D'] as $ref) {
+            $j = AccJournal::where('reference', $ref)->first();
+            $this->assertNotNull($j, "jurnal $ref harus masuk");
+            $this->assertStringStartsWith('2026-08-01', (string) $j->date);
+        }
         $this->assertDatabaseHas('acc_journals', ['description' => str_repeat('x', 255)]);
     }
 }
