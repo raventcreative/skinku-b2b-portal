@@ -301,16 +301,27 @@ class AccountingController extends Controller
         $imported = 0;
         $duplicate = 0;
         $error = 0;
+        $adjusted = 0;
         $badDate = 0;
         $seen = []; // hitung kemunculan sidik jari yang identik DALAM 1 batch impor
 
         foreach ($data['journals'] as $j) {
             $date = (string) ($j['date'] ?? '');
-            // Tanggal harus benar-benar ada di kalender. Carbon "toleran" akan MENGGULUNG
-            // "2026-08-52" jadi September — itu salah. Pakai checkdate; baris tak valid
-            // dilewati & dihitung (badDate), bukan menggagalkan seluruh impor.
+            // Tanggal harus ada di kalender. HARI tak valid (mis. "2026-08-52" — itu
+            // angka catatan user, bukan tanggal; Carbon "toleran" malah menggulungnya ke
+            // September) → BULAN & tahun jelas, jadi dibukukan TANGGAL 1 bulan itu
+            // (adjusted). Kalau bulan/tahun pun tak terbaca → baru dilewati (badDate).
+            // Satu baris rusak tak boleh menggagalkan seluruh batch.
             $dmy = explode('-', substr($date, 0, 10));
-            if (count($dmy) !== 3 || ! checkdate((int) $dmy[1], (int) $dmy[2], (int) $dmy[0])) {
+            $yy = (int) ($dmy[0] ?? 0);
+            $mm = (int) ($dmy[1] ?? 0);
+            $dd = (int) ($dmy[2] ?? 0);
+            if (count($dmy) === 3 && checkdate($mm, $dd, $yy)) {
+                // valid — biarkan
+            } elseif ($yy >= 2000 && $mm >= 1 && $mm <= 12) {
+                $date = sprintf('%04d-%02d-01', $yy, $mm);
+                $adjusted++;
+            } else {
                 $badDate++;
 
                 continue;
@@ -361,8 +372,11 @@ class AccountingController extends Controller
         if ($error) {
             $msg .= " {$error} tidak balance (dilewati).";
         }
+        if ($adjusted) {
+            $msg .= " {$adjusted} tanggal tak valid (nilai > 31) dibukukan di tanggal 1 bulan itu.";
+        }
         if ($badDate) {
-            $msg .= " {$badDate} tanggal tidak valid (dilewati) — perbaiki kolom Tanggal di Excel (nilai > 31), lalu impor ulang.";
+            $msg .= " {$badDate} tanggal tak terbaca sama sekali (dilewati).";
         }
 
         session()->flash('status', $msg);
@@ -372,6 +386,7 @@ class AccountingController extends Controller
             'imported' => $imported,
             'duplicate' => $duplicate,
             'error' => $error,
+            'adjusted' => $adjusted,
             'bad_date' => $badDate,
             'redirect' => route('accounting.journals'),
         ]);

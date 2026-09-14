@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AccAccount;
 use App\Models\AccBranch;
+use App\Models\AccJournal;
 use App\Models\User;
 use App\Services\AccountingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -121,11 +122,11 @@ class AccountingImportTest extends TestCase
     }
 
     /**
-     * Satu baris rusak (tanggal tak valid mis. "2026-08-52", atau deskripsi kepanjangan)
-     * TIDAK boleh menggagalkan seluruh impor: baris valid tetap masuk, baris bertanggal
-     * tak valid dilewati + dihitung, teks kepanjangan dipotong.
+     * Satu baris rusak TIDAK boleh menggagalkan seluruh impor. Tanggal dgn HARI tak
+     * valid (mis. "2026-08-52" — angka catatan, bukan tanggal) tetap dibukukan tapi
+     * digeser ke TANGGAL 1 bulan itu (adjusted) + dilaporkan; teks kepanjangan dipotong.
      */
-    public function test_impor_excel_resilient_terhadap_tanggal_tidak_valid_dan_teks_panjang(): void
+    public function test_impor_excel_hari_tak_valid_dibukukan_tanggal_1(): void
     {
         $admin = $this->user(User::ROLE_SUPER_ADMIN);
         $longDesc = str_repeat('x', 300);
@@ -140,13 +141,16 @@ class AccountingImportTest extends TestCase
             'source_label' => 'Test',
             'journals' => [
                 ['date' => '2026-08-03', 'reference' => 'A', 'description' => 'Valid', 'lines' => $line($this->bank->id, $this->penjualan->id, 1000)],
-                ['date' => '2026-08-52', 'reference' => 'B', 'description' => 'Tgl 52', 'lines' => $line($this->bank->id, $this->penjualan->id, 2000)],
+                ['date' => '2026-08-52', 'reference' => 'B', 'description' => 'Angka catatan 52', 'lines' => $line($this->bank->id, $this->penjualan->id, 2000)],
                 ['date' => '2026-08-04', 'reference' => 'C', 'description' => $longDesc, 'lines' => $line($this->bank->id, $this->penjualan->id, 3000)],
             ],
         ]);
 
-        $res->assertOk()->assertJson(['ok' => true, 'imported' => 2, 'bad_date' => 1]);
+        $res->assertOk()->assertJson(['ok' => true, 'imported' => 3, 'adjusted' => 1]);
+        // yg "52" tetap masuk, digeser ke tanggal 1 Agustus
+        $b = AccJournal::where('reference', 'B')->first();
+        $this->assertNotNull($b);
+        $this->assertStringStartsWith('2026-08-01', (string) $b->date);
         $this->assertDatabaseHas('acc_journals', ['description' => str_repeat('x', 255)]);
-        $this->assertDatabaseMissing('acc_journals', ['reference' => 'B']); // yg tgl 52 tak masuk
     }
 }
