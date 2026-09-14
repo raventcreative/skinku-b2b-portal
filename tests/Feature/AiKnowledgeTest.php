@@ -52,8 +52,9 @@ class AiKnowledgeTest extends TestCase
     public function test_simpan_pengetahuan_per_bagian(): void
     {
         $this->actingAs($this->super())->post(route('ai.knowledge.save'), [
+            'group' => 'sistem',
             'content' => ['business' => 'Kami distributor B2B.', 'team' => 'Agatha = konten.', 'notes' => '   '],
-        ])->assertRedirect(route('ai.knowledge'));
+        ])->assertRedirect(route('ai.knowledge', ['tab' => 'sistem']));
 
         $this->assertSame('Kami distributor B2B.', AiKnowledge::where('section', 'business')->value('content'));
         $this->assertSame('Agatha = konten.', AiKnowledge::where('section', 'team')->value('content'));

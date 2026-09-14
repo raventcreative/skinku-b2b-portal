@@ -126,8 +126,14 @@ class AiAssistantController extends Controller
     /** Halaman "Pengetahuan AI" — kotak terpandu konteks bisnis (memori asisten). */
     public function knowledge()
     {
+        $sectionsByGroup = [];
+        foreach (array_keys(AiKnowledge::GROUPS) as $group) {
+            $sectionsByGroup[$group] = AiKnowledge::sectionsOf($group);
+        }
+
         return view('ai.knowledge', [
-            'sections' => AiKnowledge::SECTIONS,
+            'groups' => AiKnowledge::GROUPS,
+            'sectionsByGroup' => $sectionsByGroup,
             'values' => AiKnowledge::map(),
         ]);
     }
@@ -135,19 +141,27 @@ class AiAssistantController extends Controller
     public function saveKnowledge(Request $request): RedirectResponse
     {
         $request->validate([
+            'group' => ['required', 'string'],
             'content' => ['array'],
             'content.*' => ['nullable', 'string', 'max:8000'],
         ]);
 
+        $group = (string) $request->input('group');
+        abort_unless(array_key_exists($group, AiKnowledge::GROUPS), 422);
+
         $input = (array) $request->input('content', []);
-        foreach (array_keys(AiKnowledge::SECTIONS) as $key) {
+        // HANYA tulis section milik grup yang sedang disimpan → tab lain tak tersentuh.
+        foreach (array_keys(AiKnowledge::sectionsOf($group)) as $key) {
             $val = trim((string) ($input[$key] ?? ''));
-            AiKnowledge::updateOrCreate(['section' => $key], ['content' => $val !== '' ? $val : null]);
+            AiKnowledge::updateOrCreate(
+                ['section' => $key],
+                ['content' => $val !== '' ? $val : null, 'group' => $group],
+            );
         }
 
-        AuditService::log(action: 'save_ai_knowledge', targetType: 'ai_knowledge', after: ['terisi' => count(array_filter($input, fn ($v) => filled($v)))]);
+        AuditService::log(action: 'save_ai_knowledge', targetType: 'ai_knowledge', after: ['grup' => $group, 'terisi' => count(array_filter($input, fn ($v) => filled($v)))]);
 
-        return redirect()->route('ai.knowledge')->with('status', 'Pengetahuan asisten disimpan. Asisten langsung pakai ini di obrolan berikutnya.');
+        return redirect()->route('ai.knowledge', ['tab' => $group])->with('status', 'Pengetahuan disimpan. Langsung dipakai di obrolan/chat berikutnya.');
     }
 
     /** Ringkasan percakapan buat frontend (thread + preview konfirmasi bila ada). */
