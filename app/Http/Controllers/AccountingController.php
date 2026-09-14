@@ -272,9 +272,12 @@ class AccountingController extends Controller
             'source_label' => ['nullable', 'string', 'max:100'],
             'is_opening' => ['nullable', 'boolean'],
             'journals' => ['required', 'array', 'min:1'],
-            'journals.*.date' => ['required', 'date'],
-            'journals.*.reference' => ['nullable', 'string', 'max:150'],
-            'journals.*.description' => ['nullable', 'string', 'max:255'],
+            // Tanggal & panjang teks TIDAK divalidasi ketat di sini — 1 baris rusak (mis.
+            // tanggal "2026-08-52" atau deskripsi kepanjangan) tak boleh menggagalkan
+            // SELURUH batch. Tanggal dicek ketat (checkdate) + teks dipotong per baris di loop.
+            'journals.*.date' => ['nullable'],
+            'journals.*.reference' => ['nullable', 'string'],
+            'journals.*.description' => ['nullable', 'string'],
             'journals.*.type' => ['nullable', 'in:general,sales,purchase,cash_in,cash_out,inventory,adjustment'],
             'journals.*.lines' => ['required', 'array', 'min:2'],
             'journals.*.lines.*.account_id' => ['required', 'integer', 'exists:acc_accounts,id'],
@@ -298,10 +301,20 @@ class AccountingController extends Controller
         $imported = 0;
         $duplicate = 0;
         $error = 0;
+        $badDate = 0;
         $seen = []; // hitung kemunculan sidik jari yang identik DALAM 1 batch impor
 
         foreach ($data['journals'] as $j) {
-            $date = $j['date'];
+            $date = (string) ($j['date'] ?? '');
+            // Tanggal harus benar-benar ada di kalender. Carbon "toleran" akan MENGGULUNG
+            // "2026-08-52" jadi September — itu salah. Pakai checkdate; baris tak valid
+            // dilewati & dihitung (badDate), bukan menggagalkan seluruh impor.
+            $dmy = explode('-', substr($date, 0, 10));
+            if (count($dmy) !== 3 || ! checkdate((int) $dmy[1], (int) $dmy[2], (int) $dmy[0])) {
+                $badDate++;
+
+                continue;
+            }
             $reference = mb_substr(trim($j['reference'] ?? ($data['source_label'] ?? 'Impor Excel')), 0, 150);
             $lines = array_map(fn ($l) => [
                 'account_id' => (int) $l['account_id'],
@@ -327,7 +340,7 @@ class AccountingController extends Controller
                     'branch_id' => $branch,
                     'date' => $date,
                     'reference' => $reference,
-                    'description' => $j['description'] ?? null,
+                    'description' => ($desc = mb_substr(trim((string) ($j['description'] ?? '')), 0, 255)) !== '' ? $desc : null,
                     'type' => $j['type'] ?? 'general',
                     'source_type' => $sourceType,
                 ], $lines);
@@ -348,6 +361,9 @@ class AccountingController extends Controller
         if ($error) {
             $msg .= " {$error} tidak balance (dilewati).";
         }
+        if ($badDate) {
+            $msg .= " {$badDate} tanggal tidak valid (dilewati) — perbaiki kolom Tanggal di Excel (nilai > 31), lalu impor ulang.";
+        }
 
         session()->flash('status', $msg);
 
@@ -356,6 +372,7 @@ class AccountingController extends Controller
             'imported' => $imported,
             'duplicate' => $duplicate,
             'error' => $error,
+            'bad_date' => $badDate,
             'redirect' => route('accounting.journals'),
         ]);
     }

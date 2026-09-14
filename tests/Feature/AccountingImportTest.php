@@ -119,4 +119,34 @@ class AccountingImportTest extends TestCase
     {
         $this->actingAs($this->user(User::ROLE_RESELLER))->get('/accounting/impor')->assertForbidden();
     }
+
+    /**
+     * Satu baris rusak (tanggal tak valid mis. "2026-08-52", atau deskripsi kepanjangan)
+     * TIDAK boleh menggagalkan seluruh impor: baris valid tetap masuk, baris bertanggal
+     * tak valid dilewati + dihitung, teks kepanjangan dipotong.
+     */
+    public function test_impor_excel_resilient_terhadap_tanggal_tidak_valid_dan_teks_panjang(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN);
+        $longDesc = str_repeat('x', 300);
+
+        $line = fn (int $debitAcc, int $creditAcc, float $amt) => [
+            ['account_id' => $debitAcc, 'debit' => $amt, 'credit' => 0],
+            ['account_id' => $creditAcc, 'debit' => 0, 'credit' => $amt],
+        ];
+
+        $res = $this->actingAs($admin)->postJson('/accounting/impor-excel', [
+            'branch_id' => $this->branch->id,
+            'source_label' => 'Test',
+            'journals' => [
+                ['date' => '2026-08-03', 'reference' => 'A', 'description' => 'Valid', 'lines' => $line($this->bank->id, $this->penjualan->id, 1000)],
+                ['date' => '2026-08-52', 'reference' => 'B', 'description' => 'Tgl 52', 'lines' => $line($this->bank->id, $this->penjualan->id, 2000)],
+                ['date' => '2026-08-04', 'reference' => 'C', 'description' => $longDesc, 'lines' => $line($this->bank->id, $this->penjualan->id, 3000)],
+            ],
+        ]);
+
+        $res->assertOk()->assertJson(['ok' => true, 'imported' => 2, 'bad_date' => 1]);
+        $this->assertDatabaseHas('acc_journals', ['description' => str_repeat('x', 255)]);
+        $this->assertDatabaseMissing('acc_journals', ['reference' => 'B']); // yg tgl 52 tak masuk
+    }
 }

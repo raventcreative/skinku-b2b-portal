@@ -422,12 +422,18 @@
         try {
             const res = await fetch('{{ route('accounting.excel-import.store') }}', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.CSRF, 'Accept': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.CSRF, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ branch_id: BRANCH_ID, source_label: document.getElementById('sheetSel').value, is_opening: !!window.IS_OPENING, journals: window.FINAL }),
             });
             if (res.ok) { const d = await res.json(); window.location = d.redirect; }
-            else { const e = await res.json().catch(() => ({})); alert('Gagal: ' + (e.message || res.status)); btn.disabled = false; btn.textContent = 'Simpan ke Jurnal'; }
-        } catch (err) { alert('Error: ' + err.message); btn.disabled = false; btn.textContent = 'Simpan ke Jurnal'; }
+            else {
+                const e = await res.json().catch(() => ({}));
+                let msg = e.message || ('HTTP ' + res.status);
+                if (e.errors) { const all = Object.values(e.errors).flat(); if (all.length) msg = all.slice(0, 8).join('\n') + (all.length > 8 ? '\n… (' + (all.length - 8) + ' lagi)' : ''); }
+                alert('Gagal menyimpan:\n' + msg);
+                btn.disabled = false; btn.textContent = 'Simpan ke Jurnal';
+            }
+        } catch (err) { alert('Gagal menyimpan: respons server tak terduga. Coba refresh halaman lalu ulangi.\n(' + err.message + ')'); btn.disabled = false; btn.textContent = 'Simpan ke Jurnal'; }
     }
 </script>
 @endpush
