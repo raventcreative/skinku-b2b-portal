@@ -7,7 +7,9 @@ use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
 use App\Models\TiktokConnection;
 use App\Services\Ai\EcomChatDrafter;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -56,14 +58,20 @@ class EcomChatService
         $conv->status = EcomChatConversation::STATUS_OPEN;
         $conv->save();
 
-        return $conv->messages()->create([
-            'channel' => $channel,
-            'external_message_id' => $msg['message_id'],
-            'sender' => EcomChatMessage::SENDER_BUYER,
-            'via' => EcomChatMessage::VIA_BUYER,
-            'text' => $text,
-            'sent_at' => $sentAt,
-        ]);
+        try {
+            return $conv->messages()->create([
+                'channel' => $channel,
+                'external_message_id' => $msg['message_id'],
+                'sender' => EcomChatMessage::SENDER_BUYER,
+                'via' => EcomChatMessage::VIA_BUYER,
+                'text' => $text,
+                'sent_at' => $sentAt,
+            ]);
+        } catch (QueryException $e) {
+            // Balapan webhook: pesan sama masuk hampir bersamaan → unique index menangkap
+            // yang kedua. Perlakukan sebagai duplikat (idempoten), jangan 500.
+            return null;
+        }
     }
 
     /**
@@ -115,9 +123,16 @@ class EcomChatService
         ]);
 
         if ($draft['decision'] === 'auto_send' && $draft['reply'] !== '' && $this->autosendEnabled()) {
-            $this->send($conv, $draft['reply'], EcomChatMessage::VIA_AI);
+            try {
+                $this->send($conv, $draft['reply'], EcomChatMessage::VIA_AI);
 
-            return;
+                return;
+            } catch (\Throwable $e) {
+                // Auto-send gagal (belum terhubung / API error) → JANGAN diam: turunkan
+                // ke staf agar tetap masuk antrean perhatian, catat alasannya.
+                Log::error('ecom-chat auto-send gagal', ['conv' => $conv->id, 'e' => $e->getMessage()]);
+                $conv->update(['ai_reason' => trim(((string) $conv->ai_reason).' [auto-send gagal: '.$e->getMessage().']')]);
+            }
         }
 
         $conv->update(['status' => EcomChatConversation::STATUS_NEEDS_STAFF]);

@@ -110,4 +110,21 @@ class TikTokChatWebhookTest extends TestCase
 
         $this->assertSame(1, EcomChatMessage::where('external_message_id', 'DUP')->count());
     }
+
+    public function test_auto_send_gagal_turun_ke_staf_bukan_diam_diam_open(): void
+    {
+        // Kill switch nyala + keputusan auto_send, TAPI tidak ada TiktokConnection
+        // sama sekali → send() lempar RuntimeException. Percakapan HARUS turun ke
+        // needs_staff (bukan diam-diam tetap "open" keluar dari antrean staf).
+        AppSetting::put(AppSetting::ECOM_CHAT_AUTOSEND, '1');
+        $this->app->instance(AiProvider::class, new FakeAiProvider([
+            new AiTurn(text: '{"reply":"Sudah BPOM kak","decision":"auto_send","reason":"FAQ"}'),
+        ]));
+
+        $this->postWebhook($this->payload())->assertOk();
+
+        $this->assertSame(0, EcomChatMessage::where('sender', 'seller')->count());
+        $conv = EcomChatConversation::first();
+        $this->assertSame('needs_staff', $conv->status);
+    }
 }

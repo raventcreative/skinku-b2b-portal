@@ -51,4 +51,12 @@ class EcomChatKnowledgeTabTest extends TestCase
         // Grup sistem tak tersentuh saat menyimpan tab chat
         $this->assertSame('Aturan lama', AiKnowledge::where('section', 'rules')->first()->content);
     }
+
+    public function test_param_tab_array_tak_bikin_500(): void
+    {
+        // request('tab') bisa jadi array (?tab[]=x) → array_key_exists($array, $groups)
+        // lempar TypeError. Harus fallback ke 'sistem', bukan 500.
+        $this->actingAs($this->admin())->get('/asisten/pengetahuan?tab[]=x')->assertOk()
+            ->assertSee('Aturan & gaya bicara');
+    }
 }

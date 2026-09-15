@@ -4,7 +4,7 @@
 
 @section('content')
 @php($activeTab = request('tab', 'sistem'))
-@php($activeTab = array_key_exists($activeTab, $groups) ? $activeTab : 'sistem')
+@php($activeTab = (is_string($activeTab) && array_key_exists($activeTab, $groups)) ? $activeTab : 'sistem')
 <div class="max-w-3xl">
     <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 mb-5">
         <p class="text-sm font-bold text-indigo-900">Ini "memori" asisten kamu 🧠</p>
