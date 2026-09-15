@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
 use App\Services\EcomChatService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -23,14 +24,20 @@ class EcomChatController extends Controller
         ]);
     }
 
-    public function show(EcomChatConversation $conversation)
+    public function show(Request $request, EcomChatConversation $conversation)
     {
+        $this->chat->markRead($request->user(), $conversation);
         $conversation->load(['messages' => fn ($q) => $q->orderBy('id')]);
 
         return view('ecom-chat.show', [
             'conversation' => $conversation,
             'autosend' => $this->chat->autosendEnabled(),
         ]);
+    }
+
+    public function unreadCount(Request $request): JsonResponse
+    {
+        return response()->json(['count' => $this->chat->unreadCountFor($request->user())]);
     }
 
     public function send(Request $request, EcomChatConversation $conversation): RedirectResponse

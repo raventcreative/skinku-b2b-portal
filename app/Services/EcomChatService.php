@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
+use App\Models\EcomChatRead;
 use App\Models\TiktokConnection;
+use App\Models\User;
 use App\Services\Ai\EcomChatDrafter;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -26,6 +28,33 @@ class EcomChatService
     public function autosendEnabled(): bool
     {
         return AppSetting::get(AppSetting::ECOM_CHAT_AUTOSEND, '0') === '1';
+    }
+
+    /**
+     * Jumlah percakapan yang punya pesan pembeli BELUM dilihat $user (unread per-staf).
+     * Unread = last_incoming_at ada, status != closed, dan lebih baru dari last_read_at
+     * user itu (atau user belum pernah buka). Difilter per user → tak bocor antar staf.
+     */
+    public function unreadCountFor(User $user): int
+    {
+        return EcomChatConversation::query()
+            ->leftJoin('ecom_chat_reads', function ($join) use ($user) {
+                $join->on('ecom_chat_reads.conversation_id', '=', 'ecom_chat_conversations.id')
+                    ->where('ecom_chat_reads.user_id', '=', $user->id);
+            })
+            ->whereNotNull('ecom_chat_conversations.last_incoming_at')
+            ->where('ecom_chat_conversations.status', '!=', EcomChatConversation::STATUS_CLOSED)
+            ->whereRaw("ecom_chat_conversations.last_incoming_at > COALESCE(ecom_chat_reads.last_read_at, '1970-01-01 00:00:00')")
+            ->count('ecom_chat_conversations.id');
+    }
+
+    /** Tandai percakapan sudah dibaca oleh $user (idempoten). */
+    public function markRead(User $user, EcomChatConversation $conv): void
+    {
+        EcomChatRead::updateOrCreate(
+            ['user_id' => $user->id, 'conversation_id' => $conv->id],
+            ['last_read_at' => now()],
+        );
     }
 
     /**
