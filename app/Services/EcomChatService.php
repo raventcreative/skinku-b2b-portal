@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
 use App\Models\TiktokConnection;
+use App\Services\Ai\EcomChatDrafter;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 
@@ -96,5 +97,29 @@ class EcomChatService
         ]);
 
         return $msg;
+    }
+
+    /**
+     * Jalankan drafter untuk sebuah percakapan, simpan draft/keputusan, dan
+     * auto-send bila keputusan auto_send DAN kill switch nyala. Selain itu →
+     * needs_staff (draft menunggu ditinjau staf). Aman dipanggil dari webhook
+     * (dibungkus try/catch di controller).
+     */
+    public function processDraft(EcomChatConversation $conv): void
+    {
+        $draft = app(EcomChatDrafter::class)->draft($conv);
+        $conv->update([
+            'ai_draft' => $draft['reply'],
+            'ai_decision' => $draft['decision'],
+            'ai_reason' => $draft['reason'],
+        ]);
+
+        if ($draft['decision'] === 'auto_send' && $draft['reply'] !== '' && $this->autosendEnabled()) {
+            $this->send($conv, $draft['reply'], EcomChatMessage::VIA_AI);
+
+            return;
+        }
+
+        $conv->update(['status' => EcomChatConversation::STATUS_NEEDS_STAFF]);
     }
 }

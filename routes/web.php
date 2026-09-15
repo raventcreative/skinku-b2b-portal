@@ -59,6 +59,7 @@ use App\Http\Controllers\StockReceiptController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TelegramWebhookController;
 use App\Http\Controllers\TikTokAffiliateController;
+use App\Http\Controllers\TikTokChatWebhookController;
 use App\Http\Controllers\TikTokController;
 use App\Http\Controllers\TikTokIncomeController;
 use App\Http\Controllers\UserController;
@@ -89,6 +90,10 @@ Route::middleware('guest')->group(function () {
 | dikecualikan dari CSRF di bootstrap/app.php.
 */
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
+
+// Webhook chat TikTok (Customer Service — NEW_MESSAGE). Publik: keamanan lewat
+// verifikasi tanda tangan HMAC di controller, bukan auth/CSRF.
+Route::post('/webhooks/tiktok/chat', [TikTokChatWebhookController::class, 'handle'])->name('webhooks.tiktok.chat');
 
 /*
 |--------------------------------------------------------------------------

@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'telegram/webhook',
             'api/kol-agent/*',
+            'webhooks/tiktok/chat',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
