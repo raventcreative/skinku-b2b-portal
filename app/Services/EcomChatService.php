@@ -167,4 +167,112 @@ class EcomChatService
 
         $conv->update(['status' => EcomChatConversation::STATUS_NEEDS_STAFF]);
     }
+
+    /**
+     * Tarik percakapan + pesan yang SUDAH ada di TikTok ke inbox SKINKU (backlog).
+     * Dipetakan defensif ke bentuk respons Customer Service API. Return jumlah
+     * percakapan disentuh & pesan baru tersimpan.
+     *
+     * @return array{conversations:int,messages:int}
+     */
+    public function importFromTikTok(int $convLimit = 20, int $msgLimit = 20): array
+    {
+        $conn = TiktokConnection::latest('id')->first();
+        if (! $conn || ! $conn->shop_cipher) {
+            throw new RuntimeException('Belum terhubung ke TikTok Shop.');
+        }
+        $access = $this->sync->freshToken($conn);
+
+        $data = $this->tiktok->getConversations($access, $conn->shop_cipher, $convLimit);
+        $convCount = 0;
+        $msgCount = 0;
+
+        foreach ($data['conversations'] ?? [] as $c) {
+            $extId = (string) ($c['id'] ?? $c['conversation_id'] ?? '');
+            if ($extId === '') {
+                continue;
+            }
+
+            $conv = EcomChatConversation::firstOrNew([
+                'channel' => 'tiktok',
+                'external_conversation_id' => $extId,
+            ]);
+            $buyer = $this->buyerOf($c);
+            if ($buyer !== null) {
+                $conv->buyer_name = $buyer['nickname'] ?? $conv->buyer_name;
+                $conv->buyer_id = $buyer['im_user_id'] ?? $conv->buyer_id;
+            }
+            if (! $conv->exists) {
+                $conv->status = EcomChatConversation::STATUS_OPEN;
+            }
+            $conv->save();
+            $convCount++;
+
+            $msgData = $this->tiktok->getConversationMessages($access, $conn->shop_cipher, $extId, $msgLimit);
+            // TERTUA dulu agar recency & last_incoming_at berakhir di pesan terbaru.
+            foreach (array_reverse($msgData['messages'] ?? []) as $m) {
+                if ($this->storeSyncedMessage($conv, $m)) {
+                    $msgCount++;
+                }
+            }
+        }
+
+        return ['conversations' => $convCount, 'messages' => $msgCount];
+    }
+
+    /** Peserta ber-peran pembeli dari payload percakapan (null bila tak ada). */
+    private function buyerOf(array $conv): ?array
+    {
+        foreach ($conv['participants'] ?? [] as $p) {
+            if (strtolower((string) ($p['role'] ?? '')) === 'buyer') {
+                return $p;
+            }
+        }
+
+        return null;
+    }
+
+    /** Simpan satu pesan hasil sync (buyer/seller), dedupe. Return true bila baru. */
+    private function storeSyncedMessage(EcomChatConversation $conv, array $m): bool
+    {
+        $extId = (string) ($m['id'] ?? $m['message_id'] ?? '');
+        if ($extId === '') {
+            return false;
+        }
+        if (EcomChatMessage::where('channel', $conv->channel)->where('external_message_id', $extId)->exists()) {
+            return false;
+        }
+
+        $isBuyer = strtolower((string) ($m['sender']['role'] ?? 'buyer')) === 'buyer';
+        $raw = (string) ($m['content'] ?? '');
+        $decoded = json_decode($raw, true);
+        $text = is_array($decoded) ? (string) ($decoded['content'] ?? $raw) : $raw;
+        $sentAt = ! empty($m['create_time'])
+            ? Carbon::createFromTimestamp((int) $m['create_time'], config('app.timezone'))
+            : now();
+
+        try {
+            $conv->messages()->create([
+                'channel' => $conv->channel,
+                'external_message_id' => $extId,
+                'sender' => $isBuyer ? EcomChatMessage::SENDER_BUYER : EcomChatMessage::SENDER_SELLER,
+                'via' => $isBuyer ? EcomChatMessage::VIA_BUYER : EcomChatMessage::VIA_STAFF,
+                'text' => $text,
+                'sent_at' => $sentAt,
+            ]);
+        } catch (QueryException $e) {
+            return false; // balapan / dobel
+        }
+
+        if ($conv->last_message_at === null || $sentAt->gte($conv->last_message_at)) {
+            $conv->last_message_at = $sentAt;
+            $conv->last_message_preview = mb_substr($text, 0, 255);
+        }
+        if ($isBuyer && ($conv->last_incoming_at === null || $sentAt->gte($conv->last_incoming_at))) {
+            $conv->last_incoming_at = $sentAt;
+        }
+        $conv->save();
+
+        return true;
+    }
 }

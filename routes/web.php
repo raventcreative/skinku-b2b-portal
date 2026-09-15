@@ -724,6 +724,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::middleware('permission:manage_ecommerce_chat')->group(function () {
         Route::get('/ecom-chat', [EcomChatController::class, 'index'])->name('ecom-chat.index');
         Route::post('/ecom-chat/autosend', [EcomChatController::class, 'toggleAutosend'])->name('ecom-chat.autosend');
+        Route::post('/ecom-chat/sync', [EcomChatController::class, 'sync'])->name('ecom-chat.sync');
         Route::get('/ecom-chat/unread-count', [EcomChatController::class, 'unreadCount'])->name('ecom-chat.unread-count');
         Route::get('/ecom-chat/{conversation}', [EcomChatController::class, 'show'])->name('ecom-chat.show');
         Route::post('/ecom-chat/{conversation}/send', [EcomChatController::class, 'send'])->name('ecom-chat.send');

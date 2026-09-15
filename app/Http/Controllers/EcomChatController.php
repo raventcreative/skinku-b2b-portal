@@ -24,6 +24,17 @@ class EcomChatController extends Controller
         ]);
     }
 
+    public function sync(): RedirectResponse
+    {
+        try {
+            $res = $this->chat->importFromTikTok();
+
+            return redirect()->route('ecom-chat.index')->with('status', "Tarik chat selesai: {$res['conversations']} percakapan, {$res['messages']} pesan baru.");
+        } catch (\Throwable $e) {
+            return redirect()->route('ecom-chat.index')->with('error', 'Gagal tarik chat: '.$e->getMessage());
+        }
+    }
+
     public function show(Request $request, EcomChatConversation $conversation)
     {
         $this->chat->markRead($request->user(), $conversation);
