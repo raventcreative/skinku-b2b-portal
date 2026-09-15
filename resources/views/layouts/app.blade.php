@@ -494,7 +494,19 @@
                 </button>
                 <h2 class="text-sm font-bold text-stone-800 truncate">@yield('heading', 'Dashboard')</h2>
             </div>
-            <div class="text-[11px] text-stone-400 font-mono hidden sm:block">{{ config('app.name') }}</div>
+            <div class="flex items-center gap-3">
+                @if($u->canDo('manage_ecommerce_chat'))
+                    @php($ecomUnread = app(\App\Services\EcomChatService::class)->unreadCountFor($u))
+                    <a href="{{ route('ecom-chat.index') }}" class="relative w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-100" title="Chat E-commerce" aria-label="Chat E-commerce">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.83L3 20l1.17-3.5A7.6 7.6 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                        <span id="ecomChatBadge" class="{{ $ecomUnread > 0 ? '' : 'hidden' }} absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">{{ $ecomUnread }}</span>
+                    </a>
+                    <button id="ecomChatMute" type="button" class="w-7 h-7 flex items-center justify-center rounded-lg text-stone-400 hover:text-stone-700" title="Bunyi notifikasi" aria-label="Toggle bunyi notifikasi">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6l-4 4H4v4h4l4 4V6z"/></svg>
+                    </button>
+                @endif
+                <div class="text-[11px] text-stone-400 font-mono hidden sm:block">{{ config('app.name') }}</div>
+            </div>
         </header>
 
         <main class="p-4 sm:p-8 flex-1">
@@ -600,6 +612,62 @@
         input.addEventListener('blur', function () { setTimeout(function () { list.classList.add('hidden'); }, 150); });
     });
 </script>
+@if($u->canDo('manage_ecommerce_chat'))
+<script>
+(function () {
+    var badge = document.getElementById('ecomChatBadge');
+    if (!badge) return;
+    var muteBtn = document.getElementById('ecomChatMute');
+    var COUNT_URL = @json(route('ecom-chat.unread-count'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES);
+    var POLL_MS = 25000;
+    var audioCtx = null;
+
+    function muted() { try { return localStorage.getItem('ecomChatMute') === '1'; } catch (e) { return false; } }
+    function setMuted(v) { try { localStorage.setItem('ecomChatMute', v ? '1' : '0'); } catch (e) {} renderMute(); }
+    function renderMute() {
+        if (!muteBtn) return;
+        muteBtn.classList.toggle('text-red-600', muted());
+        muteBtn.title = muted() ? 'Bunyi notifikasi: MATI' : 'Bunyi notifikasi: NYALA';
+    }
+    function lastSeen() { try { return parseInt(localStorage.getItem('ecomChatUnread') || '0', 10) || 0; } catch (e) { return 0; } }
+    function setLastSeen(n) { try { localStorage.setItem('ecomChatUnread', String(n)); } catch (e) {} }
+    function unlockAudio() {
+        try {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        } catch (e) {}
+    }
+    function beep() {
+        try {
+            unlockAudio();
+            if (!audioCtx) return;
+            var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.12;
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 0.15);
+        } catch (e) {}
+    }
+    function render(count) { badge.textContent = count; badge.classList.toggle('hidden', count <= 0); }
+    function poll() {
+        fetch(COUNT_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || typeof d.count !== 'number') return;
+                if (d.count > lastSeen() && !muted()) beep();
+                setLastSeen(d.count);
+                render(d.count);
+            })
+            .catch(function () {});
+    }
+
+    ['click', 'keydown'].forEach(function (ev) { window.addEventListener(ev, unlockAudio, { once: true }); });
+    if (muteBtn) muteBtn.addEventListener('click', function () { setMuted(!muted()); });
+    renderMute();
+    setLastSeen(parseInt(badge.textContent, 10) || 0); // selaraskan dgn badge awal → tak beep palsu saat load
+    setInterval(poll, POLL_MS);
+})();
+</script>
+@endif
 @stack('scripts')
 </body>
 </html>
