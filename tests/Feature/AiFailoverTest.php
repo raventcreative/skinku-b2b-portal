@@ -148,4 +148,29 @@ class AiFailoverTest extends TestCase
         $this->assertInstanceOf(FailoverAiProvider::class, $provider);
         $this->assertInstanceOf(AiProvider::class, $provider);
     }
+
+    public function test_failover_tiga_level_tembus_ke_cadangan_kedua(): void
+    {
+        $chain = new FailoverAiProvider([
+            $this->failing('primary mati'),
+            $this->failing('cadangan-1 mati'),
+            $this->replying('jawaban dari cadangan-2'),
+        ]);
+
+        $this->assertSame('jawaban dari cadangan-2', $chain->chat([], [])->text);
+    }
+
+    public function test_factory_dua_cadangan_bangun_rantai_failover(): void
+    {
+        config([
+            'services.ai.openai.key' => 'sk-primary',
+            'services.ai.backup' => ['key' => 'k1', 'base' => 'https://openrouter.ai/api/v1', 'model' => 'openai/gpt-4o-mini', 'timeout' => 60, 'sequential' => false],
+            'services.ai.backup2' => ['key' => null, 'base' => null, 'model' => 'google/gemini-flash-1.5', 'timeout' => 60, 'sequential' => false],
+            'services.ai.backup3' => ['key' => null, 'base' => null, 'model' => null, 'timeout' => 60, 'sequential' => false],
+        ]);
+
+        // Dua cadangan aktif (slot-2 warisi key slot-1) → primary + 2 = rantai Failover.
+        $this->assertCount(2, AiProviderFactory::resolvedBackupSlots());
+        $this->assertInstanceOf(FailoverAiProvider::class, AiProviderFactory::make());
+    }
 }

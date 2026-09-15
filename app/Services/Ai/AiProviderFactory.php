@@ -22,14 +22,14 @@ class AiProviderFactory
             default => self::openai($model, $maxTokens),
         };
 
-        // Auto-switch: kalau primary kehabisan kuota/billing atau down, request
-        // dialihkan ke otak cadangan. Aktif hanya bila AI_BACKUP_KEY & _MODEL diisi.
-        $backup = self::backup($maxTokens);
-        if ($backup === null) {
+        // Auto-switch berlapis: kalau primary gagal (kuota/billing/down), request
+        // dialihkan ke cadangan-1, lalu -2, -3 berurutan. Rantai kosong → primary saja.
+        $backups = self::backupChain($maxTokens);
+        if ($backups === []) {
             return $primary;
         }
 
-        return new FailoverAiProvider([$primary, $backup]);
+        return new FailoverAiProvider([$primary, ...$backups]);
     }
 
     /**
@@ -76,27 +76,26 @@ class AiProviderFactory
         return $out;
     }
 
-    /** Otak cadangan OpenAI-compatible (OpenRouter/DeepSeek/Groq). Null bila tak diset. */
-    private static function backup(int $maxTokens): ?OpenAiProvider
+    /**
+     * Rakit provider cadangan dari slot ter-resolve, berurutan.
+     *
+     * @return array<int,OpenAiProvider>
+     */
+    private static function backupChain(int $maxTokens): array
     {
-        $key = (string) config('services.ai.backup.key');
-        $model = (string) config('services.ai.backup.model');
-        if ($key === '' || $model === '') {
-            return null;
-        }
+        $connectTimeout = (int) config('services.ai.connect_timeout', 10);
 
-        return new OpenAiProvider(
-            $key,
-            (string) config('services.ai.backup.base'),
-            $model,
-            $maxTokens,
-            (int) config('services.ai.backup.timeout', 60),
-            (int) config('services.ai.connect_timeout', 10),
-            // Default PARALEL (seperti primary): panel CMO/CFO/COO jalan bersamaan
-            // lalu di-merge orchestrator, agar total waktu ≈ satu jendela timeout —
-            // bukan dijumlah. Mode sekuensial hanya untuk router yang benar-benar
-            // tak kuat paralel (opt-in via AI_BACKUP_SEQUENTIAL=true).
-            sequential: (bool) config('services.ai.backup.sequential', false),
+        return array_map(
+            fn (array $s) => new OpenAiProvider(
+                $s['key'],
+                $s['base'],
+                $s['model'],
+                $maxTokens,
+                $s['timeout'],
+                $connectTimeout,
+                sequential: $s['sequential'],
+            ),
+            self::resolvedBackupSlots(),
         );
     }
 
