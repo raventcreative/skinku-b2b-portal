@@ -6,6 +6,7 @@ use App\Models\EcomChatConversation;
 use App\Models\EcomChatRead;
 use App\Models\User;
 use App\Services\EcomChatService;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -41,5 +42,8 @@ class EcomChatLastIncomingTest extends TestCase
 
         $this->assertSame(1, $conv->reads()->count());
         $this->assertSame(1, EcomChatRead::where('user_id', $user->id)->where('conversation_id', $conv->id)->count());
+
+        $this->expectException(QueryException::class);
+        $conv->reads()->create(['user_id' => $user->id, 'last_read_at' => now()]);
     }
 }
