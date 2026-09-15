@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\EcomChatService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -45,5 +46,28 @@ class EcomChatLastIncomingTest extends TestCase
 
         $this->expectException(QueryException::class);
         $conv->reads()->create(['user_id' => $user->id, 'last_read_at' => now()]);
+    }
+
+    public function test_backfill_menyalakan_backlog_open_dan_needs_staff(): void
+    {
+        $mk = fn (string $ext, string $status, $lastMsg) => DB::table('ecom_chat_conversations')->insertGetId([
+            'channel' => 'tiktok', 'external_conversation_id' => $ext, 'status' => $status,
+            'last_message_at' => $lastMsg, 'last_incoming_at' => null,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $open = $mk('O1', 'open', now()->subHour());
+        $needs = $mk('N1', 'needs_staff', now()->subHour());
+        $replied = $mk('R1', 'replied', now()->subHour());
+        $closed = $mk('C1', 'closed', now()->subHour());
+        $noMsg = $mk('X1', 'open', null);
+
+        // SQL identik dengan yang dijalankan migrasi 000129.
+        DB::statement("UPDATE ecom_chat_conversations SET last_incoming_at = last_message_at WHERE last_incoming_at IS NULL AND last_message_at IS NOT NULL AND status IN ('open', 'needs_staff')");
+
+        $this->assertNotNull(EcomChatConversation::find($open)->last_incoming_at);
+        $this->assertNotNull(EcomChatConversation::find($needs)->last_incoming_at);
+        $this->assertNull(EcomChatConversation::find($replied)->last_incoming_at);
+        $this->assertNull(EcomChatConversation::find($closed)->last_incoming_at);
+        $this->assertNull(EcomChatConversation::find($noMsg)->last_incoming_at);
     }
 }

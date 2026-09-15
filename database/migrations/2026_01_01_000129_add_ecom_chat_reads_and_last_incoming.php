@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -20,6 +21,10 @@ return new class extends Migration
             $table->timestamps();
             $table->unique(['user_id', 'conversation_id']);
         });
+
+        // Backlog: nyalakan badge untuk chat yang MASIH menunggu dibalas saat deploy.
+        // last_message_at pada open/needs_staff = waktu pesan pembeli terakhir (belum ada balasan staf).
+        DB::statement("UPDATE ecom_chat_conversations SET last_incoming_at = last_message_at WHERE last_incoming_at IS NULL AND last_message_at IS NOT NULL AND status IN ('open', 'needs_staff')");
     }
 
     public function down(): void

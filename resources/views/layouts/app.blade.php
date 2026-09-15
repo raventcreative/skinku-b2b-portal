@@ -653,6 +653,9 @@
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {
                 if (!d || typeof d.count !== 'number') return;
+                // Deteksi berbasis selisih jumlah: bunyi hanya saat count NAIK dari terakhir
+                // dilihat. Kalau di jendela 25 dtk yang sama ada 1 dibaca + 1 masuk (count tetap),
+                // bisa tak berbunyi — cukup untuk kebutuhan ini (badge tetap akurat).
                 if (d.count > lastSeen() && !muted()) beep();
                 setLastSeen(d.count);
                 render(d.count);
