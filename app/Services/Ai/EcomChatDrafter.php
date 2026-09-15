@@ -33,8 +33,14 @@ class EcomChatDrafter
             return $this->escalate('Balasan AI tak terbaca (JSON rusak).');
         }
 
-        $decision = $parsed['decision'] ?? '';
-        $reply = trim((string) ($parsed['reply'] ?? ''));
+        // reply/decision WAJIB string. JSON valid tapi bentuknya salah (mis. objek/array)
+        // adalah kasus meragukan juga → to_staff, jangan sampai (string) $array jadi "Array".
+        if (! is_string($parsed['reply'] ?? null) || ! is_string($parsed['decision'] ?? null)) {
+            return $this->escalate('Bentuk field reply/decision dari AI tak valid (bukan string).');
+        }
+
+        $decision = $parsed['decision'];
+        $reply = trim($parsed['reply']);
 
         if ($decision === 'auto_send' && $reply !== '') {
             return ['reply' => $reply, 'decision' => 'auto_send', 'reason' => (string) ($parsed['reason'] ?? '')];

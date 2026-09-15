@@ -73,4 +73,18 @@ class EcomChatDrafterTest extends TestCase
         $out = app(EcomChatDrafter::class)->draft($this->conv('halo'));
         $this->assertSame('to_staff', $out['decision']);
     }
+
+    public function test_reply_bukan_string_dipaksa_ke_staf(): void
+    {
+        $this->fakeAi('{"reply":{"text":"x"},"decision":"auto_send","reason":"y"}');
+        $out = app(EcomChatDrafter::class)->draft($this->conv('halo'));
+        $this->assertSame('to_staff', $out['decision']);
+    }
+
+    public function test_reply_kosong_dengan_auto_send_dipaksa_ke_staf(): void
+    {
+        $this->fakeAi('{"reply":"","decision":"auto_send","reason":"y"}');
+        $out = app(EcomChatDrafter::class)->draft($this->conv('halo'));
+        $this->assertSame('to_staff', $out['decision']);
+    }
 }
