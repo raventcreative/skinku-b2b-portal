@@ -71,6 +71,7 @@ TIKTOK_SERVICE_ID=7659787806251779858</pre>
                 <a href="{{ route('tiktok.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800">📊 Konversi Stok →</a>
                 <a href="{{ route('tiktok.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">💰 Dana Cair →</a>
                 <a href="{{ route('tiktok.income') }}" class="px-4 py-2 text-sm bg-violet-700 text-white rounded-lg hover:bg-violet-800">🧾 Laporan Income →</a>
+                <a href="{{ route('tiktok.connect') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="return confirm('Hubungkan ulang ke TikTok? Ini me-refresh izin/token (mis. setelah nambah scope Customer Service). Koneksi & sync order tetap jalan.')">🔄 Hubungkan Ulang</a>
                 <form method="POST" action="{{ route('tiktok.disconnect') }}" onsubmit="return confirm('Putuskan koneksi TikTok?')">@csrf @method('DELETE')
                     <button class="px-4 py-2 text-sm text-rose-600 hover:text-rose-800">Putuskan</button>
                 </form>

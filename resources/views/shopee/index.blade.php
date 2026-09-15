@@ -67,6 +67,7 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
                 <a href="{{ route('shopee.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700">↩ Retur Shopee →</a>
                 <a href="{{ route('shopee.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">💰 Pencairan →</a>
                 <a href="{{ route('shopee.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800">📊 Konversi Stok →</a>
+                <a href="{{ route('shopee.connect') }}" class="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700" onclick="return confirm('Hubungkan ulang ke Shopee? Ini me-refresh izin/token. Koneksi & sync tetap jalan.')">🔄 Hubungkan Ulang</a>
             </div>
         @else
             <p class="text-sm text-stone-500 mb-4">Belum terhubung. Klik tombol di bawah untuk memberi izin toko Shopee kamu ke SKINKU (tarik order + potong stok).</p>
