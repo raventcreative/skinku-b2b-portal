@@ -188,6 +188,44 @@ class TikTokClient
         return $this->request('POST', '/return_refund/202309/returns/search', $accessToken, $shopCipher, $query, []);
     }
 
+    /**
+     * Customer Service API — daftar percakapan (TERBARU dulu). Satu halaman.
+     * NB: path/versi = keluarga /customer_service/202309; cocokkan dgn docs TikTok.
+     */
+    public function getConversations(string $accessToken, string $shopCipher, int $pageSize = 20, string $pageToken = ''): array
+    {
+        $query = ['page_size' => $pageSize];
+        if ($pageToken !== '') {
+            $query['page_token'] = $pageToken;
+        }
+
+        return $this->request('GET', '/customer_service/202309/conversations', $accessToken, $shopCipher, $query);
+    }
+
+    /** Pesan dalam satu percakapan (TERBARU dulu). Satu halaman. */
+    public function getConversationMessages(string $accessToken, string $shopCipher, string $conversationId, int $pageSize = 20, string $pageToken = ''): array
+    {
+        $query = ['page_size' => $pageSize];
+        if ($pageToken !== '') {
+            $query['page_token'] = $pageToken;
+        }
+
+        return $this->request('GET', "/customer_service/202309/conversations/{$conversationId}/messages", $accessToken, $shopCipher, $query);
+    }
+
+    /** Kirim balasan teks ke satu percakapan. */
+    public function sendMessage(string $accessToken, string $shopCipher, string $conversationId, string $text): array
+    {
+        return $this->request(
+            'POST',
+            "/customer_service/202309/conversations/{$conversationId}/messages",
+            $accessToken,
+            $shopCipher,
+            [],
+            ['type' => 'TEXT', 'content' => $text],
+        );
+    }
+
     /** Daftar pencairan (settlement statements) — TERBARU dulu. Satu halaman. */
     public function getStatements(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
     {
