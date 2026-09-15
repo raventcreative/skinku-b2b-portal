@@ -32,6 +32,50 @@ class AiProviderFactory
         return new FailoverAiProvider([$primary, $backup]);
     }
 
+    /**
+     * Slot cadangan yang SIAP pakai, berurutan (cadangan-1..3). Slot ke-2/3 mewarisi
+     * key & base dari cadangan-1 bila dikosongkan. Slot disertakan HANYA bila key
+     * (hasil warisan) & model dua-duanya terisi. Publik agar logika inti bisa diuji.
+     *
+     * @return array<int,array{key:string,base:string,model:string,timeout:int,sequential:bool}>
+     */
+    public static function resolvedBackupSlots(): array
+    {
+        $first = (array) config('services.ai.backup');
+        $firstKey = (string) ($first['key'] ?? '');
+        $firstBase = (string) ($first['base'] ?? '');
+
+        $out = [];
+        foreach (['backup', 'backup2', 'backup3'] as $i => $name) {
+            $slot = config("services.ai.{$name}");
+            if (! is_array($slot)) {
+                continue;
+            }
+
+            $key = (string) ($slot['key'] ?? '');
+            $base = (string) ($slot['base'] ?? '');
+            // Cadangan-1 (i=0) pakai nilainya sendiri; slot berikutnya warisi bila kosong.
+            if ($i > 0) {
+                $key = $key !== '' ? $key : $firstKey;
+                $base = $base !== '' ? $base : $firstBase;
+            }
+            $model = (string) ($slot['model'] ?? '');
+            if ($key === '' || $model === '') {
+                continue;
+            }
+
+            $out[] = [
+                'key' => $key,
+                'base' => $base,
+                'model' => $model,
+                'timeout' => (int) ($slot['timeout'] ?? 60),
+                'sequential' => (bool) ($slot['sequential'] ?? false),
+            ];
+        }
+
+        return $out;
+    }
+
     /** Otak cadangan OpenAI-compatible (OpenRouter/DeepSeek/Groq). Null bila tak diset. */
     private static function backup(int $maxTokens): ?OpenAiProvider
     {

@@ -111,6 +111,25 @@ return [
             'timeout' => (int) env('AI_BACKUP_TIMEOUT', 60),
             'sequential' => (bool) env('AI_BACKUP_SEQUENTIAL', false),
         ],
+
+        // Cadangan BERLAPIS (opsional). Slot ke-2/3 mewarisi key & base dari
+        // cadangan-1 bila dikosongkan — mis. cukup isi AI_BACKUP2_MODEL untuk model
+        // lain di akun 9router yang sama. base sengaja TANPA default (kosong = warisi).
+        // Aktif hanya bila (key hasil-warisan) & model terisi.
+        'backup2' => [
+            'key' => env('AI_BACKUP2_KEY'),
+            'base' => env('AI_BACKUP2_BASE'),
+            'model' => env('AI_BACKUP2_MODEL'),
+            'timeout' => (int) env('AI_BACKUP2_TIMEOUT', 60),
+            'sequential' => (bool) env('AI_BACKUP2_SEQUENTIAL', false),
+        ],
+        'backup3' => [
+            'key' => env('AI_BACKUP3_KEY'),
+            'base' => env('AI_BACKUP3_BASE'),
+            'model' => env('AI_BACKUP3_MODEL'),
+            'timeout' => (int) env('AI_BACKUP3_TIMEOUT', 60),
+            'sequential' => (bool) env('AI_BACKUP3_SEQUENTIAL', false),
+        ],
     ],
 
     // Rekomendasi AI (Discovery) — pencarian web untuk cari KOL & tren produk.
