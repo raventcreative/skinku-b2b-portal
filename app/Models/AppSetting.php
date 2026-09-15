@@ -14,6 +14,9 @@ class AppSetting extends Model
     /** Batas tanggal potong stok PO: order sebelum tanggal ini TIDAK memotong stok. */
     public const PO_DEDUCT_FROM = 'po_deduct_from';
 
+    /** Kill switch auto-send Chat E-commerce: '1'=nyala, selain itu MATI. */
+    public const ECOM_CHAT_AUTOSEND = 'ecom_chat_autosend';
+
     protected $table = 'app_settings';
 
     protected $primaryKey = 'key';
