@@ -44,7 +44,7 @@ class EcomChatService
             return null; // dedupe
         }
 
-        $sentAt = ! empty($msg['sent_at']) ? Carbon::createFromTimestamp($msg['sent_at']) : now();
+        $sentAt = ! empty($msg['sent_at']) ? Carbon::createFromTimestamp($msg['sent_at'], config('app.timezone')) : now();
         $text = (string) ($msg['text'] ?? '');
 
         $conv = EcomChatConversation::firstOrNew([
@@ -54,6 +54,7 @@ class EcomChatService
         $conv->buyer_name = $msg['buyer_name'] ?? $conv->buyer_name;
         $conv->buyer_id = $msg['buyer_id'] ?? $conv->buyer_id;
         $conv->last_message_at = $sentAt;
+        $conv->last_incoming_at = $sentAt;
         $conv->last_message_preview = mb_substr($text, 0, 255);
         $conv->status = EcomChatConversation::STATUS_OPEN;
         $conv->save();

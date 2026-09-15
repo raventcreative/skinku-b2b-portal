@@ -17,14 +17,19 @@ class EcomChatConversation extends Model
 
     protected $fillable = [
         'channel', 'external_conversation_id', 'buyer_name', 'buyer_id',
-        'last_message_at', 'last_message_preview', 'status',
+        'last_message_at', 'last_incoming_at', 'last_message_preview', 'status',
         'ai_draft', 'ai_decision', 'ai_reason',
     ];
 
-    protected $casts = ['last_message_at' => 'datetime'];
+    protected $casts = ['last_message_at' => 'datetime', 'last_incoming_at' => 'datetime'];
 
     public function messages(): HasMany
     {
         return $this->hasMany(EcomChatMessage::class, 'conversation_id');
+    }
+
+    public function reads(): HasMany
+    {
+        return $this->hasMany(EcomChatRead::class, 'conversation_id');
     }
 }
