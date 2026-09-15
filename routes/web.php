@@ -12,6 +12,7 @@ use App\Http\Controllers\BackdatedSaleController;
 use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DownlineOrderController;
+use App\Http\Controllers\EcomChatController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\ImpersonationController;
@@ -717,6 +718,15 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::get('/asisten/pengetahuan', [AiAssistantController::class, 'knowledge'])->name('ai.knowledge');
             Route::post('/asisten/pengetahuan', [AiAssistantController::class, 'saveKnowledge'])->name('ai.knowledge.save');
         });
+    });
+
+    // Chat E-commerce — balas chat pembeli marketplace (TikTok; Shopee nanti).
+    Route::middleware('permission:manage_ecommerce_chat')->group(function () {
+        Route::get('/ecom-chat', [EcomChatController::class, 'index'])->name('ecom-chat.index');
+        Route::post('/ecom-chat/autosend', [EcomChatController::class, 'toggleAutosend'])->name('ecom-chat.autosend');
+        Route::get('/ecom-chat/{conversation}', [EcomChatController::class, 'show'])->name('ecom-chat.show');
+        Route::post('/ecom-chat/{conversation}/send', [EcomChatController::class, 'send'])->name('ecom-chat.send');
+        Route::post('/ecom-chat/{conversation}/redraft', [EcomChatController::class, 'redraft'])->name('ecom-chat.redraft');
     });
 
     // Rekomendasi AI (Discovery web): cari KOL & tren produk via Tavily + AI.
