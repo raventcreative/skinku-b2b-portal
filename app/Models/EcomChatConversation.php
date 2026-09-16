@@ -35,6 +35,22 @@ class EcomChatConversation extends Model
     }
 
     /**
+     * Percakapan yang PERLU DIBALAS: pesan pembeli menunggu jawaban kita.
+     * Dua syarat saling melengkapi:
+     *  - status open/needs_staff (BUKAN replied/closed) → begitu staf/AI membalas
+     *    langsung keluar dari antrean, tahan-seri walau balasan sedetik (send()
+     *    set replied; import set open lagi bila ada pesan pembeli baru).
+     *  - last_incoming_at >= last_message_at → buang percakapan open yang pesan
+     *    TERAKHIR-nya dari penjual/robot (mis. hasil tarik-ulang), bukan pembeli.
+     */
+    public function scopeNeedsReply(Builder $query): Builder
+    {
+        return $query->whereNotNull('last_incoming_at')
+            ->whereIn('status', [self::STATUS_OPEN, self::STATUS_NEEDS_STAFF])
+            ->whereColumn('last_incoming_at', '>=', 'last_message_at');
+    }
+
+    /**
      * Percakapan yang BELUM DIBACA oleh $user: ada pesan pembeli (last_incoming_at),
      * belum ditutup, dan lebih baru dari last_read_at user itu (atau belum pernah dibuka).
      */

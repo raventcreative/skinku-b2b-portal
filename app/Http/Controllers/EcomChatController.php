@@ -24,7 +24,7 @@ class EcomChatController extends Controller
 
         $query = EcomChatConversation::query()->orderByDesc('last_message_at');
         match ($tab) {
-            'perlu' => $query->whereNotNull('last_incoming_at')->where('status', '!=', EcomChatConversation::STATUS_CLOSED),
+            'perlu' => $query->needsReply(),
             'belum_dibaca' => $query->unreadFor($user),
             'terbalas' => $query->where('status', EcomChatConversation::STATUS_REPLIED),
             'ditutup' => $query->where('status', EcomChatConversation::STATUS_CLOSED),
@@ -35,8 +35,7 @@ class EcomChatController extends Controller
             'conversations' => $query->limit(100)->get(),
             'autosend' => $this->chat->autosendEnabled(),
             'tab' => $tab,
-            'perluCount' => EcomChatConversation::whereNotNull('last_incoming_at')
-                ->where('status', '!=', EcomChatConversation::STATUS_CLOSED)->count(),
+            'perluCount' => EcomChatConversation::query()->needsReply()->count(),
             'unreadCount' => EcomChatConversation::query()->unreadFor($user)->count('ecom_chat_conversations.id'),
         ]);
     }

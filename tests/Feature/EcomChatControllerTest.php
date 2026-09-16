@@ -99,8 +99,10 @@ class EcomChatControllerTest extends TestCase
 
     public function test_inbox_filter_terbalas_dan_ditutup(): void
     {
-        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'R1', 'buyer_name' => 'SudahDibalas', 'status' => 'replied', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        // Sudah dibalas: balasan (last_message_at) DATANG SETELAH pesan pembeli.
+        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'R1', 'buyer_name' => 'SudahDibalas', 'status' => 'replied', 'last_incoming_at' => now()->subMinutes(5), 'last_message_at' => now()]);
         EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'X1', 'buyer_name' => 'SudahDitutup', 'status' => 'closed', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        // Perlu dijawab: pesan pembeli adalah yang terbaru (last_incoming_at >= last_message_at).
         EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'N1', 'buyer_name' => 'PerluDijawab', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
 
         $admin = $this->user(User::ROLE_ADMIN);
@@ -113,9 +115,28 @@ class EcomChatControllerTest extends TestCase
         $this->actingAs($admin)->get('/ecom-chat?tab=ditutup')->assertOk()
             ->assertSee('SudahDitutup')->assertDontSee('SudahDibalas')->assertDontSee('PerluDijawab');
 
-        // Tab "perlu" → yang belum ditutup (replied + needs_staff), bukan yang closed.
+        // Tab "perlu" → HANYA yang pesan terbarunya dari pembeli. Yang sudah dibalas
+        // & yang ditutup TIDAK boleh muncul lagi.
         $this->actingAs($admin)->get('/ecom-chat?tab=perlu')->assertOk()
-            ->assertSee('PerluDijawab')->assertDontSee('SudahDitutup');
+            ->assertSee('PerluDijawab')->assertDontSee('SudahDibalas')->assertDontSee('SudahDitutup');
+    }
+
+    public function test_balas_mengeluarkan_percakapan_dari_perlu_dibalas(): void
+    {
+        $this->conn();
+        Http::fake(['*/customer_service/*' => Http::response(['code' => 0, 'data' => ['message_id' => 'OUT']])]);
+        $conv = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'P1', 'buyer_name' => 'PembeliNanya', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+
+        $admin = $this->user(User::ROLE_ADMIN);
+        // Sebelum dibalas → ada di "Perlu dibalas".
+        $this->actingAs($admin)->get('/ecom-chat?tab=perlu')->assertOk()->assertSee('PembeliNanya');
+
+        // Staf membalas.
+        $this->actingAs($admin)->post("/ecom-chat/{$conv->id}/send", ['text' => 'Halo kak, ready ya'])->assertRedirect();
+
+        // Setelah dibalas → HILANG dari "Perlu dibalas", pindah ke "Terbalas".
+        $this->actingAs($admin)->get('/ecom-chat?tab=perlu')->assertOk()->assertDontSee('PembeliNanya');
+        $this->actingAs($admin)->get('/ecom-chat?tab=terbalas')->assertOk()->assertSee('PembeliNanya');
     }
 
     public function test_inbox_tab_default_dan_tab_ngawur_jadi_perlu(): void

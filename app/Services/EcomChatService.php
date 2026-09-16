@@ -288,6 +288,13 @@ class EcomChatService
         if ($isBuyer && ($conv->last_incoming_at === null || $sentAt->gte($conv->last_incoming_at))) {
             $conv->last_incoming_at = $sentAt;
         }
+        // Pesan pembeli baru mendahului balasan terakhir → percakapan aktif lagi
+        // (webhook sudah begini; samakan agar badge "Terbalas" tak nyangkut saat tarik-ulang).
+        if ($isBuyer && $conv->status === EcomChatConversation::STATUS_REPLIED
+            && $conv->last_incoming_at !== null
+            && ($conv->last_message_at === null || $conv->last_incoming_at->gte($conv->last_message_at))) {
+            $conv->status = EcomChatConversation::STATUS_OPEN;
+        }
         $conv->save();
 
         return $msg->wasRecentlyCreated;
