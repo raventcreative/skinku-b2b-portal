@@ -35,12 +35,9 @@ class TikTokChatWebhookController extends Controller
         // DIAGNOSTIK (sementara): bentuk payload NEW_MESSAGE TikTok berbeda-beda —
         // catat kunci + id yang terekstrak biar ketahuan kalau conversation_id kosong.
         Log::info('ecom-chat webhook payload', [
-            'data_keys' => array_keys($data),
-            'msg_keys' => is_array($msg) ? array_keys($msg) : [],
             'conversation_id' => (string) ($msg['conversation_id'] ?? $data['conversation_id'] ?? ''),
             'message_id' => (string) ($msg['id'] ?? $msg['message_id'] ?? $data['message_id'] ?? ''),
-            'has_content' => array_key_exists('content', $msg) || array_key_exists('content', $data),
-            'role' => $role,
+            'raw' => mb_substr((string) $request->getContent(), 0, 2000), // struktur asli (sementara)
         ]);
 
         $message = $chat->syncIncoming('tiktok', [
