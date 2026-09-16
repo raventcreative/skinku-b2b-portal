@@ -7,10 +7,13 @@ use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
 use App\Models\EcomChatRead;
 use App\Models\TiktokAffiliateConnection;
+use App\Models\TiktokConnection;
+use App\Models\TiktokProduct;
 use App\Models\User;
 use App\Services\Ai\EcomChatDrafter;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
@@ -257,6 +260,77 @@ class EcomChatService
         foreach (array_reverse($msgData['messages'] ?? []) as $m) {
             $this->storeSyncedMessage($conv, $m);
         }
+    }
+
+    /**
+     * Ambil detail produk (judul/foto/harga) untuk sekumpulan product_id — dari
+     * cache tiktok_products; yang belum ada di-fetch dari Products API (app SHOP)
+     * lalu disimpan. Return keyBy product_id. Gagal fetch → cukup lewati (kartu
+     * jatuh ke tampilan ID + tautan).
+     *
+     * @param  iterable<int,string>  $ids
+     * @return Collection<string,TiktokProduct>
+     */
+    public function resolveProducts(iterable $ids): Collection
+    {
+        $ids = collect($ids)->map(fn ($x) => (string) $x)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        $cached = TiktokProduct::whereIn('product_id', $ids)->get()->keyBy('product_id');
+        $missing = $ids->reject(fn ($id) => $cached->has($id));
+        if ($missing->isEmpty()) {
+            return $cached;
+        }
+
+        $conn = TiktokConnection::latest('id')->first();
+        if (! $conn || ! $conn->shop_cipher) {
+            return $cached; // app SHOP belum terhubung → tak bisa ambil detail produk
+        }
+
+        try {
+            $access = app(TikTokSyncService::class)->freshToken($conn);
+            $client = new TikTokClient('tiktok');
+            foreach ($missing as $pid) {
+                try {
+                    $cached[$pid] = $this->cacheProduct($pid, $client->getProduct($access, $conn->shop_cipher, $pid));
+                } catch (\Throwable $e) {
+                    Log::warning('ecom-chat: ambil detail produk gagal', ['product_id' => $pid, 'e' => $e->getMessage()]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('ecom-chat: token app SHOP gagal utk detail produk', ['e' => $e->getMessage()]);
+        }
+
+        return $cached;
+    }
+
+    /** Simpan/perbarui cache produk dari respons Products API TikTok. */
+    private function cacheProduct(string $productId, array $data): TiktokProduct
+    {
+        $title = (string) (data_get($data, 'title') ?? '');
+        $image = (string) (data_get($data, 'main_images.0.urls.0')
+            ?? data_get($data, 'main_images.0.thumb_urls.0')
+            ?? data_get($data, 'product_main_image.urls.0') ?? '');
+
+        $price = null;
+        $currency = null;
+        foreach ((array) data_get($data, 'skus', []) as $sku) {
+            $amt = data_get($sku, 'sale_price.amount')
+                ?? data_get($sku, 'price.amount')
+                ?? data_get($sku, 'sale_price') ?? null;
+            if ($amt !== null && $amt !== '') {
+                $price = (int) round((float) $amt);
+                $currency = (string) (data_get($sku, 'sale_price.currency') ?? data_get($sku, 'price.currency') ?? '');
+                break;
+            }
+        }
+
+        return TiktokProduct::updateOrCreate(
+            ['product_id' => $productId],
+            ['title' => $title, 'image_url' => $image, 'price' => $price, 'currency' => $currency],
+        );
     }
 
     /** Peserta ber-peran pembeli dari payload percakapan (null bila tak ada). */

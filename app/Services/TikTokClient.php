@@ -229,6 +229,16 @@ class TikTokClient
     }
 
     /**
+     * Detail satu produk (Products API) — judul, foto utama, SKU + harga. Dipakai
+     * memperkaya kartu produk di chat (TikTok cuma kirim product_id). Butuh scope
+     * produk + shop_cipher app SHOP (bukan affiliate).
+     */
+    public function getProduct(string $accessToken, string $shopCipher, string $productId): array
+    {
+        return $this->request('GET', '/product/202309/products/'.rawurlencode($productId), $accessToken, $shopCipher);
+    }
+
+    /**
      * Events API — daftar langganan webhook app untuk toko ini (event_type + address).
      * Dipakai mendiagnosa apakah NEW_MESSAGE sudah benar-benar ter-subscribe.
      */

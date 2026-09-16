@@ -91,12 +91,23 @@
                     @elseif($isVideo)
                         <a href="{{ $mediaUrl ?: '#' }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">🎬 Video — buka</a>
                     @elseif($isProduct)
-                        <div class="px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm w-60 max-w-full">
-                            <p class="font-semibold text-stone-700">🛍️ Produk yang ditanyakan</p>
-                            @if($productId)
-                                <p class="text-[11px] text-stone-500 mt-0.5 break-all">ID: {{ $productId }}</p>
-                                <a href="https://shop-id.tokopedia.com/view/product/{{ $productId }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">Buka produk ↗</a>
+                        @php($prod = $productId ? (($products ?? collect())[$productId] ?? null) : null)
+                        <div class="rounded-xl border border-stone-300 bg-white text-sm w-56 max-w-full overflow-hidden">
+                            @if($prod && $prod->image_url)
+                                <img src="{{ $prod->image_url }}" alt="" class="w-full h-32 object-cover" loading="lazy" onerror="this.remove()">
                             @endif
+                            <div class="px-3 py-2">
+                                <p class="text-[10px] text-stone-400">🛍️ Produk ditanya pembeli</p>
+                                @if($prod && $prod->title)
+                                    <p class="font-semibold text-stone-800 leading-snug">{{ $prod->title }}</p>
+                                    @if($prod->price)<p class="font-bold text-stone-800 mt-0.5">Rp{{ number_format($prod->price, 0, ',', '.') }}</p>@endif
+                                @elseif($productId)
+                                    <p class="text-[11px] text-stone-500 break-all">ID: {{ $productId }}</p>
+                                @endif
+                                @if($productId)
+                                    <a href="https://shop-id.tokopedia.com/view/product/{{ $productId }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">Buka produk ↗</a>
+                                @endif
+                            </div>
                         </div>
                     @elseif($isOther)
                         <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">{{ $m->text }}</div>

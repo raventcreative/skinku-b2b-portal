@@ -90,7 +90,13 @@ class EcomChatController extends Controller
             ? TiktokOrder::whereIn('tiktok_order_id', $orderIds)->get()->keyBy('tiktok_order_id')
             : collect();
 
-        return ['conversation' => $conversation, 'orders' => $orders];
+        // Kartu produk: TikTok cuma kirim product_id → ambil detail (nama/foto/harga).
+        $productIds = $conversation->messages
+            ->map(fn ($m) => $m->meta['product_id'] ?? null)
+            ->filter()->unique()->values();
+        $products = $this->chat->resolveProducts($productIds);
+
+        return ['conversation' => $conversation, 'orders' => $orders, 'products' => $products];
     }
 
     public function unreadCount(Request $request): JsonResponse

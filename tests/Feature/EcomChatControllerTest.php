@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
 use App\Models\TiktokAffiliateConnection;
+use App\Models\TiktokConnection;
 use App\Models\User;
 use App\Services\EcomChatService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -225,6 +226,32 @@ class EcomChatControllerTest extends TestCase
             ->assertSee('AjaxUser')
             ->assertSee('data-tab="perlu"', false)
             ->assertDontSee('<!DOCTYPE', false); // partial daftar, bukan halaman penuh
+    }
+
+    public function test_thread_kartu_produk_tampil_nama_dan_harga(): void
+    {
+        config()->set('services.tiktok.app_key', 'k');
+        config()->set('services.tiktok.app_secret', 's');
+        config()->set('services.tiktok.api_base', 'https://open-api.tiktokglobalshop.com');
+        TiktokConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(),
+        ]);
+        Http::fake([
+            '*/product/202309/products/*' => Http::response(['code' => 0, 'data' => [
+                'title' => 'SKIN-KU MIZU Brightening', 'main_images' => [['urls' => ['https://cdn/m.jpg']]],
+                'skus' => [['price' => ['amount' => '55350', 'currency' => 'IDR']]],
+            ]]),
+        ]);
+
+        $conv = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'PC', 'buyer_name' => 'Budi', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        $conv->messages()->create(['channel' => 'tiktok', 'external_message_id' => 'PM', 'sender' => 'buyer', 'via' => 'buyer', 'type' => 'product_card', 'meta' => ['product_id' => '1735591701567080362'], 'text' => '🛍️ Produk', 'sent_at' => now()]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get("/ecom-chat/{$conv->id}/thread")->assertOk()
+            ->assertSee('SKIN-KU MIZU Brightening')->assertSee('55.350');
+
+        // Detail produk ter-cache → tak fetch ulang lain kali.
+        $this->assertDatabaseHas('tiktok_products', ['product_id' => '1735591701567080362', 'title' => 'SKIN-KU MIZU Brightening', 'price' => 55350]);
     }
 
     public function test_toggle_autosend(): void

@@ -64,6 +64,24 @@ class TikTokChatClientTest extends TestCase
         $this->assertSame('NEW_MESSAGE', $data['webhooks'][0]['event_type']);
     }
 
+    public function test_get_product_memanggil_endpoint_products(): void
+    {
+        config()->set('services.tiktok.app_key', 'testkey');
+        config()->set('services.tiktok.app_secret', 'testsecret');
+        config()->set('services.tiktok.api_base', 'https://open-api.tiktokglobalshop.com');
+
+        Http::fake([
+            '*/product/202309/products/*' => Http::response(['code' => 0, 'data' => [
+                'title' => 'SKIN-KU MIZU', 'main_images' => [['urls' => ['https://cdn/x.jpg']]],
+                'skus' => [['price' => ['amount' => '55350', 'currency' => 'IDR']]],
+            ]]),
+        ]);
+
+        $data = app(TikTokClient::class)->getProduct('acc', 'cipher', '1735591701567080362');
+        $this->assertSame('SKIN-KU MIZU', $data['title']);
+        Http::assertSent(fn ($r) => str_contains($r->url(), '/product/202309/products/1735591701567080362') && $r->method() === 'GET' && $r->hasHeader('x-tts-access-token', 'acc'));
+    }
+
     public function test_update_webhook_mengirim_put_dengan_event_dan_address(): void
     {
         config()->set('services.tiktok.app_key', 'testkey');
