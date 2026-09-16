@@ -147,6 +147,55 @@ class EcomChatControllerTest extends TestCase
         $this->actingAs($admin)->get('/ecom-chat')->assertOk();
     }
 
+    public function test_tutup_dan_buka_lagi_percakapan(): void
+    {
+        $conv = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'CL1', 'buyer_name' => 'MauDitutup', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        // Tutup → status closed, masuk "ditutup", keluar dari "perlu".
+        $this->actingAs($admin)->post("/ecom-chat/{$conv->id}/close")->assertRedirect();
+        $this->assertSame('closed', $conv->fresh()->status);
+        $this->actingAs($admin)->get('/ecom-chat?tab=ditutup')->assertOk()->assertSee('MauDitutup');
+        $this->actingAs($admin)->get('/ecom-chat?tab=perlu')->assertOk()->assertDontSee('MauDitutup');
+
+        // Buka lagi → status open.
+        $this->actingAs($admin)->post("/ecom-chat/{$conv->id}/reopen")->assertRedirect();
+        $this->assertSame('open', $conv->fresh()->status);
+    }
+
+    public function test_tutup_via_ajax_kembalikan_thread_dengan_tombol_buka_lagi(): void
+    {
+        $conv = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'CL2', 'buyer_name' => 'Ajax', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))
+            ->withHeader('X-Requested-With', 'XMLHttpRequest')
+            ->post("/ecom-chat/{$conv->id}/close")->assertOk()
+            ->assertSee('data-thread-status="closed"', false)
+            ->assertSee('Buka lagi');
+    }
+
+    public function test_badge_bedakan_dibalas_ai_dan_staf(): void
+    {
+        $this->conn();
+        Http::fake(['*/customer_service/*' => Http::sequence()
+            ->push(['code' => 0, 'data' => ['message_id' => 'OUT-STAF']])
+            ->push(['code' => 0, 'data' => ['message_id' => 'OUT-AI']])]);
+        $svc = app(EcomChatService::class);
+
+        $convStaff = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'S1', 'buyer_name' => 'BalasStaf', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        $convAi = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'A1', 'buyer_name' => 'BalasAI', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+
+        $svc->send($convStaff, 'balasan staf', EcomChatMessage::VIA_STAFF);
+        $svc->send($convAi, 'balasan ai', EcomChatMessage::VIA_AI);
+
+        $this->assertSame(EcomChatMessage::VIA_STAFF, $convStaff->fresh()->last_reply_via);
+        $this->assertSame(EcomChatMessage::VIA_AI, $convAi->fresh()->last_reply_via);
+
+        // Inbox tab "terbalas" → badge beda sumber.
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/ecom-chat?tab=terbalas')->assertOk()
+            ->assertSee('Dibalas staf')->assertSee('Dibalas AI');
+    }
+
     public function test_toggle_autosend(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);

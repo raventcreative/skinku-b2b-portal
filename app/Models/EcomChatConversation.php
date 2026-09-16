@@ -18,7 +18,7 @@ class EcomChatConversation extends Model
 
     protected $fillable = [
         'channel', 'external_conversation_id', 'buyer_name', 'buyer_id',
-        'last_message_at', 'last_incoming_at', 'last_message_preview', 'status',
+        'last_message_at', 'last_incoming_at', 'last_message_preview', 'status', 'last_reply_via',
         'ai_draft', 'ai_decision', 'ai_reason',
     ];
 

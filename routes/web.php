@@ -730,6 +730,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/ecom-chat/{conversation}/thread', [EcomChatController::class, 'thread'])->name('ecom-chat.thread');
         Route::post('/ecom-chat/{conversation}/send', [EcomChatController::class, 'send'])->name('ecom-chat.send');
         Route::post('/ecom-chat/{conversation}/redraft', [EcomChatController::class, 'redraft'])->name('ecom-chat.redraft');
+        Route::post('/ecom-chat/{conversation}/close', [EcomChatController::class, 'close'])->name('ecom-chat.close');
+        Route::post('/ecom-chat/{conversation}/reopen', [EcomChatController::class, 'reopen'])->name('ecom-chat.reopen');
     });
 
     // Rekomendasi AI (Discovery web): cari KOL & tren produk via Tavily + AI.

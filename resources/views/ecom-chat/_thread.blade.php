@@ -4,19 +4,33 @@
     'DELIVERED' => 'Terkirim', 'COMPLETED' => 'Selesai', 'CANCELLED' => 'Dibatalkan',
 ])
 @php($buyerName = $conversation->buyer_name ?: 'Pembeli')
-{{-- Penanda status untuk sinkronkan tag di daftar kiri tanpa reload. --}}
-<span data-thread-status="{{ $conversation->status }}" hidden></span>
+@php($isClosed = $conversation->status === 'closed')
+{{-- Penanda status/sumber-balasan untuk sinkronkan tag di daftar kiri tanpa reload. --}}
+<span data-thread-status="{{ $conversation->status }}" data-thread-via="{{ $conversation->last_reply_via }}" hidden></span>
 <div class="flex flex-col h-full min-h-0">
     {{-- header --}}
-    <div class="px-4 py-3 border-b border-stone-200 flex items-center justify-between shrink-0">
+    <div class="px-4 py-3 border-b border-stone-200 flex items-center justify-between gap-3 shrink-0">
         <div class="flex items-center gap-2 min-w-0">
             <span class="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($buyerName, 0, 1) }}</span>
             <span class="font-bold text-stone-800 truncate">{{ $buyerName }}</span>
         </div>
-        <form method="POST" action="{{ route('ecom-chat.redraft', $conversation) }}" data-redraft>
-            @csrf
-            <button type="submit" class="text-xs text-stone-500 hover:text-stone-800 whitespace-nowrap">↻ Buat ulang draft AI</button>
-        </form>
+        <div class="flex items-center gap-3 shrink-0">
+            <form method="POST" action="{{ route('ecom-chat.redraft', $conversation) }}" data-redraft>
+                @csrf
+                <button type="submit" class="text-xs text-stone-500 hover:text-stone-800 whitespace-nowrap">↻ Buat ulang draft AI</button>
+            </form>
+            @if($isClosed)
+                <form method="POST" action="{{ route('ecom-chat.reopen', $conversation) }}" data-close>
+                    @csrf
+                    <button type="submit" class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 whitespace-nowrap">↩ Buka lagi</button>
+                </form>
+            @else
+                <form method="POST" action="{{ route('ecom-chat.close', $conversation) }}" data-close>
+                    @csrf
+                    <button type="submit" class="text-xs font-semibold text-stone-500 hover:text-rose-600 whitespace-nowrap">✓ Tutup chat</button>
+                </form>
+            @endif
+        </div>
     </div>
 
     {{-- messages --}}

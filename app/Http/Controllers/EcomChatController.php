@@ -114,6 +114,29 @@ class EcomChatController extends Controller
         return redirect()->route('ecom-chat.show', $conversation)->with('status', 'Draft dibuat ulang.');
     }
 
+    public function close(Request $request, EcomChatConversation $conversation)
+    {
+        $conversation->update(['status' => EcomChatConversation::STATUS_CLOSED]);
+
+        if ($request->hasHeader('X-Requested-With')) {
+            return view('ecom-chat._thread', $this->threadData($conversation->fresh()));
+        }
+
+        return redirect()->route('ecom-chat.show', $conversation)->with('status', 'Percakapan ditutup.');
+    }
+
+    public function reopen(Request $request, EcomChatConversation $conversation)
+    {
+        // Buka lagi → open; kalau pembeli memang menunggu, otomatis balik ke "Perlu dibalas".
+        $conversation->update(['status' => EcomChatConversation::STATUS_OPEN]);
+
+        if ($request->hasHeader('X-Requested-With')) {
+            return view('ecom-chat._thread', $this->threadData($conversation->fresh()));
+        }
+
+        return redirect()->route('ecom-chat.show', $conversation)->with('status', 'Percakapan dibuka lagi.');
+    }
+
     public function toggleAutosend(Request $request): RedirectResponse
     {
         $on = $request->input('on') === '1' ? '1' : '0';

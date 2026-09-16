@@ -4,12 +4,20 @@
 
 @section('content')
 @php
-    $badge = [
-        'needs_staff' => ['Perlu staf', 'bg-amber-100 text-amber-800'],
-        'replied' => ['Terbalas', 'bg-emerald-100 text-emerald-800'],
-        'open' => ['Baru', 'bg-sky-100 text-sky-800'],
-        'closed' => ['Selesai', 'bg-stone-100 text-stone-600'],
-    ];
+    // Badge status; untuk "replied" bedakan sumber balasan: AI vs staf.
+    $badgeFor = function ($status, $via) {
+        if ($status === 'replied') {
+            return $via === 'ai'
+                ? ['🤖 Dibalas AI', 'bg-violet-100 text-violet-800']
+                : ['Dibalas staf', 'bg-emerald-100 text-emerald-800'];
+        }
+
+        return [
+            'needs_staff' => ['Perlu staf', 'bg-amber-100 text-amber-800'],
+            'open' => ['Baru', 'bg-sky-100 text-sky-800'],
+            'closed' => ['Selesai', 'bg-stone-100 text-stone-600'],
+        ][$status] ?? ['—', 'bg-stone-100 text-stone-600'];
+    };
 @endphp
 
 @if(session('status'))
@@ -55,7 +63,7 @@
 
         <div class="flex-1 overflow-y-auto divide-y divide-stone-100 min-h-0">
             @forelse($conversations as $c)
-                @php([$label, $cls] = $badge[$c->status] ?? ['—', 'bg-stone-100 text-stone-600'])
+                @php([$label, $cls] = $badgeFor($c->status, $c->last_reply_via))
                 @php($nama = $c->buyer_name ?: 'Pembeli TikTok')
                 <button type="button" data-conv-id="{{ $c->id }}" onclick="ecomOpen(this)" class="w-full text-left flex items-center gap-3 p-3 hover:bg-stone-50">
                     <span class="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($nama, 0, 1) }}</span>
@@ -93,16 +101,20 @@
     var activeItem = null;
     var badgeMap = {
         needs_staff: ['Perlu staf', 'bg-amber-100 text-amber-800'],
-        replied: ['Terbalas', 'bg-emerald-100 text-emerald-800'],
         open: ['Baru', 'bg-sky-100 text-sky-800'],
+        replied_ai: ['🤖 Dibalas AI', 'bg-violet-100 text-violet-800'],
+        replied_staff: ['Dibalas staf', 'bg-emerald-100 text-emerald-800'],
         closed: ['Selesai', 'bg-stone-100 text-stone-600'],
     };
 
-    // Sinkronkan tag di daftar kiri dgn status terbaru dari thread — tanpa reload.
+    // Sinkronkan tag di daftar kiri dgn status + sumber-balasan terbaru — tanpa reload.
     function syncBadge() {
         var st = pane.querySelector('[data-thread-status]');
         if (!st || !activeItem) return;
-        var m = badgeMap[st.getAttribute('data-thread-status')];
+        var status = st.getAttribute('data-thread-status');
+        var via = st.getAttribute('data-thread-via');
+        var key = status === 'replied' ? ('replied_' + (via === 'ai' ? 'ai' : 'staff')) : status;
+        var m = badgeMap[key];
         var badge = activeItem.querySelector('[data-conv-badge]');
         if (m && badge) {
             badge.textContent = m[0];
@@ -141,7 +153,7 @@
 
     // Kirim balasan / buat ulang draft TANPA reload — form di-inject ulang tiap buka chat.
     pane.addEventListener('submit', function (e) {
-        var form = e.target.closest('form[data-send], form[data-redraft]');
+        var form = e.target.closest('form[data-send], form[data-redraft], form[data-close]');
         if (!form) return;
         e.preventDefault();
         var btn = form.querySelector('button');

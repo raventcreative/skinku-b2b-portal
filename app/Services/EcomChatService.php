@@ -143,6 +143,7 @@ class EcomChatService
 
         $conv->update([
             'status' => EcomChatConversation::STATUS_REPLIED,
+            'last_reply_via' => $via, // 'ai' | 'staff' → badge "Dibalas AI"/"Dibalas staf"
             'last_message_at' => now(),
             'last_message_preview' => mb_substr($text, 0, 255),
         ]);
