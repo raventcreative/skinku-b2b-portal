@@ -80,12 +80,34 @@ class TikTokChatWebhookController extends Controller
         $secret = (string) config('services.tiktok_affiliate.app_secret');
         $appKey = (string) config('services.tiktok_affiliate.app_key');
         if ($secret === '') {
+            Log::warning('ecom-chat webhook ditolak: app_secret affiliate kosong (.env services.tiktok_affiliate.app_secret).');
+
             return false;
         }
 
+        // Algoritma resmi TikTok Shop: HMAC-SHA256(app_secret, app_key + RAW body),
+        // hex huruf-kecil, di header Authorization apa adanya (tanpa "Bearer").
         $provided = (string) $request->header('Authorization', '');
         $expected = hash_hmac('sha256', $appKey.$request->getContent(), $secret);
 
-        return $provided !== '' && hash_equals($expected, $provided);
+        if ($provided === '') {
+            // Di Apache/shared-hosting header Authorization sering dibuang bila
+            // public/.htaccess tak punya aturan "Handle Authorization Header".
+            Log::warning('ecom-chat webhook ditolak: header Authorization kosong (cek aturan Authorization di public/.htaccess).');
+
+            return false;
+        }
+
+        if (! hash_equals($expected, $provided)) {
+            // Panjang saja (bukan nilainya) untuk bantu diagnosa tanpa membocorkan tanda tangan.
+            Log::warning('ecom-chat webhook ditolak: tanda tangan tak cocok.', [
+                'panjang_diberikan' => strlen($provided),
+                'panjang_diharapkan' => strlen($expected),
+            ]);
+
+            return false;
+        }
+
+        return true;
     }
 }

@@ -98,6 +98,18 @@ class TikTokChatWebhookTest extends TestCase
         $this->assertSame(0, EcomChatMessage::count());
     }
 
+    public function test_tanpa_header_authorization_ditolak_401(): void
+    {
+        // Apache membuang header Authorization (public/.htaccess tanpa aturannya) → 401, bukan diproses.
+        $body = json_encode($this->payload());
+
+        $this->call('POST', '/webhooks/tiktok/chat', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], $body)->assertStatus(401);
+
+        $this->assertSame(0, EcomChatMessage::count());
+    }
+
     public function test_message_id_dobel_didedupe(): void
     {
         $this->app->instance(AiProvider::class, new FakeAiProvider([
