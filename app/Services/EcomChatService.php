@@ -242,6 +242,23 @@ class EcomChatService
         return ['conversations' => $convCount, 'messages' => $msgCount];
     }
 
+    /**
+     * Tarik isi pesan SATU percakapan dari API lalu simpan/repair. WAJIB dipakai
+     * webhook: payload NEW_MESSAGE TikTok hanya membawa METADATA (message_id,
+     * conversation_id, type, sender) — TANPA teks pesan. Teks sebenarnya diambil
+     * dari getConversationMessages. Idempoten (updateOrCreate by message_id) →
+     * mengisi bubble yang tadinya kosong tanpa menggandakan.
+     */
+    public function pullConversationMessages(EcomChatConversation $conv, int $limit = 10): void
+    {
+        $conn = $this->chatConn();
+        $access = $this->affiliate->freshToken($conn);
+        $msgData = $this->chatClient()->getConversationMessages($access, $conn->shop_cipher, $conv->external_conversation_id, $limit);
+        foreach (array_reverse($msgData['messages'] ?? []) as $m) {
+            $this->storeSyncedMessage($conv, $m);
+        }
+    }
+
     /** Peserta ber-peran pembeli dari payload percakapan (null bila tak ada). */
     private function buyerOf(array $conv): ?array
     {

@@ -58,6 +58,14 @@ class TikTokChatWebhookController extends Controller
         try {
             $conv = EcomChatConversation::find($conversationId);
             if ($conv) {
+                // Payload NEW_MESSAGE tak membawa teks → tarik isi asli dari API dulu
+                // supaya pesan tak tersimpan kosong & AI punya konteks untuk membalas.
+                try {
+                    $chat->pullConversationMessages($conv);
+                    $conv->refresh();
+                } catch (\Throwable $e) {
+                    Log::warning('ecom-chat webhook tarik isi pesan gagal', ['e' => $e->getMessage()]);
+                }
                 $chat->processDraft($conv);
             }
         } catch (\Throwable $e) {

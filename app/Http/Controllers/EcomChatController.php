@@ -92,7 +92,17 @@ class EcomChatController extends Controller
     public function send(Request $request, EcomChatConversation $conversation)
     {
         $data = $request->validate(['text' => ['required', 'string', 'max:4000']]);
-        $this->chat->send($conversation, $data['text'], EcomChatMessage::VIA_STAFF);
+
+        try {
+            $this->chat->send($conversation, $data['text'], EcomChatMessage::VIA_STAFF);
+        } catch (\Throwable $e) {
+            // Jangan gagal senyap: tampilkan alasan (mis. error API TikTok) ke staf.
+            if ($request->hasHeader('X-Requested-With')) {
+                return response('Gagal kirim ke TikTok: '.$e->getMessage(), 422);
+            }
+
+            return redirect()->route('ecom-chat.show', $conversation)->with('error', 'Gagal kirim ke TikTok: '.$e->getMessage());
+        }
 
         if ($request->hasHeader('X-Requested-With')) {
             $this->chat->markRead($request->user(), $conversation);

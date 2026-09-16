@@ -159,14 +159,20 @@
         var btn = form.querySelector('button');
         if (btn) btn.disabled = true;
         fetch(form.getAttribute('action'), { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: new FormData(form) })
-            .then(function (r) { return r.ok ? r.text() : null; })
+            .then(function (r) {
+                // Jangan gagal senyap — tampilkan alasan bila server menolak (mis. error API TikTok).
+                if (!r.ok) { return r.text().then(function (t) { throw new Error(t ? t.slice(0, 400) : ('HTTP ' + r.status)); }); }
+                return r.text();
+            })
             .then(function (html) {
-                if (html === null) { if (btn) btn.disabled = false; return; }
                 pane.innerHTML = html;
                 scrollThread();
                 syncBadge();
             })
-            .catch(function () { if (btn) btn.disabled = false; });
+            .catch(function (err) {
+                if (btn) btn.disabled = false;
+                alert(err && err.message ? err.message : 'Gagal mengirim, coba lagi.');
+            });
     });
 })();
 </script>
