@@ -337,8 +337,13 @@ class EcomChatService
         return match ($type) {
             'ORDER_CARD' => ['order_card', '🧾 Kartu Pesanan'.($orderId !== '' ? ' #'.$orderId : ''), ['order_id' => $orderId]],
             'LOGISTICS_CARD' => ['logistics_card', '🚚 Info Pengiriman'.($orderId !== '' ? ' — Pesanan #'.$orderId : ''), ['order_id' => $orderId, 'package_id' => (string) ($in['package_id'] ?? '')]],
+            'IMAGE' => ['image', '🖼️ Foto', ['url' => (string) ($in['url'] ?? '')]],
+            'VIDEO' => ['video', '🎬 Video', ['url' => (string) ($in['url'] ?? '')]],
             'OTHER' => ['other', '📎 Pesan tipe lain — buka di TikTok Seller Center', null],
-            default => ['text', (string) ($in['content'] ?? $raw), null],
+            // Media tanpa label tipe jelas: {"url","width","height"} = foto.
+            default => (isset($in['url']) && (isset($in['width']) || isset($in['height'])))
+                ? ['image', '🖼️ Foto', ['url' => (string) $in['url']]]
+                : ['text', (string) ($in['content'] ?? $raw), null],
         };
     }
 }

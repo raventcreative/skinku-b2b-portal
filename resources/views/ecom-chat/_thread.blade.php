@@ -45,6 +45,14 @@
             @php($mine = $m->sender !== 'buyer')
             @php($isCard = in_array($m->type, ['order_card', 'logistics_card'], true))
             @php($isOther = $m->type === 'other')
+            @php($isImage = $m->type === 'image')
+            @php($isVideo = $m->type === 'video')
+            @php($mediaUrl = ($isImage || $isVideo) ? (string) ($m->meta['url'] ?? '') : '')
+            {{-- Legacy: pesan lama tersimpan sbg text padahal isinya JSON foto → tampilkan sbg foto. --}}
+            @php($__dec = (! $isImage && ! $isVideo && ! $isCard && ! $isOther) ? json_decode((string) $m->text, true) : null)
+            @php($__mediaJson = is_array($__dec) && ! empty($__dec['url']) && (isset($__dec['width']) || isset($__dec['height'])))
+            @php($isImage = $isImage || $__mediaJson)
+            @php($mediaUrl = $__mediaJson ? (string) $__dec['url'] : $mediaUrl)
             <div class="flex items-end gap-2 {{ $mine ? 'flex-row-reverse' : '' }}">
                 <span class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold uppercase {{ $mine ? 'bg-stone-300 text-stone-700' : 'bg-gradient-to-br from-red-500 to-rose-600 text-white' }}">
                     {{ mb_substr($mine ? 'Toko' : $buyerName, 0, 1) }}
@@ -70,6 +78,15 @@
                             @endif
                             @if($oid)<p class="text-[10px] text-stone-400 mt-1">#{{ $oid }}</p>@endif
                         </div>
+                    @elseif($isImage)
+                        <a href="{{ $mediaUrl ?: '#' }}" target="_blank" rel="noopener" class="block">
+                            @if($mediaUrl)
+                                <img src="{{ $mediaUrl }}" alt="Foto dari pembeli" class="max-h-48 rounded-xl border border-stone-200 mb-1" loading="lazy" onerror="this.remove()">
+                            @endif
+                            <span class="text-[11px] text-sky-600 underline">🖼️ Foto{{ $mediaUrl ? ' — buka' : '' }}</span>
+                        </a>
+                    @elseif($isVideo)
+                        <a href="{{ $mediaUrl ?: '#' }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">🎬 Video — buka</a>
                     @elseif($isOther)
                         <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">{{ $m->text }}</div>
                     @else
@@ -86,11 +103,13 @@
     </div>
 
     {{-- composer --}}
+    @php($handled = in_array($conversation->status, ['replied', 'closed'], true))
     <form method="POST" action="{{ route('ecom-chat.send', $conversation) }}" data-send class="border-t border-stone-200 p-3 shrink-0 bg-white">
         @csrf
-        <textarea name="text" rows="2" maxlength="4000" placeholder="Tulis balasan… (Enter = kirim, Shift+Enter = baris baru)" class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm resize-none">{{ old('text', $conversation->ai_draft) }}</textarea>
+        {{-- Draft AI hanya diisikan bila chat MASIH perlu ditangani; yang sudah dibalas → kosong. --}}
+        <textarea name="text" rows="2" maxlength="4000" placeholder="Tulis balasan… (Enter = kirim, Shift+Enter = baris baru)" class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm resize-none">{{ old('text', $handled ? '' : $conversation->ai_draft) }}</textarea>
         <div class="flex items-center gap-2 mt-2">
-            @if($conversation->ai_reason)
+            @if($conversation->ai_reason && ! $handled)
                 <span class="text-[10px] text-stone-400 truncate">AI: <b>{{ $conversation->ai_decision }}</b> — {{ $conversation->ai_reason }}</span>
             @endif
             <span class="text-[10px] text-stone-300 ml-auto mr-1 hidden sm:inline">Enter ⏎ kirim</span>
