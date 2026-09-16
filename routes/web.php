@@ -727,6 +727,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/ecom-chat/sync', [EcomChatController::class, 'sync'])->name('ecom-chat.sync');
         Route::get('/ecom-chat/unread-count', [EcomChatController::class, 'unreadCount'])->name('ecom-chat.unread-count');
         Route::get('/ecom-chat/{conversation}', [EcomChatController::class, 'show'])->name('ecom-chat.show');
+        Route::get('/ecom-chat/{conversation}/thread', [EcomChatController::class, 'thread'])->name('ecom-chat.thread');
         Route::post('/ecom-chat/{conversation}/send', [EcomChatController::class, 'send'])->name('ecom-chat.send');
         Route::post('/ecom-chat/{conversation}/redraft', [EcomChatController::class, 'redraft'])->name('ecom-chat.redraft');
     });

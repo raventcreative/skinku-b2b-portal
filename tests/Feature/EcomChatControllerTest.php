@@ -7,6 +7,7 @@ use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
 use App\Models\TiktokAffiliateConnection;
 use App\Models\User;
+use App\Services\EcomChatService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -61,6 +62,25 @@ class EcomChatControllerTest extends TestCase
 
         $this->assertSame(1, EcomChatMessage::where('sender', 'seller')->where('via', 'staff')->count());
         $this->assertSame('replied', $conv->fresh()->status);
+    }
+
+    public function test_thread_endpoint_render_pesan_dan_tandai_read(): void
+    {
+        $conv = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'C9', 'buyer_name' => 'Rina', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        $conv->messages()->create(['channel' => 'tiktok', 'external_message_id' => 'MM', 'sender' => 'buyer', 'via' => 'buyer', 'type' => 'text', 'text' => 'Halo ada stok?', 'sent_at' => now()]);
+
+        $svc = app(EcomChatService::class);
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->assertSame(1, $svc->unreadCountFor($admin));
+
+        $this->actingAs($admin)->get("/ecom-chat/{$conv->id}/thread")->assertOk()
+            ->assertSee('Halo ada stok?')->assertSee('Rina');
+
+        // Buka thread → ditandai terbaca untuk user itu.
+        $this->assertSame(0, $svc->unreadCountFor($admin->fresh()));
+
+        // Non-staf → 403.
+        $this->actingAs($this->user(User::ROLE_RESELLER))->get("/ecom-chat/{$conv->id}/thread")->assertForbidden();
     }
 
     public function test_inbox_filter_perlu_dibalas(): void

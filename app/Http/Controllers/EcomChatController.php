@@ -10,6 +10,7 @@ use App\Services\EcomChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class EcomChatController extends Controller
 {
@@ -48,9 +49,26 @@ class EcomChatController extends Controller
     public function show(Request $request, EcomChatConversation $conversation)
     {
         $this->chat->markRead($request->user(), $conversation);
-        $conversation->load(['messages' => fn ($q) => $q->orderBy('id')]);
 
-        // Preload order TikTok tersinkron (untuk kartu kaya: produk/harga/status). Hindari N+1.
+        return view('ecom-chat.show', $this->threadData($conversation) + ['autosend' => $this->chat->autosendEnabled()]);
+    }
+
+    /** Panel thread (AJAX) — dipakai layout 2-panel di inbox tanpa reload halaman. */
+    public function thread(Request $request, EcomChatConversation $conversation)
+    {
+        $this->chat->markRead($request->user(), $conversation);
+
+        return view('ecom-chat._thread', $this->threadData($conversation));
+    }
+
+    /**
+     * Data thread: pesan urut + order TikTok tersinkron (kartu kaya), tanpa N+1.
+     *
+     * @return array{conversation: EcomChatConversation, orders: Collection}
+     */
+    private function threadData(EcomChatConversation $conversation): array
+    {
+        $conversation->load(['messages' => fn ($q) => $q->orderBy('id')]);
         $orderIds = $conversation->messages
             ->map(fn ($m) => $m->meta['order_id'] ?? null)
             ->filter()->unique()->values();
@@ -58,11 +76,7 @@ class EcomChatController extends Controller
             ? TiktokOrder::whereIn('tiktok_order_id', $orderIds)->get()->keyBy('tiktok_order_id')
             : collect();
 
-        return view('ecom-chat.show', [
-            'conversation' => $conversation,
-            'autosend' => $this->chat->autosendEnabled(),
-            'orders' => $orders,
-        ]);
+        return ['conversation' => $conversation, 'orders' => $orders];
     }
 
     public function unreadCount(Request $request): JsonResponse
@@ -70,17 +84,27 @@ class EcomChatController extends Controller
         return response()->json(['count' => $this->chat->unreadCountFor($request->user())]);
     }
 
-    public function send(Request $request, EcomChatConversation $conversation): RedirectResponse
+    public function send(Request $request, EcomChatConversation $conversation)
     {
         $data = $request->validate(['text' => ['required', 'string', 'max:4000']]);
         $this->chat->send($conversation, $data['text'], EcomChatMessage::VIA_STAFF);
 
+        if ($request->hasHeader('X-Requested-With')) {
+            $this->chat->markRead($request->user(), $conversation);
+
+            return view('ecom-chat._thread', $this->threadData($conversation->fresh()));
+        }
+
         return redirect()->route('ecom-chat.show', $conversation)->with('status', 'Balasan terkirim.');
     }
 
-    public function redraft(EcomChatConversation $conversation): RedirectResponse
+    public function redraft(Request $request, EcomChatConversation $conversation)
     {
         $this->chat->processDraft($conversation);
+
+        if ($request->hasHeader('X-Requested-With')) {
+            return view('ecom-chat._thread', $this->threadData($conversation->fresh()));
+        }
 
         return redirect()->route('ecom-chat.show', $conversation)->with('status', 'Draft dibuat ulang.');
     }
