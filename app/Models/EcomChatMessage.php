@@ -21,7 +21,7 @@ class EcomChatMessage extends Model
 
     protected $fillable = [
         'conversation_id', 'channel', 'external_message_id',
-        'sender', 'via', 'text', 'sent_at',
+        'sender', 'via', 'type', 'text', 'sent_at',
     ];
 
     protected $casts = ['sent_at' => 'datetime'];

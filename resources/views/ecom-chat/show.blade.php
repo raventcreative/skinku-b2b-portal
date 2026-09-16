@@ -9,18 +9,32 @@
     @endif
     <a href="{{ route('ecom-chat.index') }}" class="text-xs text-stone-500 hover:text-stone-800">&larr; Kembali ke inbox</a>
 
-    <div class="bg-white border border-stone-200 rounded-2xl p-4 my-4 space-y-2">
-        @foreach($conversation->messages as $m)
+    @php($buyerName = $conversation->buyer_name ?: 'Pembeli')
+    <div class="bg-white border border-stone-200 rounded-2xl p-4 my-4 space-y-3">
+        @forelse($conversation->messages as $m)
             @php($mine = $m->sender !== 'buyer')
-            <div class="flex {{ $mine ? 'justify-end' : 'justify-start' }}">
-                <div class="max-w-[80%] px-3 py-2 rounded-2xl text-sm {{ $mine ? 'bg-red-600 text-white' : 'bg-stone-100 text-stone-800' }}">
-                    {{ $m->text }}
-                    @if($mine)
-                        <span class="block text-[9px] opacity-70 mt-0.5">{{ $m->via === 'ai' ? 'AI otomatis' : 'Dikirim staf' }}</span>
+            @php($isCard = in_array($m->type, ['order_card', 'logistics_card'], true))
+            @php($isOther = $m->type === 'other')
+            <div class="flex items-end gap-2 {{ $mine ? 'flex-row-reverse' : '' }}">
+                <span class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold uppercase {{ $mine ? 'bg-stone-300 text-stone-700' : 'bg-gradient-to-br from-red-500 to-rose-600 text-white' }}">
+                    {{ mb_substr($mine ? 'Toko' : $buyerName, 0, 1) }}
+                </span>
+                <div class="max-w-[75%] min-w-0">
+                    @if($isCard)
+                        <div class="px-3 py-2 rounded-xl border border-stone-300 bg-stone-50 text-stone-700 text-sm">{{ $m->text }}</div>
+                    @elseif($isOther)
+                        <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">{{ $m->text }}</div>
+                    @else
+                        <div class="px-3 py-2 rounded-2xl text-sm whitespace-pre-line break-words {{ $mine ? 'bg-red-600 text-white' : 'bg-stone-100 text-stone-800' }}">{{ $m->text }}</div>
                     @endif
+                    <div class="text-[9px] text-stone-400 mt-0.5 {{ $mine ? 'text-right' : '' }}">
+                        {{ $mine ? ($m->via === 'ai' ? '🤖 AI SKINKU' : 'Toko') : $buyerName }} · {{ optional($m->sent_at)->format('d M H:i') }}
+                    </div>
                 </div>
             </div>
-        @endforeach
+        @empty
+            <p class="text-sm text-stone-400 text-center py-4">Belum ada pesan. Klik "🔄 Tarik chat dari TikTok" di inbox untuk mengambil riwayat.</p>
+        @endforelse
     </div>
 
     @if($conversation->ai_reason)

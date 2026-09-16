@@ -262,30 +262,25 @@ class EcomChatService
         if ($extId === '') {
             return false;
         }
-        if (EcomChatMessage::where('channel', $conv->channel)->where('external_message_id', $extId)->exists()) {
-            return false;
-        }
 
-        $isBuyer = strtolower((string) ($m['sender']['role'] ?? 'buyer')) === 'buyer';
-        $raw = (string) ($m['content'] ?? '');
-        $decoded = json_decode($raw, true);
-        $text = is_array($decoded) ? (string) ($decoded['content'] ?? $raw) : $raw;
+        $isBuyer = strtolower((string) ($m['sender']['role'] ?? '')) === 'buyer';
+        [$type, $text] = $this->parseChannelMessage($m);
         $sentAt = ! empty($m['create_time'])
             ? Carbon::createFromTimestamp((int) $m['create_time'], config('app.timezone'))
             : now();
 
-        try {
-            $conv->messages()->create([
-                'channel' => $conv->channel,
-                'external_message_id' => $extId,
+        // updateOrCreate: sinkron ulang MEMPERBAIKI pesan lama (tipe/teks) tanpa dobel.
+        $msg = EcomChatMessage::updateOrCreate(
+            ['channel' => $conv->channel, 'external_message_id' => $extId],
+            [
+                'conversation_id' => $conv->id,
                 'sender' => $isBuyer ? EcomChatMessage::SENDER_BUYER : EcomChatMessage::SENDER_SELLER,
                 'via' => $isBuyer ? EcomChatMessage::VIA_BUYER : EcomChatMessage::VIA_STAFF,
+                'type' => $type,
                 'text' => $text,
                 'sent_at' => $sentAt,
-            ]);
-        } catch (QueryException $e) {
-            return false; // balapan / dobel
-        }
+            ],
+        );
 
         if ($conv->last_message_at === null || $sentAt->gte($conv->last_message_at)) {
             $conv->last_message_at = $sentAt;
@@ -296,6 +291,30 @@ class EcomChatService
         }
         $conv->save();
 
-        return true;
+        return $msg->wasRecentlyCreated;
+    }
+
+    /**
+     * Terjemahkan pesan TikTok CS jadi [type, teks-terbaca]. `content` selalu
+     * JSON: TEXT/OTHER = {"content":"..."}, ORDER_CARD = {"order_id":"..."},
+     * LOGISTICS_CARD = {"order_id","package_id"}. Kartu & tipe tak-didukung
+     * dijadikan label ramah, bukan JSON mentah.
+     *
+     * @return array{0:string,1:string}
+     */
+    private function parseChannelMessage(array $m): array
+    {
+        $type = strtoupper((string) ($m['type'] ?? 'TEXT'));
+        $raw = (string) ($m['content'] ?? '');
+        $in = json_decode($raw, true);
+        $in = is_array($in) ? $in : [];
+        $orderId = (string) ($in['order_id'] ?? '');
+
+        return match ($type) {
+            'ORDER_CARD' => ['order_card', '🧾 Kartu Pesanan'.($orderId !== '' ? ' #'.$orderId : '')],
+            'LOGISTICS_CARD' => ['logistics_card', '🚚 Info Pengiriman'.($orderId !== '' ? ' — Pesanan #'.$orderId : '')],
+            'OTHER' => ['other', '📎 Pesan tipe lain — buka di TikTok Seller Center'],
+            default => ['text', (string) ($in['content'] ?? $raw)],
+        };
     }
 }

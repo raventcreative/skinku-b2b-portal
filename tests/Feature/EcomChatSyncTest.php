@@ -90,6 +90,35 @@ class EcomChatSyncTest extends TestCase
         $this->assertNotNull(EcomChatConversation::where('external_conversation_id', 'CONV2')->first());
     }
 
+    public function test_import_render_tipe_kartu_dan_other_jadi_label_ramah(): void
+    {
+        $this->connect();
+        Http::fake([
+            '*/conversations/*/messages*' => Http::response(['code' => 0, 'data' => ['messages' => [
+                ['id' => 'MT', 'type' => 'TEXT', 'content' => json_encode(['content' => 'Halo kak']), 'sender' => ['role' => 'ROBOT'], 'create_time' => 1_789_346_665],
+                ['id' => 'MO', 'type' => 'ORDER_CARD', 'content' => json_encode(['order_id' => '586']), 'sender' => ['role' => 'ROBOT'], 'create_time' => 1_789_346_666],
+                ['id' => 'ML', 'type' => 'LOGISTICS_CARD', 'content' => json_encode(['order_id' => '586', 'package_id' => '121']), 'sender' => ['role' => 'ROBOT'], 'create_time' => 1_789_346_667],
+                ['id' => 'MX', 'type' => 'OTHER', 'content' => json_encode(['content' => '[Other] Please check this message in seller center of TikTok shop.']), 'sender' => ['role' => 'ROBOT'], 'create_time' => 1_789_346_668],
+            ]]]),
+            '*/conversations*' => Http::response(['code' => 0, 'data' => ['conversations' => [
+                ['id' => 'CONV1', 'participants' => [['role' => 'BUYER', 'im_user_id' => 'B1', 'nickname' => 'Budi']]],
+            ]]]),
+        ]);
+
+        app(EcomChatService::class)->importFromTikTok();
+        $byId = EcomChatConversation::where('external_conversation_id', 'CONV1')->first()->messages->keyBy('external_message_id');
+
+        $this->assertSame('text', $byId['MT']->type);
+        $this->assertSame('Halo kak', $byId['MT']->text);
+        $this->assertSame('order_card', $byId['MO']->type);
+        $this->assertStringContainsString('Kartu Pesanan', $byId['MO']->text);
+        $this->assertStringContainsString('586', $byId['MO']->text);
+        $this->assertSame('logistics_card', $byId['ML']->type);
+        $this->assertSame('other', $byId['MX']->type);
+        // JSON mentah / placeholder "[Other]" diganti label ramah.
+        $this->assertStringNotContainsString('[Other]', $byId['MX']->text);
+    }
+
     public function test_import_idempoten_tak_gandakan_pesan(): void
     {
         $this->connect();
