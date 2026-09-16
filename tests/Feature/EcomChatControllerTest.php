@@ -48,7 +48,7 @@ class EcomChatControllerTest extends TestCase
 
     public function test_admin_lihat_inbox_dan_detail(): void
     {
-        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'C1', 'buyer_name' => 'Budi', 'status' => 'needs_staff']);
+        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'C1', 'buyer_name' => 'Budi', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
         $this->actingAs($this->user(User::ROLE_ADMIN))->get('/ecom-chat')->assertOk()->assertSee('Budi');
     }
 
@@ -95,6 +95,35 @@ class EcomChatControllerTest extends TestCase
         // Tab "semua" → dua-duanya.
         $this->actingAs($admin)->get('/ecom-chat?tab=semua')->assertOk()
             ->assertSee('AdaPembeli')->assertSee('CumaOtomatis');
+    }
+
+    public function test_inbox_filter_terbalas_dan_ditutup(): void
+    {
+        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'R1', 'buyer_name' => 'SudahDibalas', 'status' => 'replied', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'X1', 'buyer_name' => 'SudahDitutup', 'status' => 'closed', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'N1', 'buyer_name' => 'PerluDijawab', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        // Tab "terbalas" → hanya status replied.
+        $this->actingAs($admin)->get('/ecom-chat?tab=terbalas')->assertOk()
+            ->assertSee('SudahDibalas')->assertDontSee('SudahDitutup')->assertDontSee('PerluDijawab');
+
+        // Tab "ditutup" → hanya status closed.
+        $this->actingAs($admin)->get('/ecom-chat?tab=ditutup')->assertOk()
+            ->assertSee('SudahDitutup')->assertDontSee('SudahDibalas')->assertDontSee('PerluDijawab');
+
+        // Tab "perlu" → yang belum ditutup (replied + needs_staff), bukan yang closed.
+        $this->actingAs($admin)->get('/ecom-chat?tab=perlu')->assertOk()
+            ->assertSee('PerluDijawab')->assertDontSee('SudahDitutup');
+    }
+
+    public function test_inbox_tab_default_dan_tab_ngawur_jadi_perlu(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN);
+        // Tab tak dikenal → jatuh ke "perlu" (bukan 500).
+        $this->actingAs($admin)->get('/ecom-chat?tab=ngawur')->assertOk();
+        $this->actingAs($admin)->get('/ecom-chat')->assertOk();
     }
 
     public function test_toggle_autosend(): void

@@ -25,6 +25,7 @@ class EcomChatUiRenderTest extends TestCase
         EcomChatConversation::create([
             'channel' => 'tiktok', 'external_conversation_id' => 'C1', 'buyer_name' => 'Budi',
             'status' => 'needs_staff', 'last_message_preview' => 'Produknya BPOM?',
+            'last_incoming_at' => now(), 'last_message_at' => now(),
         ]);
 
         $this->actingAs($this->admin())->get('/ecom-chat')->assertOk()

@@ -56,15 +56,7 @@ class EcomChatService
      */
     public function unreadCountFor(User $user): int
     {
-        return EcomChatConversation::query()
-            ->leftJoin('ecom_chat_reads', function ($join) use ($user) {
-                $join->on('ecom_chat_reads.conversation_id', '=', 'ecom_chat_conversations.id')
-                    ->where('ecom_chat_reads.user_id', '=', $user->id);
-            })
-            ->whereNotNull('ecom_chat_conversations.last_incoming_at')
-            ->where('ecom_chat_conversations.status', '!=', EcomChatConversation::STATUS_CLOSED)
-            ->whereRaw("ecom_chat_conversations.last_incoming_at > COALESCE(ecom_chat_reads.last_read_at, '1970-01-01 00:00:00')")
-            ->count('ecom_chat_conversations.id');
+        return EcomChatConversation::query()->unreadFor($user)->count('ecom_chat_conversations.id');
     }
 
     /** Tandai percakapan sudah dibaca oleh $user (idempoten). */

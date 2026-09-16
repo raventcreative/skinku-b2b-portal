@@ -36,12 +36,20 @@
                     </button>
                 </form>
             </div>
-            <div class="flex gap-1">
-                <a href="{{ route('ecom-chat.index', ['tab' => 'perlu']) }}" class="px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 {{ $tab === 'perlu' ? 'bg-red-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200' }}">
-                    Perlu dibalas
-                    @if($perluCount > 0)<span class="px-1.5 rounded-full text-[10px] {{ $tab === 'perlu' ? 'bg-white/25' : 'bg-red-100 text-red-700' }}">{{ $perluCount }}</span>@endif
-                </a>
-                <a href="{{ route('ecom-chat.index', ['tab' => 'semua']) }}" class="px-3 py-1.5 text-xs font-semibold rounded-lg {{ $tab === 'semua' ? 'bg-red-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200' }}">Semua</a>
+            @php($tabs = [
+                'perlu' => ['Perlu dibalas', $perluCount],
+                'belum_dibaca' => ['Belum dibaca', $unreadCount],
+                'terbalas' => ['Terbalas', null],
+                'ditutup' => ['Ditutup', null],
+                'semua' => ['Semua', null],
+            ])
+            <div class="flex flex-wrap gap-1">
+                @foreach($tabs as $key => [$tlabel, $tcount])
+                    <a href="{{ route('ecom-chat.index', ['tab' => $key]) }}" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 {{ $tab === $key ? 'bg-red-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200' }}">
+                        {{ $tlabel }}
+                        @if($tcount)<span class="px-1.5 rounded-full text-[10px] {{ $tab === $key ? 'bg-white/25' : 'bg-red-100 text-red-700' }}">{{ $tcount }}</span>@endif
+                    </a>
+                @endforeach
             </div>
         </div>
 
@@ -56,7 +64,7 @@
                         <p class="text-xs text-stone-500 truncate">{{ $c->last_message_preview ?: '—' }}</p>
                     </div>
                     <div class="flex flex-col items-end gap-1 shrink-0">
-                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full {{ $cls }} whitespace-nowrap">{{ $label }}</span>
+                        <span data-conv-badge class="text-[9px] font-bold px-1.5 py-0.5 rounded-full {{ $cls }} whitespace-nowrap">{{ $label }}</span>
                         <span class="text-[9px] text-stone-400 whitespace-nowrap">{{ optional($c->last_message_at)->diffForHumans(null, true) }}</span>
                     </div>
                 </button>
@@ -82,16 +90,43 @@
 (function () {
     var pane = document.getElementById('ecomChatPane');
     if (!pane) return;
+    var activeItem = null;
+    var badgeMap = {
+        needs_staff: ['Perlu staf', 'bg-amber-100 text-amber-800'],
+        replied: ['Terbalas', 'bg-emerald-100 text-emerald-800'],
+        open: ['Baru', 'bg-sky-100 text-sky-800'],
+        closed: ['Selesai', 'bg-stone-100 text-stone-600'],
+    };
+
+    // Sinkronkan tag di daftar kiri dgn status terbaru dari thread — tanpa reload.
+    function syncBadge() {
+        var st = pane.querySelector('[data-thread-status]');
+        if (!st || !activeItem) return;
+        var m = badgeMap[st.getAttribute('data-thread-status')];
+        var badge = activeItem.querySelector('[data-conv-badge]');
+        if (m && badge) {
+            badge.textContent = m[0];
+            badge.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ' + m[1];
+        }
+    }
 
     function scrollThread() {
         var t = document.getElementById('threadMessages');
         if (t) t.scrollTop = t.scrollHeight;
     }
 
+    // Lepas kelas empty-state (items-center/justify-center/text-center/p-6) agar
+    // thread MENGISI panel & rata kiri — bukan menyempit di tengah "seperti di TikTok".
+    function threadMode() {
+        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-[24rem]';
+    }
+
     window.ecomOpen = function (el) {
         var id = el.getAttribute('data-conv-id');
+        activeItem = el;
         document.querySelectorAll('[data-conv-id]').forEach(function (x) { x.classList.remove('bg-stone-100'); });
         el.classList.add('bg-stone-100');
+        threadMode();
         pane.innerHTML = '<div class="w-full text-center text-stone-400 text-sm py-10">Memuat…</div>';
         fetch('{{ url('/ecom-chat') }}/' + id + '/thread', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.ok ? r.text() : null; })
@@ -99,6 +134,7 @@
                 if (html === null) { pane.innerHTML = '<div class="w-full text-center text-rose-500 text-sm py-10">Gagal memuat.</div>'; return; }
                 pane.innerHTML = html;
                 scrollThread();
+                syncBadge();
             })
             .catch(function () { pane.innerHTML = '<div class="w-full text-center text-rose-500 text-sm py-10">Gagal memuat.</div>'; });
     };
@@ -116,6 +152,7 @@
                 if (html === null) { if (btn) btn.disabled = false; return; }
                 pane.innerHTML = html;
                 scrollThread();
+                syncBadge();
             })
             .catch(function () { if (btn) btn.disabled = false; });
     });

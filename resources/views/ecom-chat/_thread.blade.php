@@ -4,6 +4,8 @@
     'DELIVERED' => 'Terkirim', 'COMPLETED' => 'Selesai', 'CANCELLED' => 'Dibatalkan',
 ])
 @php($buyerName = $conversation->buyer_name ?: 'Pembeli')
+{{-- Penanda status untuk sinkronkan tag di daftar kiri tanpa reload. --}}
+<span data-thread-status="{{ $conversation->status }}" hidden></span>
 <div class="flex flex-col h-full min-h-0">
     {{-- header --}}
     <div class="px-4 py-3 border-b border-stone-200 flex items-center justify-between shrink-0">

@@ -18,13 +18,18 @@ class EcomChatController extends Controller
 
     public function index(Request $request)
     {
-        $tab = $request->query('tab') === 'perlu' ? 'perlu' : 'semua';
+        $valid = ['perlu', 'belum_dibaca', 'terbalas', 'ditutup', 'semua'];
+        $tab = in_array($request->query('tab'), $valid, true) ? $request->query('tab') : 'perlu';
+        $user = $request->user();
 
         $query = EcomChatConversation::query()->orderByDesc('last_message_at');
-        if ($tab === 'perlu') {
-            // "Perlu dibalas" = ada pesan pembeli asli (last_incoming_at terisi) & belum ditutup.
-            $query->whereNotNull('last_incoming_at')->where('status', '!=', EcomChatConversation::STATUS_CLOSED);
-        }
+        match ($tab) {
+            'perlu' => $query->whereNotNull('last_incoming_at')->where('status', '!=', EcomChatConversation::STATUS_CLOSED),
+            'belum_dibaca' => $query->unreadFor($user),
+            'terbalas' => $query->where('status', EcomChatConversation::STATUS_REPLIED),
+            'ditutup' => $query->where('status', EcomChatConversation::STATUS_CLOSED),
+            default => $query,
+        };
 
         return view('ecom-chat.index', [
             'conversations' => $query->limit(100)->get(),
@@ -32,6 +37,7 @@ class EcomChatController extends Controller
             'tab' => $tab,
             'perluCount' => EcomChatConversation::whereNotNull('last_incoming_at')
                 ->where('status', '!=', EcomChatConversation::STATUS_CLOSED)->count(),
+            'unreadCount' => EcomChatConversation::query()->unreadFor($user)->count('ecom_chat_conversations.id'),
         ]);
     }
 
