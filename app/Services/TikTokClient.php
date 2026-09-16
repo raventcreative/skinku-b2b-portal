@@ -222,7 +222,9 @@ class TikTokClient
             $accessToken,
             $shopCipher,
             [],
-            ['type' => 'TEXT', 'content' => $text],
+            // CS API: `content` WAJIB string JSON {"content":"..."} (bukan teks polos),
+            // konsisten dgn bentuk content di getConversationMessages.
+            ['type' => 'TEXT', 'content' => json_encode(['content' => $text])],
         );
     }
 

@@ -23,9 +23,15 @@ class TikTokChatClientTest extends TestCase
 
         $this->assertSame('NEW1', $data['message_id']);
         Http::assertSent(function ($request) {
+            $body = json_decode($request->body(), true);
+            // content WAJIB string JSON {"content":"..."} (bukan teks polos) — cegah regresi 45101001.
+            $inner = json_decode((string) ($body['content'] ?? ''), true);
+
             return str_contains($request->url(), '/customer_service/')
                 && str_contains($request->url(), 'CONV9')
-                && str_contains($request->body(), 'Halo kak, terima kasih')
+                && ($body['type'] ?? null) === 'TEXT'
+                && is_array($inner)
+                && ($inner['content'] ?? null) === 'Halo kak, terima kasih'
                 && $request->hasHeader('x-tts-access-token', 'acc-token');
         });
     }
