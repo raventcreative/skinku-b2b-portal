@@ -306,6 +306,17 @@ class EcomChatService
         if ($isBuyer && ($conv->last_incoming_at === null || $sentAt->gte($conv->last_incoming_at))) {
             $conv->last_incoming_at = $sentAt;
         }
+        // Nama pembeli sering ABSEN di payload webhook → ambil dari pengirim pesan
+        // (nickname) saat pull/sync; isi/perbarui selama masih generik ("Pembeli").
+        if ($isBuyer) {
+            $nick = trim((string) ($m['sender']['nickname'] ?? ''));
+            if ($nick !== '' && in_array((string) $conv->buyer_name, ['', 'Pembeli', 'Pembeli TikTok'], true)) {
+                $conv->buyer_name = $nick;
+            }
+            if ($conv->buyer_id === null && ($imId = (string) ($m['sender']['im_user_id'] ?? '')) !== '') {
+                $conv->buyer_id = $imId;
+            }
+        }
         // Pesan pembeli baru mendahului balasan terakhir → percakapan aktif lagi
         // (webhook sudah begini; samakan agar badge "Terbalas" tak nyangkut saat tarik-ulang).
         if ($isBuyer && $conv->status === EcomChatConversation::STATUS_REPLIED

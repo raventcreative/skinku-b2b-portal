@@ -132,6 +132,34 @@ class TikTokChatWebhookTest extends TestCase
         $this->assertSame('Halo kak, ready stock?', EcomChatConversation::first()->last_message_preview);
     }
 
+    public function test_nama_pembeli_diambil_dari_pengirim_pesan(): void
+    {
+        // Payload webhook sering TANPA nama pengirim → nama diambil dari nickname
+        // pada pesan yang ditarik dari API (bukan tetap "Pembeli").
+        TiktokAffiliateConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(),
+        ]);
+        Http::fake([
+            '*/conversations/*/messages*' => Http::response(['code' => 0, 'data' => ['messages' => [
+                ['id' => 'NM1', 'type' => 'TEXT', 'content' => json_encode(['content' => 'Halo kak']), 'sender' => ['role' => 'BUYER', 'nickname' => 'ratukatapang', 'im_user_id' => 'B99'], 'create_time' => 1757000000],
+            ]]]),
+        ]);
+        $this->app->instance(AiProvider::class, new FakeAiProvider([
+            new AiTurn(text: '{"reply":"x","decision":"to_staff","reason":"y"}'),
+        ]));
+
+        // Payload webhook TANPA nickname pengirim.
+        $payload = ['type' => 14, 'shop_id' => 'S', 'data' => [
+            'conversation_id' => 'CONV1', 'message_id' => 'NM1', 'sender' => ['role' => 'BUYER'], 'create_time' => 1757000000,
+        ]];
+        $this->postWebhook($payload)->assertOk();
+
+        $conv = EcomChatConversation::first();
+        $this->assertSame('ratukatapang', $conv->buyer_name);
+        $this->assertSame('B99', $conv->buyer_id);
+    }
+
     public function test_pesan_foto_disimpan_sebagai_tipe_image(): void
     {
         // Pesan foto dari pembeli = type IMAGE, content JSON {url,width,height}.
