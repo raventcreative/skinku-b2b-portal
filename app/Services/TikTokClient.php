@@ -228,6 +228,27 @@ class TikTokClient
         );
     }
 
+    /**
+     * Events API — daftar langganan webhook app untuk toko ini (event_type + address).
+     * Dipakai mendiagnosa apakah NEW_MESSAGE sudah benar-benar ter-subscribe.
+     */
+    public function getWebhooks(string $accessToken, string $shopCipher): array
+    {
+        return $this->request('GET', '/event/202309/webhooks', $accessToken, $shopCipher);
+    }
+
+    /**
+     * Events API — daftarkan/perbarui satu langganan webhook: event_type → address.
+     * Idempoten di sisi TikTok (satu address per event_type). PUT, bukan POST.
+     */
+    public function updateWebhook(string $accessToken, string $shopCipher, string $eventType, string $address): array
+    {
+        return $this->request('PUT', '/event/202309/webhooks', $accessToken, $shopCipher, [], [
+            'event_type' => $eventType,
+            'address' => $address,
+        ]);
+    }
+
     /** Daftar pencairan (settlement statements) — TERBARU dulu. Satu halaman. */
     public function getStatements(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
     {
@@ -283,7 +304,7 @@ class TikTokClient
 
         $res = $method === 'GET'
             ? $http->get($url, $query)
-            : $http->withBody($bodyString, 'application/json')->send('POST', $url.'?'.http_build_query($query));
+            : $http->withBody($bodyString, 'application/json')->send($method, $url.'?'.http_build_query($query));
 
         $json = $res->json() ?? [];
         if (($json['code'] ?? -1) !== 0) {
