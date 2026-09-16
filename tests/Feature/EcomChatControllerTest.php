@@ -63,6 +63,20 @@ class EcomChatControllerTest extends TestCase
         $this->assertSame('replied', $conv->fresh()->status);
     }
 
+    public function test_inbox_filter_perlu_dibalas(): void
+    {
+        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'B1', 'buyer_name' => 'AdaPembeli', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'A1', 'buyer_name' => 'CumaOtomatis', 'status' => 'open', 'last_incoming_at' => null, 'last_message_at' => now()]);
+
+        $admin = $this->user(User::ROLE_ADMIN);
+        // Tab "perlu" → hanya percakapan dengan pesan pembeli (last_incoming_at terisi).
+        $this->actingAs($admin)->get('/ecom-chat?tab=perlu')->assertOk()
+            ->assertSee('AdaPembeli')->assertDontSee('CumaOtomatis');
+        // Tab "semua" → dua-duanya.
+        $this->actingAs($admin)->get('/ecom-chat?tab=semua')->assertOk()
+            ->assertSee('AdaPembeli')->assertSee('CumaOtomatis');
+    }
+
     public function test_toggle_autosend(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);

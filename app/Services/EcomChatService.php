@@ -94,6 +94,11 @@ class EcomChatService
 
         $sentAt = ! empty($msg['sent_at']) ? Carbon::createFromTimestamp($msg['sent_at'], config('app.timezone')) : now();
         $text = (string) ($msg['text'] ?? '');
+        // Isi webhook TikTok kadang JSON terbungkus {"content":"..."} — ambil teksnya.
+        $decoded = json_decode($text, true);
+        if (is_array($decoded) && array_key_exists('content', $decoded)) {
+            $text = (string) $decoded['content'];
+        }
 
         $conv = EcomChatConversation::firstOrNew([
             'channel' => $channel,
@@ -113,6 +118,7 @@ class EcomChatService
                 'external_message_id' => $msg['message_id'],
                 'sender' => EcomChatMessage::SENDER_BUYER,
                 'via' => EcomChatMessage::VIA_BUYER,
+                'type' => (string) ($msg['type'] ?? 'text'),
                 'text' => $text,
                 'sent_at' => $sentAt,
             ]);
@@ -264,12 +270,12 @@ class EcomChatService
         }
 
         $isBuyer = strtolower((string) ($m['sender']['role'] ?? '')) === 'buyer';
-        [$type, $text] = $this->parseChannelMessage($m);
+        [$type, $text, $meta] = $this->parseChannelMessage($m);
         $sentAt = ! empty($m['create_time'])
             ? Carbon::createFromTimestamp((int) $m['create_time'], config('app.timezone'))
             : now();
 
-        // updateOrCreate: sinkron ulang MEMPERBAIKI pesan lama (tipe/teks) tanpa dobel.
+        // updateOrCreate: sinkron ulang MEMPERBAIKI pesan lama (tipe/teks/meta) tanpa dobel.
         $msg = EcomChatMessage::updateOrCreate(
             ['channel' => $conv->channel, 'external_message_id' => $extId],
             [
@@ -278,6 +284,7 @@ class EcomChatService
                 'via' => $isBuyer ? EcomChatMessage::VIA_BUYER : EcomChatMessage::VIA_STAFF,
                 'type' => $type,
                 'text' => $text,
+                'meta' => $meta,
                 'sent_at' => $sentAt,
             ],
         );
@@ -300,7 +307,7 @@ class EcomChatService
      * LOGISTICS_CARD = {"order_id","package_id"}. Kartu & tipe tak-didukung
      * dijadikan label ramah, bukan JSON mentah.
      *
-     * @return array{0:string,1:string}
+     * @return array{0:string,1:string,2:?array<string,string>}
      */
     private function parseChannelMessage(array $m): array
     {
@@ -311,10 +318,10 @@ class EcomChatService
         $orderId = (string) ($in['order_id'] ?? '');
 
         return match ($type) {
-            'ORDER_CARD' => ['order_card', '🧾 Kartu Pesanan'.($orderId !== '' ? ' #'.$orderId : '')],
-            'LOGISTICS_CARD' => ['logistics_card', '🚚 Info Pengiriman'.($orderId !== '' ? ' — Pesanan #'.$orderId : '')],
-            'OTHER' => ['other', '📎 Pesan tipe lain — buka di TikTok Seller Center'],
-            default => ['text', (string) ($in['content'] ?? $raw)],
+            'ORDER_CARD' => ['order_card', '🧾 Kartu Pesanan'.($orderId !== '' ? ' #'.$orderId : ''), ['order_id' => $orderId]],
+            'LOGISTICS_CARD' => ['logistics_card', '🚚 Info Pengiriman'.($orderId !== '' ? ' — Pesanan #'.$orderId : ''), ['order_id' => $orderId, 'package_id' => (string) ($in['package_id'] ?? '')]],
+            'OTHER' => ['other', '📎 Pesan tipe lain — buka di TikTok Seller Center', null],
+            default => ['text', (string) ($in['content'] ?? $raw), null],
         };
     }
 }

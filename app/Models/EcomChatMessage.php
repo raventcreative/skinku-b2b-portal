@@ -21,10 +21,10 @@ class EcomChatMessage extends Model
 
     protected $fillable = [
         'conversation_id', 'channel', 'external_message_id',
-        'sender', 'via', 'type', 'text', 'sent_at',
+        'sender', 'via', 'type', 'text', 'meta', 'sent_at',
     ];
 
-    protected $casts = ['sent_at' => 'datetime'];
+    protected $casts = ['sent_at' => 'datetime', 'meta' => 'array'];
 
     public function conversation(): BelongsTo
     {

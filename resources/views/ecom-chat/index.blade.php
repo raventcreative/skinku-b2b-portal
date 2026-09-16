@@ -40,6 +40,14 @@
         </div>
     </div>
 
+    <div class="flex gap-1 mb-3">
+        <a href="{{ route('ecom-chat.index', ['tab' => 'perlu']) }}" class="px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 {{ $tab === 'perlu' ? 'bg-red-600 text-white' : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50' }}">
+            Perlu dibalas
+            @if($perluCount > 0)<span class="px-1.5 rounded-full text-[10px] {{ $tab === 'perlu' ? 'bg-white/25' : 'bg-red-100 text-red-700' }}">{{ $perluCount }}</span>@endif
+        </a>
+        <a href="{{ route('ecom-chat.index', ['tab' => 'semua']) }}" class="px-3 py-1.5 text-xs font-semibold rounded-lg {{ $tab === 'semua' ? 'bg-red-600 text-white' : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50' }}">Semua</a>
+    </div>
+
     <div class="bg-white border border-stone-200 rounded-2xl divide-y divide-stone-100">
         @forelse($conversations as $c)
             @php([$label, $cls] = $badge[$c->status] ?? ['—', 'bg-stone-100 text-stone-600'])
@@ -54,7 +62,13 @@
                 <span class="text-[10px] text-stone-400 whitespace-nowrap">{{ optional($c->last_message_at)->diffForHumans() }}</span>
             </a>
         @empty
-            <p class="p-6 text-sm text-stone-400 text-center">Belum ada percakapan. Klik <b>Tarik chat dari TikTok</b> untuk mengambil percakapan yang sudah ada.</p>
+            <p class="p-6 text-sm text-stone-400 text-center">
+                @if($tab === 'perlu')
+                    Tak ada chat yang perlu dibalas 🎉 <a href="{{ route('ecom-chat.index', ['tab' => 'semua']) }}" class="text-red-600 underline">Lihat semua</a>
+                @else
+                    Belum ada percakapan. Klik <b>🔄 Tarik chat dari TikTok</b> untuk mengambil percakapan yang sudah ada.
+                @endif
+            </p>
         @endforelse
     </div>
 </div>

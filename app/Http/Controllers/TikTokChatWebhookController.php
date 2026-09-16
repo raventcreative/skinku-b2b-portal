@@ -27,17 +27,20 @@ class TikTokChatWebhookController extends Controller
         }
 
         $data = (array) $request->input('data', []);
-        $sender = (array) ($data['sender'] ?? []);
+        // Payload NEW_MESSAGE bisa bersarang di data.message atau rata di data — dukung dua-duanya.
+        $msg = isset($data['message']) && is_array($data['message']) ? $data['message'] : $data;
+        $sender = (array) ($msg['sender'] ?? $data['sender'] ?? []);
         $role = strtolower((string) ($sender['role'] ?? 'buyer'));
 
         $message = $chat->syncIncoming('tiktok', [
-            'conversation_id' => (string) ($data['conversation_id'] ?? ''),
-            'message_id' => (string) ($data['message_id'] ?? ''),
-            'text' => (string) ($data['content'] ?? ''),
+            'conversation_id' => (string) ($msg['conversation_id'] ?? $data['conversation_id'] ?? ''),
+            'message_id' => (string) ($msg['id'] ?? $msg['message_id'] ?? $data['message_id'] ?? ''),
+            'text' => (string) ($msg['content'] ?? $data['content'] ?? ''),
+            'type' => strtolower((string) ($msg['type'] ?? 'text')),
             'buyer_name' => $sender['nickname'] ?? null,
             'buyer_id' => $sender['im_user_id'] ?? null,
             'sender' => $role === 'buyer' ? 'buyer' : 'seller',
-            'sent_at' => isset($data['create_time']) ? (int) $data['create_time'] : null,
+            'sent_at' => isset($msg['create_time']) ? (int) $msg['create_time'] : (isset($data['create_time']) ? (int) $data['create_time'] : null),
         ]);
 
         // Pesan diabaikan/dobel/non-buyer → tak ada yang perlu diproses.

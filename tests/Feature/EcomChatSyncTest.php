@@ -117,6 +117,9 @@ class EcomChatSyncTest extends TestCase
         $this->assertSame('other', $byId['MX']->type);
         // JSON mentah / placeholder "[Other]" diganti label ramah.
         $this->assertStringNotContainsString('[Other]', $byId['MX']->text);
+        // meta kartu tersimpan untuk render kaya (lookup order/produk/harga/status).
+        $this->assertSame('586', $byId['MO']->meta['order_id']);
+        $this->assertSame('121', $byId['ML']->meta['package_id']);
     }
 
     public function test_import_idempoten_tak_gandakan_pesan(): void

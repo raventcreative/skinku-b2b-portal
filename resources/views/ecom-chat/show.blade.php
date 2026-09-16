@@ -3,6 +3,11 @@
 @section('heading', $conversation->buyer_name ?? 'Percakapan')
 
 @section('content')
+@php($statusLabel = [
+    'UNPAID' => 'Belum bayar', 'AWAITING_SHIPMENT' => 'Menunggu dikirim',
+    'AWAITING_COLLECTION' => 'Menunggu kurir', 'IN_TRANSIT' => 'Dikirim',
+    'DELIVERED' => 'Terkirim', 'COMPLETED' => 'Selesai', 'CANCELLED' => 'Dibatalkan',
+])
 <div class="max-w-2xl">
     @if(session('status'))
         <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-xl px-4 py-2 mb-4">{{ session('status') }}</div>
@@ -21,7 +26,25 @@
                 </span>
                 <div class="max-w-[75%] min-w-0">
                     @if($isCard)
-                        <div class="px-3 py-2 rounded-xl border border-stone-300 bg-stone-50 text-stone-700 text-sm">{{ $m->text }}</div>
+                        @php($oid = $m->meta['order_id'] ?? null)
+                        @php($ord = $oid ? ($orders[$oid] ?? null) : null)
+                        <div class="px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm w-64 max-w-full">
+                            <p class="font-semibold text-stone-700">{{ $m->type === 'logistics_card' ? '🚚 Info Pengiriman' : '🧾 Pesanan' }}</p>
+                            @if($ord)
+                                <div class="mt-1 space-y-0.5">
+                                    @foreach(($ord->line_items ?? []) as $li)
+                                        <p class="text-xs text-stone-600 truncate">{{ ($li['name'] ?? '') ?: ($li['sku'] ?? '—') }} <span class="text-stone-400">×{{ $li['qty'] ?? 1 }}</span></p>
+                                    @endforeach
+                                </div>
+                                <div class="flex items-center justify-between mt-1.5 pt-1.5 border-t border-stone-100">
+                                    <span class="font-bold text-stone-800">Rp{{ number_format((float) $ord->total_amount, 0, ',', '.') }}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">{{ $statusLabel[$ord->status] ?? $ord->status }}</span>
+                                </div>
+                            @else
+                                <p class="text-[11px] text-stone-400 mt-0.5">Order belum tersinkron di SKINKU</p>
+                            @endif
+                            @if($oid)<p class="text-[10px] text-stone-400 mt-1">#{{ $oid }}</p>@endif
+                        </div>
                     @elseif($isOther)
                         <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">{{ $m->text }}</div>
                     @else

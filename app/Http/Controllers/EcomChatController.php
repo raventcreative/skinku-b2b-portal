@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
+use App\Models\TiktokOrder;
 use App\Services\EcomChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -14,13 +15,22 @@ class EcomChatController extends Controller
 {
     public function __construct(private EcomChatService $chat) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        $conversations = EcomChatConversation::orderByDesc('last_message_at')->limit(100)->get();
+        $tab = $request->query('tab') === 'perlu' ? 'perlu' : 'semua';
+
+        $query = EcomChatConversation::query()->orderByDesc('last_message_at');
+        if ($tab === 'perlu') {
+            // "Perlu dibalas" = ada pesan pembeli asli (last_incoming_at terisi) & belum ditutup.
+            $query->whereNotNull('last_incoming_at')->where('status', '!=', EcomChatConversation::STATUS_CLOSED);
+        }
 
         return view('ecom-chat.index', [
-            'conversations' => $conversations,
+            'conversations' => $query->limit(100)->get(),
             'autosend' => $this->chat->autosendEnabled(),
+            'tab' => $tab,
+            'perluCount' => EcomChatConversation::whereNotNull('last_incoming_at')
+                ->where('status', '!=', EcomChatConversation::STATUS_CLOSED)->count(),
         ]);
     }
 
@@ -40,9 +50,18 @@ class EcomChatController extends Controller
         $this->chat->markRead($request->user(), $conversation);
         $conversation->load(['messages' => fn ($q) => $q->orderBy('id')]);
 
+        // Preload order TikTok tersinkron (untuk kartu kaya: produk/harga/status). Hindari N+1.
+        $orderIds = $conversation->messages
+            ->map(fn ($m) => $m->meta['order_id'] ?? null)
+            ->filter()->unique()->values();
+        $orders = $orderIds->isNotEmpty()
+            ? TiktokOrder::whereIn('tiktok_order_id', $orderIds)->get()->keyBy('tiktok_order_id')
+            : collect();
+
         return view('ecom-chat.show', [
             'conversation' => $conversation,
             'autosend' => $this->chat->autosendEnabled(),
+            'orders' => $orders,
         ]);
     }
 
