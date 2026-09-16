@@ -189,6 +189,34 @@ class TikTokChatWebhookTest extends TestCase
         $this->assertSame('https://cdn.example/x.jpg', $msg->meta['url']);
     }
 
+    public function test_pesan_kartu_produk_disimpan_sebagai_product_card(): void
+    {
+        // Pembeli kirim kartu produk = content {"product_id":"..."} → tipe
+        // 'product_card' + meta.product_id, BUKAN teks JSON mentah.
+        TiktokAffiliateConnection::create([
+            'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(),
+        ]);
+        Http::fake([
+            '*/conversations/*/messages*' => Http::response(['code' => 0, 'data' => ['messages' => [
+                ['id' => 'PC1', 'type' => 'PRODUCT_CARD', 'content' => json_encode(['product_id' => '1735591701567080362']), 'sender' => ['role' => 'BUYER'], 'create_time' => 1757000000],
+            ]]]),
+        ]);
+        $this->app->instance(AiProvider::class, new FakeAiProvider([
+            new AiTurn(text: '{"reply":"x","decision":"to_staff","reason":"y"}'),
+        ]));
+
+        $payload = ['type' => 14, 'shop_id' => 'S', 'data' => [
+            'conversation_id' => 'CONV1', 'message_id' => 'PC1', 'sender' => ['role' => 'BUYER'], 'create_time' => 1757000000,
+        ]];
+        $this->postWebhook($payload)->assertOk();
+
+        $msg = EcomChatMessage::where('external_message_id', 'PC1')->first();
+        $this->assertNotNull($msg);
+        $this->assertSame('product_card', $msg->type);
+        $this->assertSame('1735591701567080362', $msg->meta['product_id']);
+    }
+
     public function test_tanpa_header_authorization_ditolak_401(): void
     {
         // Apache membuang header Authorization (public/.htaccess tanpa aturannya) → 401, bukan diproses.

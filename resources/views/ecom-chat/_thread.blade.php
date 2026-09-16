@@ -53,6 +53,9 @@
             @php($__mediaJson = is_array($__dec) && ! empty($__dec['url']) && (isset($__dec['width']) || isset($__dec['height'])))
             @php($isImage = $isImage || $__mediaJson)
             @php($mediaUrl = $__mediaJson ? (string) $__dec['url'] : $mediaUrl)
+            @php($__prodJson = is_array($__dec) && ! empty($__dec['product_id']))
+            @php($isProduct = $m->type === 'product_card' || $__prodJson)
+            @php($productId = $m->type === 'product_card' ? (string) ($m->meta['product_id'] ?? '') : ($__prodJson ? (string) $__dec['product_id'] : ''))
             <div class="flex items-end gap-2 {{ $mine ? 'flex-row-reverse' : '' }}">
                 <span class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold uppercase {{ $mine ? 'bg-stone-300 text-stone-700' : 'bg-gradient-to-br from-red-500 to-rose-600 text-white' }}">
                     {{ mb_substr($mine ? 'Toko' : $buyerName, 0, 1) }}
@@ -87,6 +90,14 @@
                         </a>
                     @elseif($isVideo)
                         <a href="{{ $mediaUrl ?: '#' }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">🎬 Video — buka</a>
+                    @elseif($isProduct)
+                        <div class="px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm w-60 max-w-full">
+                            <p class="font-semibold text-stone-700">🛍️ Produk yang ditanyakan</p>
+                            @if($productId)
+                                <p class="text-[11px] text-stone-500 mt-0.5 break-all">ID: {{ $productId }}</p>
+                                <a href="https://shop-id.tokopedia.com/view/product/{{ $productId }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">Buka produk ↗</a>
+                            @endif
+                        </div>
                     @elseif($isOther)
                         <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">{{ $m->text }}</div>
                     @else

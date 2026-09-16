@@ -350,11 +350,14 @@ class EcomChatService
             'LOGISTICS_CARD' => ['logistics_card', '🚚 Info Pengiriman'.($orderId !== '' ? ' — Pesanan #'.$orderId : ''), ['order_id' => $orderId, 'package_id' => (string) ($in['package_id'] ?? '')]],
             'IMAGE' => ['image', '🖼️ Foto', ['url' => (string) ($in['url'] ?? '')]],
             'VIDEO' => ['video', '🎬 Video', ['url' => (string) ($in['url'] ?? '')]],
+            'PRODUCT_CARD' => ['product_card', '🛍️ Produk', ['product_id' => (string) ($in['product_id'] ?? '')]],
             'OTHER' => ['other', '📎 Pesan tipe lain — buka di TikTok Seller Center', null],
-            // Media tanpa label tipe jelas: {"url","width","height"} = foto.
-            default => (isset($in['url']) && (isset($in['width']) || isset($in['height'])))
-                ? ['image', '🖼️ Foto', ['url' => (string) $in['url']]]
-                : ['text', (string) ($in['content'] ?? $raw), null],
+            // Kartu tanpa label tipe jelas → kenali dari isinya.
+            default => match (true) {
+                isset($in['url']) && (isset($in['width']) || isset($in['height'])) => ['image', '🖼️ Foto', ['url' => (string) $in['url']]],
+                isset($in['product_id']) => ['product_card', '🛍️ Produk', ['product_id' => (string) $in['product_id']]],
+                default => ['text', (string) ($in['content'] ?? $raw), null],
+            },
         };
     }
 }
