@@ -32,14 +32,21 @@ class EcomChatController extends Controller
             default => $query,
         };
 
-        return view('ecom-chat.index', [
+        $data = [
             'conversations' => $query->limit(100)->get(),
             'autosend' => $this->chat->autosendEnabled(),
             'tab' => $tab,
             'perluCount' => EcomChatConversation::query()->needsReply()->count(),
             'unreadCount' => EcomChatConversation::query()->unreadFor($user)->count('ecom_chat_conversations.id'),
             'flaggedCount' => EcomChatConversation::where('flagged', true)->count(),
-        ]);
+        ];
+
+        // Ganti tab = swap daftar via AJAX (tanpa reload halaman penuh).
+        if ($request->hasHeader('X-Requested-With')) {
+            return view('ecom-chat._list', $data);
+        }
+
+        return view('ecom-chat.index', $data);
     }
 
     public function sync(): RedirectResponse

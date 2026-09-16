@@ -215,6 +215,18 @@ class EcomChatControllerTest extends TestCase
         $this->actingAs($admin)->get('/ecom-chat?tab=ditandai')->assertOk()->assertDontSee('DitandaiUser');
     }
 
+    public function test_ganti_tab_via_ajax_balikan_partial_daftar(): void
+    {
+        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'AJ1', 'buyer_name' => 'AjaxUser', 'status' => 'needs_staff', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+
+        $this->actingAs($this->user(User::ROLE_ADMIN))
+            ->withHeader('X-Requested-With', 'XMLHttpRequest')
+            ->get('/ecom-chat?tab=perlu')->assertOk()
+            ->assertSee('AjaxUser')
+            ->assertSee('data-tab="perlu"', false)
+            ->assertDontSee('<!DOCTYPE', false); // partial daftar, bukan halaman penuh
+    }
+
     public function test_toggle_autosend(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);
