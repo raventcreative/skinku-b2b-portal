@@ -38,13 +38,15 @@ class EcomChatWebhookCommand extends Command
         if ($this->option('register')) {
             $this->line("Mendaftarkan NEW_MESSAGE → {$address} ...");
             try {
-                $client->updateWebhook($access, $conn->shop_cipher, 'NEW_MESSAGE', $address);
-                $this->info('OK — permintaan pendaftaran diterima TikTok.');
+                $resp = $client->updateWebhook($access, $conn->shop_cipher, 'NEW_MESSAGE', $address);
+                $this->info('OK — respons mentah PUT TikTok: '.json_encode($resp));
             } catch (\Throwable $e) {
                 $this->error('GAGAL daftar: '.$e->getMessage());
 
                 return self::FAILURE;
             }
+            // Beri jeda propagasi sebelum cek ulang (TikTok kadang tak langsung tampil).
+            sleep(3);
         }
 
         try {
