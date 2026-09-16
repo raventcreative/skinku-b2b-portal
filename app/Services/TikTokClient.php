@@ -192,9 +192,9 @@ class TikTokClient
      * Customer Service API — daftar percakapan (TERBARU dulu). Satu halaman.
      * NB: path/versi = keluarga /customer_service/202309; cocokkan dgn docs TikTok.
      */
-    public function getConversations(string $accessToken, string $shopCipher, int $pageSize = 20, string $pageToken = ''): array
+    public function getConversations(string $accessToken, string $shopCipher, int $pageSize = 10, string $pageToken = ''): array
     {
-        $query = ['page_size' => $pageSize];
+        $query = ['page_size' => max(1, min($pageSize, 10))]; // CS API: 0 < page_size <= 10
         if ($pageToken !== '') {
             $query['page_token'] = $pageToken;
         }
@@ -203,9 +203,9 @@ class TikTokClient
     }
 
     /** Pesan dalam satu percakapan (TERBARU dulu). Satu halaman. */
-    public function getConversationMessages(string $accessToken, string $shopCipher, string $conversationId, int $pageSize = 20, string $pageToken = ''): array
+    public function getConversationMessages(string $accessToken, string $shopCipher, string $conversationId, int $pageSize = 10, string $pageToken = ''): array
     {
-        $query = ['page_size' => $pageSize];
+        $query = ['page_size' => max(1, min($pageSize, 10))]; // CS API: 0 < page_size <= 10
         if ($pageToken !== '') {
             $query['page_token'] = $pageToken;
         }

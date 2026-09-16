@@ -55,6 +55,39 @@ class EcomChatSyncTest extends TestCase
         // Recency dari pesan pembeli terbaru.
         $this->assertNotNull($conv->last_incoming_at);
         $this->assertSame('Ready kak?', $conv->last_message_preview);
+
+        // CS API batasi page_size <= 10 (regresi bug 36009004: sebelumnya 20 → ditolak).
+        Http::assertSent(fn ($r) => str_contains($r->url(), 'page_size=10'));
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), 'page_size=20'));
+    }
+
+    public function test_import_paginasi_tarik_lebih_dari_satu_halaman(): void
+    {
+        $this->connect();
+        Http::fake(function ($request) {
+            $url = $request->url();
+            if (str_contains($url, '/messages')) {
+                return Http::response(['code' => 0, 'data' => ['messages' => []]]);
+            }
+            if (str_contains($url, 'page_token=')) {
+                // Halaman 2 (terakhir — tanpa next_page_token → loop berhenti).
+                return Http::response(['code' => 0, 'data' => ['conversations' => [
+                    ['id' => 'CONV2', 'participants' => [['role' => 'BUYER', 'im_user_id' => 'B2', 'nickname' => 'Cici']]],
+                ]]]);
+            }
+
+            // Halaman 1 (ada next_page_token → lanjut ke halaman berikutnya).
+            return Http::response(['code' => 0, 'data' => [
+                'conversations' => [['id' => 'CONV1', 'participants' => [['role' => 'BUYER', 'im_user_id' => 'B1', 'nickname' => 'Budi']]]],
+                'next_page_token' => 'PAGE2',
+            ]]);
+        });
+
+        $res = app(EcomChatService::class)->importFromTikTok();
+
+        $this->assertSame(2, $res['conversations']);
+        $this->assertNotNull(EcomChatConversation::where('external_conversation_id', 'CONV1')->first());
+        $this->assertNotNull(EcomChatConversation::where('external_conversation_id', 'CONV2')->first());
     }
 
     public function test_import_idempoten_tak_gandakan_pesan(): void

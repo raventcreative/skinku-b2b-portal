@@ -190,45 +190,55 @@ class EcomChatService
      *
      * @return array{conversations:int,messages:int}
      */
-    public function importFromTikTok(int $convLimit = 20, int $msgLimit = 20): array
+    public function importFromTikTok(int $maxConversations = 100, int $msgLimit = 10): array
     {
         $conn = $this->chatConn();
         $access = $this->affiliate->freshToken($conn);
         $client = $this->chatClient();
 
-        $data = $client->getConversations($access, $conn->shop_cipher, $convLimit);
         $convCount = 0;
         $msgCount = 0;
+        $pageToken = '';
+        $pages = 0;
 
-        foreach ($data['conversations'] ?? [] as $c) {
-            $extId = (string) ($c['id'] ?? $c['conversation_id'] ?? '');
-            if ($extId === '') {
-                continue;
-            }
+        // CS API batasi page_size <= 10, jadi halaman-per-halaman lewat next_page_token
+        // sampai habis (atau batas aman) supaya seluruh backlog kebawa, bukan cuma 10.
+        do {
+            $data = $client->getConversations($access, $conn->shop_cipher, 10, $pageToken);
 
-            $conv = EcomChatConversation::firstOrNew([
-                'channel' => 'tiktok',
-                'external_conversation_id' => $extId,
-            ]);
-            $buyer = $this->buyerOf($c);
-            if ($buyer !== null) {
-                $conv->buyer_name = $buyer['nickname'] ?? $conv->buyer_name;
-                $conv->buyer_id = $buyer['im_user_id'] ?? $conv->buyer_id;
-            }
-            if (! $conv->exists) {
-                $conv->status = EcomChatConversation::STATUS_OPEN;
-            }
-            $conv->save();
-            $convCount++;
+            foreach ($data['conversations'] ?? [] as $c) {
+                $extId = (string) ($c['id'] ?? $c['conversation_id'] ?? '');
+                if ($extId === '') {
+                    continue;
+                }
 
-            $msgData = $client->getConversationMessages($access, $conn->shop_cipher, $extId, $msgLimit);
-            // TERTUA dulu agar recency & last_incoming_at berakhir di pesan terbaru.
-            foreach (array_reverse($msgData['messages'] ?? []) as $m) {
-                if ($this->storeSyncedMessage($conv, $m)) {
-                    $msgCount++;
+                $conv = EcomChatConversation::firstOrNew([
+                    'channel' => 'tiktok',
+                    'external_conversation_id' => $extId,
+                ]);
+                $buyer = $this->buyerOf($c);
+                if ($buyer !== null) {
+                    $conv->buyer_name = $buyer['nickname'] ?? $conv->buyer_name;
+                    $conv->buyer_id = $buyer['im_user_id'] ?? $conv->buyer_id;
+                }
+                if (! $conv->exists) {
+                    $conv->status = EcomChatConversation::STATUS_OPEN;
+                }
+                $conv->save();
+                $convCount++;
+
+                $msgData = $client->getConversationMessages($access, $conn->shop_cipher, $extId, $msgLimit);
+                // TERTUA dulu agar recency & last_incoming_at berakhir di pesan terbaru.
+                foreach (array_reverse($msgData['messages'] ?? []) as $m) {
+                    if ($this->storeSyncedMessage($conv, $m)) {
+                        $msgCount++;
+                    }
                 }
             }
-        }
+
+            $pageToken = (string) ($data['next_page_token'] ?? '');
+            $pages++;
+        } while ($pageToken !== '' && $convCount < $maxConversations && $pages < 30);
 
         return ['conversations' => $convCount, 'messages' => $msgCount];
     }
