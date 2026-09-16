@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
-use App\Models\TiktokConnection;
+use App\Models\TiktokAffiliateConnection;
 use App\Services\EcomChatService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -17,13 +17,13 @@ class EcomChatServiceTest extends TestCase
 
     private function connect(): void
     {
-        TiktokConnection::create([
+        TiktokAffiliateConnection::create([
             'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
             'access_expires_at' => now()->addDay(),
         ]);
-        config()->set('services.tiktok.app_key', 'k');
-        config()->set('services.tiktok.app_secret', 's');
-        config()->set('services.tiktok.api_base', 'https://open-api.tiktokglobalshop.com');
+        config()->set('services.tiktok_affiliate.app_key', 'k');
+        config()->set('services.tiktok_affiliate.app_secret', 's');
+        config()->set('services.tiktok_affiliate.api_base', 'https://open-api.tiktokglobalshop.com');
     }
 
     public function test_sync_incoming_dedupe_dan_upsert_percakapan(): void

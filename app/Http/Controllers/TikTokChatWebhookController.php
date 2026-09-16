@@ -72,8 +72,10 @@ class TikTokChatWebhookController extends Controller
      */
     private function verifySignature(Request $request): bool
     {
-        $secret = (string) config('services.tiktok.app_secret');
-        $appKey = (string) config('services.tiktok.app_key');
+        // Webhook chat didaftarkan di app affiliate ("Seller Analitik") — app yang
+        // punya scope Customer Service — jadi tanda tangan pakai kredensial app itu.
+        $secret = (string) config('services.tiktok_affiliate.app_secret');
+        $appKey = (string) config('services.tiktok_affiliate.app_key');
         if ($secret === '') {
             return false;
         }

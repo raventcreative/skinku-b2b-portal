@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
-use App\Models\TiktokConnection;
+use App\Models\TiktokAffiliateConnection;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiTurn;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,9 +22,9 @@ class TikTokChatWebhookTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config()->set('services.tiktok.app_key', 'k');
-        config()->set('services.tiktok.app_secret', $this->secret);
-        config()->set('services.tiktok.api_base', 'https://open-api.tiktokglobalshop.com');
+        config()->set('services.tiktok_affiliate.app_key', 'k');
+        config()->set('services.tiktok_affiliate.app_secret', $this->secret);
+        config()->set('services.tiktok_affiliate.api_base', 'https://open-api.tiktokglobalshop.com');
     }
 
     private function payload(string $messageId = 'M1', string $conv = 'CONV1'): array
@@ -72,7 +72,7 @@ class TikTokChatWebhookTest extends TestCase
     public function test_kill_switch_nyala_auto_send_terkirim(): void
     {
         AppSetting::put(AppSetting::ECOM_CHAT_AUTOSEND, '1');
-        TiktokConnection::create([
+        TiktokAffiliateConnection::create([
             'shop_id' => 'S', 'shop_cipher' => 'C', 'access_token' => 'a', 'refresh_token' => 'r',
             'access_expires_at' => now()->addDay(),
         ]);

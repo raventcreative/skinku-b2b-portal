@@ -6,7 +6,7 @@ use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
 use App\Models\EcomChatRead;
-use App\Models\TiktokConnection;
+use App\Models\TiktokAffiliateConnection;
 use App\Models\User;
 use App\Services\Ai\EcomChatDrafter;
 use Illuminate\Database\QueryException;
@@ -21,13 +21,32 @@ use RuntimeException;
 class EcomChatService
 {
     public function __construct(
-        private TikTokClient $tiktok,
-        private TikTokSyncService $sync,
+        private TikTokAffiliateService $affiliate,
     ) {}
 
     public function autosendEnabled(): bool
     {
         return AppSetting::get(AppSetting::ECOM_CHAT_AUTOSEND, '0') === '1';
+    }
+
+    /**
+     * Koneksi app affiliate ("Seller Analitik") — app yang PUNYA scope Customer
+     * Service + shop_cipher. Chat (baca/kirim/sync) lewat app ini, BUKAN app Shop
+     * utama yang kategorinya tak menyediakan scope CS.
+     */
+    private function chatConn(): TiktokAffiliateConnection
+    {
+        $conn = TiktokAffiliateConnection::latest('id')->first();
+        if (! $conn || ! $conn->shop_cipher) {
+            throw new RuntimeException('Belum terhubung ke TikTok untuk chat (app affiliate / Seller Analitik).');
+        }
+
+        return $conn;
+    }
+
+    private function chatClient(): TikTokClient
+    {
+        return new TikTokClient('tiktok_affiliate');
     }
 
     /**
@@ -110,13 +129,9 @@ class EcomChatService
      */
     public function send(EcomChatConversation $conv, string $text, string $via): EcomChatMessage
     {
-        $conn = TiktokConnection::latest('id')->first();
-        if (! $conn || ! $conn->shop_cipher) {
-            throw new RuntimeException('Belum terhubung ke TikTok Shop.');
-        }
-
-        $access = $this->sync->freshToken($conn);
-        $res = $this->tiktok->sendMessage($access, $conn->shop_cipher, $conv->external_conversation_id, $text);
+        $conn = $this->chatConn();
+        $access = $this->affiliate->freshToken($conn);
+        $res = $this->chatClient()->sendMessage($access, $conn->shop_cipher, $conv->external_conversation_id, $text);
         $externalId = (string) ($res['message_id'] ?? ('local-'.uniqid()));
 
         $msg = $conv->messages()->create([
@@ -177,13 +192,11 @@ class EcomChatService
      */
     public function importFromTikTok(int $convLimit = 20, int $msgLimit = 20): array
     {
-        $conn = TiktokConnection::latest('id')->first();
-        if (! $conn || ! $conn->shop_cipher) {
-            throw new RuntimeException('Belum terhubung ke TikTok Shop.');
-        }
-        $access = $this->sync->freshToken($conn);
+        $conn = $this->chatConn();
+        $access = $this->affiliate->freshToken($conn);
+        $client = $this->chatClient();
 
-        $data = $this->tiktok->getConversations($access, $conn->shop_cipher, $convLimit);
+        $data = $client->getConversations($access, $conn->shop_cipher, $convLimit);
         $convCount = 0;
         $msgCount = 0;
 
@@ -208,7 +221,7 @@ class EcomChatService
             $conv->save();
             $convCount++;
 
-            $msgData = $this->tiktok->getConversationMessages($access, $conn->shop_cipher, $extId, $msgLimit);
+            $msgData = $client->getConversationMessages($access, $conn->shop_cipher, $extId, $msgLimit);
             // TERTUA dulu agar recency & last_incoming_at berakhir di pesan terbaru.
             foreach (array_reverse($msgData['messages'] ?? []) as $m) {
                 if ($this->storeSyncedMessage($conv, $m)) {
