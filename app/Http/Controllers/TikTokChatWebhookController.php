@@ -26,29 +26,33 @@ class TikTokChatWebhookController extends Controller
             abort(401);
         }
 
-        $data = (array) $request->input('data', []);
-        // Payload NEW_MESSAGE bisa bersarang di data.message atau rata di data — dukung dua-duanya.
-        $msg = isset($data['message']) && is_array($data['message']) ? $data['message'] : $data;
-        $sender = (array) ($msg['sender'] ?? $data['sender'] ?? []);
+        // Struktur payload NEW_MESSAGE TikTok tak seragam (kadang di data, kadang
+        // data.message, kadang beda level) → cari tiap field di MANA PUN di dalam
+        // payload. conversation_id yang benar WAJIB: kalau kosong, pesan tak bisa
+        // dibalas ("invalid method") & isinya tak bisa ditarik (bubble kosong).
+        $payload = (array) ($request->json()->all() ?: []);
+        $sender = (array) ($this->deepFind($payload, 'sender') ?: []);
         $role = strtolower((string) ($sender['role'] ?? 'buyer'));
+        $extConvId = $this->deepString($payload, 'conversation_id');
+        $messageId = $this->deepString($payload, 'message_id');
+        $createTime = $this->deepFind($payload, 'create_time');
 
-        // DIAGNOSTIK (sementara): bentuk payload NEW_MESSAGE TikTok berbeda-beda —
-        // catat kunci + id yang terekstrak biar ketahuan kalau conversation_id kosong.
+        // DIAGNOSTIK (sementara): pastikan conversation_id benar-benar terbaca.
         Log::info('ecom-chat webhook payload', [
-            'conversation_id' => (string) ($msg['conversation_id'] ?? $data['conversation_id'] ?? ''),
-            'message_id' => (string) ($msg['id'] ?? $msg['message_id'] ?? $data['message_id'] ?? ''),
-            'raw' => mb_substr((string) $request->getContent(), 0, 2000), // struktur asli (sementara)
+            'conversation_id' => $extConvId,
+            'message_id' => $messageId,
+            'raw' => mb_substr((string) $request->getContent(), 0, 2000),
         ]);
 
         $message = $chat->syncIncoming('tiktok', [
-            'conversation_id' => (string) ($msg['conversation_id'] ?? $data['conversation_id'] ?? ''),
-            'message_id' => (string) ($msg['id'] ?? $msg['message_id'] ?? $data['message_id'] ?? ''),
-            'text' => (string) ($msg['content'] ?? $data['content'] ?? ''),
-            'type' => strtolower((string) ($msg['type'] ?? 'text')),
-            'buyer_name' => $sender['nickname'] ?? null,
-            'buyer_id' => $sender['im_user_id'] ?? null,
+            'conversation_id' => $extConvId,
+            'message_id' => $messageId,
+            'text' => $this->deepString($payload, 'content'),
+            'type' => 'text', // isi & tipe asli diperbaiki pullConversationMessages dari API
+            'buyer_name' => is_scalar($sender['nickname'] ?? null) ? (string) $sender['nickname'] : null,
+            'buyer_id' => is_scalar($sender['im_user_id'] ?? null) ? (string) $sender['im_user_id'] : null,
             'sender' => $role === 'buyer' ? 'buyer' : 'seller',
-            'sent_at' => isset($msg['create_time']) ? (int) $msg['create_time'] : (isset($data['create_time']) ? (int) $data['create_time'] : null),
+            'sent_at' => is_numeric($createTime) ? (int) $createTime : null,
         ]);
 
         // Pesan diabaikan/dobel/non-buyer → tak ada yang perlu diproses.
@@ -81,6 +85,36 @@ class TikTokChatWebhookController extends Controller
         }
 
         return response('', 200);
+    }
+
+    /** Nilai skalar untuk $key di mana pun dalam payload (DFS); '' bila tak ada/bukan skalar. */
+    private function deepString(array $arr, string $key): string
+    {
+        $v = $this->deepFind($arr, $key);
+
+        return is_scalar($v) ? (string) $v : '';
+    }
+
+    /**
+     * Cari nilai pertama untuk $key di seluruh payload bertingkat (DFS). Null bila
+     * tak ada. Payload webhook TikTok tak seragam letaknya, jadi field dicari di
+     * mana pun ia bersarang alih-alih menebak jalur pastinya.
+     */
+    private function deepFind(array $arr, string $key): mixed
+    {
+        if (array_key_exists($key, $arr)) {
+            return $arr[$key];
+        }
+        foreach ($arr as $v) {
+            if (is_array($v)) {
+                $found = $this->deepFind($v, $key);
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
