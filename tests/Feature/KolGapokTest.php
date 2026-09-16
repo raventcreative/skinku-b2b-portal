@@ -174,6 +174,56 @@ class KolGapokTest extends TestCase
             ->assertOk()->assertSee('Video Uji Coba')->assertSee('LIVE Malam');
     }
 
+    public function test_toggle_set_tanggal_gabung_otomatis(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'jd', 'followers' => 5_000]); // belum gapok
+        $this->actingAs($this->user('kol_specialist', 'jd1'))
+            ->post(route('kol-gapok.toggle'), ['kol_id' => $kol->id, 'is_gapok' => '1'])->assertRedirect();
+
+        $this->assertNotNull($kol->fresh()->gapok_joined_at); // terisi otomatis saat gabung
+    }
+
+    public function test_save_join_date_via_http(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'jd2', 'followers' => 5_000, 'is_gapok' => true]);
+
+        $this->actingAs($this->user('kol_specialist', 'jd2u'))
+            ->postJson(route('kol-gapok.join-date'), ['kol_id' => $kol->id, 'joined_at' => '2026-06-15'])
+            ->assertOk()->assertJson(['ok' => true]);
+
+        $this->assertSame('2026-06-15', $kol->fresh()->gapok_joined_at->toDateString());
+    }
+
+    public function test_pembayaran_cicilan_total_dan_hapus(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'pay', 'followers' => 5_000, 'is_gapok' => true]);
+        $svc = app(KolGapokService::class);
+        $svc->setSalary($kol->id, now(), 1_000_000, null, null);
+        $spec = $this->user('kol_specialist', 'payu');
+        $bulan = now()->format('Y-m');
+
+        // Cicilan 1: 400rb.
+        $this->actingAs($spec)->postJson(route('kol-gapok.payment'), [
+            'kol_id' => $kol->id, 'bulan' => $bulan, 'amount' => 400_000, 'paid_at' => now()->toDateString(),
+        ])->assertOk()->assertJson(['ok' => true, 'paid_total' => 400_000]);
+
+        // Cicilan 2: 600rb → total 1jt (lunas).
+        $r = $this->actingAs($spec)->postJson(route('kol-gapok.payment'), [
+            'kol_id' => $kol->id, 'bulan' => $bulan, 'amount' => 600_000, 'paid_at' => now()->toDateString(),
+        ])->assertOk()->assertJson(['ok' => true, 'paid_total' => 1_000_000]);
+
+        // Baris performa membawa total dibayar + daftar cicilan.
+        $row = $svc->monthly(now())->first();
+        $this->assertSame(1_000_000, $row['paid']);
+        $this->assertCount(2, $row['payments']);
+        $this->assertSame(1_000_000, $svc->totals($svc->monthly(now()))['paid']);
+
+        // Hapus satu cicilan → total turun.
+        $this->actingAs($spec)->postJson(route('kol-gapok.payment.delete', ['payment' => $r->json('payment.id')]))
+            ->assertOk()->assertJson(['ok' => true, 'paid_total' => 400_000]);
+        $this->assertSame(400_000, $svc->paidTotal($kol->id, now()));
+    }
+
     public function test_range_menyaring_per_tanggal(): void
     {
         $kol = Kol::create(['tiktok_username' => 'rg', 'followers' => 10_000, 'is_gapok' => true]);

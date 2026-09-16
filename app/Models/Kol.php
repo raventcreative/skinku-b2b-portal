@@ -26,7 +26,7 @@ class Kol extends Model
     public const ROLE_LABELS = ['kol' => 'KOL', 'affiliate' => 'Affiliate', 'both' => 'KOL + Affiliate'];
 
     protected $fillable = [
-        'tiktok_username', 'name', 'role', 'is_gapok', 'platform', 'tiktok_link', 'followers', 'tiktok_checked_at', 'kategori', 'provinsi',
+        'tiktok_username', 'name', 'role', 'is_gapok', 'gapok_joined_at', 'platform', 'tiktok_link', 'followers', 'tiktok_checked_at', 'kategori', 'provinsi',
         'agency', 'manager_name', 'manager_contact', 'phone', 'status', 'blacklist_reason',
         'barter_ok', 'tiktok_shop_active', 'shopee_affiliate_active', 'voucher_code', 'tracking_link', 'usage_rights', 'catatan',
     ];
@@ -39,6 +39,7 @@ class Kol extends Model
             'followers' => 'integer',
             'tiktok_checked_at' => 'datetime',
             'is_gapok' => 'boolean',
+            'gapok_joined_at' => 'date',
             'barter_ok' => 'boolean',
             'tiktok_shop_active' => 'boolean',
             'shopee_affiliate_active' => 'boolean',

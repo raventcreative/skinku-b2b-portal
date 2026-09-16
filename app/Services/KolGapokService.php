@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
 use App\Models\KolCreatorContentStat;
+use App\Models\KolGapokPayment;
 use App\Models\KolGapokSalary;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -64,17 +65,22 @@ class KolGapokService
         $salaries = KolGapokSalary::where('period', $period)
             ->whereIn('kol_id', $ids)->get()->keyBy('kol_id');
 
+        // Pembayaran (cicilan) gaji bulan $period — banyak baris per kreator.
+        $payments = KolGapokPayment::where('period', $period)
+            ->whereIn('kol_id', $ids)->orderBy('paid_at')->get()->groupBy('kol_id');
+
         // Jumlah video & LIVE per kreator (bulan $period) dari Analytics API.
         $content = KolCreatorContentStat::where('period', $period)
             ->whereIn('kol_id', $ids)->get()->keyBy('kol_id');
 
-        return $gapok->map(function ($kol) use ($agg, $byType, $salaries, $content) {
+        return $gapok->map(function ($kol) use ($agg, $byType, $salaries, $payments, $content) {
             $a = $agg[$kol->id] ?? null;
             $gmv = (int) ($a->gmv ?? 0);
             $salary = (int) ($salaries[$kol->id]->monthly_salary ?? 0);
             $types = $byType[$kol->id] ?? collect();
             $gmvOf = fn (string $t) => (int) (optional($types->firstWhere('ct', $t))->gmv ?? 0);
             $c = $content[$kol->id] ?? null;
+            $pmts = $payments[$kol->id] ?? collect();
 
             return [
                 'kol' => $kol,
@@ -87,6 +93,9 @@ class KolGapokService
                 'lives' => (int) ($c->lives ?? 0),
                 'salary' => $salary,
                 'roi' => $salary > 0 ? round($gmv / $salary, 1) : null,
+                'joined_at' => $kol->gapok_joined_at,
+                'paid' => (int) $pmts->sum('amount'),
+                'payments' => $pmts->values(),
             ];
         })->sortByDesc('gmv')->values();
     }
@@ -101,6 +110,7 @@ class KolGapokService
             'videos' => (int) $rows->sum('videos'),
             'lives' => (int) $rows->sum('lives'),
             'salary' => (int) $rows->sum('salary'),
+            'paid' => (int) $rows->sum('paid'),
             'members' => $rows->count(),
         ];
     }
@@ -112,5 +122,26 @@ class KolGapokService
             ['kol_id' => $kolId, 'period' => $month->copy()->startOfMonth()->toDateString()],
             ['monthly_salary' => max(0, $salary), 'note' => $note, 'created_by' => $actorId],
         );
+    }
+
+    /** Catat satu pembayaran (cicilan) gaji bulan tsb. */
+    public function addPayment(int $kolId, Carbon $month, int $amount, Carbon $paidAt, ?string $note, ?int $actorId): KolGapokPayment
+    {
+        return KolGapokPayment::create([
+            'kol_id' => $kolId,
+            'period' => $month->copy()->startOfMonth()->toDateString(),
+            'amount' => max(0, $amount),
+            'paid_at' => $paidAt->toDateString(),
+            'note' => $note,
+            'created_by' => $actorId,
+        ]);
+    }
+
+    /** Total sudah dibayar utk (kol, bulan). */
+    public function paidTotal(int $kolId, Carbon $month): int
+    {
+        return (int) KolGapokPayment::where('kol_id', $kolId)
+            ->where('period', $month->copy()->startOfMonth()->toDateString())
+            ->sum('amount');
     }
 }

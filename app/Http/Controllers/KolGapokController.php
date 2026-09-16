@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Kol;
 use App\Models\KolCreatorContent;
+use App\Models\KolGapokPayment;
 use App\Models\KolUsernameAlias;
 use App\Services\AuditService;
 use App\Services\KolAffiliateService;
@@ -92,6 +93,10 @@ class KolGapokController extends Controller
             'is_gapok' => ['required', 'boolean'],
         ]);
         Kol::whereKey($d['kol_id'])->update(['is_gapok' => $d['is_gapok']]);
+        if ($d['is_gapok']) {
+            // Catat tanggal gabung otomatis (kalau belum pernah diisi).
+            Kol::whereKey($d['kol_id'])->whereNull('gapok_joined_at')->update(['gapok_joined_at' => now()->toDateString()]);
+        }
 
         AuditService::log(action: 'toggle_kol_gapok', targetType: 'kol', targetId: (int) $d['kol_id'],
             after: ['is_gapok' => (bool) $d['is_gapok']]);
@@ -136,9 +141,9 @@ class KolGapokController extends Controller
 
         $baru = $kol === null;
         if ($baru) {
-            $kol = Kol::create(['tiktok_username' => $norm, 'role' => 'affiliate', 'followers' => 0, 'is_gapok' => true]);
+            $kol = Kol::create(['tiktok_username' => $norm, 'role' => 'affiliate', 'followers' => 0, 'is_gapok' => true, 'gapok_joined_at' => now()->toDateString()]);
         } else {
-            $kol->update(['is_gapok' => true]);
+            $kol->update(['is_gapok' => true] + ($kol->gapok_joined_at ? [] : ['gapok_joined_at' => now()->toDateString()]));
         }
         $aff->matchUsername($norm, $kol->id, $request->user()->id);
 
@@ -166,5 +171,65 @@ class KolGapokController extends Controller
         }
 
         return back()->with('status', 'Gaji disimpan.');
+    }
+
+    /** Simpan tanggal gabung anggota (AJAX → JSON). Boleh dikosongkan. */
+    public function saveJoinDate(Request $request): RedirectResponse|JsonResponse
+    {
+        $d = $request->validate([
+            'kol_id' => ['required', 'integer', 'exists:kols,id'],
+            'joined_at' => ['nullable', 'date'],
+        ]);
+        Kol::whereKey($d['kol_id'])->update(['gapok_joined_at' => $d['joined_at'] ?? null]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back()->with('status', 'Tanggal gabung disimpan.');
+    }
+
+    /** Catat satu pembayaran (cicilan) gaji anggota utk bulan terpilih (AJAX → JSON). */
+    public function addPayment(Request $request, KolGapokService $svc): RedirectResponse|JsonResponse
+    {
+        $d = $request->validate([
+            'kol_id' => ['required', 'integer', 'exists:kols,id'],
+            'bulan' => ['required', 'regex:/^\d{4}-\d{2}$/'],
+            'amount' => ['required', 'integer', 'min:1'],
+            'paid_at' => ['required', 'date'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ]);
+        $m = Carbon::createFromFormat('Y-m', $d['bulan'])->startOfMonth();
+        $p = $svc->addPayment((int) $d['kol_id'], $m, (int) $d['amount'], Carbon::parse($d['paid_at']), $d['note'] ?? null, $request->user()->id);
+
+        AuditService::log(action: 'add_gapok_payment', targetType: 'kol', targetId: (int) $d['kol_id'],
+            after: ['bulan' => $d['bulan'], 'amount' => (int) $d['amount']]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'payment' => ['id' => $p->id, 'amount' => $p->amount, 'paid_at' => $p->paid_at->toDateString()],
+                'paid_total' => $svc->paidTotal((int) $d['kol_id'], $m),
+            ]);
+        }
+
+        return back()->with('status', 'Pembayaran dicatat.');
+    }
+
+    /** Hapus satu pembayaran (AJAX → JSON, kembalikan total dibayar terbaru). */
+    public function deletePayment(Request $request, KolGapokPayment $payment, KolGapokService $svc): RedirectResponse|JsonResponse
+    {
+        $kolId = (int) $payment->kol_id;
+        $m = Carbon::parse($payment->period)->startOfMonth();
+        $payment->delete();
+
+        AuditService::log(action: 'delete_gapok_payment', targetType: 'kol', targetId: $kolId,
+            before: ['amount' => (int) $payment->amount]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, 'paid_total' => $svc->paidTotal($kolId, $m)]);
+        }
+
+        return back()->with('status', 'Pembayaran dihapus.');
     }
 }

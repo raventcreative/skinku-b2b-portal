@@ -67,12 +67,14 @@
                 <thead>
                     <tr class="text-left text-xs text-stone-500 border-b border-stone-200 bg-stone-50">
                         <th class="px-4 py-3">Kreator</th>
+                        <th class="px-4 py-3">Gabung</th>
                         <th class="px-4 py-3 text-right">GMV</th>
                         <th class="px-4 py-3 text-right">Order</th>
                         <th class="px-4 py-3 text-right">Komisi</th>
                         <th class="px-4 py-3 text-right">Video</th>
                         <th class="px-4 py-3 text-right">LIVE</th>
                         <th class="px-4 py-3 text-right">Gaji pokok</th>
+                        <th class="px-4 py-3 text-right">Pembayaran</th>
                         <th class="px-4 py-3 text-right">ROI</th>
                         @if($canManage)<th class="px-4 py-3"></th>@endif
                     </tr>
@@ -86,6 +88,15 @@
                                     <p class="font-semibold text-stone-800 group-hover:text-red-600 group-hover:underline">{{ $r['kol']->display_name }}</p>
                                     <p class="text-xs text-stone-400 group-hover:text-red-500">{{ '@'.$r['kol']->tiktok_username }} <span class="text-[9px]">↗</span></p>
                                 </a>
+                            </td>
+                            <td class="px-4 py-3">
+                                @if($canManage)
+                                    <input type="date" value="{{ optional($r['joined_at'])->toDateString() }}"
+                                           data-joindate data-kol="{{ $r['kol']->id }}"
+                                           class="w-36 px-2 py-1 border border-stone-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-red-500" title="Tanggal gabung Tim Gapok">
+                                @else
+                                    <span class="text-xs text-stone-600">{{ $r['joined_at'] ? $r['joined_at']->translatedFormat('d M Y') : '—' }}</span>
+                                @endif
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <p class="font-semibold text-stone-800">{{ $rp($r['gmv']) }}</p>
@@ -122,7 +133,39 @@
                                     {{ $r['salary'] ? $rp($r['salary']) : '—' }}
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-right">
+                            <td class="px-4 py-3 text-right align-top" data-pay-cell data-kol="{{ $r['kol']->id }}" data-salary="{{ $r['salary'] }}" data-paid="{{ $r['paid'] }}">
+                                @php($remaining = max(0, $r['salary'] - $r['paid']))
+                                <p class="font-semibold text-stone-800" data-paid-total>{{ $r['paid'] ? $rp($r['paid']) : '—' }}</p>
+                                <p class="text-[10px]" data-pay-status>
+                                    @if($r['salary'] <= 0)
+                                        <span class="text-stone-400">set gaji dulu</span>
+                                    @elseif($r['paid'] >= $r['salary'])
+                                        <span class="text-emerald-600 font-semibold">✓ Lunas</span>
+                                    @elseif($r['paid'] > 0)
+                                        <span class="text-amber-600">Kurang {{ $rp($remaining) }}</span>
+                                    @else
+                                        <span class="text-rose-500">Belum dibayar</span>
+                                    @endif
+                                </p>
+                                <div class="mt-1 space-y-0.5" data-pay-list>
+                                    @foreach($r['payments'] as $p)
+                                        <div class="flex items-center justify-end gap-1 text-[10px] text-stone-500" data-pay-id="{{ $p->id }}">
+                                            <span>{{ $p->paid_at->translatedFormat('d M') }}: {{ $rp($p->amount) }}</span>
+                                            @if($canManage)
+                                                <button type="button" data-pay-del="{{ $p->id }}" class="text-stone-300 hover:text-rose-600" title="Hapus pembayaran">✕</button>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                                @if($canManage)
+                                    <form data-pay-form class="flex items-center justify-end gap-1 mt-1">
+                                        <input type="text" inputmode="numeric" data-pay-amount placeholder="Rp" class="w-20 px-1.5 py-0.5 border border-stone-300 rounded text-right text-[11px] focus:outline-none focus:ring-1 focus:ring-red-500">
+                                        <input type="date" data-pay-date value="{{ now()->toDateString() }}" class="px-1 py-0.5 border border-stone-300 rounded text-[11px]">
+                                        <button type="submit" class="text-[11px] text-red-600 hover:underline whitespace-nowrap">+ bayar</button>
+                                    </form>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-right align-top">
                                 <span class="roi-badge inline-block px-2 py-1 rounded-lg text-xs font-bold {{ $roiColor($r['roi']) }}">{{ $roiFmt($r['roi']) }}</span>
                             </td>
                             @if($canManage)
@@ -137,19 +180,21 @@
                             @endif
                         </tr>
                     @empty
-                        <tr><td colspan="{{ $canManage ? 9 : 8 }}" class="px-4 py-10 text-center text-stone-400 text-sm">Belum ada anggota Tim Gapok.@if($canManage) Tambah dari form di bawah.@endif</td></tr>
+                        <tr><td colspan="{{ $canManage ? 11 : 10 }}" class="px-4 py-10 text-center text-stone-400 text-sm">Belum ada anggota Tim Gapok.@if($canManage) Tambah dari form di bawah.@endif</td></tr>
                     @endforelse
                 </tbody>
                 @if($rows->isNotEmpty())
                     <tfoot>
                         <tr class="border-t border-stone-200 bg-stone-50 font-bold text-stone-800">
                             <td class="px-4 py-3">TOTAL ({{ $totals['members'] }} orang)</td>
+                            <td class="px-4 py-3"></td>
                             <td class="px-4 py-3 text-right">{{ $rp($totals['gmv']) }}</td>
                             <td class="px-4 py-3 text-right">{{ number_format($totals['orders'], 0, ',', '.') }}</td>
                             <td class="px-4 py-3 text-right">{{ $rp($totals['commission']) }}</td>
                             <td class="px-4 py-3 text-right">{{ number_format($totals['videos'], 0, ',', '.') }}</td>
                             <td class="px-4 py-3 text-right">{{ number_format($totals['lives'], 0, ',', '.') }}</td>
                             <td class="px-4 py-3 text-right" id="totSalary">{{ $rp($totals['salary']) }}</td>
+                            <td class="px-4 py-3 text-right" id="totPaid">{{ $rp($totals['paid']) }}</td>
                             <td class="px-4 py-3 text-right" id="totRoi">{{ $roiFmt($teamRoi) }}</td>
                             @if($canManage)<td></td>@endif
                         </tr>
@@ -209,6 +254,7 @@
     var meta = document.querySelector('meta[name="csrf-token"]');
     var csrf = meta ? meta.getAttribute('content') : '';
     var teamGmv = Number('{{ (int) $totals['gmv'] }}');
+    var month = '{{ $month }}';
 
     function rp(n) { return 'Rp ' + Number(n).toLocaleString('id-ID'); }
     function rc(n) { return n >= 1000000 ? 'Rp ' + (Math.round(n / 1000000 * 10) / 10) + ' jt' : rp(n); }
@@ -247,6 +293,8 @@
                 var roi = raw > 0 ? gmv / raw : null;
                 var badge = row.querySelector('.roi-badge');
                 if (badge) { badge.textContent = fmtRoi(roi); badge.className = 'roi-badge inline-block px-2 py-1 rounded-lg text-xs font-bold ' + roiClass(roi); }
+                var payCell = row.querySelector('[data-pay-cell]');
+                if (payCell) { payCell.dataset.salary = raw; refreshPayCell(payCell); }
                 recalcTotals();
             }).catch(function () { flash(display, false); });
         }
@@ -262,6 +310,104 @@
             display.addEventListener('blur', function () { if (hidden.value !== saved) doSave(); }); // auto-save
         }
         form.addEventListener('submit', function (e) { e.preventDefault(); doSave(); });
+    });
+
+    // ---- Tanggal gabung (auto-save saat diubah) ----
+    document.querySelectorAll('[data-joindate]').forEach(function (inp) {
+        inp.addEventListener('change', function () {
+            var body = new FormData();
+            body.append('kol_id', inp.dataset.kol);
+            body.append('joined_at', inp.value || '');
+            fetch('{{ route('kol-gapok.join-date') }}', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: body
+            }).then(function (r) { return r.json(); }).then(function (d) { flash(inp, !!(d && d.ok)); })
+              .catch(function () { flash(inp, false); });
+        });
+    });
+
+    // ---- Pembayaran (cicilan) ----
+    function payStatusHtml(salary, paid) {
+        if (salary <= 0) return '<span class="text-stone-400">set gaji dulu</span>';
+        if (paid >= salary) return '<span class="text-emerald-600 font-semibold">✓ Lunas</span>';
+        if (paid > 0) return '<span class="text-amber-600">Kurang ' + rp(salary - paid) + '</span>';
+        return '<span class="text-rose-500">Belum dibayar</span>';
+    }
+    function recalcPaid() {
+        var total = 0;
+        document.querySelectorAll('[data-pay-cell]').forEach(function (c) { total += Number(c.dataset.paid || 0); });
+        set('totPaid', rp(total));
+    }
+    function refreshPayCell(cell) {
+        if (!cell) return;
+        var salary = Number(cell.dataset.salary || 0);
+        var paid = Number(cell.dataset.paid || 0);
+        var tot = cell.querySelector('[data-paid-total]');
+        if (tot) tot.textContent = paid ? rp(paid) : '—';
+        var st = cell.querySelector('[data-pay-status]');
+        if (st) st.innerHTML = payStatusHtml(salary, paid);
+        recalcPaid();
+    }
+    function dayMon(iso) {
+        var mm = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        var p = (iso || '').split('-');
+        return p.length < 3 ? (iso || '') : parseInt(p[2], 10) + ' ' + (mm[parseInt(p[1], 10) - 1] || '');
+    }
+
+    document.querySelectorAll('[data-pay-form]').forEach(function (form) {
+        var cell = form.closest('[data-pay-cell]');
+        var amount = form.querySelector('[data-pay-amount]');
+        var date = form.querySelector('[data-pay-date]');
+        amount.addEventListener('input', function () {
+            var raw = this.value.replace(/\D/g, '');
+            this.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+        });
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var amt = Number((amount.value || '').replace(/\D/g, ''));
+            if (!amt) { flash(amount, false); return; }
+            var body = new FormData();
+            body.append('kol_id', cell.dataset.kol);
+            body.append('bulan', month);
+            body.append('amount', amt);
+            body.append('paid_at', date.value || '');
+            fetch('{{ route('kol-gapok.payment') }}', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: body
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (!d || !d.ok) throw new Error('gagal');
+                cell.dataset.paid = d.paid_total;
+                var listEl = cell.querySelector('[data-pay-list]');
+                var row = document.createElement('div');
+                row.className = 'flex items-center justify-end gap-1 text-[10px] text-stone-500';
+                row.setAttribute('data-pay-id', d.payment.id);
+                row.innerHTML = '<span>' + dayMon(d.payment.paid_at) + ': ' + rp(d.payment.amount) + '</span>' +
+                    '<button type="button" data-pay-del="' + d.payment.id + '" class="text-stone-300 hover:text-rose-600" title="Hapus pembayaran">✕</button>';
+                listEl.appendChild(row);
+                amount.value = '';
+                refreshPayCell(cell);
+                flash(amount, true);
+            }).catch(function () { flash(amount, false); });
+        });
+    });
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-pay-del]');
+        if (!btn) return;
+        var id = btn.getAttribute('data-pay-del');
+        var cell = btn.closest('[data-pay-cell]');
+        if (!confirm('Hapus pembayaran ini?')) return;
+        fetch('{{ url('/kol-gapok/payment') }}/' + id + '/delete', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf }
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.ok) throw new Error('gagal');
+            var rowEl = btn.closest('[data-pay-id]');
+            if (rowEl) rowEl.remove();
+            if (cell) { cell.dataset.paid = d.paid_total; refreshPayCell(cell); }
+        }).catch(function () {});
     });
 })();
 </script>
