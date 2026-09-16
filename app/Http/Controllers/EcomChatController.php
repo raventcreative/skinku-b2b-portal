@@ -18,7 +18,7 @@ class EcomChatController extends Controller
 
     public function index(Request $request)
     {
-        $valid = ['perlu', 'belum_dibaca', 'terbalas', 'ditutup', 'semua'];
+        $valid = ['perlu', 'belum_dibaca', 'ditandai', 'terbalas', 'ditutup', 'semua'];
         $tab = in_array($request->query('tab'), $valid, true) ? $request->query('tab') : 'perlu';
         $user = $request->user();
 
@@ -26,6 +26,7 @@ class EcomChatController extends Controller
         match ($tab) {
             'perlu' => $query->needsReply(),
             'belum_dibaca' => $query->unreadFor($user),
+            'ditandai' => $query->where('flagged', true),
             'terbalas' => $query->where('status', EcomChatConversation::STATUS_REPLIED),
             'ditutup' => $query->where('status', EcomChatConversation::STATUS_CLOSED),
             default => $query,
@@ -37,6 +38,7 @@ class EcomChatController extends Controller
             'tab' => $tab,
             'perluCount' => EcomChatConversation::query()->needsReply()->count(),
             'unreadCount' => EcomChatConversation::query()->unreadFor($user)->count('ecom_chat_conversations.id'),
+            'flaggedCount' => EcomChatConversation::where('flagged', true)->count(),
         ]);
     }
 
@@ -133,6 +135,17 @@ class EcomChatController extends Controller
         }
 
         return redirect()->route('ecom-chat.show', $conversation)->with('status', 'Percakapan ditutup.');
+    }
+
+    public function toggleFlag(Request $request, EcomChatConversation $conversation)
+    {
+        $conversation->update(['flagged' => ! $conversation->flagged]);
+
+        if ($request->hasHeader('X-Requested-With')) {
+            return view('ecom-chat._thread', $this->threadData($conversation->fresh()));
+        }
+
+        return redirect()->route('ecom-chat.show', $conversation)->with('status', $conversation->flagged ? 'Chat ditandai.' : 'Tanda dilepas.');
     }
 
     public function reopen(Request $request, EcomChatConversation $conversation)

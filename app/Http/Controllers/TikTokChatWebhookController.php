@@ -37,13 +37,6 @@ class TikTokChatWebhookController extends Controller
         $messageId = $this->deepString($payload, 'message_id');
         $createTime = $this->deepFind($payload, 'create_time');
 
-        // DIAGNOSTIK (sementara): pastikan conversation_id benar-benar terbaca.
-        Log::info('ecom-chat webhook payload', [
-            'conversation_id' => $extConvId,
-            'message_id' => $messageId,
-            'raw' => mb_substr((string) $request->getContent(), 0, 2000),
-        ]);
-
         $message = $chat->syncIncoming('tiktok', [
             'conversation_id' => $extConvId,
             'message_id' => $messageId,

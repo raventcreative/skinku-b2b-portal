@@ -47,6 +47,7 @@
             @php($tabs = [
                 'perlu' => ['Perlu dibalas', $perluCount],
                 'belum_dibaca' => ['Belum dibaca', $unreadCount],
+                'ditandai' => ['⭐ Ditandai', $flaggedCount],
                 'terbalas' => ['Terbalas', null],
                 'ditutup' => ['Ditutup', null],
                 'semua' => ['Semua', null],
@@ -68,7 +69,9 @@
                 <button type="button" data-conv-id="{{ $c->id }}" onclick="ecomOpen(this)" class="w-full text-left flex items-center gap-3 p-3 hover:bg-stone-50">
                     <span class="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($nama, 0, 1) }}</span>
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-stone-800 truncate">{{ $nama }}</p>
+                        <p class="text-sm font-semibold text-stone-800 truncate">
+                            <span data-conv-flag class="text-amber-500 {{ $c->flagged ? '' : 'hidden' }}">★</span>{{ $nama }}
+                        </p>
                         <p class="text-xs text-stone-500 truncate">{{ $c->last_message_preview ?: '—' }}</p>
                     </div>
                     <div class="flex flex-col items-end gap-1 shrink-0">
@@ -99,6 +102,7 @@
     var pane = document.getElementById('ecomChatPane');
     if (!pane) return;
     var activeItem = null;
+    var currentTab = '{{ $tab }}';
     var badgeMap = {
         needs_staff: ['Perlu staf', 'bg-amber-100 text-amber-800'],
         open: ['Baru', 'bg-sky-100 text-sky-800'],
@@ -107,9 +111,11 @@
         closed: ['Selesai', 'bg-stone-100 text-stone-600'],
     };
 
-    // Sinkronkan tag di daftar kiri dgn status + sumber-balasan terbaru — tanpa reload.
-    function syncBadge() {
-        var st = pane.querySelector('[data-thread-status]');
+    function marker() { return pane.querySelector('[data-thread-status]'); }
+
+    // Sinkronkan tag + bintang "Ditandai" di daftar kiri dgn kondisi terbaru thread.
+    function syncMeta() {
+        var st = marker();
         if (!st || !activeItem) return;
         var status = st.getAttribute('data-thread-status');
         var via = st.getAttribute('data-thread-via');
@@ -120,6 +126,23 @@
             badge.textContent = m[0];
             badge.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ' + m[1];
         }
+        var star = activeItem.querySelector('[data-conv-flag]');
+        if (star) star.classList.toggle('hidden', st.getAttribute('data-thread-flagged') !== '1');
+    }
+
+    // Setelah aksi, buang chat dari daftar bila tak lagi cocok dgn tab aktif
+    // (mis. sudah dibalas → keluar dari "Perlu dibalas"/"Belum dibaca").
+    function maybeRemoveActive() {
+        var st = marker();
+        if (!st || !activeItem) return;
+        var status = st.getAttribute('data-thread-status');
+        var flagged = st.getAttribute('data-thread-flagged') === '1';
+        var remove = false;
+        if (currentTab === 'perlu' || currentTab === 'belum_dibaca') remove = (status === 'replied' || status === 'closed');
+        else if (currentTab === 'ditandai') remove = !flagged;
+        else if (currentTab === 'terbalas') remove = (status !== 'replied');
+        else if (currentTab === 'ditutup') remove = (status !== 'closed');
+        if (remove) { activeItem.remove(); activeItem = null; }
     }
 
     function scrollThread() {
@@ -127,8 +150,7 @@
         if (t) t.scrollTop = t.scrollHeight;
     }
 
-    // Lepas kelas empty-state (items-center/justify-center/text-center/p-6) agar
-    // thread MENGISI panel & rata kiri — bukan menyempit di tengah "seperti di TikTok".
+    // Lepas kelas empty-state agar thread MENGISI panel & rata kiri (bukan center).
     function threadMode() {
         pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-[24rem]';
     }
@@ -146,14 +168,26 @@
                 if (html === null) { pane.innerHTML = '<div class="w-full text-center text-rose-500 text-sm py-10">Gagal memuat.</div>'; return; }
                 pane.innerHTML = html;
                 scrollThread();
-                syncBadge();
+                syncMeta();
             })
             .catch(function () { pane.innerHTML = '<div class="w-full text-center text-rose-500 text-sm py-10">Gagal memuat.</div>'; });
     };
 
-    // Kirim balasan / buat ulang draft TANPA reload — form di-inject ulang tiap buka chat.
+    // Enter = kirim, Shift+Enter = baris baru (khusus textarea balasan).
+    pane.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.shiftKey) return;
+        var ta = e.target;
+        if (!ta || ta.tagName !== 'TEXTAREA' || ta.getAttribute('name') !== 'text') return;
+        var form = ta.closest('form[data-send]');
+        if (!form) return;
+        e.preventDefault();
+        if (form.requestSubmit) form.requestSubmit();
+        else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    });
+
+    // Kirim/redraft/tutup/tandai TANPA reload; lalu sinkron daftar & buang bila perlu.
     pane.addEventListener('submit', function (e) {
-        var form = e.target.closest('form[data-send], form[data-redraft], form[data-close]');
+        var form = e.target.closest('form[data-send], form[data-redraft], form[data-close], form[data-flag]');
         if (!form) return;
         e.preventDefault();
         var btn = form.querySelector('button');
@@ -167,11 +201,12 @@
             .then(function (html) {
                 pane.innerHTML = html;
                 scrollThread();
-                syncBadge();
+                syncMeta();
+                maybeRemoveActive();
             })
             .catch(function (err) {
                 if (btn) btn.disabled = false;
-                alert(err && err.message ? err.message : 'Gagal mengirim, coba lagi.');
+                alert(err && err.message ? err.message : 'Gagal, coba lagi.');
             });
     });
 })();

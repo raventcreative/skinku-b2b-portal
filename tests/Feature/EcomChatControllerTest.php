@@ -196,6 +196,25 @@ class EcomChatControllerTest extends TestCase
             ->assertSee('Dibalas staf')->assertSee('Dibalas AI');
     }
 
+    public function test_tandai_chat_masuk_tab_ditandai(): void
+    {
+        $conv = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'F1', 'buyer_name' => 'DitandaiUser', 'status' => 'open', 'last_incoming_at' => now(), 'last_message_at' => now()]);
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        // Belum ditandai → tak ada di tab "ditandai".
+        $this->actingAs($admin)->get('/ecom-chat?tab=ditandai')->assertOk()->assertDontSee('DitandaiUser');
+
+        // Tandai → flagged true, muncul di tab "ditandai".
+        $this->actingAs($admin)->post("/ecom-chat/{$conv->id}/flag")->assertRedirect();
+        $this->assertTrue($conv->fresh()->flagged);
+        $this->actingAs($admin)->get('/ecom-chat?tab=ditandai')->assertOk()->assertSee('DitandaiUser');
+
+        // Toggle lagi → lepas tanda.
+        $this->actingAs($admin)->post("/ecom-chat/{$conv->id}/flag")->assertRedirect();
+        $this->assertFalse($conv->fresh()->flagged);
+        $this->actingAs($admin)->get('/ecom-chat?tab=ditandai')->assertOk()->assertDontSee('DitandaiUser');
+    }
+
     public function test_toggle_autosend(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);

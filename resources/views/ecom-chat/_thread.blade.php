@@ -5,8 +5,8 @@
 ])
 @php($buyerName = $conversation->buyer_name ?: 'Pembeli')
 @php($isClosed = $conversation->status === 'closed')
-{{-- Penanda status/sumber-balasan untuk sinkronkan tag di daftar kiri tanpa reload. --}}
-<span data-thread-status="{{ $conversation->status }}" data-thread-via="{{ $conversation->last_reply_via }}" hidden></span>
+{{-- Penanda status/sumber-balasan/tanda untuk sinkronkan daftar kiri tanpa reload. --}}
+<span data-thread-status="{{ $conversation->status }}" data-thread-via="{{ $conversation->last_reply_via }}" data-thread-flagged="{{ $conversation->flagged ? '1' : '0' }}" hidden></span>
 <div class="flex flex-col h-full min-h-0">
     {{-- header --}}
     <div class="px-4 py-3 border-b border-stone-200 flex items-center justify-between gap-3 shrink-0">
@@ -15,6 +15,12 @@
             <span class="font-bold text-stone-800 truncate">{{ $buyerName }}</span>
         </div>
         <div class="flex items-center gap-3 shrink-0">
+            <form method="POST" action="{{ route('ecom-chat.flag', $conversation) }}" data-flag>
+                @csrf
+                <button type="submit" class="text-xs font-semibold whitespace-nowrap {{ $conversation->flagged ? 'text-amber-500' : 'text-stone-400 hover:text-amber-500' }}" title="Tandai untuk prioritas">
+                    {{ $conversation->flagged ? '★ Ditandai' : '☆ Tandai' }}
+                </button>
+            </form>
             <form method="POST" action="{{ route('ecom-chat.redraft', $conversation) }}" data-redraft>
                 @csrf
                 <button type="submit" class="text-xs text-stone-500 hover:text-stone-800 whitespace-nowrap">↻ Buat ulang draft AI</button>
@@ -82,12 +88,13 @@
     {{-- composer --}}
     <form method="POST" action="{{ route('ecom-chat.send', $conversation) }}" data-send class="border-t border-stone-200 p-3 shrink-0 bg-white">
         @csrf
-        <textarea name="text" rows="2" maxlength="4000" placeholder="Tulis balasan…" class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm resize-none">{{ old('text', $conversation->ai_draft) }}</textarea>
+        <textarea name="text" rows="2" maxlength="4000" placeholder="Tulis balasan… (Enter = kirim, Shift+Enter = baris baru)" class="block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm resize-none">{{ old('text', $conversation->ai_draft) }}</textarea>
         <div class="flex items-center gap-2 mt-2">
             @if($conversation->ai_reason)
                 <span class="text-[10px] text-stone-400 truncate">AI: <b>{{ $conversation->ai_decision }}</b> — {{ $conversation->ai_reason }}</span>
             @endif
-            <button type="submit" data-send-btn class="ml-auto px-5 py-2 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">Kirim</button>
+            <span class="text-[10px] text-stone-300 ml-auto mr-1 hidden sm:inline">Enter ⏎ kirim</span>
+            <button type="submit" data-send-btn class="px-5 py-2 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">Kirim</button>
         </div>
     </form>
 </div>

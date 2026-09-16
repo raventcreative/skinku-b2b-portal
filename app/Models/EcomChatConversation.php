@@ -18,11 +18,11 @@ class EcomChatConversation extends Model
 
     protected $fillable = [
         'channel', 'external_conversation_id', 'buyer_name', 'buyer_id',
-        'last_message_at', 'last_incoming_at', 'last_message_preview', 'status', 'last_reply_via',
+        'last_message_at', 'last_incoming_at', 'last_message_preview', 'status', 'last_reply_via', 'flagged',
         'ai_draft', 'ai_decision', 'ai_reason',
     ];
 
-    protected $casts = ['last_message_at' => 'datetime', 'last_incoming_at' => 'datetime'];
+    protected $casts = ['last_message_at' => 'datetime', 'last_incoming_at' => 'datetime', 'flagged' => 'boolean'];
 
     public function messages(): HasMany
     {
