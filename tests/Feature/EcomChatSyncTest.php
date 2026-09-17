@@ -122,6 +122,28 @@ class EcomChatSyncTest extends TestCase
         $this->assertSame('121', $byId['ML']->meta['package_id']);
     }
 
+    public function test_import_balasan_penjual_terbaru_jadi_terbalas(): void
+    {
+        // Dibalas langsung di Seller Center → pesan penjual jadi TERBARU. Saat sync,
+        // status SKINKU harus ikut jadi "Terbalas" (staff), tak nyangkut "Perlu dibalas".
+        $this->connect();
+        Http::fake([
+            '*/conversations/*/messages*' => Http::response(['code' => 0, 'data' => ['messages' => [
+                ['id' => 'S2', 'content' => json_encode(['content' => 'Ready kak, silakan order']), 'sender' => ['role' => 'SELLER'], 'create_time' => 1_757_000_200],
+                ['id' => 'B1msg', 'content' => json_encode(['content' => 'Ready kak?']), 'sender' => ['role' => 'BUYER', 'nickname' => 'Budi'], 'create_time' => 1_757_000_100],
+            ]]]),
+            '*/conversations*' => Http::response(['code' => 0, 'data' => ['conversations' => [
+                ['id' => 'CONV1', 'participants' => [['role' => 'BUYER', 'im_user_id' => 'B1', 'nickname' => 'Budi']]],
+            ]]]),
+        ]);
+
+        app(EcomChatService::class)->importFromTikTok();
+
+        $conv = EcomChatConversation::where('external_conversation_id', 'CONV1')->first();
+        $this->assertSame('replied', $conv->status);
+        $this->assertSame('staff', $conv->last_reply_via);
+    }
+
     public function test_import_idempoten_tak_gandakan_pesan(): void
     {
         $this->connect();

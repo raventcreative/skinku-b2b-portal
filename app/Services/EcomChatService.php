@@ -398,6 +398,17 @@ class EcomChatService
             && ($conv->last_message_at === null || $conv->last_incoming_at->gte($conv->last_message_at))) {
             $conv->status = EcomChatConversation::STATUS_OPEN;
         }
+        // SEBALIKNYA: balasan penjual (mis. dibalas langsung di Seller Center) jadi
+        // pesan TERBARU → tandai "Terbalas" agar status SKINKU sinkron & keluar dari
+        // "Perlu dibalas" (sumber = staff, karena bukan auto-send AI kita).
+        if (! $isBuyer
+            && in_array($conv->status, [EcomChatConversation::STATUS_OPEN, EcomChatConversation::STATUS_NEEDS_STAFF], true)
+            && $conv->last_message_at !== null
+            && ($conv->last_incoming_at === null || $conv->last_message_at->gt($conv->last_incoming_at))
+            && $sentAt->gte($conv->last_message_at)) {
+            $conv->status = EcomChatConversation::STATUS_REPLIED;
+            $conv->last_reply_via = 'staff';
+        }
         $conv->save();
 
         return $msg->wasRecentlyCreated;
