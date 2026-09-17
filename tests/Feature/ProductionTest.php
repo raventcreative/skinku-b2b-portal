@@ -9,6 +9,7 @@ use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\MaterialService;
 use App\Services\ProductionService;
+use App\Services\StockReceiptService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -388,6 +389,60 @@ class ProductionTest extends TestCase
         $this->assertEquals(90, (float) $mat->stock);                  // net tetap −10
         $this->assertSame(10, (int) $product->hq_stock);              // net tetap +10
         $this->assertSame(1, $prod->materials()->count());            // rincian tak dobel
+    }
+
+    public function test_ubah_produksi_lama_meski_ada_produksi_lebih_baru(): void
+    {
+        $this->actingAs($this->user(User::ROLE_ADMIN));
+        $product = $this->product();
+        $mat = $this->material('Bahan', 1000, 100);
+        $svc = app(ProductionService::class);
+
+        $a = $svc->produce(['product_id' => $product->id, 'output_qty' => 10, 'produced_at' => '2026-09-10'],
+            [['material_id' => $mat->id, 'quantity' => 10, 'unit_cost' => 1000]], []);
+        $svc->produce(['product_id' => $product->id, 'output_qty' => 10, 'produced_at' => '2026-09-15'],
+            [['material_id' => $mat->id, 'quantity' => 10, 'unit_cost' => 3000]], []);
+        $product->refresh();
+        $this->assertEquals(2000, (float) $product->cogs); // (10*1000 + 10*3000)/20
+
+        // Edit produksi LAMA (10 Sep) meski ada yg lebih baru (15 Sep) → tak diblok, HPP dihitung ulang.
+        $this->put(route('productions.update', $a), [
+            'produced_at' => '2026-09-10', 'output_qty' => 10,
+            'materials' => [['material_id' => $mat->id, 'quantity' => 10, 'unit_cost' => 5000]],
+            'costs' => [],
+        ])->assertRedirect(route('productions.show', $a));
+
+        $product->refresh();
+        $this->assertEquals(4000, (float) $product->cogs); // (10*5000 + 10*3000)/20
+    }
+
+    public function test_recompute_produksi_tak_menghapus_biaya_stok_masuk_grn(): void
+    {
+        // HPP produk = rata-rata bergerak atas produksi DAN stok masuk (GRN).
+        // Mengedit satu produksi tak boleh menghilangkan andil GRN.
+        $this->actingAs($this->user(User::ROLE_ADMIN));
+        $product = $this->product();
+        $mat = $this->material('Bahan', 1000, 100);
+        $svc = app(ProductionService::class);
+
+        // 10 Sep: produksi 10 @ 1.000
+        $a = $svc->produce(['product_id' => $product->id, 'output_qty' => 10, 'produced_at' => '2026-09-10'],
+            [['material_id' => $mat->id, 'quantity' => 10, 'unit_cost' => 1000]], []);
+        // 12 Sep: stok masuk (GRN) 10 @ 5.000 → avg (10*1000+10*5000)/20 = 3.000
+        app(StockReceiptService::class)->receive(
+            ['received_at' => '2026-09-12'],
+            [['product_id' => $product->id, 'quantity' => 10, 'unit_cost' => 5000]],
+        );
+        $product->refresh();
+        $this->assertEquals(3000, (float) $product->cogs);
+
+        // Edit produksi lama (10 Sep) 1.000 → 2.000. GRN 5.000 tetap ikut dihitung:
+        // (10*2000 + 10*5000)/20 = 3.500 (BUKAN 2.000 kalau GRN terhapus).
+        $svc->update($a, ['produced_at' => '2026-09-10', 'output_qty' => 10],
+            [['material_id' => $mat->id, 'quantity' => 10, 'unit_cost' => 2000]], []);
+
+        $product->refresh();
+        $this->assertEquals(3500, (float) $product->cogs);
     }
 
     public function test_reseller_tak_bisa_hapus_produksi(): void

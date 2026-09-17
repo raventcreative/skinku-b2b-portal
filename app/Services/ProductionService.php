@@ -6,6 +6,7 @@ use App\Models\Material;
 use App\Models\Product;
 use App\Models\Production;
 use App\Models\StockMovement;
+use App\Models\StockReceiptItem;
 use App\Support\Costing;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -23,9 +24,11 @@ use RuntimeException;
  *   4. raise the finished product's hq_stock (+output_qty, IN movement) and
  *      update its moving-average HPP (products.cogs).
  *
- * Edit & delete reverse these effects (return materials, pull product stock,
- * restore HPP) — only while this batch is still the last to touch the product's
- * HPP and its output is not yet consumed, so the moving average stays consistent.
+ * Edit & delete reverse these effects (return materials, pull product stock)
+ * and then recompute the product's HPP from scratch — a chronological moving
+ * average over ALL its cost-in events (productions + stock receipts), seeded
+ * from the opening basis. So any batch can be edited/deleted regardless of
+ * order; the only guard is that this batch's output must not be sold yet.
  */
 class ProductionService
 {
@@ -51,7 +54,10 @@ class ProductionService
             ]);
             $production->production_number = 'PRD-'.str_pad((string) $production->id, 5, '0', STR_PAD_LEFT);
 
-            return $this->applyEffects($production, $header, $materialLines, $otherCosts);
+            $this->applyEffects($production, $header, $materialLines, $otherCosts);
+            $this->recompute(Product::lockForUpdate()->findOrFail($production->product_id));
+
+            return $production->refresh();
         });
     }
 
@@ -69,8 +75,10 @@ class ProductionService
             $product = Product::lockForUpdate()->findOrFail($production->product_id);
             $this->assertReversible($production, $product);
             $this->undoEffects($production);
+            $this->applyEffects($production, $header + ['product_id' => $production->product_id], $materialLines, $otherCosts);
+            $this->recompute(Product::lockForUpdate()->findOrFail($production->product_id));
 
-            return $this->applyEffects($production, $header + ['product_id' => $production->product_id], $materialLines, $otherCosts);
+            return $production->refresh();
         });
     }
 
@@ -85,6 +93,7 @@ class ProductionService
             $this->assertReversible($production, $product);
             $this->undoEffects($production);
             $production->delete();
+            $this->recompute(Product::lockForUpdate()->findOrFail($product->id));
         });
     }
 
@@ -200,14 +209,122 @@ class ProductionService
         $production->setRelation('costs', collect());
     }
 
-    /** Boleh dibalik hanya bila produksi ini yg terakhir ubah HPP & hasilnya belum terjual. */
+    /**
+     * Boleh dibalik selama stok produk jadi masih cukup untuk menarik kembali
+     * hasil produksi ini (kalau kurang → sebagian sudah terjual). Urutan HPP TAK
+     * lagi jadi syarat: HPP dihitung ulang dari seluruh produksi (recompute()).
+     */
     private function assertReversible(Production $production, Product $product): void
     {
-        if ($production->cogs_after !== null && abs((float) $product->cogs - (float) $production->cogs_after) > 0.01) {
-            throw new RuntimeException('Tidak bisa diubah/dihapus: HPP produk sudah diubah produksi lain SETELAH ini. Ubah/hapus produksi yang lebih baru dulu.');
-        }
         if ((int) $product->hq_stock < (int) $production->output_qty) {
-            throw new RuntimeException('Tidak bisa diubah/dihapus: sebagian/seluruh hasil produksi sudah terjual/terpakai (stok pusat '.(int) $product->hq_stock.', butuh '.(int) $production->output_qty.').');
+            throw new RuntimeException('Tidak bisa diubah/dihapus: stok produk jadi ('.(int) $product->hq_stock.') kurang dari hasil produksi ini ('.(int) $production->output_qty.') — sebagian sudah terjual/terpakai.');
         }
+    }
+
+    /**
+     * Hitung ULANG HPP (cogs) produk dari SELURUH kejadian stok-masuk-nya —
+     * produksi DAN stok masuk (GRN) — urut tanggal, rata-rata bergerak. Inilah
+     * yang membuat edit/hapus produksi mana pun konsisten TANPA peduli urutan:
+     * kejadian lain (produksi & GRN sesudahnya) ikut ter-recompute.
+     *
+     * Saldo awal (qty & cogs sebelum kejadian pertama) dipertahankan supaya HPP
+     * awal yang di-set manual di master produk / stok opname tidak hilang saat
+     * di-hitung ulang. Sekaligus memperbarui cogs_before/after tiap baris.
+     */
+    private function recompute(Product $product): void
+    {
+        // Kumpulkan semua kejadian penambah stok berbasis biaya, urut tanggal.
+        $events = collect();
+
+        Production::where('product_id', $product->id)->get()
+            ->each(fn (Production $p) => $events->push([
+                'date' => $p->produced_at,
+                'created' => $p->created_at,
+                'type' => 0, // produksi diproses lebih dulu bila tanggal & waktu buat sama
+                'id' => (int) $p->id,
+                'qty' => (int) $p->output_qty,
+                'rate' => (float) $p->hpp_per_unit,
+                'row' => $p,
+            ]));
+
+        StockReceiptItem::where('product_id', $product->id)->with('receipt')->get()
+            ->each(function (StockReceiptItem $it) use ($events) {
+                if (! $it->receipt) {
+                    return;
+                }
+                $events->push([
+                    'date' => $it->receipt->received_at,
+                    'created' => $it->created_at,
+                    'type' => 1,
+                    'id' => (int) $it->id,
+                    'qty' => (int) $it->quantity,
+                    'rate' => (float) $it->unit_cost,
+                    'row' => $it,
+                ]);
+            });
+
+        // Urut kronologis via satu kunci gabungan (bentuk array sortBy pakai
+        // closure pembanding 2-argumen — mudah salah; kunci tunggal lebih aman).
+        $events = $events->sortBy(function ($e) {
+            $date = str_pad((string) (optional($e['date'])->timestamp ?? 0), 12, '0', STR_PAD_LEFT);
+            $created = str_pad((string) (optional($e['created'])->timestamp ?? 0), 12, '0', STR_PAD_LEFT);
+            $id = str_pad((string) $e['id'], 12, '0', STR_PAD_LEFT);
+
+            return $date.$created.$e['type'].$id;
+        })->values();
+
+        if ($events->isEmpty()) {
+            $product->cogs = 0.0;
+            $product->save();
+
+            return;
+        }
+
+        // Saldo awal sebelum kejadian pertama: cost = cogs_before tersimpan;
+        // qty diturunkan dari snapshot kejadian pertama agar basis manual/GRN awal
+        // ikut tertimbang. Tanpa basis awal (cogs_before 0) → mulai dari nol.
+        $first = $events->first();
+        $openCogs = round((float) $first['row']->cogs_before, 2);
+        $openQty = $this->deriveOpeningQty(
+            $openCogs,
+            round((float) $first['row']->cogs_after, 2),
+            $first['rate'],
+            $first['qty'],
+        );
+
+        $qty = (float) $openQty;
+        $avg = $openCogs;
+        foreach ($events as $e) {
+            $before = $avg;
+            $avg = Costing::movingAverage($qty, $avg, (float) $e['qty'], $e['rate']);
+            $qty += (float) $e['qty'];
+            $e['row']->cogs_before = round($before, 2);
+            $e['row']->cogs_after = round($avg, 2);
+            $e['row']->saveQuietly();
+        }
+
+        $product->cogs = round($avg, 2);
+        $product->save();
+    }
+
+    /**
+     * Qty saldo awal (sebelum kejadian pertama) yang disimpulkan dari snapshot
+     * kejadian pertama, supaya basis HPP awal (di-set manual / stok opname)
+     * tetap tertimbang benar saat recompute. 0 bila tak ada basis awal.
+     *
+     *   cogs_after1 = (openQty*openCogs + in1*rate1) / (openQty + in1)
+     *   → openQty   = in1 * (rate1 - cogs_after1) / (cogs_after1 - openCogs)
+     */
+    private function deriveOpeningQty(float $openCogs, float $firstAfter, float $firstRate, int $firstQty): int
+    {
+        if ($openCogs <= 0) {
+            return 0; // Tak ada basis biaya awal → mulai dari nol.
+        }
+        $denom = $firstAfter - $openCogs;
+        if (abs($denom) < 0.005) {
+            return 0; // Tak tentu (rate = cogs awal); nilai rata2 tak berubah oleh qty awal.
+        }
+
+        return max(0, (int) round($firstQty * ($firstRate - $firstAfter) / $denom));
     }
 }

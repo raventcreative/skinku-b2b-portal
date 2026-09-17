@@ -8,7 +8,7 @@
     <div class="flex items-center gap-2">
     <a href="{{ route('productions.edit', $production) }}" class="text-xs font-semibold text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 rounded-lg px-3 py-1.5">✏️ Ubah</a>
     <form method="POST" action="{{ route('productions.destroy', $production) }}"
-          onsubmit="return confirm('Hapus {{ $production->production_number }}?\n\nBahan yang terpakai dikembalikan ke stok, stok produk jadi ditarik lagi, dan HPP produk dipulihkan ke Rp {{ number_format($production->cogs_before, 0, ',', '.') }}. Setelah itu buat ulang dengan data yang benar.\n\nHanya bisa jika belum ada produksi lain sesudahnya & hasil produksinya belum terjual.')">
+          onsubmit="return confirm('Hapus {{ $production->production_number }}?\n\nBahan yang terpakai dikembalikan ke stok, stok produk jadi ditarik lagi, dan HPP produk otomatis dihitung ulang dari sisa produksi & stok masuk.\n\nHanya diblok bila hasil produksi ini sudah terjual/terpakai (stok produk jadi kurang).')">
         @csrf
         @method('DELETE')
         <button type="submit" class="text-xs font-semibold text-rose-600 hover:text-rose-800 border border-rose-200 hover:bg-rose-50 rounded-lg px-3 py-1.5">🗑 Hapus produksi</button>
