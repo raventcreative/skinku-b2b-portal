@@ -120,6 +120,19 @@ class ProductionController extends Controller
         return view('productions.show', ['production' => $production]);
     }
 
+    /** Hapus produksi + pulihkan stok bahan & HPP produk (untuk redo yang salah input). */
+    public function destroy(Production $production): RedirectResponse
+    {
+        $number = $production->production_number;
+        try {
+            $this->service->reverse($production);
+        } catch (\Throwable $e) {
+            return redirect()->route('productions.show', $production)->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('productions.index')->with('status', "Produksi {$number} dihapus — bahan dikembalikan ke stok & HPP produk dipulihkan.");
+    }
+
     /** HPP (cogs) history for one finished product, across productions + stock receipts. */
     public function hppHistory(Product $product)
     {

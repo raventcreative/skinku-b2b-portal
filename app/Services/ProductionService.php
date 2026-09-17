@@ -10,6 +10,7 @@ use App\Support\Costing;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
  * Production / repacking posting. For one batch:
@@ -114,6 +115,62 @@ class ProductionService
             $production->save();
 
             return $production;
+        });
+    }
+
+    /**
+     * Batalkan (hapus) satu produksi & PULIHKAN dampaknya: kembalikan bahan yang
+     * terpakai ke stok, tarik lagi stok produk jadi, dan kembalikan HPP produk ke
+     * nilai SEBELUM produksi ini. Dipakai untuk redo produksi yang salah input.
+     *
+     * Guard integritas (rata-rata bergerak berurutan):
+     *  - hanya bila produksi INI yang terakhir mengubah HPP (belum ada produksi
+     *    lain sesudahnya), &
+     *  - hasil produksinya masih utuh di stok (belum terjual/terpakai).
+     */
+    public function reverse(Production $production): void
+    {
+        DB::transaction(function () use ($production) {
+            $production->loadMissing('materials', 'costs');
+            $product = Product::lockForUpdate()->findOrFail($production->product_id);
+
+            if ($production->cogs_after !== null && abs((float) $product->cogs - (float) $production->cogs_after) > 0.01) {
+                throw new RuntimeException('Tidak bisa dihapus: HPP produk sudah diubah produksi lain SETELAH ini. Hapus produksi yang lebih baru dulu.');
+            }
+            if ((int) $product->hq_stock < (int) $production->output_qty) {
+                throw new RuntimeException('Tidak bisa dihapus: sebagian/seluruh hasil produksi sudah terjual/terpakai (stok pusat '.(int) $product->hq_stock.', butuh '.(int) $production->output_qty.').');
+            }
+
+            // 1. Kembalikan bahan terpakai ke stok.
+            foreach ($production->materials as $line) {
+                $material = Material::lockForUpdate()->find($line->material_id);
+                if ($material) {
+                    $material->stock = (float) $material->stock + (float) $line->quantity;
+                    $material->save();
+                }
+            }
+
+            // 2. Tarik stok produk jadi (movement OUT pembalik, jejak audit).
+            $this->inventory->adjustHqStock(
+                product: $product,
+                delta: -1 * (int) $production->output_qty,
+                movementType: StockMovement::TYPE_OUT,
+                notes: 'Pembatalan produksi '.$production->production_number,
+                referenceType: Production::REFERENCE_TYPE,
+                referenceId: $production->id,
+            );
+
+            // 3. Kembalikan HPP produk ke sebelum produksi ini.
+            if ($production->cogs_before !== null) {
+                $product = Product::lockForUpdate()->findOrFail($product->id);
+                $product->cogs = round((float) $production->cogs_before, 2);
+                $product->save();
+            }
+
+            // 4. Hapus produksi + baris bahan & biaya.
+            $production->costs()->delete();
+            $production->materials()->delete();
+            $production->delete();
         });
     }
 }

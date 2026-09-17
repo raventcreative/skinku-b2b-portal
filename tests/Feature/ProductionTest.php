@@ -304,4 +304,68 @@ class ProductionTest extends TestCase
 
         $this->actingAs($mitra)->get(route('products.hpp-history', $p))->assertForbidden();
     }
+
+    public function test_hapus_produksi_memulihkan_stok_bahan_dan_hpp(): void
+    {
+        $this->actingAs($this->user(User::ROLE_ADMIN));
+        $product = $this->product();          // cogs 0, hq_stock 0
+        $mat = $this->material('Sabun', 100, 5000);
+
+        $svc = app(ProductionService::class);
+        $prod = $svc->produce(
+            ['product_id' => $product->id, 'output_qty' => 10, 'produced_at' => '2026-09-12'],
+            [['material_id' => $mat->id, 'quantity' => 10, 'unit_cost' => 5000]],
+            [['label' => 'Ongkir', 'amount' => 10000]],
+        );
+        $product->refresh();
+        $this->assertSame(10, (int) $product->hq_stock);
+        $this->assertEquals(6000, (float) $product->cogs); // (10*5000 + 10000)/10
+
+        // Hapus lewat HTTP → pulihkan stok bahan, stok produk, & HPP.
+        $this->delete(route('productions.destroy', $prod))->assertRedirect(route('productions.index'));
+
+        $mat->refresh();
+        $product->refresh();
+        $this->assertEquals(100, (float) $mat->stock);  // bahan dikembalikan
+        $this->assertSame(0, (int) $product->hq_stock);  // stok produk ditarik
+        $this->assertEquals(0, (float) $product->cogs);  // HPP dipulihkan ke cogs_before
+        $this->assertNull(Production::find($prod->id));  // produksi terhapus
+    }
+
+    public function test_hapus_produksi_diblok_bila_hasil_sudah_terjual(): void
+    {
+        $this->actingAs($this->user(User::ROLE_ADMIN));
+        $product = $this->product();
+        $mat = $this->material('Sabun', 100, 5000);
+
+        $svc = app(ProductionService::class);
+        $prod = $svc->produce(
+            ['product_id' => $product->id, 'output_qty' => 10, 'produced_at' => '2026-09-12'],
+            [['material_id' => $mat->id, 'quantity' => 10, 'unit_cost' => 5000]],
+            [],
+        );
+        // Simulasikan 7 unit sudah terjual (sisa stok < output produksi).
+        $product->update(['hq_stock' => 3]);
+
+        $this->delete(route('productions.destroy', $prod))
+            ->assertRedirect(route('productions.show', $prod))
+            ->assertSessionHas('error');
+
+        $this->assertNotNull(Production::find($prod->id)); // tak terhapus
+    }
+
+    public function test_reseller_tak_bisa_hapus_produksi(): void
+    {
+        $this->actingAs($this->user(User::ROLE_ADMIN));
+        $product = $this->product();
+        $mat = $this->material('Sabun', 100, 5000);
+        $prod = app(ProductionService::class)->produce(
+            ['product_id' => $product->id, 'output_qty' => 5, 'produced_at' => '2026-09-12'],
+            [['material_id' => $mat->id, 'quantity' => 5, 'unit_cost' => 5000]],
+            [],
+        );
+
+        $this->actingAs($this->user(User::ROLE_RESELLER))
+            ->delete(route('productions.destroy', $prod))->assertForbidden();
+    }
 }
