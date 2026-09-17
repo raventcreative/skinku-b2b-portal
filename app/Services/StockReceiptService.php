@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Models\Production;
 use App\Models\StockMovement;
 use App\Models\StockReceipt;
+use App\Models\StockReceiptItem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -55,6 +57,14 @@ class StockReceiptService
 
                 $beforeQty = (int) $product->hq_stock;
                 $beforeCogs = (float) $product->cogs;
+
+                // Catat saldo awal HPP bila ini kejadian penambah-stok berbiaya
+                // pertama untuk produk (dipakai ProductionService::recompute()).
+                if (! Production::where('product_id', $product->id)->exists()
+                    && ! StockReceiptItem::where('product_id', $product->id)->exists()) {
+                    $product->hpp_opening_qty = $beforeQty;
+                    $product->hpp_opening_cogs = round($beforeCogs, 2);
+                }
                 $newCogs = $this->weightedAverage($beforeQty, $beforeCogs, $qty, $unitCost);
 
                 // Stock in + ledger row (references this receipt).

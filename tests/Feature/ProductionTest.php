@@ -416,6 +416,55 @@ class ProductionTest extends TestCase
         $this->assertEquals(4000, (float) $product->cogs); // (10*5000 + 10*3000)/20
     }
 
+    public function test_ubah_biaya_produksi_boleh_meski_hasil_sudah_sebagian_terjual(): void
+    {
+        // Kasus nyata: PRD sudah sebagian terjual, cuma mau BENERIN harga bahan
+        // (jumlah hasil tetap). Karena jumlah tetap → stok tak ditarik → tak diblok.
+        $this->actingAs($this->user(User::ROLE_ADMIN));
+        $product = $this->product();
+        $mat = $this->material('Sandalwood', 1000, 2000, 'kg');
+        $svc = app(ProductionService::class);
+
+        $prod = $svc->produce(['product_id' => $product->id, 'output_qty' => 2175, 'produced_at' => '2026-09-12'],
+            [['material_id' => $mat->id, 'quantity' => 23, 'unit_cost' => 2121]], []);
+
+        // Simulasikan 756 pcs sudah terjual → stok jadi 1419 (< 2175).
+        $product->update(['hq_stock' => 1419]);
+
+        // Betulkan harga Sandalwood 2.121 → 406.019/kg, jumlah hasil TETAP 2175.
+        $svc->update($prod, ['produced_at' => '2026-09-12', 'output_qty' => 2175],
+            [['material_id' => $mat->id, 'quantity' => 23, 'unit_cost' => 406019]], []);
+
+        $product->refresh();
+        $prod->refresh();
+        // HPP batch = 23×406.019 / 2175 = 9.338.437 / 2175 = 4.293,53
+        $this->assertEqualsWithDelta(4293.53, (float) $prod->hpp_per_unit, 0.01);
+        $this->assertEqualsWithDelta(4293.53, (float) $product->cogs, 0.01);
+        $this->assertSame(1419, (int) $product->hq_stock); // stok TIDAK berubah oleh edit biaya
+    }
+
+    public function test_ubah_kurangi_jumlah_hasil_diblok_bila_stok_tak_cukup(): void
+    {
+        $this->actingAs($this->user(User::ROLE_ADMIN));
+        $product = $this->product();
+        $mat = $this->material('Bahan', 1000, 100);
+        $svc = app(ProductionService::class);
+
+        $prod = $svc->produce(['product_id' => $product->id, 'output_qty' => 100, 'produced_at' => '2026-09-12'],
+            [['material_id' => $mat->id, 'quantity' => 100, 'unit_cost' => 100]], []);
+        $product->update(['hq_stock' => 30]); // 70 sudah terjual
+
+        // Turunkan jumlah hasil 100 → 20 butuh menarik 80, tapi stok cuma 30 → blok.
+        $this->put(route('productions.update', $prod), [
+            'produced_at' => '2026-09-12', 'output_qty' => 20,
+            'materials' => [['material_id' => $mat->id, 'quantity' => 100, 'unit_cost' => 100]],
+            'costs' => [],
+        ])->assertRedirect(route('productions.show', $prod));
+
+        $this->assertStringContainsString('tak cukup', session('error') ?? '');
+        $this->assertSame(100, (int) $prod->refresh()->output_qty); // tak berubah
+    }
+
     public function test_recompute_produksi_tak_menghapus_biaya_stok_masuk_grn(): void
     {
         // HPP produk = rata-rata bergerak atas produksi DAN stok masuk (GRN).
@@ -443,6 +492,29 @@ class ProductionTest extends TestCase
 
         $product->refresh();
         $this->assertEquals(3500, (float) $product->cogs);
+    }
+
+    public function test_hapus_produksi_terawal_hpp_tetap_benar(): void
+    {
+        // Hapus produksi PALING AWAL (ada yg lebih baru) → HPP dihitung ulang
+        // dari saldo awal (0), bukan salah menganggap sisa snapshot sbg saldo awal.
+        $this->actingAs($this->user(User::ROLE_ADMIN));
+        $product = $this->product();
+        $mat = $this->material('Bahan', 1000, 100);
+        $svc = app(ProductionService::class);
+
+        $a = $svc->produce(['product_id' => $product->id, 'output_qty' => 100, 'produced_at' => '2026-09-10'],
+            [['material_id' => $mat->id, 'quantity' => 100, 'unit_cost' => 1000]], []);
+        $svc->produce(['product_id' => $product->id, 'output_qty' => 100, 'produced_at' => '2026-09-15'],
+            [['material_id' => $mat->id, 'quantity' => 100, 'unit_cost' => 3000]], []);
+        $this->assertEquals(2000, (float) $product->refresh()->cogs);
+
+        $svc->reverse($a); // hapus yg 10 Sep
+
+        // Sisa cuma produksi 15 Sep (100 @ 3.000) → HPP = 3.000, stok 100.
+        $product->refresh();
+        $this->assertEquals(3000, (float) $product->cogs);
+        $this->assertSame(100, (int) $product->hq_stock);
     }
 
     public function test_reseller_tak_bisa_hapus_produksi(): void

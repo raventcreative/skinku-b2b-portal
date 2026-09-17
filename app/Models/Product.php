@@ -24,6 +24,7 @@ class Product extends Model
         'name', 'sku', 'category', 'description', 'image',
         'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs',
         'weight_grams', 'hq_stock', 'status',
+        'hpp_opening_qty', 'hpp_opening_cogs',
     ];
 
     protected function casts(): array
@@ -36,6 +37,8 @@ class Product extends Model
             'cogs' => 'decimal:2',
             'weight_grams' => 'integer',
             'hq_stock' => 'integer',
+            'hpp_opening_qty' => 'integer',
+            'hpp_opening_cogs' => 'decimal:2',
         ];
     }
 

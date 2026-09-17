@@ -54,7 +54,9 @@ class ProductionService
             ]);
             $production->production_number = 'PRD-'.str_pad((string) $production->id, 5, '0', STR_PAD_LEFT);
 
+            $this->captureOpeningIfFirstEvent($production);
             $this->applyEffects($production, $header, $materialLines, $otherCosts);
+            $this->moveProductStock($production, (int) $header['output_qty'], 'Hasil produksi '.$production->production_number, $header['produced_at']);
             $this->recompute(Product::lockForUpdate()->findOrFail($production->product_id));
 
             return $production->refresh();
@@ -73,9 +75,20 @@ class ProductionService
     {
         return DB::transaction(function () use ($production, $header, $materialLines, $otherCosts) {
             $product = Product::lockForUpdate()->findOrFail($production->product_id);
-            $this->assertReversible($production, $product);
+            $oldOutput = (int) $production->output_qty;
+            $newOutput = (int) $header['output_qty'];
+            $delta = $newOutput - $oldOutput;
+
+            // Guard stok: hanya blok bila jumlah hasil DIKURANGI & stok produk jadi
+            // tak cukup menarik selisihnya (sebagian sudah terjual). Edit biaya saja
+            // (jumlah tetap) → delta 0 → tak pernah kepentok stok.
+            if ($delta < 0 && (int) $product->hq_stock + $delta < 0) {
+                throw new RuntimeException('Tidak bisa mengurangi jumlah hasil produksi jadi '.$newOutput.': stok produk jadi ('.(int) $product->hq_stock.') tak cukup menarik '.abs($delta).' pcs — sebagian sudah terjual/terpakai.');
+            }
+
             $this->undoEffects($production);
             $this->applyEffects($production, $header + ['product_id' => $production->product_id], $materialLines, $otherCosts);
+            $this->moveProductStock($production, $delta, 'Penyesuaian jumlah hasil produksi '.$production->production_number, $header['produced_at']);
             $this->recompute(Product::lockForUpdate()->findOrFail($production->product_id));
 
             return $production->refresh();
@@ -84,16 +97,23 @@ class ProductionService
 
     /**
      * Batalkan (hapus) satu produksi & PULIHKAN dampaknya (bahan kembali, stok
-     * produk ditarik, HPP dipulihkan). Guard sama dengan update.
+     * produk jadi ditarik) lalu HPP dihitung ulang. Diblok hanya bila hasil
+     * produksi ini sudah sebagian terjual (stok produk jadi tak cukup ditarik).
      */
     public function reverse(Production $production): void
     {
         DB::transaction(function () use ($production) {
             $product = Product::lockForUpdate()->findOrFail($production->product_id);
-            $this->assertReversible($production, $product);
+            $output = (int) $production->output_qty;
+            if ((int) $product->hq_stock < $output) {
+                throw new RuntimeException('Tidak bisa dihapus: stok produk jadi ('.(int) $product->hq_stock.') kurang dari hasil produksi ini ('.$output.') — sebagian sudah terjual/terpakai.');
+            }
+
             $this->undoEffects($production);
+            $this->moveProductStock($production, -$output, 'Pembatalan produksi '.$production->production_number);
+            $productId = $production->product_id;
             $production->delete();
-            $this->recompute(Product::lockForUpdate()->findOrFail($product->id));
+            $this->recompute(Product::lockForUpdate()->findOrFail($productId));
         });
     }
 
@@ -145,19 +165,11 @@ class ProductionService
         $total = round($materialCost + $otherCost, 2);
         $hpp = $outputQty > 0 ? round($total / $outputQty, 2) : 0.0;
 
-        // 4. Finished product: stock + moving-average HPP.
+        // 4. Finished product: HPP rata-rata bergerak (provisional — recompute()
+        //    yang final). Stok produk jadi diurus TERPISAH oleh pemanggil sebesar
+        //    net delta, supaya edit biaya tak menarik-ulang stok yang sudah terjual.
         $beforeQty = (int) $product->hq_stock;
         $beforeCogs = (float) $product->cogs;
-
-        $this->inventory->adjustHqStock(
-            product: $product,
-            delta: $outputQty,
-            movementType: StockMovement::TYPE_IN,
-            notes: 'Hasil produksi '.$production->production_number,
-            referenceType: Production::REFERENCE_TYPE,
-            referenceId: $production->id,
-            occurredAt: Carbon::parse($header['produced_at']),
-        );
 
         $newCogs = Costing::movingAverage($beforeQty, $beforeCogs, $outputQty, $hpp);
         $product->cogs = $newCogs;
@@ -174,7 +186,7 @@ class ProductionService
         return $production;
     }
 
-    /** Balik dampak produksi (bahan kembali, stok produk turun, HPP dipulihkan) + hapus rincian lama. */
+    /** Balik dampak biaya produksi (bahan kembali ke stok, HPP dipulihkan) + hapus rincian lama. Stok produk jadi TIDAK disentuh di sini (diurus pemanggil via net delta). */
     private function undoEffects(Production $production): void
     {
         $production->loadMissing('materials');
@@ -188,17 +200,7 @@ class ProductionService
             }
         }
 
-        $this->inventory->adjustHqStock(
-            product: $product,
-            delta: -1 * (int) $production->output_qty,
-            movementType: StockMovement::TYPE_OUT,
-            notes: 'Pembatalan produksi '.$production->production_number,
-            referenceType: Production::REFERENCE_TYPE,
-            referenceId: $production->id,
-        );
-
         if ($production->cogs_before !== null) {
-            $product = Product::lockForUpdate()->findOrFail($product->id);
             $product->cogs = round((float) $production->cogs_before, 2);
             $product->save();
         }
@@ -209,16 +211,22 @@ class ProductionService
         $production->setRelation('costs', collect());
     }
 
-    /**
-     * Boleh dibalik selama stok produk jadi masih cukup untuk menarik kembali
-     * hasil produksi ini (kalau kurang → sebagian sudah terjual). Urutan HPP TAK
-     * lagi jadi syarat: HPP dihitung ulang dari seluruh produksi (recompute()).
-     */
-    private function assertReversible(Production $production, Product $product): void
+    /** Sesuaikan stok produk jadi sebesar $delta (skip bila 0) + tulis mutasi stok. */
+    private function moveProductStock(Production $production, int $delta, string $notes, ?string $occurredAt = null): void
     {
-        if ((int) $product->hq_stock < (int) $production->output_qty) {
-            throw new RuntimeException('Tidak bisa diubah/dihapus: stok produk jadi ('.(int) $product->hq_stock.') kurang dari hasil produksi ini ('.(int) $production->output_qty.') — sebagian sudah terjual/terpakai.');
+        if ($delta === 0) {
+            return;
         }
+
+        $this->inventory->adjustHqStock(
+            product: Product::findOrFail($production->product_id),
+            delta: $delta,
+            movementType: $delta > 0 ? StockMovement::TYPE_IN : StockMovement::TYPE_OUT,
+            notes: $notes,
+            referenceType: Production::REFERENCE_TYPE,
+            referenceId: $production->id,
+            occurredAt: $occurredAt ? Carbon::parse($occurredAt) : null,
+        );
     }
 
     /**
@@ -273,27 +281,21 @@ class ProductionService
             return $date.$created.$e['type'].$id;
         })->values();
 
+        // Saldo awal (stok & HPP sebelum kejadian pertama) diambil dari kolom
+        // eksplisit di produk — dicatat saat kejadian pertama dibuat & tak ikut
+        // berubah saat produksi diedit/dihapus. Jadi recompute selalu TEPAT
+        // berapa pun urutan edit/hapusnya.
+        $qty = (float) $product->hpp_opening_qty;
+        $avg = round((float) $product->hpp_opening_cogs, 2);
+
         if ($events->isEmpty()) {
-            $product->cogs = 0.0;
+            // Tak ada lagi kejadian → HPP kembali ke basis awal (0 bila memang nol).
+            $product->cogs = round($avg, 2);
             $product->save();
 
             return;
         }
 
-        // Saldo awal sebelum kejadian pertama: cost = cogs_before tersimpan;
-        // qty diturunkan dari snapshot kejadian pertama agar basis manual/GRN awal
-        // ikut tertimbang. Tanpa basis awal (cogs_before 0) → mulai dari nol.
-        $first = $events->first();
-        $openCogs = round((float) $first['row']->cogs_before, 2);
-        $openQty = $this->deriveOpeningQty(
-            $openCogs,
-            round((float) $first['row']->cogs_after, 2),
-            $first['rate'],
-            $first['qty'],
-        );
-
-        $qty = (float) $openQty;
-        $avg = $openCogs;
         foreach ($events as $e) {
             $before = $avg;
             $avg = Costing::movingAverage($qty, $avg, (float) $e['qty'], $e['rate']);
@@ -308,23 +310,24 @@ class ProductionService
     }
 
     /**
-     * Qty saldo awal (sebelum kejadian pertama) yang disimpulkan dari snapshot
-     * kejadian pertama, supaya basis HPP awal (di-set manual / stok opname)
-     * tetap tertimbang benar saat recompute. 0 bila tak ada basis awal.
-     *
-     *   cogs_after1 = (openQty*openCogs + in1*rate1) / (openQty + in1)
-     *   → openQty   = in1 * (rate1 - cogs_after1) / (cogs_after1 - openCogs)
+     * Catat saldo awal (stok & HPP saat ini) SEKALI, saat produk menerima
+     * kejadian penambah-stok berbiaya PERTAMA-nya. Setelah itu tak diubah lagi,
+     * jadi recompute punya titik mula yang stabil.
      */
-    private function deriveOpeningQty(float $openCogs, float $firstAfter, float $firstRate, int $firstQty): int
+    private function captureOpeningIfFirstEvent(Production $production): void
     {
-        if ($openCogs <= 0) {
-            return 0; // Tak ada basis biaya awal → mulai dari nol.
-        }
-        $denom = $firstAfter - $openCogs;
-        if (abs($denom) < 0.005) {
-            return 0; // Tak tentu (rate = cogs awal); nilai rata2 tak berubah oleh qty awal.
+        $product = Product::lockForUpdate()->findOrFail($production->product_id);
+
+        $hasOtherProduction = Production::where('product_id', $product->id)
+            ->where('id', '!=', $production->id)->exists();
+        $hasReceipt = StockReceiptItem::where('product_id', $product->id)->exists();
+
+        if ($hasOtherProduction || $hasReceipt) {
+            return; // Bukan kejadian pertama — saldo awal sudah tercatat.
         }
 
-        return max(0, (int) round($firstQty * ($firstRate - $firstAfter) / $denom));
+        $product->hpp_opening_qty = (int) $product->hq_stock;
+        $product->hpp_opening_cogs = round((float) $product->cogs, 2);
+        $product->save();
     }
 }
