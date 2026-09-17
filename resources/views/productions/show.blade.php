@@ -5,14 +5,20 @@
 @section('content')
 <div class="flex items-center justify-between gap-3">
     <a href="{{ route('productions.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke daftar</a>
+    <div class="flex items-center gap-2">
+    <a href="{{ route('productions.edit', $production) }}" class="text-xs font-semibold text-sky-700 hover:text-sky-900 border border-sky-200 hover:bg-sky-50 rounded-lg px-3 py-1.5">✏️ Ubah</a>
     <form method="POST" action="{{ route('productions.destroy', $production) }}"
           onsubmit="return confirm('Hapus {{ $production->production_number }}?\n\nBahan yang terpakai dikembalikan ke stok, stok produk jadi ditarik lagi, dan HPP produk dipulihkan ke Rp {{ number_format($production->cogs_before, 0, ',', '.') }}. Setelah itu buat ulang dengan data yang benar.\n\nHanya bisa jika belum ada produksi lain sesudahnya & hasil produksinya belum terjual.')">
         @csrf
         @method('DELETE')
         <button type="submit" class="text-xs font-semibold text-rose-600 hover:text-rose-800 border border-rose-200 hover:bg-rose-50 rounded-lg px-3 py-1.5">🗑 Hapus produksi</button>
     </form>
+    </div>
 </div>
 
+@if(session('status'))
+    <div class="mt-3 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>
+@endif
 @if(session('error'))
     <div class="mt-3 px-4 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ session('error') }}</div>
 @endif

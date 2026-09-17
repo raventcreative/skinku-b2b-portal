@@ -267,7 +267,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/productions', [ProductionController::class, 'index'])->name('productions.index');
         Route::get('/productions/create', [ProductionController::class, 'create'])->name('productions.create');
         Route::post('/productions', [ProductionController::class, 'store'])->name('productions.store');
+        Route::get('/productions/{production}/edit', [ProductionController::class, 'edit'])->name('productions.edit');
         Route::get('/productions/{production}', [ProductionController::class, 'show'])->name('productions.show');
+        Route::put('/productions/{production}', [ProductionController::class, 'update'])->name('productions.update');
         Route::delete('/productions/{production}', [ProductionController::class, 'destroy'])->name('productions.destroy');
 
         // Per-product HPP history (cost trend over time)

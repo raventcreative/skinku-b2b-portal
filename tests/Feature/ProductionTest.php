@@ -354,6 +354,42 @@ class ProductionTest extends TestCase
         $this->assertNotNull(Production::find($prod->id)); // tak terhapus
     }
 
+    public function test_ubah_produksi_hitung_ulang_hpp_dan_stok(): void
+    {
+        $this->actingAs($this->user(User::ROLE_ADMIN));
+        $product = $this->product();
+        $mat = $this->material('Sandalwood', 100, 2000, 'kg');
+
+        $svc = app(ProductionService::class);
+        $prod = $svc->produce(
+            ['product_id' => $product->id, 'output_qty' => 10, 'produced_at' => '2026-09-12'],
+            [['material_id' => $mat->id, 'quantity' => 10, 'unit_cost' => 2000]], // salah: 2.000/kg
+            [],
+        );
+        $product->refresh();
+        $this->assertEquals(2000, (float) $product->cogs);
+
+        // Form ubah tampil (pre-filled).
+        $this->get(route('productions.edit', $prod))->assertOk()->assertSee($product->name);
+
+        // Ubah harga bahan ke yang benar (400.000/kg) → HPP & stok dihitung ulang.
+        $this->put(route('productions.update', $prod), [
+            'produced_at' => '2026-09-12',
+            'output_qty' => 10,
+            'materials' => [['material_id' => $mat->id, 'quantity' => 10, 'unit_cost' => 400000]],
+            'costs' => [],
+        ])->assertRedirect(route('productions.show', $prod));
+
+        $product->refresh();
+        $mat->refresh();
+        $prod->refresh();
+        $this->assertEquals(400000, (float) $product->cogs);          // 10×400.000 / 10
+        $this->assertEquals(400000, (float) $prod->hpp_per_unit);
+        $this->assertEquals(90, (float) $mat->stock);                  // net tetap −10
+        $this->assertSame(10, (int) $product->hq_stock);              // net tetap +10
+        $this->assertSame(1, $prod->materials()->count());            // rincian tak dobel
+    }
+
     public function test_reseller_tak_bisa_hapus_produksi(): void
     {
         $this->actingAs($this->user(User::ROLE_ADMIN));

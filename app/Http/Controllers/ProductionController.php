@@ -120,6 +120,61 @@ class ProductionController extends Controller
         return view('productions.show', ['production' => $production]);
     }
 
+    /** Form ubah produksi (pre-filled) — tak perlu input ulang. */
+    public function edit(Production $production)
+    {
+        $production->load('materials', 'costs');
+        $materials = Material::active()->orderBy('name')->get(['id', 'name', 'unit', 'stock', 'avg_cost']);
+
+        return view('productions.edit', compact('production', 'materials'));
+    }
+
+    /** Simpan perubahan: balik dampak lama & terapkan yang baru (stok + HPP dihitung ulang). */
+    public function update(Request $request, Production $production): RedirectResponse
+    {
+        $data = $request->validate([
+            'produced_at' => ['required', 'date'],
+            'output_qty' => ['required', 'integer', 'min:1'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'materials' => ['required', 'array', 'min:1'],
+            'materials.*.material_id' => ['nullable', 'integer', 'exists:materials,id'],
+            'materials.*.quantity' => ['nullable', 'numeric', 'min:0.001'],
+            'materials.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'costs' => ['nullable', 'array'],
+            'costs.*.label' => ['nullable', 'string', 'max:100'],
+            'costs.*.amount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $materialLines = collect($data['materials'] ?? [])
+            ->filter(fn ($r) => ! empty($r['material_id']) && ! empty($r['quantity']))
+            ->map(fn ($r) => [
+                'material_id' => (int) $r['material_id'],
+                'quantity' => (float) $r['quantity'],
+                'unit_cost' => (isset($r['unit_cost']) && $r['unit_cost'] !== '') ? (float) $r['unit_cost'] : null,
+            ])->values()->all();
+
+        if (empty($materialLines)) {
+            return back()->withErrors(['materials' => 'Minimal satu baris bahan (bahan + qty pakai).'])->withInput();
+        }
+
+        $otherCosts = collect($data['costs'] ?? [])
+            ->filter(fn ($r) => ! empty($r['label']) && isset($r['amount']) && $r['amount'] !== '')
+            ->map(fn ($r) => ['label' => $r['label'], 'amount' => (float) $r['amount']])
+            ->values()->all();
+
+        try {
+            $this->service->update($production, [
+                'produced_at' => $data['produced_at'],
+                'output_qty' => (int) $data['output_qty'],
+                'notes' => $data['notes'] ?? null,
+            ], $materialLines, $otherCosts);
+        } catch (\Throwable $e) {
+            return redirect()->route('productions.show', $production)->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('productions.show', $production)->with('status', 'Produksi diperbarui — stok bahan & HPP dihitung ulang.');
+    }
+
     /** Hapus produksi + pulihkan stok bahan & HPP produk (untuk redo yang salah input). */
     public function destroy(Production $production): RedirectResponse
     {
