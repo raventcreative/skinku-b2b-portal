@@ -96,8 +96,11 @@
     }
 
     // Lepas kelas empty-state agar thread MENGISI panel & rata kiri (bukan center).
+    // Di HP (mobile) beri TINGGI pasti (80vh) supaya thread punya rangka tinggi:
+    // area pesan bisa scroll sendiri & kotak balas TETAP kelihatan di bawah — tanpa
+    // ini, di mobile tak ada tinggi pasti → kotak balas kedorong jauh & tak bisa dibalas.
     function threadMode() {
-        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-[24rem]';
+        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden h-[80vh] min-h-[24rem] lg:h-full';
     }
 
     window.ecomOpen = function (el) {
@@ -115,6 +118,11 @@
                 pane.innerHTML = html;
                 scrollThread();
                 syncMeta();
+                // Di HP thread muncul DI BAWAH daftar — bawa ke layar biar langsung
+                // kelihatan (termasuk kotak balasnya). Di desktop tak perlu (2 kolom).
+                if (window.matchMedia('(max-width: 1023px)').matches) {
+                    pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             })
             .catch(function () { pane.innerHTML = '<div class="w-full text-center text-rose-500 text-sm py-10">Gagal memuat.</div>'; });
     };
