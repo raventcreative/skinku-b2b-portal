@@ -26,14 +26,18 @@ class ShopeePushController extends Controller
         // dan kita bisa mengunci formula tanda tangan + bentuk payload sebelum
         // penegakan ketat dinyalakan. Matikan SHOPEE_PUSH_DEBUG setelah verifikasi.
         if (config('services.shopee.push_debug')) {
-            Log::info('shopee-push-debug', [
+            $entry = [
+                'at' => now()->toDateTimeString(),
                 'method' => $request->method(),
                 'url' => $request->url(),
                 'authorization' => $request->header('Authorization'),
                 'body' => mb_substr($raw, 0, 4000),
                 'sig_api_key' => hash_hmac('sha256', $request->url().'|'.$raw, (string) config('services.shopee.partner_key')),
                 'sig_push_key' => hash_hmac('sha256', $request->url().'|'.$raw, (string) config('services.shopee.push_partner_key')),
-            ]);
+            ];
+            // File KHUSUS: tak terfilter LOG_LEVEL prod (info sering dibuang → error-only).
+            @file_put_contents(storage_path('logs/shopee-push-capture.log'), json_encode($entry, JSON_UNESCAPED_UNICODE).PHP_EOL, FILE_APPEND);
+            Log::warning('shopee-push-debug', $entry);
             try {
                 $this->processMessage($raw);
             } catch (\Throwable $e) {
