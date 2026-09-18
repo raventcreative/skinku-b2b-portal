@@ -16,7 +16,7 @@ use Illuminate\Console\Command;
  */
 class ShopeeChatCheckCommand extends Command
 {
-    protected $signature = 'shopee:chat-check {--conv= : conversation_id utk get_message} {--scan= : pindai N percakapan, ambil 1 contoh tiap message_type} {--dump= : path simpan JSON}';
+    protected $signature = 'shopee:chat-check {--conv= : conversation_id utk get_message} {--scan= : pindai N percakapan, ambil 1 contoh tiap message_type} {--dir=latest : arah get_conversation_list (latest|older)} {--dump= : path simpan JSON}';
 
     protected $description = 'Fase 0: cek API chat Shopee + dump bentuk respons (conversation list + message).';
 
@@ -32,7 +32,8 @@ class ShopeeChatCheckCommand extends Command
         $access = $sync->freshToken($conn);
         $shopId = (string) $conn->shop_id;
 
-        $list = $client->getConversationList($access, $shopId, 'latest', 'all', 50);
+        $dir = $this->option('dir') === 'older' ? 'older' : 'latest';
+        $list = $client->getConversationList($access, $shopId, $dir, 'all', 50);
         if (($list['error'] ?? '') !== '') {
             $this->error('get_conversation_list ERROR: '.json_encode($list, JSON_UNESCAPED_UNICODE));
 
@@ -40,7 +41,15 @@ class ShopeeChatCheckCommand extends Command
         }
 
         $convs = $list['response']['conversations'] ?? [];
-        $this->info(count($convs).' percakapan terbaca. Field 1 percakapan: '.implode(', ', array_keys($convs[0] ?? [])));
+        $this->info(count($convs)." percakapan (dir={$dir}). Field: ".implode(', ', array_keys($convs[0] ?? [])));
+
+        // Ringkas rentang tanggal + urutan (ts nanodetik → /1e9 detik).
+        $first = $convs[0]['last_message_timestamp'] ?? 0;
+        $last = end($convs)['last_message_timestamp'] ?? 0;
+        $fmt = fn ($ns) => $ns ? date('Y-m-d H:i', (int) ((int) $ns / 1_000_000_000)) : '-';
+        $this->info("Teratas: {$convs[0]['to_name']} @ ".$fmt($first).'  |  Terbawah: '.(end($convs)['to_name'] ?? '?').' @ '.$fmt($last));
+        $pr = $list['response']['page_result'] ?? [];
+        $this->info('page_result: '.json_encode($pr, JSON_UNESCAPED_UNICODE));
 
         $out = ['conversation_list' => $list];
 
