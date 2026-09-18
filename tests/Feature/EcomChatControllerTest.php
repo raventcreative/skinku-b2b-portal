@@ -257,9 +257,11 @@ class EcomChatControllerTest extends TestCase
     public function test_toggle_autosend(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);
-        $this->actingAs($admin)->post('/ecom-chat/autosend', ['on' => '1'])->assertRedirect();
-        $this->assertSame('1', AppSetting::get(AppSetting::ECOM_CHAT_AUTOSEND));
-        $this->actingAs($admin)->post('/ecom-chat/autosend', ['on' => '0'])->assertRedirect();
-        $this->assertSame('0', AppSetting::get(AppSetting::ECOM_CHAT_AUTOSEND));
+        // Toggle per channel — Shopee ON tak menyalakan TikTok.
+        $this->actingAs($admin)->post('/ecom-chat/autosend', ['on' => '1', 'channel' => 'shopee'])->assertRedirect();
+        $this->assertSame('1', AppSetting::get('ecom_chat_autosend_shopee'));
+        $this->assertSame('0', AppSetting::get('ecom_chat_autosend_tiktok', '0'));
+        $this->actingAs($admin)->post('/ecom-chat/autosend', ['on' => '0', 'channel' => 'shopee'])->assertRedirect();
+        $this->assertSame('0', AppSetting::get('ecom_chat_autosend_shopee'));
     }
 }

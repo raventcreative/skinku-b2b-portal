@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
 use App\Models\ShopeeProduct;
@@ -40,7 +39,7 @@ class EcomChatController extends Controller
 
         $data = [
             'conversations' => $query->limit(100)->get(),
-            'autosend' => $this->chat->autosendEnabled(),
+            'autosend' => $this->chat->autosendEnabled($channel),
             'tab' => $tab,
             'channel' => $channel,
             'perluCount' => $scoped()->needsReply()->count(),
@@ -75,7 +74,7 @@ class EcomChatController extends Controller
     {
         $this->chat->markRead($request->user(), $conversation);
 
-        return view('ecom-chat.show', $this->threadData($conversation) + ['autosend' => $this->chat->autosendEnabled()]);
+        return view('ecom-chat.show', $this->threadData($conversation) + ['autosend' => $this->chat->autosendEnabled($conversation->channel)]);
     }
 
     /** Panel thread (AJAX) — dipakai layout 2-panel di inbox tanpa reload halaman. */
@@ -196,9 +195,12 @@ class EcomChatController extends Controller
 
     public function toggleAutosend(Request $request): RedirectResponse
     {
-        $on = $request->input('on') === '1' ? '1' : '0';
-        AppSetting::put(AppSetting::ECOM_CHAT_AUTOSEND, $on);
+        $channel = $request->input('channel') === 'shopee' ? 'shopee' : 'tiktok';
+        $on = $request->input('on') === '1';
+        $this->chat->setAutosend($channel, $on);
+        $name = $channel === 'shopee' ? 'Shopee' : 'TikTok';
 
-        return redirect()->back()->with('status', $on === '1' ? 'Auto-send DINYALAKAN.' : 'Auto-send DIMATIKAN.');
+        return redirect()->route('ecom-chat.index', ['channel' => $channel])
+            ->with('status', $on ? "Auto-send {$name} DINYALAKAN." : "Auto-send {$name} DIMATIKAN.");
     }
 }

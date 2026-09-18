@@ -23,8 +23,9 @@
                 <form method="POST" action="{{ route('ecom-chat.autosend') }}">
                     @csrf
                     <input type="hidden" name="on" value="{{ $autosend ? '0' : '1' }}">
-                    <button class="px-3 py-2 text-xs font-semibold rounded-lg whitespace-nowrap {{ $autosend ? 'bg-emerald-600 text-white' : 'bg-stone-200 text-stone-700' }}" title="Auto-send balasan AI">
-                        {{ $autosend ? 'Auto: ON' : 'Auto: OFF' }}
+                    <input type="hidden" name="channel" value="{{ $channel }}">
+                    <button class="px-3 py-2 text-xs font-semibold rounded-lg whitespace-nowrap {{ $autosend ? 'bg-emerald-600 text-white' : 'bg-stone-200 text-stone-700' }}" title="Auto-send balasan AI untuk {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }} (per platform)">
+                        AI {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}: {{ $autosend ? 'ON' : 'OFF' }}
                     </button>
                 </form>
             </div>

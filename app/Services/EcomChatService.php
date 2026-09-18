@@ -31,9 +31,22 @@ class EcomChatService
         private TikTokAffiliateService $affiliate,
     ) {}
 
-    public function autosendEnabled(): bool
+    /**
+     * Auto-send AI PER CHANNEL (tiktok/shopee) — mati di 1 platform tak mematikan
+     * yang lain. Fallback ke setelan global lama supaya yang sudah "ON" tetap ON
+     * sampai diubah per-channel.
+     */
+    public function autosendEnabled(string $channel): bool
     {
-        return AppSetting::get(AppSetting::ECOM_CHAT_AUTOSEND, '0') === '1';
+        $global = AppSetting::get(AppSetting::ECOM_CHAT_AUTOSEND, '0');
+
+        return AppSetting::get('ecom_chat_autosend_'.$channel, $global) === '1';
+    }
+
+    /** Nyalakan/matikan auto-send AI untuk 1 channel. */
+    public function setAutosend(string $channel, bool $on): void
+    {
+        AppSetting::put('ecom_chat_autosend_'.$channel, $on ? '1' : '0');
     }
 
     /**
@@ -192,7 +205,7 @@ class EcomChatService
             'ai_reason' => $draft['reason'],
         ]);
 
-        if ($draft['decision'] === 'auto_send' && $draft['reply'] !== '' && $this->autosendEnabled()) {
+        if ($draft['decision'] === 'auto_send' && $draft['reply'] !== '' && $this->autosendEnabled($conv->channel)) {
             try {
                 $this->send($conv, $draft['reply'], EcomChatMessage::VIA_AI);
 

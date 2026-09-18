@@ -75,8 +75,19 @@ class EcomChatServiceTest extends TestCase
 
     public function test_autosend_default_mati(): void
     {
-        $this->assertFalse(app(EcomChatService::class)->autosendEnabled());
-        AppSetting::put(AppSetting::ECOM_CHAT_AUTOSEND, '1');
-        $this->assertTrue(app(EcomChatService::class)->autosendEnabled());
+        $svc = app(EcomChatService::class);
+        $this->assertFalse($svc->autosendEnabled('tiktok'));
+        AppSetting::put(AppSetting::ECOM_CHAT_AUTOSEND, '1'); // global lama → fallback semua channel ON
+        $this->assertTrue($svc->autosendEnabled('tiktok'));
+        $this->assertTrue($svc->autosendEnabled('shopee'));
+    }
+
+    public function test_autosend_terpisah_per_channel(): void
+    {
+        $svc = app(EcomChatService::class);
+        $svc->setAutosend('tiktok', true);
+        $svc->setAutosend('shopee', false);
+        $this->assertTrue($svc->autosendEnabled('tiktok'));
+        $this->assertFalse($svc->autosendEnabled('shopee'));
     }
 }
