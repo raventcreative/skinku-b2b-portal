@@ -7,6 +7,7 @@ use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
 use App\Models\EcomChatRead;
+use App\Models\ShopeeProduct;
 use App\Models\TiktokAffiliateConnection;
 use App\Models\TiktokConnection;
 use App\Models\TiktokProduct;
@@ -118,6 +119,7 @@ class EcomChatService
                 'via' => EcomChatMessage::VIA_BUYER,
                 'type' => (string) ($msg['type'] ?? 'text'),
                 'text' => $text,
+                'meta' => $msg['meta'] ?? null,
                 'sent_at' => $sentAt,
             ]);
         } catch (QueryException $e) {
@@ -280,6 +282,164 @@ class EcomChatService
         $msgData = $this->chatClient()->getConversationMessages($access, $conn->shop_cipher, $conv->external_conversation_id, $limit);
         foreach (array_reverse($msgData['messages'] ?? []) as $m) {
             $this->storeSyncedMessage($conv, $m);
+        }
+    }
+
+    /**
+     * Sinkron 1 percakapan Shopee via API (get_one_conversation + get_message):
+     * simpan pesan baru (pembeli & toko), enrich kartu produk, dan—bila $draft—
+     * jalankan drafter AI saat ada pesan pembeli baru. Dipakai push webhook (draft)
+     * & cron 2-arah (tanpa draft). Pola sama dgn TikTok: isi ditarik dari API.
+     */
+    public function syncShopeeConversation(string $convId, bool $draft = false): void
+    {
+        if ($convId === '') {
+            return;
+        }
+        $sync = app(ShopeeSyncService::class);
+        $conn = $sync->connection();
+        if (! $conn) {
+            return;
+        }
+        $access = $sync->freshToken($conn);
+        $shopId = (int) $conn->shop_id;
+        $client = app(ShopeeClient::class);
+        $parser = app(ShopeeChatParser::class);
+
+        $meta = $client->getOneConversation($access, (string) $shopId, $convId)['response'] ?? [];
+
+        $conv = EcomChatConversation::firstOrNew(['channel' => 'shopee', 'external_conversation_id' => $convId]);
+        if (! $conv->exists) {
+            $conv->status = EcomChatConversation::STATUS_OPEN;
+        }
+        if (! empty($meta['to_name'])) {
+            $conv->buyer_name = $meta['to_name'];
+        }
+        if (! empty($meta['to_id'])) {
+            $conv->buyer_id = (string) $meta['to_id'];
+        }
+        $conv->save();
+
+        $rows = $client->getMessages($access, (string) $shopId, $convId, 20)['response']['messages'] ?? [];
+        // TERTUA dulu agar recency & status berakhir di pesan terbaru.
+        usort($rows, fn ($a, $b) => ((int) ($a['created_timestamp'] ?? 0)) <=> ((int) ($b['created_timestamp'] ?? 0)));
+
+        $newBuyer = false;
+        foreach ($rows as $m) {
+            $n = $parser->normalize($m, $shopId);
+            if ($n['type'] === 'product_card') {
+                $this->enrichShopeeProduct($access, (string) $shopId, (string) ($n['meta']['product_id'] ?? ''));
+            }
+            if ($this->storeNormalized($conv, $n) && $n['sender'] === 'buyer') {
+                $newBuyer = true;
+            }
+        }
+
+        if ($draft && $newBuyer && $conv->fresh()->status !== EcomChatConversation::STATUS_REPLIED) {
+            $this->processDraft($conv->fresh());
+        }
+    }
+
+    /** Backfill + sinkron status 2 arah SEMUA percakapan Shopee (cron). */
+    public function importFromShopee(int $max = 50): array
+    {
+        $sync = app(ShopeeSyncService::class);
+        $conn = $sync->connection();
+        if (! $conn) {
+            return ['conversations' => 0, 'messages' => 0];
+        }
+        $access = $sync->freshToken($conn);
+        $shopId = (int) $conn->shop_id;
+        $convs = app(ShopeeClient::class)->getConversationList($access, (string) $shopId, 'latest', 'all', $max)['response']['conversations'] ?? [];
+
+        $n = 0;
+        foreach ($convs as $c) {
+            $cid = (string) ($c['conversation_id'] ?? '');
+            if ($cid === '') {
+                continue;
+            }
+            $this->syncShopeeConversation($cid, false);
+            $n++;
+        }
+
+        return ['conversations' => $n, 'messages' => 0];
+    }
+
+    /** Simpan 1 pesan ternormalisasi (buyer/seller) + update status percakapan. Return true bila baru. */
+    private function storeNormalized(EcomChatConversation $conv, array $n): bool
+    {
+        $extId = (string) ($n['message_id'] ?? '');
+        if ($extId === '') {
+            return false;
+        }
+        $isBuyer = ($n['sender'] ?? 'buyer') === 'buyer';
+        $sentAt = ! empty($n['sent_at'])
+            ? Carbon::createFromTimestamp((int) $n['sent_at'], config('app.timezone'))
+            : now();
+
+        $msg = EcomChatMessage::updateOrCreate(
+            ['channel' => $conv->channel, 'external_message_id' => $extId],
+            [
+                'conversation_id' => $conv->id,
+                'sender' => $isBuyer ? EcomChatMessage::SENDER_BUYER : EcomChatMessage::SENDER_SELLER,
+                'via' => $isBuyer ? EcomChatMessage::VIA_BUYER : EcomChatMessage::VIA_STAFF,
+                'type' => (string) ($n['type'] ?? 'text'),
+                'text' => (string) ($n['text'] ?? ''),
+                'meta' => $n['meta'] ?? null,
+                'sent_at' => $sentAt,
+            ],
+        );
+
+        if ($conv->last_message_at === null || $sentAt->gte($conv->last_message_at)) {
+            $conv->last_message_at = $sentAt;
+            $conv->last_message_preview = mb_substr((string) ($n['text'] ?? ''), 0, 255);
+        }
+        if ($isBuyer && ($conv->last_incoming_at === null || $sentAt->gte($conv->last_incoming_at))) {
+            $conv->last_incoming_at = $sentAt;
+        }
+        if ($isBuyer && $conv->buyer_id === null && ! empty($n['buyer_id'])) {
+            $conv->buyer_id = (string) $n['buyer_id'];
+        }
+        // Pembeli terbaru → percakapan aktif lagi.
+        if ($isBuyer && $conv->status === EcomChatConversation::STATUS_REPLIED
+            && $conv->last_incoming_at !== null
+            && ($conv->last_message_at === null || $conv->last_incoming_at->gte($conv->last_message_at))) {
+            $conv->status = EcomChatConversation::STATUS_OPEN;
+        }
+        // Balasan toko (mis. di Seller Center) jadi pesan terbaru → "Terbalas".
+        if (! $isBuyer
+            && in_array($conv->status, [EcomChatConversation::STATUS_OPEN, EcomChatConversation::STATUS_NEEDS_STAFF], true)
+            && $conv->last_message_at !== null
+            && ($conv->last_incoming_at === null || $conv->last_message_at->gt($conv->last_incoming_at))
+            && $sentAt->gte($conv->last_message_at)) {
+            $conv->status = EcomChatConversation::STATUS_REPLIED;
+            $conv->last_reply_via = 'staff';
+        }
+        $conv->save();
+
+        return $msg->wasRecentlyCreated;
+    }
+
+    /** Ambil detail item Shopee → cache ShopeeProduct (best-effort; gagal → kartu tampil ID+tautan). */
+    private function enrichShopeeProduct(string $access, string $shopId, string $itemId): void
+    {
+        if ($itemId === '' || ShopeeProduct::where('item_id', $itemId)->exists()) {
+            return;
+        }
+        try {
+            $resp = app(ShopeeClient::class)->getItemBaseInfo($access, $shopId, [$itemId])['response'] ?? [];
+            $item = $resp['item_list'][0] ?? null;
+            if (! is_array($item)) {
+                return;
+            }
+            ShopeeProduct::updateOrCreate(['item_id' => $itemId], [
+                'title' => (string) ($item['item_name'] ?? ''),
+                'image_url' => (string) (data_get($item, 'image.image_url_list.0') ?? ''),
+                'price' => null,
+                'currency' => 'IDR',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('shopee: enrich produk gagal', ['item_id' => $itemId, 'e' => $e->getMessage()]);
         }
     }
 

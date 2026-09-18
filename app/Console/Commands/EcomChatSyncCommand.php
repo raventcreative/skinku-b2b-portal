@@ -19,15 +19,25 @@ class EcomChatSyncCommand extends Command
 
     public function handle(EcomChatService $chat): int
     {
+        $ok = true;
+
+        // Tiap channel dibungkus terpisah: gagal 1 channel tak menggagalkan yang lain.
         try {
-            $res = $chat->importFromTikTok((int) $this->option('max'), (int) $this->option('msg'));
-            $this->info("Sinkron chat selesai: {$res['conversations']} percakapan, {$res['messages']} pesan baru.");
-
-            return self::SUCCESS;
+            $r = $chat->importFromTikTok((int) $this->option('max'), (int) $this->option('msg'));
+            $this->info("TikTok: {$r['conversations']} percakapan, {$r['messages']} pesan baru.");
         } catch (\Throwable $e) {
-            $this->error('Gagal sinkron chat: '.$e->getMessage());
-
-            return self::FAILURE;
+            $ok = false;
+            $this->error('TikTok gagal: '.$e->getMessage());
         }
+
+        try {
+            $r = $chat->importFromShopee((int) $this->option('max'));
+            $this->info("Shopee: {$r['conversations']} percakapan.");
+        } catch (\Throwable $e) {
+            $ok = false;
+            $this->error('Shopee gagal: '.$e->getMessage());
+        }
+
+        return $ok ? self::SUCCESS : self::FAILURE;
     }
 }

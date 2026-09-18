@@ -104,8 +104,12 @@
                                 @elseif($productId)
                                     <p class="text-[11px] text-stone-500 break-all">ID: {{ $productId }}</p>
                                 @endif
+                                @php($prodShopId = $m->meta['shop_id'] ?? '')
+                                @php($prodUrl = $conversation->channel === 'shopee'
+                                    ? 'https://shopee.co.id/product/'.$prodShopId.'/'.$productId
+                                    : 'https://shop-id.tokopedia.com/view/product/'.$productId)
                                 @if($productId)
-                                    <a href="https://shop-id.tokopedia.com/view/product/{{ $productId }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">Buka produk ↗</a>
+                                    <a href="{{ $prodUrl }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">Buka produk ↗</a>
                                 @endif
                             </div>
                         </div>

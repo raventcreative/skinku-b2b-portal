@@ -60,37 +60,21 @@ class ShopeePushController extends Controller
         return response('ok', 200);
     }
 
-    /** Ekstrak 1 push chat/message → inbox + drafter AI. Non-chat diabaikan. */
+    /**
+     * Push chat Shopee = NOTIFIKASI (data.type='notification', conversation_id ada
+     * di data.content). Isi pesan TIDAK di payload → kita TARIK dari API get_message
+     * (pola andal, sama seperti TikTok). Push non-chat (order dll) tak punya
+     * conversation_id → diabaikan.
+     */
     private function processMessage(string $raw): void
     {
         $payload = json_decode($raw, true) ?: [];
-        $data = $payload['data'] ?? [];
-
-        // Hanya push chat/message; sisanya (order dll) diabaikan.
-        if (($data['type'] ?? null) !== 'message' || empty($data['content'])) {
+        $convId = (string) ($payload['data']['content']['conversation_id'] ?? '');
+        if ($convId === '') {
             return;
         }
 
-        $c = $data['content'];
-        $shopId = (int) ($payload['shop_id'] ?? 0);
-        $fromShop = (int) ($c['from_shop_id'] ?? 0);
-        // Pesan dari TOKO sendiri (echo) → sender != buyer → syncIncoming yang abaikan (anti-loop).
-        $sender = ($fromShop !== 0 && $fromShop === $shopId) ? 'seller' : 'buyer';
-
-        $msg = $this->chat->syncIncoming('shopee', [
-            'conversation_id' => (string) ($c['conversation_id'] ?? ''),
-            'message_id' => (string) ($c['message_id'] ?? ''),
-            'sender' => $sender,
-            'sent_at' => (int) ($c['created_timestamp'] ?? 0),
-            'type' => 'text',
-            'text' => (string) ($c['content']['text'] ?? ''),
-            'buyer_name' => $c['from_user_name'] ?? null,
-            'buyer_id' => isset($c['from_id']) ? (string) $c['from_id'] : null,
-        ]);
-
-        if ($msg) {
-            $this->chat->processDraft($msg->conversation);
-        }
+        $this->chat->syncShopeeConversation($convId, true);
     }
 
     /** Kunci tanda tangan push = Push Partner Key (fallback API partner_key). */

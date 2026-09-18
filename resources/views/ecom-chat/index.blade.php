@@ -17,7 +17,8 @@
             <div class="flex items-center gap-2">
                 <form method="POST" action="{{ route('ecom-chat.sync') }}" class="flex-1" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Menarik…';">
                     @csrf
-                    <button class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-stone-800 text-white hover:bg-stone-900">🔄 Tarik chat dari TikTok</button>
+                    <input type="hidden" name="channel" value="{{ $channel }}">
+                    <button class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-stone-800 text-white hover:bg-stone-900">🔄 Tarik chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}</button>
                 </form>
                 <form method="POST" action="{{ route('ecom-chat.autosend') }}">
                     @csrf

@@ -176,6 +176,14 @@ class ShopeeClient
         ]);
     }
 
+    /** Detail 1 percakapan (nama pembeli to_name, to_id, unread, dll). */
+    public function getOneConversation(string $accessToken, string $shopId, string $conversationId): array
+    {
+        return $this->shopCall('GET', '/api/v2/sellerchat/get_one_conversation', $accessToken, $shopId, [
+            'conversation_id' => $conversationId,
+        ]);
+    }
+
     /** Kirim balasan teks ke pembeli (to_id = user_id pembeli). */
     public function sendChatMessage(string $accessToken, string $shopId, int $toId, string $text): array
     {

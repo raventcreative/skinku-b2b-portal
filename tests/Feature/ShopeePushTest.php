@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\EcomChatMessage;
+use App\Models\ShopeeConnection;
 use App\Services\Ai\AiProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\Support\FakeAiProvider;
 use Tests\TestCase;
 
@@ -20,41 +22,56 @@ class ShopeePushTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config()->set('services.shopee.partner_id', '1');
         config()->set('services.shopee.partner_key', 'secretkey');
         $this->app->instance(AiProvider::class, new FakeAiProvider([]));
+        ShopeeConnection::create([
+            'shop_id' => '426938728', 'access_token' => 'A', 'refresh_token' => 'R',
+            'access_expires_at' => now()->addHours(3), 'refresh_expires_at' => now()->addDays(20),
+        ]);
+    }
+
+    /** Push chat = notifikasi; isi ditarik dari API get_message. */
+    private function fakeShopeeChat(): void
+    {
+        Http::fake([
+            '*sellerchat/get_one_conversation*' => Http::response(['response' => ['conversation_id' => 'C1', 'to_name' => 'Budi', 'to_id' => 949588930], 'error' => '']),
+            '*sellerchat/get_message*' => Http::response(['response' => ['messages' => [
+                ['message_id' => 'M1', 'conversation_id' => 'C1', 'from_id' => 949588930, 'from_shop_id' => 949477559, 'message_type' => 'text', 'content' => ['text' => 'halo kak'], 'created_timestamp' => 1723887490],
+            ]], 'error' => '']),
+        ]);
+    }
+
+    private function chatPush(): array
+    {
+        return ['shop_id' => 426938728, 'code' => 10, 'data' => ['type' => 'notification', 'content' => ['conversation_id' => 'C1', 'type' => 'message']]];
     }
 
     public function test_push_pesan_teks_masuk_inbox(): void
     {
+        $this->fakeShopeeChat();
         $url = 'http://localhost/webhooks/shopee/push';
-        $payload = [
-            'shop_id' => 426938728, 'code' => 10, 'timestamp' => 1789000000,
-            'data' => ['type' => 'message', 'content' => [
-                'conversation_id' => 'C1', 'message_id' => 'M1',
-                'from_id' => 555001, 'to_id' => 426938728, 'from_shop_id' => 0, 'to_shop_id' => 426938728,
-                'from_user_name' => 'Budi', 'message_type' => 'text',
-                'content' => ['text' => 'Barangnya ready kak?'], 'created_timestamp' => 1789000000,
-            ]],
-        ];
-        $body = json_encode($payload);
+        $body = json_encode($this->chatPush());
 
         $this->call('POST', '/webhooks/shopee/push', [], [], [], ['HTTP_AUTHORIZATION' => $this->sign($url, $body), 'CONTENT_TYPE' => 'application/json'], $body)
             ->assertOk();
 
         $this->assertDatabaseHas('ecom_chat_messages', ['channel' => 'shopee', 'external_message_id' => 'M1', 'sender' => 'buyer']);
+        $this->assertDatabaseHas('ecom_chat_conversations', ['channel' => 'shopee', 'external_conversation_id' => 'C1', 'buyer_name' => 'Budi']);
     }
 
     public function test_tanda_tangan_salah_ditolak(): void
     {
-        $body = json_encode(['data' => ['type' => 'message']]);
+        $body = json_encode($this->chatPush());
         $this->call('POST', '/webhooks/shopee/push', [], [], [], ['HTTP_AUTHORIZATION' => 'salah', 'CONTENT_TYPE' => 'application/json'], $body)
             ->assertStatus(401);
+        $this->assertSame(0, EcomChatMessage::count());
     }
 
     public function test_push_non_chat_diabaikan_200(): void
     {
         $url = 'http://localhost/webhooks/shopee/push';
-        $body = json_encode(['code' => 3, 'data' => ['ordersn' => 'x']]); // push order, bukan chat
+        $body = json_encode(['code' => 3, 'data' => ['ordersn' => 'x']]); // push order, tak ada conversation_id
         $this->call('POST', '/webhooks/shopee/push', [], [], [], ['HTTP_AUTHORIZATION' => $this->sign($url, $body), 'CONTENT_TYPE' => 'application/json'], $body)
             ->assertOk();
         $this->assertSame(0, EcomChatMessage::count());
@@ -62,39 +79,30 @@ class ShopeePushTest extends TestCase
 
     public function test_tanda_tangan_verifikasi_pakai_push_partner_key(): void
     {
-        // Push ditandatangani dgn PUSH partner key (bukan API partner_key).
         config()->set('services.shopee.push_partner_key', 'pushkey');
+        $this->fakeShopeeChat();
         $url = 'http://localhost/webhooks/shopee/push';
-        $payload = ['shop_id' => 1, 'code' => 10, 'data' => ['type' => 'message', 'content' => [
-            'conversation_id' => 'C9', 'message_id' => 'M9', 'from_id' => 7, 'from_shop_id' => 0,
-            'message_type' => 'text', 'content' => ['text' => 'hai'], 'created_timestamp' => 1789000000,
-        ]]];
-        $body = json_encode($payload);
+        $body = json_encode($this->chatPush());
         $pushSig = hash_hmac('sha256', $url.'|'.$body, 'pushkey');
 
         // Ditandatangani API key (salah utk push) → 401.
         $this->call('POST', '/webhooks/shopee/push', [], [], [], ['HTTP_AUTHORIZATION' => $this->sign($url, $body), 'CONTENT_TYPE' => 'application/json'], $body)
             ->assertStatus(401);
 
-        // Ditandatangani PUSH key → diterima, pesan masuk.
+        // Ditandatangani PUSH key → diterima, pesan ditarik & masuk.
         $this->call('POST', '/webhooks/shopee/push', [], [], [], ['HTTP_AUTHORIZATION' => $pushSig, 'CONTENT_TYPE' => 'application/json'], $body)
             ->assertOk();
-        $this->assertDatabaseHas('ecom_chat_messages', ['channel' => 'shopee', 'external_message_id' => 'M9']);
+        $this->assertDatabaseHas('ecom_chat_messages', ['channel' => 'shopee', 'external_message_id' => 'M1']);
     }
 
     public function test_mode_debug_terima_tanpa_verifikasi_dan_rekam(): void
     {
-        // SHOPEE_PUSH_DEBUG=true → Verify/Test Push lolos (200) meski tanda tangan
-        // belum benar, dan pesan tetap terekam supaya format bisa dikonfirmasi.
         config()->set('services.shopee.push_debug', true);
-        $payload = ['shop_id' => 1, 'code' => 10, 'data' => ['type' => 'message', 'content' => [
-            'conversation_id' => 'CD', 'message_id' => 'MD', 'from_id' => 7, 'from_shop_id' => 0,
-            'message_type' => 'text', 'content' => ['text' => 'tes'], 'created_timestamp' => 1789000000,
-        ]]];
-        $body = json_encode($payload);
+        $this->fakeShopeeChat();
+        $body = json_encode($this->chatPush());
 
         $this->call('POST', '/webhooks/shopee/push', [], [], [], ['HTTP_AUTHORIZATION' => 'apapun', 'CONTENT_TYPE' => 'application/json'], $body)
             ->assertOk();
-        $this->assertDatabaseHas('ecom_chat_messages', ['channel' => 'shopee', 'external_message_id' => 'MD']);
+        $this->assertDatabaseHas('ecom_chat_messages', ['channel' => 'shopee', 'external_message_id' => 'M1']);
     }
 }

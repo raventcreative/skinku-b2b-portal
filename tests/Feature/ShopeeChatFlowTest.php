@@ -1,0 +1,76 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\EcomChatConversation;
+use App\Models\ShopeeConnection;
+use App\Models\User;
+use App\Services\EcomChatService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
+
+class ShopeeChatFlowTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function admin(): User
+    {
+        return User::create([
+            'name' => 'A', 'fullname' => 'A', 'username' => 'admin1', 'email' => 'a@skinku.test',
+            'password' => Hash::make('secret123'), 'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+    }
+
+    private function shopeeConn(): void
+    {
+        config()->set('services.shopee.partner_id', '1');
+        config()->set('services.shopee.partner_key', 'k');
+        ShopeeConnection::create([
+            'shop_id' => '426938728', 'access_token' => 'A', 'refresh_token' => 'R',
+            'access_expires_at' => now()->addHours(3), 'refresh_expires_at' => now()->addDays(20),
+        ]);
+    }
+
+    public function test_import_shopee_menandai_replied_saat_balasan_toko_terbaru(): void
+    {
+        $this->shopeeConn();
+        Http::fake([
+            '*get_conversation_list*' => Http::response(['response' => ['conversations' => [['conversation_id' => 'C1', 'to_name' => 'Budi', 'to_id' => 949588930]]], 'error' => '']),
+            '*get_one_conversation*' => Http::response(['response' => ['conversation_id' => 'C1', 'to_name' => 'Budi', 'to_id' => 949588930], 'error' => '']),
+            '*get_message*' => Http::response(['response' => ['messages' => [
+                // pembeli (from_shop_id != toko kita)
+                ['message_id' => 'B1', 'conversation_id' => 'C1', 'from_id' => 949588930, 'from_shop_id' => 949477559, 'message_type' => 'text', 'content' => ['text' => 'halo'], 'created_timestamp' => 1723887400],
+                // toko (from_shop_id == toko kita) TERBARU → replied
+                ['message_id' => 'S1', 'conversation_id' => 'C1', 'from_id' => 426958305, 'from_shop_id' => 426938728, 'message_type' => 'text', 'content' => ['text' => 'siap kak'], 'created_timestamp' => 1723887500],
+            ]], 'error' => '']),
+        ]);
+
+        $res = app(EcomChatService::class)->importFromShopee();
+
+        $this->assertSame(1, $res['conversations']);
+        $conv = EcomChatConversation::where('channel', 'shopee')->where('external_conversation_id', 'C1')->first();
+        $this->assertNotNull($conv);
+        $this->assertSame('Budi', $conv->buyer_name);
+        $this->assertSame('replied', $conv->status);
+        $this->assertDatabaseHas('ecom_chat_messages', ['channel' => 'shopee', 'external_message_id' => 'B1', 'sender' => 'buyer']);
+        $this->assertDatabaseHas('ecom_chat_messages', ['channel' => 'shopee', 'external_message_id' => 'S1', 'sender' => 'seller']);
+    }
+
+    public function test_inbox_dipisah_per_channel(): void
+    {
+        EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'T1', 'buyer_name' => 'AndiTikTok', 'status' => 'open', 'last_message_at' => now(), 'last_incoming_at' => now()]);
+        EcomChatConversation::create(['channel' => 'shopee', 'external_conversation_id' => 'S1', 'buyer_name' => 'BudiShopee', 'status' => 'open', 'last_message_at' => now(), 'last_incoming_at' => now()]);
+
+        $admin = $this->admin();
+
+        $this->actingAs($admin)
+            ->get('/ecom-chat?channel=shopee&tab=semua')
+            ->assertOk()->assertSee('BudiShopee')->assertDontSee('AndiTikTok');
+
+        $this->actingAs($admin)
+            ->get('/ecom-chat?channel=tiktok&tab=semua')
+            ->assertOk()->assertSee('AndiTikTok')->assertDontSee('BudiShopee');
+    }
+}
