@@ -35,9 +35,9 @@ Schedule::command('db:backup')->dailyAt('02:30')->withoutOverlapping(30);
 // Order tiap 30 menit — sekaligus auto-potong stok kalau saklarnya aktif.
 Schedule::command('tiktok:sync')->everyThirtyMinutes()->withoutOverlapping(15);
 
-// Chat E-commerce tiap 10 menit — backfill + sinkron status 2 arah (balasan di
+// Chat E-commerce tiap 3 menit — backfill + sinkron status 2 arah (balasan di
 // Seller Center ikut jadi "Terbalas"). Pesan masuk pembeli tetap realtime lewat webhook.
-Schedule::command('ecom-chat:sync')->everyTenMinutes()->withoutOverlapping(9);
+Schedule::command('ecom-chat:sync')->everyThreeMinutes()->withoutOverlapping(2);
 
 // Order Shopee tiap 30 menit — sekaligus auto-potong stok kalau saklarnya aktif.
 Schedule::command('shopee:sync')->everyThirtyMinutes()->withoutOverlapping(15);
