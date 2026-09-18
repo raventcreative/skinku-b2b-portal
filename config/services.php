@@ -70,6 +70,12 @@ return [
     'shopee' => [
         'partner_id' => env('SHOPEE_PARTNER_ID'),
         'partner_key' => env('SHOPEE_PARTNER_KEY'),
+        // Push Mechanism pakai "Push Partner Key" TERPISAH (di-generate di halaman
+        // Set Push Shopee) untuk tanda tangan push — bukan API partner_key di atas.
+        'push_partner_key' => env('SHOPEE_PUSH_PARTNER_KEY'),
+        // Mode tangkap Fase 0: log tiap push + selalu balas 200 (lolos Verify &
+        // Get Test Push, rekam format asli). MATIKAN lagi setelah verifikasi.
+        'push_debug' => (bool) env('SHOPEE_PUSH_DEBUG', false),
         // Live (default): https://partner.shopeemobile.com
         // Sandbox (TERVERIFIKASI 2026-08-24 via API Test Tool): https://openplatform.sandbox.test-stable.shopee.sg
         //   (BUKAN partner.test-stable.shopeemobile.com — host itu tolak partner sandbox kita)
