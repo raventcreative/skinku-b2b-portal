@@ -60,6 +60,31 @@ class ShopeeChatFlowTest extends TestCase
         $this->assertDatabaseHas('ecom_chat_messages', ['channel' => 'shopee', 'external_message_id' => 'S1', 'sender' => 'seller']);
     }
 
+    public function test_percakapan_terbaru_tetap_muncul_walau_get_message_kosong(): void
+    {
+        // Chat baru (ditangani Asisten AI Shopee) kadang get_message-nya 0 → percakapan
+        // tetap harus tampil di posisi benar dari RINGKASAN daftar.
+        $this->shopeeConn();
+        $tsNano = (string) (1789700000 * 1_000_000_000); // ~2026-09
+        Http::fake([
+            '*get_conversation_list*' => Http::response(['response' => ['conversations' => [[
+                'conversation_id' => 'CN', 'to_name' => 'Mia', 'to_id' => 111,
+                'last_message_timestamp' => $tsNano, 'latest_message_from_id' => 111,
+                'latest_message_type' => 'text', 'latest_message_content' => ['text' => 'halo kak'],
+            ]]], 'error' => '']),
+            '*get_message*' => Http::response(['response' => ['messages' => []], 'error' => '']), // 0 pesan
+        ]);
+
+        app(EcomChatService::class)->importFromShopee();
+
+        $conv = EcomChatConversation::where('external_conversation_id', 'CN')->first();
+        $this->assertNotNull($conv);
+        $this->assertSame('Mia', $conv->buyer_name);
+        $this->assertNotNull($conv->last_message_at);       // recency dari ringkasan
+        $this->assertSame('halo kak', $conv->last_message_preview);
+        $this->assertSame('open', $conv->status);            // pembeli pengirim terakhir → perlu dibalas
+    }
+
     public function test_inbox_dipisah_per_channel(): void
     {
         EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'T1', 'buyer_name' => 'AndiTikTok', 'status' => 'open', 'last_message_at' => now(), 'last_incoming_at' => now()]);

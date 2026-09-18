@@ -304,7 +304,7 @@ class EcomChatService
      * jalankan drafter AI saat ada pesan pembeli baru. Dipakai push webhook (draft)
      * & cron 2-arah (tanpa draft). Pola sama dgn TikTok: isi ditarik dari API.
      */
-    public function syncShopeeConversation(string $convId, bool $draft = false): void
+    public function syncShopeeConversation(string $convId, bool $draft = false, ?array $summary = null): void
     {
         if ($convId === '') {
             return;
@@ -319,18 +319,22 @@ class EcomChatService
         $client = app(ShopeeClient::class);
         $parser = app(ShopeeChatParser::class);
 
-        $meta = $client->getOneConversation($access, (string) $shopId, $convId)['response'] ?? [];
+        // Ringkasan percakapan: dari daftar (cron, hemat 1 call) atau get_one_conversation (push).
+        $summary ??= $client->getOneConversation($access, (string) $shopId, $convId)['response'] ?? [];
 
         $conv = EcomChatConversation::firstOrNew(['channel' => 'shopee', 'external_conversation_id' => $convId]);
         if (! $conv->exists) {
             $conv->status = EcomChatConversation::STATUS_OPEN;
         }
-        if (! empty($meta['to_name'])) {
-            $conv->buyer_name = $meta['to_name'];
+        if (! empty($summary['to_name'])) {
+            $conv->buyer_name = $summary['to_name'];
         }
-        if (! empty($meta['to_id'])) {
-            $conv->buyer_id = (string) $meta['to_id'];
+        if (! empty($summary['to_id'])) {
+            $conv->buyer_id = (string) $summary['to_id'];
         }
+        // Recency/preview/status dari RINGKASAN — supaya percakapan tetap tampil di
+        // posisi benar walau get_message balikin 0 (chat baru yg ditangani Asisten AI).
+        $this->applyShopeeSummary($conv, $summary);
         $conv->save();
 
         $rows = $client->getMessages($access, (string) $shopId, $convId, 20)['response']['messages'] ?? [];
@@ -373,11 +377,59 @@ class EcomChatService
             if ($cid === '') {
                 continue;
             }
-            $this->syncShopeeConversation($cid, false);
+            $this->syncShopeeConversation($cid, false, $c);
             $n++;
         }
 
         return ['conversations' => $n, 'messages' => 0];
+    }
+
+    /** Terapkan recency/preview/status dari ringkasan percakapan Shopee (daftar / get_one). */
+    private function applyShopeeSummary(EcomChatConversation $conv, array $summary): void
+    {
+        $tsNano = (int) ($summary['last_message_timestamp'] ?? 0);
+        if ($tsNano <= 0) {
+            return;
+        }
+        $at = Carbon::createFromTimestamp(intdiv($tsNano, 1_000_000_000), config('app.timezone'));
+        if ($conv->last_message_at === null || $at->gte($conv->last_message_at)) {
+            $conv->last_message_at = $at;
+            $preview = $this->shopeeSummaryPreview($summary);
+            if ($preview !== '') {
+                $conv->last_message_preview = mb_substr($preview, 0, 255);
+            }
+        }
+        $buyerId = (string) ($summary['to_id'] ?? '');
+        $latestFrom = (string) ($summary['latest_message_from_id'] ?? '');
+        $buyerLatest = $buyerId !== '' && $latestFrom !== '' && $latestFrom === $buyerId;
+        if ($buyerLatest) {
+            $conv->last_incoming_at = $at;
+            if ($conv->status === EcomChatConversation::STATUS_REPLIED) {
+                $conv->status = EcomChatConversation::STATUS_OPEN;
+            }
+        } elseif ($latestFrom !== '' && in_array($conv->status, [EcomChatConversation::STATUS_OPEN, EcomChatConversation::STATUS_NEEDS_STAFF], true)) {
+            $conv->status = EcomChatConversation::STATUS_REPLIED;
+            $conv->last_reply_via = $conv->last_reply_via ?: 'staff';
+        }
+    }
+
+    /** Preview 1-baris dari pesan terakhir ringkasan (text → teks, lainnya → label). */
+    private function shopeeSummaryPreview(array $summary): string
+    {
+        $type = (string) ($summary['latest_message_type'] ?? 'text');
+        $content = $summary['latest_message_content'] ?? [];
+        if (is_string($content)) {
+            $d = json_decode($content, true);
+            $content = is_array($d) ? $d : ['text' => $content];
+        }
+
+        return match ($type) {
+            'text' => (string) ($content['text'] ?? ''),
+            'image' => '[Foto]',
+            'item' => '[Produk]',
+            'sticker' => '[Stiker]',
+            default => (string) ($content['text'] ?? '[Pesan]'),
+        };
     }
 
     /** Simpan 1 pesan ternormalisasi (buyer/seller) + update status percakapan. Return true bila baru. */
