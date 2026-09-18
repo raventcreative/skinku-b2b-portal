@@ -16,7 +16,7 @@ use Illuminate\Console\Command;
  */
 class ShopeeChatCheckCommand extends Command
 {
-    protected $signature = 'shopee:chat-check {--conv= : conversation_id utk get_message} {--dump= : path simpan JSON}';
+    protected $signature = 'shopee:chat-check {--conv= : conversation_id utk get_message} {--scan= : pindai N percakapan, ambil 1 contoh tiap message_type} {--dump= : path simpan JSON}';
 
     protected $description = 'Fase 0: cek API chat Shopee + dump bentuk respons (conversation list + message).';
 
@@ -32,7 +32,7 @@ class ShopeeChatCheckCommand extends Command
         $access = $sync->freshToken($conn);
         $shopId = (string) $conn->shop_id;
 
-        $list = $client->getConversationList($access, $shopId);
+        $list = $client->getConversationList($access, $shopId, 'latest', 'all', 50);
         if (($list['error'] ?? '') !== '') {
             $this->error('get_conversation_list ERROR: '.json_encode($list, JSON_UNESCAPED_UNICODE));
 
@@ -44,18 +44,41 @@ class ShopeeChatCheckCommand extends Command
 
         $out = ['conversation_list' => $list];
 
-        $convId = $this->option('conv') ?: ($convs[0]['conversation_id'] ?? null);
-        if ($convId) {
-            $msgs = $client->getMessages($access, $shopId, (string) $convId);
-            $out['messages'] = $msgs;
-            if (($msgs['error'] ?? '') !== '') {
-                $this->warn('get_message ERROR: '.json_encode($msgs, JSON_UNESCAPED_UNICODE));
-            } else {
-                $rows = $msgs['response']['messages'] ?? [];
-                $this->info("get_message conv {$convId}: ".count($rows).' pesan. Field 1 pesan: '.implode(', ', array_keys($rows[0] ?? [])));
+        // Mode PINDAI: cari 1 contoh tiap message_type di N percakapan pertama.
+        if ($scan = (int) $this->option('scan')) {
+            $samples = [];
+            $counts = [];
+            foreach (array_slice($convs, 0, $scan) as $c) {
+                $cid = (string) ($c['conversation_id'] ?? '');
+                if ($cid === '') {
+                    continue;
+                }
+                $rows = $client->getMessages($access, $shopId, $cid, 30)['response']['messages'] ?? [];
+                foreach ($rows as $m) {
+                    $t = (string) ($m['message_type'] ?? 'unknown');
+                    $counts[$t] = ($counts[$t] ?? 0) + 1;
+                    if (! isset($samples[$t])) {
+                        $samples[$t] = $m;
+                    }
+                }
             }
+            $out['type_counts'] = $counts;
+            $out['type_samples'] = $samples;
+            $this->info('Tipe pesan ditemukan: '.json_encode($counts, JSON_UNESCAPED_UNICODE));
         } else {
-            $this->warn('Belum ada percakapan untuk diambil pesannya.');
+            $convId = $this->option('conv') ?: ($convs[0]['conversation_id'] ?? null);
+            if ($convId) {
+                $msgs = $client->getMessages($access, $shopId, (string) $convId);
+                $out['messages'] = $msgs;
+                if (($msgs['error'] ?? '') !== '') {
+                    $this->warn('get_message ERROR: '.json_encode($msgs, JSON_UNESCAPED_UNICODE));
+                } else {
+                    $rows = $msgs['response']['messages'] ?? [];
+                    $this->info("get_message conv {$convId}: ".count($rows).' pesan. Field 1 pesan: '.implode(', ', array_keys($rows[0] ?? [])));
+                }
+            } else {
+                $this->warn('Belum ada percakapan untuk diambil pesannya.');
+            }
         }
 
         $path = $this->option('dump') ?: storage_path('logs/shopee-chat-check.json');
