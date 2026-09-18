@@ -363,7 +363,9 @@ class EcomChatService
         }
         $access = $sync->freshToken($conn);
         $shopId = (int) $conn->shop_id;
-        $convs = app(ShopeeClient::class)->getConversationList($access, (string) $shopId, 'latest', 'all', $max)['response']['conversations'] ?? [];
+        // Shopee TERBALIK: 'older' = mulai dari TERBARU (turun), 'latest' = dari TERLAMA.
+        // Kita mau yang terkini (seperti Seller Center) → 'older'.
+        $convs = app(ShopeeClient::class)->getConversationList($access, (string) $shopId, 'older', 'all', $max)['response']['conversations'] ?? [];
 
         $n = 0;
         foreach ($convs as $c) {

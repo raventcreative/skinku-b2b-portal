@@ -49,6 +49,8 @@ class ShopeeChatFlowTest extends TestCase
 
         $res = app(EcomChatService::class)->importFromShopee();
 
+        // Ambil percakapan TERBARU → Shopee pakai direction=older (terbalik).
+        Http::assertSent(fn ($r) => str_contains($r->url(), 'get_conversation_list') && str_contains($r->url(), 'direction=older'));
         $this->assertSame(1, $res['conversations']);
         $conv = EcomChatConversation::where('channel', 'shopee')->where('external_conversation_id', 'C1')->first();
         $this->assertNotNull($conv);
