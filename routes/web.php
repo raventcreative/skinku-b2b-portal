@@ -54,6 +54,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReturController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShopeeController;
+use App\Http\Controllers\ShopeePushController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockReceiptController;
@@ -95,6 +96,11 @@ Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])->
 // Webhook chat TikTok (Customer Service — NEW_MESSAGE). Publik: keamanan lewat
 // verifikasi tanda tangan HMAC di controller, bukan auth/CSRF.
 Route::post('/webhooks/tiktok/chat', [TikTokChatWebhookController::class, 'handle'])->name('webhooks.tiktok.chat');
+
+// Push Shopee Open Platform (partner-level — satu URL utk SEMUA push code, kita
+// ambil chat/message saja). Publik: keamanan lewat verifikasi tanda tangan HMAC
+// partner_key di controller, bukan auth/CSRF.
+Route::post('/webhooks/shopee/push', [ShopeePushController::class, 'handle'])->name('webhooks.shopee.push');
 
 /*
 |--------------------------------------------------------------------------

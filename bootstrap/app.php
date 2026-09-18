@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'telegram/webhook',
             'api/kol-agent/*',
             'webhooks/tiktok/chat',
+            'webhooks/shopee/push',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
