@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\EcomChatSender;
 use App\Models\AppSetting;
 use App\Models\EcomChatConversation;
 use App\Models\EcomChatMessage;
@@ -11,6 +12,8 @@ use App\Models\TiktokConnection;
 use App\Models\TiktokProduct;
 use App\Models\User;
 use App\Services\Ai\EcomChatDrafter;
+use App\Services\EcomChat\ShopeeChatSender;
+use App\Services\EcomChat\TikTokChatSender;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -130,9 +133,7 @@ class EcomChatService
      */
     public function send(EcomChatConversation $conv, string $text, string $via): EcomChatMessage
     {
-        $conn = $this->chatConn();
-        $access = $this->affiliate->freshToken($conn);
-        $res = $this->chatClient()->sendMessage($access, $conn->shop_cipher, $conv->external_conversation_id, $text);
+        $res = $this->senderFor($conv->channel)->send($conv, $text);
         $externalId = (string) ($res['message_id'] ?? ('local-'.uniqid()));
 
         $msg = $conv->messages()->create([
@@ -152,6 +153,26 @@ class EcomChatService
         ]);
 
         return $msg;
+    }
+
+    /** Pilih pengirim per-channel. Channel tak dikenal → gagal jelas, bukan diam-diam ke TikTok. */
+    private function senderFor(string $channel): EcomChatSender
+    {
+        return match ($channel) {
+            'shopee' => app(ShopeeChatSender::class),
+            'tiktok' => app(TikTokChatSender::class),
+            default => throw new RuntimeException("Channel chat tak dikenal: {$channel}"),
+        };
+    }
+
+    /** Jalur kirim TikTok yang lama (ekstrak murni dari send() lama, tak berubah). */
+    public function sendViaTikTok(EcomChatConversation $conv, string $text): array
+    {
+        $conn = $this->chatConn();
+        $access = $this->affiliate->freshToken($conn);
+        $res = $this->chatClient()->sendMessage($access, $conn->shop_cipher, $conv->external_conversation_id, $text);
+
+        return ['message_id' => (string) ($res['message_id'] ?? ('local-'.uniqid()))];
     }
 
     /**
