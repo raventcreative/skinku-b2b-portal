@@ -157,6 +157,43 @@ class ShopeeClient
         ]);
     }
 
+    /** Daftar percakapan chat (Seller Chat). */
+    public function getConversationList(string $accessToken, string $shopId, string $direction = 'latest', string $type = 'all', int $pageSize = 25): array
+    {
+        return $this->shopCall('GET', '/api/v2/sellerchat/get_conversation_list', $accessToken, $shopId, [
+            'direction' => $direction,
+            'type' => $type,
+            'page_size' => $pageSize,
+        ]);
+    }
+
+    /** Pesan-pesan dalam 1 percakapan (terbaru dulu). */
+    public function getMessages(string $accessToken, string $shopId, string $conversationId, int $pageSize = 25): array
+    {
+        return $this->shopCall('GET', '/api/v2/sellerchat/get_message', $accessToken, $shopId, [
+            'conversation_id' => $conversationId,
+            'page_size' => $pageSize,
+        ]);
+    }
+
+    /** Kirim balasan teks ke pembeli (to_id = user_id pembeli). */
+    public function sendChatMessage(string $accessToken, string $shopId, int $toId, string $text): array
+    {
+        return $this->shopCall('POST', '/api/v2/sellerchat/send_message', $accessToken, $shopId, [
+            'to_id' => $toId,
+            'message_type' => 'text',
+            'content' => ['text' => $text],
+        ]);
+    }
+
+    /** Info dasar item (nama/gambar/harga) untuk kartu produk. */
+    public function getItemBaseInfo(string $accessToken, string $shopId, array $itemIds): array
+    {
+        return $this->shopCall('GET', '/api/v2/product/get_item_base_info', $accessToken, $shopId, [
+            'item_id_list' => implode(',', array_map('intval', $itemIds)),
+        ]);
+    }
+
     /**
      * API publik: daftar toko yang mengotorisasi partner ini (tanpa access_token/shop_id).
      * Berguna sebagai uji koneksi — kalau Shopee menerima tanda tangan, kredensial & base URL benar.
