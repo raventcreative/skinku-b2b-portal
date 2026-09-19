@@ -292,9 +292,9 @@
 
             @php
                 // Grup accordion "Integrasi": TikTok + Shopee (marketplace) jadi sub-menu.
-                $integrasiGroupOpen = request()->routeIs('tiktok.*') || request()->routeIs('shopee.*') || request()->routeIs('ecom-chat.*');
+                $integrasiGroupOpen = request()->routeIs('tiktok.*') || request()->routeIs('shopee.*') || request()->routeIs('ecom-chat.*') || request()->routeIs('marketplace-stock.*');
             @endphp
-            @if($u->canDo('manage_tiktok') || $u->canDo('manage_shopee') || $u->canDo('manage_ecommerce_chat'))
+            @if($u->canDo('manage_tiktok') || $u->canDo('manage_shopee') || $u->canDo('manage_ecommerce_chat') || $u->canDo('manage_marketplace_stock'))
                 <button type="button" onclick="toggleNavGroup('grpIntegrasi')"
                     class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $integrasiGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-integrasi') !!}<span>Integrasi</span></span>

@@ -5,9 +5,11 @@ namespace Tests\Feature\MarketplaceStock;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceStock;
 use App\Models\Product;
+use App\Models\RolePermission;
 use App\Models\TiktokConnection;
 use App\Models\TiktokSkuMap;
 use App\Models\User;
+use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -157,6 +159,28 @@ class MarketplaceUiTest extends TestCase
             ->assertDontSee('Stok Marketplace');
 
         $this->actingAs($this->admin())->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Stok Marketplace');
+    }
+
+    /**
+     * manage_marketplace_stock adalah izin independen (bisa di-toggle sendiri di
+     * matriks hak akses) — jadi role yg CUMA punya izin ini (tanpa manage_tiktok/
+     * manage_shopee/manage_ecommerce_chat) harus tetap lihat menunya. Grup
+     * accordion "Integrasi" pembungkusnya juga harus ikut terbuka untuk role ini,
+     * bukan cuma item "Stok Marketplace"-nya sendiri.
+     */
+    public function test_menu_sidebar_tampil_untuk_role_yang_hanya_punya_izin_stok_marketplace(): void
+    {
+        $user = User::create([
+            'name' => 'ms', 'fullname' => 'Stok Only', 'username' => 'stokonly'.uniqid(),
+            'email' => uniqid().'@t.test', 'password' => Hash::make('secret123'),
+            'role' => 'marketplace_stock_only', 'status' => User::STATUS_ACTIVE,
+        ]);
+        RolePermission::create(['role' => 'marketplace_stock_only', 'permission_key' => 'manage_marketplace_stock', 'allowed' => true]);
+        Permissions::flushCache();
+
+        $this->actingAs($user)->get('/dashboard')
             ->assertOk()
             ->assertSee('Stok Marketplace');
     }
