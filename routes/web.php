@@ -37,6 +37,7 @@ use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\KolSettingsController;
 use App\Http\Controllers\KolTiktokCheckController;
 use App\Http\Controllers\LearningController;
+use App\Http\Controllers\MarketplaceStockController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MemberDormancyController;
 use App\Http\Controllers\MindmapController;
@@ -627,6 +628,11 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/shopee/post-journals', [ShopeeController::class, 'postJournals'])->name('shopee.post-journals');
         Route::post('/shopee/unpost-journals', [ShopeeController::class, 'unpostJournals'])->name('shopee.unpost-journals');
         Route::post('/shopee/toggle-journal', [ShopeeController::class, 'toggleJournal'])->name('shopee.toggle-journal');
+    });
+
+    /* ---------------- Kontrol Stok Marketplace ---------------- */
+    Route::middleware('permission:manage_marketplace_stock')->group(function () {
+        Route::get('/marketplace-stock', [MarketplaceStockController::class, 'index'])->name('marketplace-stock.index');
     });
 
     /* ---------------- Product management ---------------- */

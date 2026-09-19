@@ -63,6 +63,7 @@ class Permissions
         'manage_join_packages' => 'Kelola Paket Join',
         'manage_member_dormancy' => 'Kelola Dormansi Member',
         'manage_ecommerce_chat' => 'Chat E-commerce (Balas Chat Marketplace)',
+        'manage_marketplace_stock' => 'Kontrol Stok Marketplace',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -141,6 +142,7 @@ class Permissions
         'manage_join_packages' => [User::ROLE_ADMIN],
         'manage_member_dormancy' => [User::ROLE_ADMIN],
         'manage_ecommerce_chat' => [User::ROLE_ADMIN],
+        'manage_marketplace_stock' => [User::ROLE_ADMIN],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */
