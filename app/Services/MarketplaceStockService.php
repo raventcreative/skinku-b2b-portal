@@ -228,6 +228,84 @@ class MarketplaceStockService
         return compact('found', 'mapped', 'unmapped');
     }
 
+    /**
+     * Seed awal pool "Stok Marketplace" per produk dari stok TikTok SAAT INI —
+     * hanya untuk listing 1:1 (satu komponen, qty 1); bundle dilewati (butuh
+     * keputusan manual, bukan auto-seed). Lalu pushAll() supaya Shopee (dan
+     * TikTok) ikut disamakan dgn nilai awal ini.
+     *
+     * Anti push-0 (load-bearing): kalau quantity SKU tak terbaca dari respons
+     * (key 'inventory' absen), JANGAN setPool(..., 0) — pushAll() di akhir akan
+     * mengirim angka pool ke listing LIVE, jadi men-set 0 dari data yang tak
+     * lengkap bisa menge-nol-kan listing yang sebenarnya masih ada stoknya.
+     * Produk begitu dibiarkan belum di-seed (pool tetap kosong) → tetap
+     * fail-safe lewat availableForListing()/pushListing() (lihat kelas ini).
+     *
+     * @return array{seeded:int, skipped:int}
+     */
+    public function seedFromTiktok(): array
+    {
+        $c = $this->tiktokConn();
+        if (! $c) {
+            return ['seeded' => 0, 'skipped' => 0];
+        }
+
+        $tok = $this->tiktokToken($c);
+        $seeded = $skipped = 0;
+        $pageToken = '';
+
+        // NB: sama seperti resolveTiktok() — TikTokClient::request() sudah unwrap
+        // ke $json['data'], jadi TANPA prefiks 'data.' di path data_get() bawah ini.
+        for ($guard = 0; $guard < 200; $guard++) {
+            $res = $this->tiktok->searchProducts($tok, $c->shop_cipher, 50, $pageToken);
+            foreach (data_get($res, 'products', []) as $prod) {
+                foreach ($prod['skus'] ?? [] as $sku) {
+                    $sellerSku = (string) data_get($sku, 'seller_sku', '');
+                    if ($sellerSku === '') {
+                        continue;
+                    }
+
+                    $components = $this->componentsFor('tiktok', $sellerSku);
+                    // hanya 1:1 (satu komponen, qty 1) yang di-seed otomatis — bundle dilewati
+                    if (count($components) !== 1 || $components[0]['qty'] !== 1) {
+                        $skipped++;
+
+                        continue;
+                    }
+
+                    // qty absen (bukan cuma 0) -> data tak lengkap, lewati (anti push-0 di atas)
+                    $qty = data_get($sku, 'inventory.0.quantity');
+                    if ($qty === null) {
+                        $skipped++;
+
+                        continue;
+                    }
+
+                    $product = Product::find($components[0]['product_id']);
+                    if (! $product) {
+                        $skipped++;
+
+                        continue;
+                    }
+
+                    $this->setPool($product, (int) $qty);
+                    $seeded++;
+                }
+            }
+            $pageToken = (string) data_get($res, 'next_page_token', '');
+            if ($pageToken === '') {
+                break;
+            }
+            if ($guard === 199) {
+                Log::warning('[marketplace:seed] TikTok mentok 200 halaman — seed mungkin belum lengkap.');
+            }
+        }
+
+        $this->pushAll(); // samakan Shopee (dan TikTok) dgn nilai awal
+
+        return compact('seeded', 'skipped');
+    }
+
     private function resolveShopee(): array
     {
         $c = $this->shopeeConn();
