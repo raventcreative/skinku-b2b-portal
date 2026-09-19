@@ -25,7 +25,7 @@ use RuntimeException;
  */
 class ShopeeOrderService
 {
-    public function __construct(private InventoryService $inventory) {}
+    public function __construct(private InventoryService $inventory, private MarketplaceStockService $marketplace) {}
 
     /**
      * Simpan/perbarui order dari API. $apiOrders = hasil get_order_detail.
@@ -61,10 +61,49 @@ class ShopeeOrderService
                     'stock_status' => $existing->stock_status ?? ShopeeOrder::STATUS_PENDING,
                 ],
             );
+
+            try {
+                $this->mirrorMarketplace($existing, $o, (string) $sn);
+            } catch (\Throwable $e) {
+                // Best-effort: gagal cermin pool marketplace TIDAK BOLEH menghentikan sinkronisasi order inti.
+                Log::warning("[shopee] mirror stok marketplace gagal order {$sn}: ".$e->getMessage());
+            }
+
             $n++;
         }
 
         return $n;
+    }
+
+    /**
+     * Cermin order MASUK/BATAL ke pool "Stok Marketplace" bersama (marketplace_stocks),
+     * TERPISAH dari potong stok HQ (deduct()/reverse() via InventoryService::adjustHqStock).
+     * Sama persis logikanya dengan TikTokOrderService::mirrorMarketplace() — lihat di sana
+     * untuk penjelasan lengkap. `applyOrderDelta()` sendiri sudah aman dipanggil untuk
+     * produk yang pool-nya belum di-seed (no-op).
+     */
+    private function mirrorMarketplace(?ShopeeOrder $existing, array $o, string $id): void
+    {
+        $status = $o['order_status'] ?? null;
+        $nowCancelled = in_array($status, ShopeeOrder::CANCELLED_STATUSES, true);
+        $wasCancelled = $existing && in_array($existing->status, ShopeeOrder::CANCELLED_STATUSES, true);
+        $createdAt = isset($o['create_time']) ? Carbon::createFromTimestamp((int) $o['create_time']) : now();
+
+        $sign = 0;
+        if ($existing === null && ! $nowCancelled) {
+            $sign = -1; // order baru → kurangi pool
+        } elseif ($existing && ! $wasCancelled && $nowCancelled) {
+            $sign = 1; // transisi ke batal → kembalikan pool
+        }
+        if ($sign === 0) {
+            return;
+        }
+
+        foreach ($this->normalizeItems($o) as $it) {
+            foreach ($this->resolve($it['sku']) as $c) {
+                $this->marketplace->applyOrderDelta($c['product'], $sign * $c['qty'] * (int) $it['qty'], $createdAt);
+            }
+        }
     }
 
     /**

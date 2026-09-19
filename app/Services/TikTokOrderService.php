@@ -15,7 +15,7 @@ use RuntimeException;
 
 class TikTokOrderService
 {
-    public function __construct(private InventoryService $inventory) {}
+    public function __construct(private InventoryService $inventory, private MarketplaceStockService $marketplace) {}
 
     /** Simpan/opsir order dari API TikTok. Return jumlah yg tersimpan. */
     public function store(array $apiOrders): int
@@ -40,10 +40,51 @@ class TikTokOrderService
                     'stock_status' => $existing->stock_status ?? TiktokOrder::STATUS_PENDING,
                 ],
             );
+
+            try {
+                $this->mirrorMarketplace($existing, $o, (string) $id);
+            } catch (\Throwable $e) {
+                // Best-effort: gagal cermin pool marketplace TIDAK BOLEH menghentikan sinkronisasi order inti.
+                Log::warning("[tiktok] mirror stok marketplace gagal order {$id}: ".$e->getMessage());
+            }
+
             $n++;
         }
 
         return $n;
+    }
+
+    /**
+     * Cermin order MASUK/BATAL ke pool "Stok Marketplace" bersama (marketplace_stocks),
+     * TERPISAH dari potong stok HQ (deduct()/reverse() via InventoryService::adjustHqStock).
+     * Order baru (belum pernah tersimpan) & belum berstatus batal → kurangi pool sebesar
+     * qty-nya; order yang SEBELUMNYA belum batal lalu bertransisi ke batal → kembalikan.
+     * Re-sync tanpa perubahan status (atau order yang lahir sudah batal) tak menggeser apa
+     * pun. `applyOrderDelta()` sendiri sudah aman dipanggil untuk produk yang pool-nya
+     * belum di-seed (no-op).
+     */
+    private function mirrorMarketplace(?TiktokOrder $existing, array $o, string $id): void
+    {
+        $status = $o['status'] ?? null;
+        $nowCancelled = in_array($status, TiktokOrder::CANCELLED_STATUSES, true);
+        $wasCancelled = $existing && in_array($existing->status, TiktokOrder::CANCELLED_STATUSES, true);
+        $createdAt = isset($o['create_time']) ? Carbon::createFromTimestamp((int) $o['create_time']) : now();
+
+        $sign = 0;
+        if ($existing === null && ! $nowCancelled) {
+            $sign = -1; // order baru → kurangi pool
+        } elseif ($existing && ! $wasCancelled && $nowCancelled) {
+            $sign = 1; // transisi ke batal → kembalikan pool
+        }
+        if ($sign === 0) {
+            return;
+        }
+
+        foreach ($this->normalizeItems($o) as $it) {
+            foreach ($this->resolve($it['sku']) as $c) {
+                $this->marketplace->applyOrderDelta($c['product'], $sign * $c['qty'] * (int) $it['qty'], $createdAt);
+            }
+        }
     }
 
     /** Ringkas line_items TikTok → [{sku, name, qty}] (agregasi per SKU). */
