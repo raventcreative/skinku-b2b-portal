@@ -312,4 +312,126 @@ class MarketplaceStockService
             ],
         );
     }
+
+    // ---- Push stok ke channel + catat hasil ----
+
+    /**
+     * Push "siap jual" satu listing ke channel-nya & catat hasilnya di baris listing.
+     * `unmapped` = belum terpetakan ATAU pool salah satu komponennya belum di-seed
+     * (anti push-0, lihat availableForListing()) — TIDAK mengirim HTTP apa pun.
+     * `skip` = belum ter-resolve (item_id kosong), atau (tanpa force) angkanya sama
+     * dengan push terakhir. Error channel (RuntimeException dari client) ditangkap
+     * di sini supaya satu listing gagal tak menghentikan batch push lainnya.
+     */
+    public function pushListing(MarketplaceListing $l, bool $force = false): string
+    {
+        $avail = $this->availableForListing($l);
+        if ($avail === null) {
+            $l->update(['last_status' => 'unmapped']);
+
+            return 'unmapped';
+        }
+        if (! $l->item_id) {
+            return 'skip'; // belum ter-resolve
+        }
+        if (! $force && $l->last_pushed_qty === $avail) {
+            return 'skip';
+        }
+
+        try {
+            if ($l->channel === 'tiktok') {
+                $c = $this->tiktokConn();
+                if (! $c) {
+                    throw new \RuntimeException('TikTok belum terhubung');
+                }
+                $this->tiktok->updateStock($this->tiktokToken($c), $c->shop_cipher, $l->item_id, (string) $l->variation_id, (string) $l->warehouse_id, $avail);
+            } else {
+                $c = $this->shopeeConn();
+                if (! $c) {
+                    throw new \RuntimeException('Shopee belum terhubung');
+                }
+                $this->shopee->updateStock($this->shopeeToken($c), $c->shop_id, (int) $l->item_id, (int) $l->variation_id, $avail);
+            }
+            $l->update(['last_pushed_qty' => $avail, 'last_status' => 'ok', 'last_error' => null, 'last_pushed_at' => now()]);
+
+            return 'ok';
+        } catch (\Throwable $e) {
+            $l->update(['last_status' => 'failed', 'last_error' => mb_substr($e->getMessage(), 0, 500)]);
+
+            return 'failed';
+        }
+    }
+
+    /**
+     * Push semua listing (lintas channel) yang salah satu komponennya (bundle-aware)
+     * adalah produk ini — dipakai saat stok satu produk berubah & perlu disebar ke
+     * tiap listing yang memuatnya. Default force=true supaya perubahan langsung
+     * disebar terlepas dari nilai push terakhir.
+     *
+     * @return array{pushed:int, skipped:int, failed:int}
+     */
+    public function pushProduct(Product $product, bool $force = true): array
+    {
+        $listings = collect();
+        foreach (MarketplaceListing::all() as $l) {
+            foreach ($this->componentsFor($l->channel, $l->seller_sku) as $c) {
+                if ($c['product_id'] === $product->id) {
+                    $listings->push($l);
+                    break;
+                }
+            }
+        }
+
+        $out = ['pushed' => 0, 'skipped' => 0, 'failed' => 0];
+        foreach ($listings as $l) {
+            $this->tally($out, $this->pushListing($l, $force));
+        }
+
+        return $out;
+    }
+
+    /**
+     * Push hanya listing yang sudah ter-resolve DAN angkanya berubah sejak push
+     * terakhir (dipakai jadwal rutin — hemat panggilan API channel).
+     *
+     * @return array{pushed:int, skipped:int, failed:int}
+     */
+    public function pushDirty(): array
+    {
+        return $this->pushEach(false);
+    }
+
+    /**
+     * Push SEMUA listing yang sudah ter-resolve, paksa walau angkanya belum
+     * berubah (dipakai mis. setelah insiden/keraguan sinkron).
+     *
+     * @return array{pushed:int, skipped:int, failed:int}
+     */
+    public function pushAll(): array
+    {
+        return $this->pushEach(true);
+    }
+
+    /** @return array{pushed:int, skipped:int, failed:int} */
+    private function pushEach(bool $force): array
+    {
+        $out = ['pushed' => 0, 'skipped' => 0, 'failed' => 0];
+        foreach (MarketplaceListing::whereNotNull('item_id')->get() as $l) {
+            $this->tally($out, $this->pushListing($l, $force));
+        }
+
+        return $out;
+    }
+
+    /** @param  array{pushed:int, skipped:int, failed:int}  $out */
+    private function tally(array &$out, string $result): void
+    {
+        if ($result === 'ok') {
+            $out['pushed']++;
+        } elseif ($result === 'failed') {
+            $out['failed']++;
+        } else {
+            $out['skipped']++;
+        }
+    }
 }
