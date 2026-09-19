@@ -96,3 +96,8 @@ Schedule::command('queue:work --stop-when-empty --tries=1 --timeout=290')
 // Dormansi member: bekukan akun tak aktif sesuai aturan per-role (aturan default
 // OFF → nol efek sampai HQ nyalakan). Harian, di luar jam sync berat.
 Schedule::command('members:auto-freeze')->dailyAt('03:00')->withoutOverlapping(60);
+
+// Kontrol Stok Marketplace: dorong stok yang berubah (diff) ke TikTok & Shopee
+// tiap 5 menit. withoutOverlapping(4) < interval agar kunci lepas sebelum jadwal
+// berikutnya kalau proses macet — maksimal 1 siklus terlewat, bukan 24 jam (default).
+Schedule::command('marketplace:push-stock')->everyFiveMinutes()->withoutOverlapping(4);
