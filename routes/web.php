@@ -633,6 +633,11 @@ Route::middleware(['auth', 'role'])->group(function () {
     /* ---------------- Kontrol Stok Marketplace ---------------- */
     Route::middleware('permission:manage_marketplace_stock')->group(function () {
         Route::get('/marketplace-stock', [MarketplaceStockController::class, 'index'])->name('marketplace-stock.index');
+        Route::post('/marketplace-stock/set/{product}', [MarketplaceStockController::class, 'setStock'])->name('marketplace-stock.set');
+        Route::post('/marketplace-stock/push/{product}', [MarketplaceStockController::class, 'push'])->name('marketplace-stock.push');
+        Route::post('/marketplace-stock/push-all', [MarketplaceStockController::class, 'pushAll'])->name('marketplace-stock.push-all');
+        Route::post('/marketplace-stock/resolve', [MarketplaceStockController::class, 'resolve'])->name('marketplace-stock.resolve');
+        Route::post('/marketplace-stock/seed-tiktok', [MarketplaceStockController::class, 'seed'])->name('marketplace-stock.seed');
     });
 
     /* ---------------- Product management ---------------- */
