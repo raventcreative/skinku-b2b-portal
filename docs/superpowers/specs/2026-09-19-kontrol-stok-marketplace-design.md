@@ -74,6 +74,7 @@ Prinsip: **satu jalur push** (`MarketplaceStockService`). Order/seed/manual hany
 | id | bigint PK | |
 | product_id | FK → products.id, **unique** | satu pool per produk |
 | quantity | int | angka stok marketplace (master) |
+| seeded_at | timestamp, nullable | patokan "titik reconcile": order dengan `order_created_at` sebelum ini TAK mengurangi pool (hindari dobel-hitung histori saat seed/set manual) |
 | created_at / updated_at | timestamp | |
 
 Terpisah total dari `stock_movements`/`inventory`.
@@ -113,11 +114,15 @@ Karena API tulis butuh ID internal channel (bukan teks SKU), ada langkah resolve
 - Setelah seed, jalankan push → Shopee ikut menyamakan.
 - Aksi via tombol "Tarik stok awal dari TikTok".
 
-### 7.3 Cermin otomatis saat order/retur (TAMBAHAN, HQ tak diubah)
-- Di `TikTokOrderService` & `ShopeeOrderService`, **pada titik yang sama** dengan potong stok HQ untuk penjualan (`adjustHqStock` TYPE_OUT) dan pemulihan saat batal/retur (TYPE_IN), tambahkan panggilan `MarketplaceStockService::adjustPool($product, ∓ (order_qty × map.qty))`.
-- Karena menempel di titik yang sama, ia **mewarisi idempotensi** yang sudah ada (tak dobel potong saat re-sync).
-- `adjustHqStock` **tidak diubah** — panggilan marketplace bersifat menambah efek, bukan mengganti.
-- Perubahan pool ini **tidak** langsung push (biar sinkron order tak ke-block panggilan API); push dilakukan cron 5 menit berikutnya.
+### 7.3 Cermin otomatis saat order MASUK (bukan saat dikirim; HQ tak diubah)
+Pool berkurang saat **pesanan masuk** (bukan saat barang dikirim), supaya channel lain cepat ikut turun sebelum sempat oversell — sesuai maksud "turun saat ada pesanan". Ini SENGAJA terpisah dari potong stok HQ (yang berbasis "dikirim/`deduct`") — HQ tak disentuh.
+- Di `TikTokOrderService::store()` & `ShopeeOrderService::store()` (titik ingest order dari sinkron), setelah upsert tiap order:
+  - **Order BARU** (`$existing === null`), status bukan batal, dan `order_created_at >= marketplace_stocks.seeded_at` produk komponennya → `MarketplaceStockService::adjustPool($product, -(order_qty × map.qty))` untuk tiap komponen.
+  - **Transisi ke BATAL** (status lama ter-hitung → status baru batal) → `adjustPool(+…)` (kembalikan).
+- **Guard dobel-hitung:** hanya order baru yang dikurangi; re-sync (existing) tak mengurangi lagi. `seeded_at` mencegah order histori (sebelum titik seed/set) ikut mengurangi.
+- **Best-effort:** dibungkus try/catch + log — kegagalan mirror TAK BOLEH menggagalkan sinkron order inti.
+- **Retur** (restock) di Fase 1 lewat **set manual** (aman: paling banter under-sell, tak pernah oversell). Auto retur→pool = fase lanjut.
+- Perubahan pool **tidak** langsung push (biar ingest tak ke-block API); push oleh cron 5 menit berikutnya / manual.
 
 ### 7.4 Cron push (diff)
 - Command `marketplace:push-stock`, terjadwal tiap 5 menit `withoutOverlapping`.
@@ -147,14 +152,14 @@ Endpoint & versi pasti dikonfirmasi saat writing-plans terhadap docs channel.
 
 `App\Services\MarketplaceStockService`:
 - `availableForListing(MarketplaceListing $l): ?int` — null jika `seller_sku` tak ada di peta **atau** ada komponen yang produknya belum punya baris `marketplace_stocks` (pool belum di-set/di-seed). `pushListing` **melewati pengiriman** saat `available` null (pengaman anti-menol-kan; lihat §12).
-- `adjustPool(Product $product, int $delta): void` — ubah `marketplace_stocks` (clamp ≥ 0).
-- `setPool(Product $product, int $qty): void` — set manual.
+- `adjustPool(Product $product, int $delta): void` — ubah `marketplace_stocks` (clamp ≥ 0); buat baris bila belum ada.
+- `setPool(Product $product, int $qty): void` — set manual + stamp `seeded_at = now()` (jadi patokan reconcile baru).
 - `pushListing(MarketplaceListing $l, bool $force = false): array` — hitung available; kirim bila `force` atau beda dari `last_pushed_qty`; catat hasil.
 - `pushProduct(Product $product, bool $force = true): array` — push semua listing yang komponennya memuat produk ini.
 - `pushDirty(): array` — dipakai cron (kirim yang berubah saja).
 - `pushAll(): array` — paksa semua (manual "Sinkron semua").
 - `resolveListings(string $channel): array` — isi/segarkan ID channel di `marketplace_listings`.
-- `seedFromTiktok(): array` — set pool dari stok TikTok (listing 1:1), lalu push.
+- `seedFromTiktok(): array` — set pool dari stok TikTok (listing 1:1) + stamp `seeded_at = now()`, lalu push.
 
 ## 10. UI
 
@@ -185,7 +190,7 @@ Grup baru `Route::middleware('permission:manage_marketplace_stock')`, prefix `/m
 
 ## 12. Anti-oversell & penanganan error (jujur)
 
-- **Bukan 0% oversell, tapi jauh berkurang.** Angka penuh yang sama didorong ke semua channel; ada jendela ≤5 menit (cron) di mana channel lain belum ter-update setelah sebuah penjualan. Ditambal oleh: potong pool saat order + push cron 5 menit + set manual instan. Alokasi/split kuota per-channel = opsi masa depan bila perlu lebih ketat.
+- **Bukan 0% oversell, tapi jauh berkurang.** Pool turun saat order MASUK (secepat sinkron order menariknya) lalu didorong ke channel lain oleh cron ≤5 menit → total jeda ≈ interval sinkron order + ≤5 menit; jauh lebih cepat daripada berbasis "dikirim". Set manual instan untuk kasus mendesak. Alokasi/split kuota per-channel = opsi masa depan bila perlu lebih ketat.
 - Pool tak boleh negatif (clamp ke 0).
 - Kegagalan push per listing dicatat (`last_error`) dan ditampilkan; tak mengganggu listing lain; dicoba lagi otomatis di run cron berikutnya (karena `available` masih beda dari `last_pushed_qty`).
 - **Pengaman seed (penting):** sebelum pool sebuah produk di-set/di-seed, listing-nya **tak pernah** di-push (`available` null → dilewati). Jadi tak ada risiko tak sengaja mengirim `0` dan mengosongkan listing yang masih aktif. Produk yang hanya ada di Shopee (tak ke-seed dari TikTok) di-set manual dulu sebelum ikut ter-sinkron.
