@@ -111,6 +111,28 @@ class OrderMirrorTest extends TestCase
         $this->assertSame('CANCELLED', TiktokOrder::where('tiktok_order_id', 'O1')->value('status'));
     }
 
+    /**
+     * Order BARU yang lahir SUDAH batal (belum pernah tersimpan, status CANCELLED
+     * sejak ingest pertama) tidak boleh menggeser pool sama sekali — bukan
+     * kurangi-lalu-kembalikan (sign harus 0, bukan -1 lalu +1). Pool diseed dulu
+     * supaya decrement AKAN kelihatan kalau salah terjadi.
+     */
+    public function test_tiktok_born_cancelled_order_leaves_pool_unchanged(): void
+    {
+        $p = $this->product();
+        TiktokSkuMap::create(['tiktok_sku' => 'FM-1', 'product_id' => $p->id, 'qty' => 1]);
+        app(MarketplaceStockService::class)->setPool($p, 10); // seeded_at = now()
+
+        app(TikTokOrderService::class)->store([[
+            'id' => 'OCX1', 'status' => 'CANCELLED', 'create_time' => now()->addMinute()->timestamp,
+            'payment' => ['total_amount' => 1, 'currency' => 'IDR'],
+            'line_items' => [['seller_sku' => 'FM-1', 'quantity' => 3, 'product_name' => 'Face Mist']],
+        ]]);
+
+        $this->assertSame(10, MarketplaceStock::where('product_id', $p->id)->value('quantity')); // tak berubah
+        $this->assertSame('CANCELLED', TiktokOrder::where('tiktok_order_id', 'OCX1')->value('status'));
+    }
+
     // ---------------------------------------------------------------
     // Shopee
     // ---------------------------------------------------------------
@@ -192,5 +214,29 @@ class OrderMirrorTest extends TestCase
 
         $this->assertSame(10, MarketplaceStock::where('product_id', $p->id)->value('quantity'));
         $this->assertSame('CANCELLED', ShopeeOrder::where('order_sn', 'S1')->value('status'));
+    }
+
+    /**
+     * Sama seperti test_tiktok_born_cancelled_order_leaves_pool_unchanged() tapi
+     * utk Shopee: order baru yang lahir SUDAH CANCELLED tidak boleh menggeser
+     * pool (sign harus 0, bukan kurangi-lalu-kembalikan). Pool diseed dulu
+     * supaya decrement AKAN kelihatan kalau salah terjadi.
+     */
+    public function test_shopee_born_cancelled_order_leaves_pool_unchanged(): void
+    {
+        $p = $this->product();
+        ShopeeSkuMap::create(['shopee_sku' => 'FM-1', 'product_id' => $p->id, 'qty' => 1]);
+        app(MarketplaceStockService::class)->setPool($p, 10); // seeded_at = now()
+
+        app(ShopeeOrderService::class)->store([[
+            'order_sn' => 'SCX1', 'order_status' => 'CANCELLED', 'total_amount' => 30000,
+            'currency' => 'IDR', 'create_time' => now()->addMinute()->timestamp,
+            'item_list' => [
+                ['model_sku' => 'FM-1', 'item_name' => 'Face Mist', 'model_quantity_purchased' => 3, 'model_discounted_price' => 10000],
+            ],
+        ]]);
+
+        $this->assertSame(10, MarketplaceStock::where('product_id', $p->id)->value('quantity')); // tak berubah
+        $this->assertSame('CANCELLED', ShopeeOrder::where('order_sn', 'SCX1')->value('status'));
     }
 }

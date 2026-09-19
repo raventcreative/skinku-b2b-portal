@@ -395,19 +395,31 @@ class MarketplaceStockService
 
     /**
      * Push "siap jual" satu listing ke channel-nya & catat hasilnya di baris listing.
-     * `unmapped` = belum terpetakan ATAU pool salah satu komponennya belum di-seed
-     * (anti push-0, lihat availableForListing()) — TIDAK mengirim HTTP apa pun.
-     * `skip` = belum ter-resolve (item_id kosong), atau (tanpa force) angkanya sama
-     * dengan push terakhir. Error channel (RuntimeException dari client) ditangkap
-     * di sini supaya satu listing gagal tak menghentikan batch push lainnya.
+     * `unmapped` = BENAR2 belum terpetakan (tak ada SKU-map maupun Product.sku yang
+     * cocok) — TIDAK mengirim HTTP apa pun. `skip` = belum ter-resolve (item_id
+     * kosong), (tanpa force) angkanya sama dengan push terakhir, ATAU sudah
+     * dipetakan tapi pool salah satu komponennya belum di-seed (anti push-0, lihat
+     * availableForListing()) — kasus terakhir ini sengaja TIDAK direlabel 'unmapped'
+     * supaya cron pushDirty tak salah label listing yang sebenarnya sudah mapped.
+     * Error channel (RuntimeException dari client) ditangkap di sini supaya satu
+     * listing gagal tak menghentikan batch push lainnya.
      */
     public function pushListing(MarketplaceListing $l, bool $force = false): string
     {
         $avail = $this->availableForListing($l);
         if ($avail === null) {
-            $l->update(['last_status' => 'unmapped']);
+            // null punya 2 sebab: benar2 tak dipetakan (SKU-map absen), ATAU sudah
+            // dipetakan tapi pool salah satu komponennya belum di-seed. Cuma sebab
+            // PERTAMA yang boleh menandai 'unmapped' — sebab kedua cuma menunda push
+            // (pool bakal ke-seed lewat resolve→seed window) & TIDAK boleh direlabel,
+            // supaya cron pushDirty 5 menit tak salah label listing yang sudah mapped.
+            if ($this->componentsFor($l->channel, $l->seller_sku) === []) {
+                $l->update(['last_status' => 'unmapped']);
 
-            return 'unmapped';
+                return 'unmapped';
+            }
+
+            return 'skip'; // mapped tapi pool belum di-seed — JANGAN direlabel
         }
         if (! $l->item_id) {
             return 'skip'; // belum ter-resolve

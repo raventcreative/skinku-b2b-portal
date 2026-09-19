@@ -194,16 +194,43 @@ class PushStockTest extends TestCase
 
     // ---- unmapped / pool belum di-set: skip, TAK ADA Http terkirim ----
 
-    public function test_push_listing_pool_belum_di_set_mengembalikan_unmapped_tanpa_http(): void
+    /**
+     * Mapped (ada SKU-map) TAPI pool komponennya belum di-seed → 'skip', BUKAN
+     * 'unmapped'. availableForListing() null di sini punya 2 sebab berbeda: benar2
+     * tak dipetakan, ATAU sudah dipetakan tapi pool-nya belum di-seed. Hanya sebab
+     * PERTAMA yang boleh menandai listing 'unmapped'; sebab kedua cuma menunda push
+     * (pool bakal ke-seed lewat resolve→seed window) — kalau ikut ditandai 'unmapped',
+     * cron pushDirty 5 menit bisa salah label listing yang sebenarnya sudah mapped.
+     */
+    public function test_push_listing_mapped_tapi_pool_belum_diseed_mengembalikan_skip_tanpa_http(): void
     {
         $this->fakeTiktokConfig();
         $p = $this->product('FM-1');
         TiktokSkuMap::create(['tiktok_sku' => 'FM-1', 'product_id' => $p->id, 'qty' => 1]);
         $this->tiktokConn();
-        // TIDAK setPool() -> availableForListing() null
+        // TIDAK setPool() -> availableForListing() null (tapi SUDAH mapped via SKU-map)
         $l = MarketplaceListing::create([
             'channel' => 'tiktok', 'seller_sku' => 'FM-1', 'item_id' => 'PID1',
             'variation_id' => 'SID1', 'warehouse_id' => 'WH1', 'resolved_at' => now(),
+        ]);
+        Http::fake();
+
+        $result = $this->svc()->pushListing($l);
+
+        $this->assertSame('skip', $result);
+        $this->assertNull($l->fresh()->last_status); // TIDAK direlabel 'unmapped'
+        Http::assertNothingSent();
+    }
+
+    /** Benar2 tak dipetakan (tanpa SKU-map & tanpa Product.sku yang cocok) → tetap 'unmapped'. */
+    public function test_push_listing_benar_benar_unmapped_mengembalikan_unmapped_dan_set_last_status(): void
+    {
+        $this->fakeTiktokConfig();
+        $this->tiktokConn();
+        // seller_sku tak ada di SKU-map manapun & bukan Product.sku manapun
+        $l = MarketplaceListing::create([
+            'channel' => 'tiktok', 'seller_sku' => 'ZZZ', 'item_id' => 'PID9',
+            'variation_id' => 'SID9', 'warehouse_id' => 'WH1', 'resolved_at' => now(),
         ]);
         Http::fake();
 
@@ -228,6 +255,26 @@ class PushStockTest extends TestCase
         $r = $this->svc()->pushDirty();
 
         $this->assertSame(['pushed' => 0, 'skipped' => 1, 'failed' => 0], $r);
+        Http::assertNothingSent();
+    }
+
+    public function test_push_dirty_melewati_listing_mapped_tapi_pool_belum_diseed_tanpa_http(): void
+    {
+        $this->fakeTiktokConfig();
+        $p = $this->product('FM-1');
+        TiktokSkuMap::create(['tiktok_sku' => 'FM-1', 'product_id' => $p->id, 'qty' => 1]);
+        $this->tiktokConn();
+        // TIDAK setPool() -> mapped tapi pool belum di-seed
+        MarketplaceListing::create([
+            'channel' => 'tiktok', 'seller_sku' => 'FM-1', 'item_id' => 'PID1',
+            'variation_id' => 'SID1', 'warehouse_id' => 'WH1', 'resolved_at' => now(),
+        ]);
+        Http::fake();
+
+        $r = $this->svc()->pushDirty();
+
+        $this->assertSame(['pushed' => 0, 'skipped' => 1, 'failed' => 0], $r);
+        $this->assertNull(MarketplaceListing::where('seller_sku', 'FM-1')->value('last_status'));
         Http::assertNothingSent();
     }
 
