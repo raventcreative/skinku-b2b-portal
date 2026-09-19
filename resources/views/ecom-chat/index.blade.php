@@ -13,25 +13,8 @@
 <div class="flex flex-col lg:flex-row gap-4 lg:h-[calc(100vh-8.5rem)]">
     {{-- KIRI: daftar percakapan --}}
     <div class="lg:w-80 shrink-0 flex flex-col bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full">
-        <div class="p-3 shrink-0">
-            <div class="flex items-center gap-2">
-                <form method="POST" action="{{ route('ecom-chat.sync') }}" class="flex-1" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Menarik…';">
-                    @csrf
-                    <input type="hidden" name="channel" value="{{ $channel }}">
-                    <button class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-stone-800 text-white hover:bg-stone-900">🔄 Tarik chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}</button>
-                </form>
-                <form method="POST" action="{{ route('ecom-chat.autosend') }}">
-                    @csrf
-                    <input type="hidden" name="on" value="{{ $autosend ? '0' : '1' }}">
-                    <input type="hidden" name="channel" value="{{ $channel }}">
-                    <button class="px-3 py-2 text-xs font-semibold rounded-lg whitespace-nowrap {{ $autosend ? 'bg-emerald-600 text-white' : 'bg-stone-200 text-stone-700' }}" title="Auto-send balasan AI untuk {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }} (per platform)">
-                        AI {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}: {{ $autosend ? 'ON' : 'OFF' }}
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        {{-- Tab + daftar: di-swap AJAX saat ganti filter (tanpa reload halaman). --}}
+        {{-- Toolbar + tab + daftar SEMUA di dalam #ecomList: sekali swap AJAX (ganti
+             tab ATAU channel) semuanya ikut ter-render ulang, tanpa reload halaman. --}}
         <div id="ecomList" class="flex-1 flex flex-col min-h-0 overflow-hidden transition-opacity">
             @include('ecom-chat._list')
         </div>
@@ -105,6 +88,13 @@
         pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden h-[80vh] min-h-[24rem] lg:h-full';
     }
 
+    // Kembalikan panel kanan ke keadaan kosong (dipakai saat ganti channel: chat yang
+    // sedang kebuka milik channel lama, jadi jangan dibiarkan nyangkut di kanan).
+    function emptyMode() {
+        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-[24rem] flex items-center justify-center text-sm text-stone-400 p-6 text-center';
+        pane.innerHTML = 'Pilih percakapan di kiri untuk membuka chat.';
+    }
+
     window.ecomOpen = function (el) {
         var id = el.getAttribute('data-conv-id');
         activeItem = el;
@@ -166,14 +156,16 @@
             });
     });
 
-    // Ganti tab filter TANPA reload — ambil daftar terfilter dari server, swap isinya.
+    // Ganti tab filter ATAU channel (TikTok/Shopee) TANPA reload — ambil daftar dari
+    // server, swap isinya. Toolbar + tab channel ikut di partial jadi ikut ter-update.
     var listWrap = document.getElementById('ecomList');
     if (listWrap) {
         listWrap.addEventListener('click', function (e) {
-            var tabLink = e.target.closest('a[data-tab]');
-            if (!tabLink) return;
+            var navLink = e.target.closest('a[data-tab], a[data-channel]');
+            if (!navLink) return;
             e.preventDefault();
-            var url = tabLink.getAttribute('href');
+            var isChannelSwitch = navLink.hasAttribute('data-channel');
+            var url = navLink.getAttribute('href');
             listWrap.style.opacity = '0.5';
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (r) { return r.ok ? r.text() : null; })
@@ -183,6 +175,13 @@
                     listWrap.innerHTML = html;
                     try { currentTab = new URL(url, location.origin).searchParams.get('tab') || 'perlu'; } catch (e2) {}
                     try { history.replaceState(null, '', url); } catch (e3) {}
+                    if (isChannelSwitch) {
+                        // Chat yang kebuka milik channel lama → kosongkan panel kanan.
+                        activeItem = null;
+                        activeConvId = null;
+                        emptyMode();
+                        return;
+                    }
                     // Sorot ulang percakapan yang sedang dibuka bila masih ada di tab ini.
                     activeItem = activeConvId ? listWrap.querySelector('[data-conv-id="' + activeConvId + '"]') : null;
                     if (activeItem) activeItem.classList.add('bg-stone-100');
