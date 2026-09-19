@@ -13,6 +13,8 @@
 ## Global Constraints
 
 - PHP 8.3 / Laravel 13. Runner lokal tes: `C:\php83\php.exe artisan test`. Format: `C:\php83\php.exe vendor/bin/pint --dirty` sebelum tiap commit.
+- **Framework tes = PHPUnit class-style. Repo TIDAK memakai Pest.** Semua cuplikan tes di task ini ILUSTRATIF (ditulis gaya Pest `it()`/`expect()`); terjemahkan 1:1 ke PHPUnit: kelas `extends Tests\TestCase`, `use RefreshDatabase;`, method `public function test_*`, assertion `$this->assertSame(...)` dsb. Pertahankan assertion & perilaku yang sama.
+- **Bikin `Product` di tes langsung** (repo tak punya `ProductFactory`): `Product::create([...])` dgn kolom wajib, ikuti pola tes yang ada (mis. `tests/Feature/MarketplaceBackdateMovementTest.php`). Jangan tambah factory/dependency.
 - **Zero-dependency**: TANPA composer package baru. Reuse `ShopeeClient`, `TikTokClient`, peta SKU (`tiktok_sku_maps`/`shopee_sku_maps`) + UI-nya, koneksi (`ShopeeConnection`/`TiktokConnection`).
 - **JANGAN menyentuh** `stock_movements`, `InventoryService::adjustHqStock`, atau Laporan Stok HQ. Fitur ini pool terpisah.
 - Buffer = 0 (tak ada stok cadangan di Fase 1). Seed awal dari TikTok.
