@@ -220,6 +220,29 @@ class ShopeeClient
         ]), $path);
     }
 
+    /** Perbarui stok satu model/varian (model_id=0 kalau item tanpa varian). */
+    public function updateStock(string $accessToken, string $shopId, int $itemId, int $modelId, int $qty): array
+    {
+        return $this->shopCall('POST', '/api/v2/product/update_stock', $accessToken, $shopId, [
+            'item_id' => $itemId,
+            'stock_list' => [['model_id' => $modelId, 'seller_stock' => [['stock' => $qty]]]],
+        ]);
+    }
+
+    /** Daftar item toko (status NORMAL) — dipakai memetakan produk lokal ↔ item Shopee. */
+    public function getItemList(string $accessToken, string $shopId, int $offset = 0, int $pageSize = 50): array
+    {
+        return $this->shopCall('GET', '/api/v2/product/get_item_list', $accessToken, $shopId, [
+            'offset' => $offset, 'page_size' => $pageSize, 'item_status' => 'NORMAL',
+        ]);
+    }
+
+    /** Daftar model/varian dalam satu item — sumber model_id untuk updateStock. */
+    public function getModelList(string $accessToken, string $shopId, int $itemId): array
+    {
+        return $this->shopCall('GET', '/api/v2/product/get_model_list', $accessToken, $shopId, ['item_id' => $itemId]);
+    }
+
     // ---- internal ----
 
     /**

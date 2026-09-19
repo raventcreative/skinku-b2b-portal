@@ -283,6 +283,31 @@ class TikTokClient
         return $this->request('GET', $path, $accessToken, $shopCipher, $query);
     }
 
+    /** Perbarui stok satu SKU di satu gudang (Inventory API). */
+    public function updateStock(string $accessToken, string $shopCipher, string $productId, string $skuId, string $warehouseId, int $qty): array
+    {
+        return $this->request('POST', "/product/202309/products/{$productId}/inventory/update", $accessToken, $shopCipher, [], [
+            'skus' => [['id' => $skuId, 'inventory' => [['warehouse_id' => $warehouseId, 'quantity' => $qty]]]],
+        ]);
+    }
+
+    /** Cari produk aktif toko — dipakai memetakan produk lokal ↔ product/SKU TikTok. */
+    public function searchProducts(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
+    {
+        $q = ['page_size' => $pageSize];
+        if ($pageToken !== '') {
+            $q['page_token'] = $pageToken;
+        }
+
+        return $this->request('POST', '/product/202309/products/search', $accessToken, $shopCipher, $q, ['status' => 'ACTIVATE']);
+    }
+
+    /** Daftar gudang toko — sumber warehouse_id untuk updateStock. */
+    public function getWarehouses(string $accessToken, string $shopCipher): array
+    {
+        return $this->request('GET', '/logistics/202309/warehouses', $accessToken, $shopCipher);
+    }
+
     // ---- internal ----
 
     private function authCall(string $path, array $query): array
