@@ -16,6 +16,12 @@ class AvailabilityTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     private int $seq = 0;
 
     private function product(?string $sku = null): Product
