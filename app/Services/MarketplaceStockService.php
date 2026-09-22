@@ -136,11 +136,24 @@ class MarketplaceStockService
     }
 
     /**
-     * Terapkan delta dari order marketplace ke pool, tapi HANYA bila pool sudah
-     * di-seed dan order-nya terjadi setelah seeded_at (order lama diabaikan).
+     * Terapkan delta dari order marketplace channel-aware (Fase 1.5): kalau
+     * (product,channel) punya override, delta itu yang digeser (Master TIDAK
+     * disentuh); kalau tidak, jatuh balik ke pool Master — persis Fase 1.
+     * Di kedua jalur, HANYA bila baris tujuan sudah di-seed dan order-nya
+     * terjadi setelah seeded_at-nya (order lama diabaikan).
      */
-    public function applyOrderDelta(Product $product, int $delta, Carbon $orderCreatedAt): void
+    public function applyOrderDelta(Product $product, string $channel, int $delta, Carbon $orderCreatedAt): void
     {
+        $override = MarketplaceChannelOverride::where('product_id', $product->id)->where('channel', $channel)->first();
+        if ($override) {
+            if ($override->seeded_at === null || $orderCreatedAt->lt($override->seeded_at)) {
+                return;
+            }
+            $override->update(['quantity' => max(0, (int) $override->quantity + $delta)]);
+
+            return;
+        }
+
         $row = MarketplaceStock::where('product_id', $product->id)->first();
         if (! $row || $row->seeded_at === null || $orderCreatedAt->lt($row->seeded_at)) {
             return;

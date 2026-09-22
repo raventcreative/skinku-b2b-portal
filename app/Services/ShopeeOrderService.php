@@ -101,7 +101,7 @@ class ShopeeOrderService
 
         foreach ($this->normalizeItems($o) as $it) {
             foreach ($this->resolve($it['sku']) as $c) {
-                $this->marketplace->applyOrderDelta($c['product'], $sign * $c['qty'] * (int) $it['qty'], $createdAt);
+                $this->marketplace->applyOrderDelta($c['product'], 'shopee', $sign * $c['qty'] * (int) $it['qty'], $createdAt);
             }
         }
     }

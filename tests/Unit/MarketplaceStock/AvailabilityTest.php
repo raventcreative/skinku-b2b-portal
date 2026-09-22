@@ -79,13 +79,13 @@ class AvailabilityTest extends TestCase
         $p = $this->product();
         MarketplaceStock::create(['product_id' => $p->id, 'quantity' => 5, 'seeded_at' => now()]);
 
-        $this->svc()->applyOrderDelta($p, -2, now()->addMinute()); // sesudah seed -> 3
+        $this->svc()->applyOrderDelta($p, 'tiktok', -2, now()->addMinute()); // sesudah seed -> 3 (tak ada override -> ke master)
         $this->assertSame(3, (int) MarketplaceStock::where('product_id', $p->id)->value('quantity'));
 
-        $this->svc()->applyOrderDelta($p, -1, now()->subDay()); // sebelum seed -> diabaikan
+        $this->svc()->applyOrderDelta($p, 'tiktok', -1, now()->subDay()); // sebelum seed -> diabaikan
         $this->assertSame(3, (int) MarketplaceStock::where('product_id', $p->id)->value('quantity'));
 
-        $this->svc()->applyOrderDelta($p, -99, now()->addMinute()); // clamp
+        $this->svc()->applyOrderDelta($p, 'tiktok', -99, now()->addMinute()); // clamp
         $this->assertSame(0, (int) MarketplaceStock::where('product_id', $p->id)->value('quantity'));
     }
 
