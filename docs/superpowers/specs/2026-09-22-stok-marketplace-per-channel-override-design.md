@@ -18,6 +18,7 @@ Tambahkan **lapis kontrol per-channel** di atas pool Master yang sudah ada, meni
 - Channel yang di-override tetap ikut turun otomatis saat ada order di channel itu (anti-oversell per-channel tetap jalan).
 - Tombol **"Ikut Master"** untuk melepas override → channel balik mengikuti Master.
 - Menu sidebar terpisah: **Stok Master**, **Stok TikTok**, **Stok Shopee**.
+- **Tautkan SKU yang belum terpetakan LANGSUNG dari halaman ini** (pilih produk master) — tanpa bolak-balik ke halaman peta SKU TikTok/Shopee. (Banyak seller sudah punya toko sebelum pakai SKINKU → kode SKU channel sering beda dari SKU internal.)
 
 **Non-Tujuan:**
 - **HQ stock / `stock_movements` / `adjustHqStock` tetap TIDAK disentuh.**
@@ -84,6 +85,9 @@ Hook di `*OrderService::store()` mengirim channel-nya (TikTok service → `'tikt
 ### 6.7 Resolve listing
 `resolveListings` (SUDAH ADA) — tak berubah.
 
+### 6.8 Tautkan SKU langsung dari sini (tanpa bolak-balik ke halaman peta SKU)
+Bagian "Listing belum terpetakan" diberi aksi tautkan **inline**: pilih **produk master** (native `<select>`, label nama-depan sesuai pola yang disukai) + **qty** (default 1) + tombol **Tautkan** → buat baris `tiktok_sku_maps`/`shopee_sku_maps` (`{channel}_sku = seller_sku`, `product_id`, `qty`), lalu bersihkan tanda `unmapped` pada baris `marketplace_listings` yang cocok. Untuk **bundle multi-produk**, tautkan komponen berulang (tiap submit menambah 1 komponen ke `seller_sku` itu) atau pakai halaman peta SKU lama. **Reuse tabel peta SKU yang sudah ada** — sekali tautkan, dipakai untuk stok-mirror DAN potong-stok HQ (konsisten, tak dobel). Setelah tautkan, produk itu muncul di tabel utama & ikut sinkron.
+
 ## 7. UI + sidebar
 
 **3 menu sidebar** (grup Integrasi), semua gate `permission:manage_marketplace_stock`:
@@ -99,6 +103,7 @@ Grup `permission:manage_marketplace_stock` (SUDAH ADA), tambah:
 - `GET /marketplace-stock/tiktok` → `channel('tiktok')`; `GET /marketplace-stock/shopee` → `channel('shopee')`
 - `POST /marketplace-stock/{channel}/override/{product}` → set override (validasi `channel` ∈ {tiktok,shopee}, `quantity` int ≥ 0)
 - `POST /marketplace-stock/{channel}/ikut-master/{product}` → clear override
+- `POST /marketplace-stock/{channel}/tautkan` → buat peta SKU untuk listing belum terpetakan (validasi `channel` ∈ {tiktok,shopee}, `seller_sku` wajib, `product_id` ada, `qty` int ≥ 1)
 - (rute Master `set`/`push`/`push-all`/`resolve`/`seed`/`index` tetap)
 
 Item sidebar baru di `resources/views/layouts/app.blade.php` (grup Integrasi), gate `$u->canDo('manage_marketplace_stock')` (ikut pola item yang ada — **BUKAN `@can`**, codebase pakai `canDo`). Grup accordion Integrasi sudah meng-OR `manage_marketplace_stock` (dari Fase 1) → aman.
