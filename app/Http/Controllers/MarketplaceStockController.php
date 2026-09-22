@@ -67,17 +67,39 @@ class MarketplaceStockController extends Controller
 
     public function resolve(MarketplaceStockService $svc): RedirectResponse
     {
-        $svc->resolveListings('tiktok');
-        $svc->resolveListings('shopee');
+        // Per-channel: satu channel gagal (mis. scope Product belum aktif) tak
+        // menggagalkan yang lain, dan tampil pesan jelas — bukan halaman 500.
+        $notes = [];
+        $errors = [];
+        foreach (['tiktok', 'shopee'] as $channel) {
+            try {
+                $r = $svc->resolveListings($channel);
+                $notes[] = ucfirst($channel).": {$r['found']} listing ({$r['mapped']} terpetakan, {$r['unmapped']} belum)";
+            } catch (\Throwable $e) {
+                $errors[] = ucfirst($channel).' gagal: '.$e->getMessage();
+            }
+        }
 
-        return back()->with('status', 'Daftar listing diperbarui.');
+        $redirect = back();
+        if ($notes) {
+            $redirect->with('status', 'Refresh listing — '.implode(' · ', $notes));
+        }
+        if ($errors) {
+            $redirect->with('error', implode(' · ', $errors).' — cek izin/scope Product di app channel.');
+        }
+
+        return $redirect;
     }
 
     public function seed(MarketplaceStockService $svc): RedirectResponse
     {
-        $r = $svc->seedFromTiktok();
+        try {
+            $r = $svc->seedFromTiktok();
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal tarik stok awal dari TikTok: '.$e->getMessage().' — cek izin/scope Product.');
+        }
 
-        return back()->with('status', "Seed dari TikTok: {$r['seeded']} produk.");
+        return back()->with('status', "Tarik stok awal dari TikTok: {$r['seeded']} produk di-seed, {$r['skipped']} dilewati.");
     }
 
     /**

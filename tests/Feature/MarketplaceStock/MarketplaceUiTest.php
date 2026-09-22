@@ -132,6 +132,33 @@ class MarketplaceUiTest extends TestCase
             ->assertRedirect()->assertSessionHas('status');
     }
 
+    // ---- resolve/seed: error API (mis. scope Product belum aktif) -> pesan rapi, bukan 500 ----
+
+    public function test_resolve_menampilkan_error_bukan_500_saat_api_gagal(): void
+    {
+        TiktokConnection::create([
+            'shop_id' => 's', 'shop_cipher' => 'c', 'access_token' => 't', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(),
+        ]);
+        // TikTok membalas galat (mis. scope Product belum aktif) -> client throw -> controller wajib tangkap
+        Http::fake(['*' => Http::response(['code' => 36004, 'message' => 'no permission'], 200)]);
+
+        $this->actingAs($this->admin())->post('/marketplace-stock/resolve')
+            ->assertRedirect()->assertSessionHas('error');
+    }
+
+    public function test_seed_menampilkan_error_bukan_500_saat_api_gagal(): void
+    {
+        TiktokConnection::create([
+            'shop_id' => 's', 'shop_cipher' => 'c', 'access_token' => 't', 'refresh_token' => 'r',
+            'access_expires_at' => now()->addDay(),
+        ]);
+        Http::fake(['*' => Http::response(['code' => 36004, 'message' => 'no permission'], 200)]);
+
+        $this->actingAs($this->admin())->post('/marketplace-stock/seed-tiktok')
+            ->assertRedirect()->assertSessionHas('error');
+    }
+
     // ---- push per-baris ----
 
     public function test_push_satu_produk_meredirect_dengan_status(): void
