@@ -161,6 +161,24 @@ class MarketplaceStockService
         $row->update(['quantity' => max(0, (int) $row->quantity + $delta)]);
     }
 
+    /**
+     * Tautkan seller_sku (listing belum terpetakan) ke produk master langsung
+     * dari halaman Stok — bikin/isi baris peta SKU channel-nya lalu lepaskan
+     * status 'unmapped' listing terkait. `firstOrCreate` biar aman kalau
+     * komponen sudah ada (bundle multi-komponen = beberapa kali tautkan produk
+     * berbeda utk seller_sku yang sama).
+     */
+    public function linkSku(string $channel, string $sellerSku, int $productId, int $qty): void
+    {
+        if ($channel === 'tiktok') {
+            TiktokSkuMap::firstOrCreate(['tiktok_sku' => $sellerSku, 'product_id' => $productId], ['qty' => max(1, $qty)]);
+        } else {
+            ShopeeSkuMap::firstOrCreate(['shopee_sku' => $sellerSku, 'product_id' => $productId], ['qty' => max(1, $qty)]);
+        }
+        MarketplaceListing::where('channel', $channel)->where('seller_sku', $sellerSku)
+            ->where('last_status', 'unmapped')->update(['last_status' => null]);
+    }
+
     // ---- Resolve listing (isi item_id/variation_id/warehouse_id dari channel) ----
 
     private function tiktokConn(): ?TiktokConnection

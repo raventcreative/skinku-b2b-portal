@@ -112,7 +112,7 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-xs whitespace-nowrap">
                     <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]"><tr>
-                        <th class="text-left px-4 py-2">Channel</th><th class="text-left">Seller SKU</th><th class="text-left">Judul</th>
+                        <th class="text-left px-4 py-2">Channel</th><th class="text-left">Seller SKU</th><th class="text-left">Judul</th><th class="text-left pr-4">Tautkan ke Produk</th>
                     </tr></thead>
                     <tbody>
                         @foreach($unmapped as $l)
@@ -120,6 +120,20 @@
                                 <td class="px-4 py-2 capitalize">{{ $l->channel }}</td>
                                 <td class="font-mono text-stone-700">{{ $l->seller_sku }}</td>
                                 <td class="text-stone-500">{{ $l->title ?? '—' }}</td>
+                                <td class="py-2 pr-4">
+                                    <form method="POST" action="{{ route('marketplace-stock.tautkan', ['channel' => $l->channel]) }}" class="flex items-center gap-1.5">
+                                        @csrf
+                                        <input type="hidden" name="seller_sku" value="{{ $l->seller_sku }}">
+                                        <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded-lg text-xs max-w-[180px]">
+                                            <option value="">Pilih produk…</option>
+                                            @foreach($products as $p)
+                                                <option value="{{ $p->id }}">{{ $p->name }} ({{ $p->sku }})</option>
+                                            @endforeach
+                                        </select>
+                                        <input type="number" name="qty" min="1" step="1" value="1" class="w-14 px-2 py-1 border border-stone-300 rounded-lg text-xs">
+                                        <button class="px-2.5 py-1 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 text-[11px]">Tautkan</button>
+                                    </form>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

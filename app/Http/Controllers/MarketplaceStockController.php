@@ -43,6 +43,7 @@ class MarketplaceStockController extends Controller
         return view('marketplace-stock.index', [
             'rows' => $rows,
             'unmapped' => MarketplaceListing::where('last_status', 'unmapped')->get(),
+            'products' => Product::orderBy('name')->get(['id', 'name', 'sku']),
         ]);
     }
 
@@ -96,6 +97,21 @@ class MarketplaceStockController extends Controller
         $svc->pushProduct($product);
 
         return back()->with('status', "Stok {$channel} — {$product->name} kembali ikut Master.");
+    }
+
+    /** Tautkan seller_sku (listing belum terpetakan) ke produk master langsung dari halaman Stok. */
+    public function tautkan(Request $request, string $channel, MarketplaceStockService $svc): RedirectResponse
+    {
+        abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
+        $data = $request->validate([
+            'seller_sku' => ['required', 'string'],
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'qty' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $svc->linkSku($channel, $data['seller_sku'], (int) $data['product_id'], (int) $data['qty']);
+
+        return back()->with('status', "SKU {$data['seller_sku']} ditautkan ke produk.");
     }
 
     public function setStock(Request $request, Product $product, MarketplaceStockService $svc): RedirectResponse
