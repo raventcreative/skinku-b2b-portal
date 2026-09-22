@@ -297,9 +297,9 @@
 
             @php
                 // Grup accordion "Integrasi": TikTok + Shopee (marketplace) jadi sub-menu.
-                $integrasiGroupOpen = request()->routeIs('tiktok.*') || request()->routeIs('shopee.*') || request()->routeIs('ecom-chat.*') || request()->routeIs('marketplace-stock.*');
+                $integrasiGroupOpen = request()->routeIs('tiktok.*') || request()->routeIs('shopee.*') || request()->routeIs('ecom-chat.*');
             @endphp
-            @if($u->canDo('manage_tiktok') || $u->canDo('manage_shopee') || $u->canDo('manage_ecommerce_chat') || $u->canDo('manage_marketplace_stock'))
+            @if($u->canDo('manage_tiktok') || $u->canDo('manage_shopee') || $u->canDo('manage_ecommerce_chat'))
                 <button type="button" onclick="toggleNavGroup('grpIntegrasi')"
                     class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $integrasiGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-integrasi') !!}<span>Integrasi</span></span>
@@ -313,16 +313,28 @@
                     @if($u->canDo('manage_shopee'))
                         {!! navItem('shopee.index', 'Shopee', 'shopee.*') !!}
                     @endif
-                    @if($u->canDo('manage_marketplace_stock'))
-                        {!! navItem('marketplace-stock.index', 'Stok Master', 'marketplace-stock.index') !!}
-                        {{-- Stok TikTok/Shopee berbagi nama rute 'marketplace-stock.channel' (beda parameter) —
-                             ikon dipakai ulang dari item TikTok/Shopee Integrasi di atas (zero fetch baru). --}}
-                        {!! navItem('marketplace-stock.channel', 'Stok TikTok', 'marketplace-stock.channel', ['tiktok'], request()->routeIs('marketplace-stock.channel') && request()->route('channel') === 'tiktok', 'tiktok.index') !!}
-                        {!! navItem('marketplace-stock.channel', 'Stok Shopee', 'marketplace-stock.channel', ['shopee'], request()->routeIs('marketplace-stock.channel') && request()->route('channel') === 'shopee', 'shopee.index') !!}
-                    @endif
                     @if($u->canDo('manage_ecommerce_chat'))
                         {!! navItem('ecom-chat.index', 'Chat E-commerce', 'ecom-chat.*') !!}
                     @endif
+                </div>
+            @endif
+
+            @php
+                // Grup accordion "Stok Marketplace": kontrol stok lintas channel (Master + per-channel).
+                // Sengaja TERPISAH dari Integrasi (permintaan user).
+                $stokMpGroupOpen = request()->routeIs('marketplace-stock.*');
+            @endphp
+            @if($u->canDo('manage_marketplace_stock'))
+                <button type="button" onclick="toggleNavGroup('grpStokMp')"
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $stokMpGroupOpen ? 'text-white' : '' }}">
+                    <span class="flex items-center gap-3">{!! navIcon('marketplace-stock.index') !!}<span>Stok Marketplace</span></span>
+                    <svg id="grpStokMpChevron" class="w-3.5 h-3.5 transition-transform {{ $stokMpGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="grpStokMp" class="{{ $stokMpGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                    {!! navItem('marketplace-stock.index', 'Stok Master', 'marketplace-stock.index') !!}
+                    {{-- Stok TikTok/Shopee berbagi nama rute 'marketplace-stock.channel' (beda parameter); ikon dipakai ulang dari item TikTok/Shopee. --}}
+                    {!! navItem('marketplace-stock.channel', 'Stok TikTok', 'marketplace-stock.channel', ['tiktok'], request()->routeIs('marketplace-stock.channel') && request()->route('channel') === 'tiktok', 'tiktok.index') !!}
+                    {!! navItem('marketplace-stock.channel', 'Stok Shopee', 'marketplace-stock.channel', ['shopee'], request()->routeIs('marketplace-stock.channel') && request()->route('channel') === 'shopee', 'shopee.index') !!}
                 </div>
             @endif
 
