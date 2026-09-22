@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MarketplaceChannelOverride;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceStock;
 use App\Models\Product;
@@ -48,7 +49,10 @@ class MarketplaceStockService
 
     /**
      * Jumlah siap jual untuk satu listing, atau null bila belum boleh di-push
-     * (belum dipetakan, atau ada komponen yang pool-nya belum di-seed).
+     * (belum dipetakan, atau ada komponen yang stok efektifnya — override ATAU
+     * master — belum di-seed). Channel-aware lewat channelStock() per komponen
+     * (Fase 1.5): kalau ada override (product,channel), override itu yang dipakai;
+     * kalau tidak, jatuh balik ke pool Master.
      */
     public function availableForListing(MarketplaceListing $l): ?int
     {
@@ -59,15 +63,52 @@ class MarketplaceStockService
 
         $avail = null;
         foreach ($components as $c) {
-            $pool = MarketplaceStock::where('product_id', $c['product_id'])->first();
-            if (! $pool) {
-                return null; // pool belum di-seed/di-set → jangan push (pengaman anti-0)
+            $stock = $this->channelStock($c['product_id'], $l->channel);
+            if ($stock === null) {
+                return null; // master & override dua-duanya kosong → anti push-0
             }
-            $canMake = intdiv(max(0, (int) $pool->quantity), $c['qty']);
+            $canMake = intdiv(max(0, $stock), $c['qty']);
             $avail = $avail === null ? $canMake : min($avail, $canMake);
         }
 
         return $avail;
+    }
+
+    /**
+     * Stok efektif satu produk pada satu channel: override (product,channel) bila
+     * ada, jika tidak jatuh balik ke pool Master, jika keduanya belum di-seed
+     * hasilnya null (dipakai availableForListing() sbg pengaman anti push-0).
+     */
+    public function channelStock(int $productId, string $channel): ?int
+    {
+        $override = MarketplaceChannelOverride::where('product_id', $productId)->where('channel', $channel)->first();
+        if ($override) {
+            return (int) $override->quantity;
+        }
+
+        $master = MarketplaceStock::where('product_id', $productId)->first();
+
+        return $master ? (int) $master->quantity : null;
+    }
+
+    /**
+     * Set/seed override channel ke nilai absolut $qty (clamp ≥0) dan stempel
+     * seeded_at = now(). Tak menyentuh pool Master maupun channel lain.
+     */
+    public function setChannelOverride(Product $product, string $channel, int $qty): MarketplaceChannelOverride
+    {
+        return MarketplaceChannelOverride::updateOrCreate(
+            ['product_id' => $product->id, 'channel' => $channel],
+            ['quantity' => max(0, $qty), 'seeded_at' => now()],
+        );
+    }
+
+    /**
+     * Hapus override (product,channel) — channelStock() jatuh balik ke Master lagi.
+     */
+    public function clearChannelOverride(Product $product, string $channel): void
+    {
+        MarketplaceChannelOverride::where('product_id', $product->id)->where('channel', $channel)->delete();
     }
 
     /**
