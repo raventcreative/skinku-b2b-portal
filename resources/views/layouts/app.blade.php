@@ -161,10 +161,15 @@
                     }
                 }
                 if (!function_exists('navItem')) {
-                    function navItem($route, $label, $active) {
-                        $is = request()->routeIs($active);
+                    // $params: parameter rute (dipakai item yg rute-nya butuh segmen, mis. marketplace-stock.channel).
+                    // $isActive: override deteksi aktif manual — perlu saat beberapa item BERBAGI nama rute yang
+                    // sama (mis. Stok TikTok vs Stok Shopee, dua-duanya 'marketplace-stock.channel') sehingga
+                    // routeIs() saja tak bisa membedakan; null berarti pakai routeIs($active) spt biasa.
+                    // $iconKey: kunci navIcon() alternatif saat nama rute item tak punya ikon sendiri (reuse ikon).
+                    function navItem($route, $label, $active, $params = [], $isActive = null, $iconKey = null) {
+                        $is = $isActive ?? request()->routeIs($active);
                         $cls = $is ? 'bg-red-900 text-white border-l-4 border-white pl-3' : 'text-red-100 hover:text-white hover:bg-red-900/50 pl-4';
-                        return '<a href="'.route($route).'" class="flex items-center gap-3 pr-4 py-2.5 rounded-lg '.$cls.'">'.navIcon($route).'<span>'.$label.'</span></a>';
+                        return '<a href="'.route($route, $params).'" class="flex items-center gap-3 pr-4 py-2.5 rounded-lg '.$cls.'">'.navIcon($iconKey ?? $route).'<span>'.$label.'</span></a>';
                     }
                 }
             @endphp
@@ -309,7 +314,11 @@
                         {!! navItem('shopee.index', 'Shopee', 'shopee.*') !!}
                     @endif
                     @if($u->canDo('manage_marketplace_stock'))
-                        {!! navItem('marketplace-stock.index', 'Stok Marketplace', 'marketplace-stock.*') !!}
+                        {!! navItem('marketplace-stock.index', 'Stok Master', 'marketplace-stock.index') !!}
+                        {{-- Stok TikTok/Shopee berbagi nama rute 'marketplace-stock.channel' (beda parameter) —
+                             ikon dipakai ulang dari item TikTok/Shopee Integrasi di atas (zero fetch baru). --}}
+                        {!! navItem('marketplace-stock.channel', 'Stok TikTok', 'marketplace-stock.channel', ['tiktok'], request()->routeIs('marketplace-stock.channel') && request()->route('channel') === 'tiktok', 'tiktok.index') !!}
+                        {!! navItem('marketplace-stock.channel', 'Stok Shopee', 'marketplace-stock.channel', ['shopee'], request()->routeIs('marketplace-stock.channel') && request()->route('channel') === 'shopee', 'shopee.index') !!}
                     @endif
                     @if($u->canDo('manage_ecommerce_chat'))
                         {!! navItem('ecom-chat.index', 'Chat E-commerce', 'ecom-chat.*') !!}

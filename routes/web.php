@@ -633,6 +633,9 @@ Route::middleware(['auth', 'role'])->group(function () {
     /* ---------------- Kontrol Stok Marketplace ---------------- */
     Route::middleware('permission:manage_marketplace_stock')->group(function () {
         Route::get('/marketplace-stock', [MarketplaceStockController::class, 'index'])->name('marketplace-stock.index');
+        Route::get('/marketplace-stock/{channel}', [MarketplaceStockController::class, 'channel'])->name('marketplace-stock.channel');
+        Route::post('/marketplace-stock/{channel}/override/{product}', [MarketplaceStockController::class, 'setOverride'])->name('marketplace-stock.override');
+        Route::post('/marketplace-stock/{channel}/ikut-master/{product}', [MarketplaceStockController::class, 'ikutMaster'])->name('marketplace-stock.ikut-master');
         Route::post('/marketplace-stock/set/{product}', [MarketplaceStockController::class, 'setStock'])->name('marketplace-stock.set');
         Route::post('/marketplace-stock/push/{product}', [MarketplaceStockController::class, 'push'])->name('marketplace-stock.push');
         Route::post('/marketplace-stock/push-all', [MarketplaceStockController::class, 'pushAll'])->name('marketplace-stock.push-all');

@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title','Stok Master')
-@section('heading','Stok Master')
+@section('title','Stok '.ucfirst($channel))
+@section('heading','Stok '.ucfirst($channel))
 @section('content')
 
 <div class="space-y-4">
@@ -14,13 +14,9 @@
 
     {{-- Aksi --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
-        <h3 class="text-sm font-bold text-stone-800 mb-1">Kontrol Stok Marketplace</h3>
-        <p class="text-xs text-stone-500 mb-4">Satu pool stok "siap jual" per produk, dibagi ke semua listing TikTok &amp; Shopee yang memuatnya (bundle-aware).</p>
+        <h3 class="text-sm font-bold text-stone-800 mb-1">Stok {{ ucfirst($channel) }}</h3>
+        <p class="text-xs text-stone-500 mb-4">Stok efektif = Override {{ ucfirst($channel) }} kalau ada, kalau tidak ikut pool Master. Set override untuk melepas produk ini dari Master; "Ikut Master" mengembalikannya.</p>
         <div class="flex flex-wrap gap-2">
-            <form method="POST" action="{{ route('marketplace-stock.seed') }}" onsubmit="return confirm('Tarik stok TikTok saat ini sebagai nilai awal pool? Hanya listing 1:1 (bukan bundle) yang di-seed otomatis.')">
-                @csrf
-                <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">⬇ Tarik stok awal dari TikTok</button>
-            </form>
             <form method="POST" action="{{ route('marketplace-stock.resolve') }}">
                 @csrf
                 <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">↻ Refresh listing</button>
@@ -29,6 +25,7 @@
                 @csrf
                 <button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⇪ Sinkron semua</button>
             </form>
+            <a href="{{ route('marketplace-stock.index') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">← Stok Master</a>
         </div>
     </div>
 
@@ -40,9 +37,9 @@
                 <table class="w-full text-xs whitespace-nowrap">
                     <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]"><tr>
                         <th class="text-left px-4 py-2">Produk</th>
-                        <th class="text-left">Pool Stok</th>
-                        <th class="text-left">TikTok</th>
-                        <th class="text-left">Shopee</th>
+                        <th class="text-left">Stok Efektif</th>
+                        <th class="text-left">Set Override</th>
+                        <th class="text-left">Listing {{ ucfirst($channel) }}</th>
                         <th class="text-left pr-4">Aksi</th>
                     </tr></thead>
                     <tbody>
@@ -54,39 +51,35 @@
                                     <div class="text-[11px] text-stone-400 font-mono">{{ $p->sku }}</div>
                                 </td>
                                 <td class="py-2.5">
-                                    <form method="POST" action="{{ route('marketplace-stock.set', $p) }}" class="flex items-center gap-1.5">
+                                    <div class="font-semibold text-stone-800">{{ $row['effective'] ?? '—' }}</div>
+                                    @if($row['override'] !== null)
+                                        <span class="inline-block mt-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold">Override: {{ $row['override'] }}</span>
+                                    @else
+                                        <span class="inline-block mt-1 px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 text-[10px] font-semibold">Ikut Master</span>
+                                    @endif
+                                </td>
+                                <td class="py-2.5">
+                                    <form method="POST" action="{{ route('marketplace-stock.override', ['channel' => $channel, 'product' => $p]) }}" class="flex items-center gap-1.5">
                                         @csrf
                                         <input type="number" name="quantity" min="0" step="1"
-                                            value="{{ $row['pool'] }}" placeholder="belum di-set"
+                                            value="{{ $row['override'] }}" placeholder="ikut master"
                                             class="w-24 px-2 py-1 border border-stone-300 rounded-lg text-xs">
                                         <button class="px-2.5 py-1 bg-stone-800 text-white rounded-lg hover:bg-stone-900 text-[11px]">Simpan</button>
                                     </form>
-                                    @if($row['pool'] === null)
-                                        <div class="text-[10px] text-amber-600 mt-1">belum di-set</div>
+                                    @if($row['override'] !== null)
+                                        <form method="POST" action="{{ route('marketplace-stock.ikut-master', ['channel' => $channel, 'product' => $p]) }}" class="mt-1">
+                                            @csrf
+                                            <button class="px-2.5 py-1 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-[11px]">Ikut Master</button>
+                                        </form>
                                     @endif
                                 </td>
                                 <td class="py-2.5">
-                                    @if($row['tiktok'])
-                                        <div class="font-mono text-stone-700">{{ $row['tiktok']->seller_sku }}</div>
-                                        <div class="text-[11px] text-stone-500">terkirim: {{ $row['tiktok']->last_pushed_qty ?? '—' }} · {{ $row['tiktok']->last_status ?? 'belum sinkron' }}</div>
-                                        <div class="text-[10px] text-stone-400">{{ $row['tiktok']->last_pushed_at?->diffForHumans() ?? 'belum pernah' }}</div>
+                                    @if($row['listing'])
+                                        <div class="font-mono text-stone-700">{{ $row['listing']->seller_sku }}</div>
+                                        <div class="text-[11px] text-stone-500">terkirim: {{ $row['listing']->last_pushed_qty ?? '—' }} · {{ $row['listing']->last_status ?? 'belum sinkron' }}</div>
+                                        <div class="text-[10px] text-stone-400">{{ $row['listing']->last_pushed_at?->diffForHumans() ?? 'belum pernah' }}</div>
                                     @else
                                         <span class="text-stone-400">belum dipetakan</span>
-                                    @endif
-                                    @if($row['tiktok_override'] !== null)
-                                        <div class="mt-1"><span class="inline-block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold">Override: {{ $row['tiktok_override'] }}</span></div>
-                                    @endif
-                                </td>
-                                <td class="py-2.5">
-                                    @if($row['shopee'])
-                                        <div class="font-mono text-stone-700">{{ $row['shopee']->seller_sku }}</div>
-                                        <div class="text-[11px] text-stone-500">terkirim: {{ $row['shopee']->last_pushed_qty ?? '—' }} · {{ $row['shopee']->last_status ?? 'belum sinkron' }}</div>
-                                        <div class="text-[10px] text-stone-400">{{ $row['shopee']->last_pushed_at?->diffForHumans() ?? 'belum pernah' }}</div>
-                                    @else
-                                        <span class="text-stone-400">belum dipetakan</span>
-                                    @endif
-                                    @if($row['shopee_override'] !== null)
-                                        <div class="mt-1"><span class="inline-block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold">Override: {{ $row['shopee_override'] }}</span></div>
                                     @endif
                                 </td>
                                 <td class="py-2.5 pr-4">
@@ -101,24 +94,23 @@
                 </table>
             </div>
         @else
-            <p class="px-5 py-6 text-center text-stone-400 text-sm">Belum ada produk yang dipetakan ke SKU marketplace. Petakan dulu di halaman TikTok/Shopee.</p>
+            <p class="px-5 py-6 text-center text-stone-400 text-sm">Belum ada produk yang dipetakan ke SKU {{ ucfirst($channel) }}.</p>
         @endif
     </div>
 
-    {{-- Listing belum terpetakan --}}
+    {{-- Listing belum terpetakan (channel ini) --}}
     @if(count($unmapped))
         <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-            <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">Listing belum terpetakan — {{ count($unmapped) }}</div>
+            <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">Listing {{ ucfirst($channel) }} belum terpetakan — {{ count($unmapped) }}</div>
             <div class="overflow-x-auto">
                 <table class="w-full text-xs whitespace-nowrap">
                     <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]"><tr>
-                        <th class="text-left px-4 py-2">Channel</th><th class="text-left">Seller SKU</th><th class="text-left">Judul</th>
+                        <th class="text-left px-4 py-2">Seller SKU</th><th class="text-left">Judul</th>
                     </tr></thead>
                     <tbody>
                         @foreach($unmapped as $l)
                             <tr class="border-t border-stone-100">
-                                <td class="px-4 py-2 capitalize">{{ $l->channel }}</td>
-                                <td class="font-mono text-stone-700">{{ $l->seller_sku }}</td>
+                                <td class="px-4 py-2 font-mono text-stone-700">{{ $l->seller_sku }}</td>
                                 <td class="text-stone-500">{{ $l->title ?? '—' }}</td>
                             </tr>
                         @endforeach
@@ -127,9 +119,7 @@
             </div>
             <div class="px-5 py-3 border-t border-stone-100 text-[11px] text-stone-500">
                 Petakan SKU ini supaya ikut disinkron:
-                <a href="{{ route('tiktok.index') }}" class="text-indigo-700 hover:underline font-semibold">TikTok →</a>
-                ·
-                <a href="{{ route('shopee.index') }}" class="text-indigo-700 hover:underline font-semibold">Shopee →</a>
+                <a href="{{ route($channel === 'tiktok' ? 'tiktok.index' : 'shopee.index') }}" class="text-indigo-700 hover:underline font-semibold">{{ ucfirst($channel) }} →</a>
             </div>
         </div>
     @endif

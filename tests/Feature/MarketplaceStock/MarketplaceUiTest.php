@@ -59,7 +59,7 @@ class MarketplaceUiTest extends TestCase
             ->assertSee('Face Mist')
             ->assertSee('FM-1')
             ->assertSee('belum dipetakan') // kolom Shopee: produk ini cuma dipetakan di TikTok
-            ->assertSee('Stok Marketplace'); // menu sidebar Integrasi + judul halaman
+            ->assertSee('Stok Master'); // menu sidebar Integrasi + judul halaman
     }
 
     public function test_halaman_menampilkan_seksi_listing_belum_terpetakan(): void
@@ -183,11 +183,15 @@ class MarketplaceUiTest extends TestCase
 
         $this->actingAs($reseller)->get('/dashboard')
             ->assertOk()
-            ->assertDontSee('Stok Marketplace');
+            ->assertDontSee('Stok Master')
+            ->assertDontSee('Stok TikTok')
+            ->assertDontSee('Stok Shopee');
 
         $this->actingAs($this->admin())->get('/dashboard')
             ->assertOk()
-            ->assertSee('Stok Marketplace');
+            ->assertSee('Stok Master')
+            ->assertSee('Stok TikTok')
+            ->assertSee('Stok Shopee');
     }
 
     /**
@@ -209,7 +213,9 @@ class MarketplaceUiTest extends TestCase
 
         $this->actingAs($user)->get('/dashboard')
             ->assertOk()
-            ->assertSee('Stok Marketplace');
+            ->assertSee('Stok Master')
+            ->assertSee('Stok TikTok')
+            ->assertSee('Stok Shopee');
     }
 
     // ---- izin: mitra tanpa manage_marketplace_stock tak bisa akses aksi ----

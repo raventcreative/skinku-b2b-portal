@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\MarketplaceChannelOverride;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceStock;
 use App\Models\Product;
@@ -27,18 +28,74 @@ class MarketplaceStockController extends Controller
 
         $products = Product::whereIn('id', $productIds)->orderBy('name')->get();
         $pools = MarketplaceStock::whereIn('product_id', $productIds)->get()->keyBy('product_id');
+        // Override per (product,channel) — dipakai buat penanda "Override: N" di kolom TikTok/Shopee.
+        $overrides = MarketplaceChannelOverride::whereIn('product_id', $productIds)->get()->groupBy('product_id');
 
         $rows = $products->map(fn (Product $p) => [
             'product' => $p,
             'pool' => $pools[$p->id]->quantity ?? null,
             'tiktok' => $this->listingFor($svc, 'tiktok', $p),
             'shopee' => $this->listingFor($svc, 'shopee', $p),
+            'tiktok_override' => $overrides->get($p->id)?->firstWhere('channel', 'tiktok')?->quantity,
+            'shopee_override' => $overrides->get($p->id)?->firstWhere('channel', 'shopee')?->quantity,
         ]);
 
         return view('marketplace-stock.index', [
             'rows' => $rows,
             'unmapped' => MarketplaceListing::where('last_status', 'unmapped')->get(),
         ]);
+    }
+
+    /**
+     * Halaman per-channel (Fase 1.5): mirip index() tapi hanya produk yang
+     * dipetakan pada channel INI, dengan override channel-nya sendiri (bukan
+     * pool Master) sebagai fokus utama — "Ikut Master" vs "Override: N".
+     */
+    public function channel(string $channel, MarketplaceStockService $svc): View
+    {
+        abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
+
+        $mapModel = $channel === 'tiktok' ? TiktokSkuMap::class : ShopeeSkuMap::class;
+        $productIds = $mapModel::distinct()->pluck('product_id')->unique()->values();
+        $products = Product::whereIn('id', $productIds)->orderBy('name')->get();
+        $overrides = MarketplaceChannelOverride::where('channel', $channel)->whereIn('product_id', $productIds)->get()->keyBy('product_id');
+
+        $rows = $products->map(fn (Product $p) => [
+            'product' => $p,
+            'override' => $overrides->has($p->id) ? (int) $overrides[$p->id]->quantity : null,
+            'effective' => $svc->channelStock($p->id, $channel),
+            'listing' => $this->listingFor($svc, $channel, $p),
+        ]);
+
+        return view('marketplace-stock.channel', [
+            'channel' => $channel,
+            'rows' => $rows,
+            'unmapped' => MarketplaceListing::where('channel', $channel)->where('last_status', 'unmapped')->get(),
+            'products' => Product::orderBy('name')->get(['id', 'name', 'sku']),
+        ]);
+    }
+
+    /** Set override channel ini ke nilai absolut lalu langsung sinkron (Master TIDAK disentuh). */
+    public function setOverride(Request $r, string $channel, Product $product, MarketplaceStockService $svc): RedirectResponse
+    {
+        abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
+        $r->validate(['quantity' => ['required', 'integer', 'min:0']]);
+
+        $svc->setChannelOverride($product, $channel, (int) $r->quantity);
+        $svc->pushProduct($product);
+
+        return back()->with('status', "Stok {$channel} — {$product->name} disetel sendiri.");
+    }
+
+    /** Hapus override channel ini — stok efektifnya jatuh balik ke pool Master. */
+    public function ikutMaster(string $channel, Product $product, MarketplaceStockService $svc): RedirectResponse
+    {
+        abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
+
+        $svc->clearChannelOverride($product, $channel);
+        $svc->pushProduct($product);
+
+        return back()->with('status', "Stok {$channel} — {$product->name} kembali ikut Master.");
     }
 
     public function setStock(Request $request, Product $product, MarketplaceStockService $svc): RedirectResponse
