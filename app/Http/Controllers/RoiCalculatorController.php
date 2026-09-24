@@ -6,6 +6,8 @@ use App\Models\Product;
 use App\Models\RoiItem;
 use App\Models\RoiSetting;
 use App\Services\RoiCalculatorService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
@@ -32,5 +34,25 @@ class RoiCalculatorController extends Controller
             'summary' => $svc->summary($rows),
             'products' => $products,
         ]);
+    }
+
+    public function saveSettings(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'admin_pct' => ['required', 'numeric', 'min:0'],
+            'voucher_pct' => ['required', 'numeric', 'min:0'],
+            'komisi_pct' => ['required', 'numeric', 'min:0'],
+            'komisi_cap' => ['required', 'integer', 'min:0'],
+            'mall_pct' => ['required', 'numeric', 'min:0'],
+            'pajak_pct' => ['required', 'numeric', 'min:0'],
+            'operasional_pct' => ['required', 'numeric', 'min:0'],
+            'affiliate_pct' => ['required', 'numeric', 'min:0'],
+            'packing_default' => ['required', 'integer', 'min:0'],
+            'proses_order_default' => ['required', 'integer', 'min:0'],
+        ]);
+
+        RoiSetting::current()->update($data);
+
+        return back()->with('status', 'Setelan biaya global disimpan.');
     }
 }

@@ -648,6 +648,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     /* ---------------- Kalkulator ROI ---------------- */
     Route::middleware('permission:manage_roi_calculator')->group(function () {
         Route::get('/kalkulator-roi', [RoiCalculatorController::class, 'index'])->name('roi-calculator.index');
+        Route::post('/kalkulator-roi/settings', [RoiCalculatorController::class, 'saveSettings'])->name('roi-calculator.settings');
     });
 
     /* ---------------- Product management ---------------- */

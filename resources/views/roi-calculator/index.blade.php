@@ -15,7 +15,34 @@
         <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ session('error') }}</div>
     @endif
 
-    {{-- (Task 5) Panel Setelan Biaya global disisipkan di sini. --}}
+    {{-- Setelan Biaya global --}}
+    <details class="bg-white rounded-2xl border border-stone-200 p-5">
+        <summary class="cursor-pointer text-sm font-bold text-stone-800">Setelan Biaya (global)</summary>
+        <p class="text-xs text-stone-500 mt-1 mb-4">Default untuk semua produk. Persen dalam angka (mis. 8 = 8%). Bisa di-override per produk.</p>
+        <form method="POST" action="{{ route('roi-calculator.settings') }}">
+            @csrf
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                @php
+                    $fields = [
+                        'admin_pct' => 'Admin %', 'voucher_pct' => 'Voucher Xtra %', 'komisi_pct' => 'Komisi Dinamis %',
+                        'komisi_cap' => 'Cap Komisi (Rp)', 'mall_pct' => 'Layanan Mall %', 'pajak_pct' => 'Pajak %',
+                        'operasional_pct' => 'Operasional %', 'affiliate_pct' => 'Affiliate %',
+                        'packing_default' => 'Packing (Rp)', 'proses_order_default' => 'Proses Order (Rp)',
+                    ];
+                @endphp
+                @foreach($fields as $name => $label)
+                    <label class="block">
+                        <span class="text-[11px] text-stone-500">{{ $label }}</span>
+                        <input type="number" step="any" min="0" name="{{ $name }}" value="{{ old($name, $settings->$name) }}"
+                            class="mt-0.5 w-full px-2 py-1 border border-stone-300 rounded-lg text-xs @error($name) border-rose-400 @enderror">
+                        @error($name)<span class="text-[10px] text-rose-600">{{ $message }}</span>@enderror
+                    </label>
+                @endforeach
+            </div>
+            <button class="mt-4 px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">Simpan Setelan</button>
+        </form>
+    </details>
+    {{-- (Task 6) Form Tambah Produk disisipkan di sini. --}}
     {{-- (Task 6) Form Tambah Produk disisipkan di sini. --}}
 
     {{-- Tabel hasil --}}
