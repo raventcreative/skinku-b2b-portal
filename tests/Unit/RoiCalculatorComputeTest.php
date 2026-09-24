@@ -27,16 +27,16 @@ class RoiCalculatorComputeTest extends TestCase
         $r = $this->svc()->compute($this->row7());
 
         $this->assertSame(25245.0, $r['profit']);
-        $this->assertEqualsWithDelta(3120.0, $r['admin'], 0.01);
-        $this->assertEqualsWithDelta(1755.0, $r['voucher'], 0.01);
-        $this->assertEqualsWithDelta(2145.0, $r['komisi'], 0.01);
-        $this->assertEqualsWithDelta(702.0, $r['mall'], 0.01);
-        $this->assertEqualsWithDelta(195.0, $r['pajak'], 0.01);
-        $this->assertEqualsWithDelta(1170.0, $r['operasional'], 0.01);
+        $this->assertSame(3120.0, $r['admin']);
+        $this->assertSame(1755.0, $r['voucher']);
+        $this->assertSame(2145.0, $r['komisi']);
+        $this->assertEqualsWithDelta(702.0, $r['mall'], 1e-6);
+        $this->assertSame(195.0, $r['pajak']);
+        $this->assertSame(1170.0, $r['operasional']);
         // Total Biaya = SUM(G:M) termasuk proses order (1250).
-        $this->assertEqualsWithDelta(10337.0, $r['total_biaya'], 0.01);
+        $this->assertSame(10337.0, $r['total_biaya']);
         // Profit Bersih = Harga - Modal - Packing - Total Biaya.
-        $this->assertEqualsWithDelta(12908.0, $r['profit_bersih'], 0.01);
+        $this->assertSame(12908.0, $r['profit_bersih']);
         $this->assertEqualsWithDelta(3.0213, $r['bep_roi'], 0.001);
     }
 
