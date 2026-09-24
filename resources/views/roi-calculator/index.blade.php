@@ -43,7 +43,6 @@
         </form>
     </details>
     {{-- (Task 6) Form Tambah Produk disisipkan di sini. --}}
-    {{-- (Task 6) Form Tambah Produk disisipkan di sini. --}}
 
     {{-- Tabel hasil --}}
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
