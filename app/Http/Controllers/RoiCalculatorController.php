@@ -8,6 +8,7 @@ use App\Models\RoiSetting;
 use App\Services\RoiCalculatorService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -54,5 +55,47 @@ class RoiCalculatorController extends Controller
         RoiSetting::current()->update($data);
 
         return back()->with('status', 'Setelan biaya global disimpan.');
+    }
+
+    public function storeItem(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'integer', 'exists:products,id', Rule::unique('roi_items', 'product_id')],
+            'selling_price' => ['required', 'integer', 'min:0'],
+        ]);
+
+        RoiItem::create($data); // modal/override tetap null = warisi COGS/global
+
+        return back()->with('status', 'Produk ditambahkan ke kalkulator.');
+    }
+
+    public function updateItem(Request $request, RoiItem $item): RedirectResponse
+    {
+        $data = $request->validate([
+            'selling_price' => ['required', 'integer', 'min:0'],
+            'modal' => ['nullable', 'integer', 'min:0'],
+            'packing' => ['nullable', 'integer', 'min:0'],
+            'proses_order' => ['nullable', 'integer', 'min:0'],
+            'admin_pct' => ['nullable', 'numeric', 'min:0'],
+            'voucher_pct' => ['nullable', 'numeric', 'min:0'],
+            'komisi_pct' => ['nullable', 'numeric', 'min:0'],
+            'komisi_cap' => ['nullable', 'integer', 'min:0'],
+            'mall_pct' => ['nullable', 'numeric', 'min:0'],
+            'pajak_pct' => ['nullable', 'numeric', 'min:0'],
+            'operasional_pct' => ['nullable', 'numeric', 'min:0'],
+            'affiliate_pct' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        // Field kosong tiba sbg null (ConvertEmptyStringsToNull) -> warisi COGS/global.
+        $item->update($data);
+
+        return back()->with('status', "Baris {$item->product?->name} diperbarui.");
+    }
+
+    public function deleteItem(RoiItem $item): RedirectResponse
+    {
+        $item->delete();
+
+        return back()->with('status', 'Baris dihapus.');
     }
 }

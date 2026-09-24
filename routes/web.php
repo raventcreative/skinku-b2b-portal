@@ -649,6 +649,9 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::middleware('permission:manage_roi_calculator')->group(function () {
         Route::get('/kalkulator-roi', [RoiCalculatorController::class, 'index'])->name('roi-calculator.index');
         Route::post('/kalkulator-roi/settings', [RoiCalculatorController::class, 'saveSettings'])->name('roi-calculator.settings');
+        Route::post('/kalkulator-roi/items', [RoiCalculatorController::class, 'storeItem'])->name('roi-calculator.items.store');
+        Route::post('/kalkulator-roi/items/{item}', [RoiCalculatorController::class, 'updateItem'])->name('roi-calculator.items.update');
+        Route::delete('/kalkulator-roi/items/{item}', [RoiCalculatorController::class, 'deleteItem'])->name('roi-calculator.items.destroy');
     });
 
     /* ---------------- Product management ---------------- */
