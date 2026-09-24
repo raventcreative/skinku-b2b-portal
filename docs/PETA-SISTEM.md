@@ -56,7 +56,7 @@ Model komisi terpusat lama → **dorman (revivable)**. Semua ke-wire (route+nav+
 - **Produktivitas** — Okr, Kanban, Mindmap (+ AI tools), Learning (SKINKU Academy).
 
 ### Kalkulator ROI
-- **Kalkulator ROI** — SELESAI (branch `feat/kalkulator-roi`, belum merge ke `main`): 2 tabel `roi_settings`/`roi_items` (migrasi `000141`), `RoiCalculatorService` (compute+resolve), `RoiCalculatorController` (1 controller), halaman `/kalkulator-roi`, izin `manage_roi_calculator`, tes Unit+Feature (27 tes).
+- **Kalkulator ROI** — SELESAI (branch `feat/kalkulator-roi`, belum merge ke `main`): 2 tabel `roi_settings`/`roi_items` (migrasi `000141`), `RoiCalculatorService` (compute + effectiveInputs/rowFor/summary), `RoiCalculatorController` (1 controller), halaman `/kalkulator-roi`, izin `manage_roi_calculator`, tes Unit+Feature (27 tes).
 
 ---
 
