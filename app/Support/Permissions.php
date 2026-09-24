@@ -64,6 +64,7 @@ class Permissions
         'manage_member_dormancy' => 'Kelola Dormansi Member',
         'manage_ecommerce_chat' => 'Chat E-commerce (Balas Chat Marketplace)',
         'manage_marketplace_stock' => 'Kontrol Stok Marketplace',
+        'manage_roi_calculator' => 'Kalkulator ROI',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -143,6 +144,7 @@ class Permissions
         'manage_member_dormancy' => [User::ROLE_ADMIN],
         'manage_ecommerce_chat' => [User::ROLE_ADMIN],
         'manage_marketplace_stock' => [User::ROLE_ADMIN],
+        'manage_roi_calculator' => [User::ROLE_ADMIN],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */
