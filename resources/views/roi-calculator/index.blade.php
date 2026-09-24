@@ -14,6 +14,16 @@
     @if(session('error'))
         <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ session('error') }}</div>
     @endif
+    @if($errors->any())
+        <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+            <div class="font-semibold mb-1">Periksa input yang dimasukkan:</div>
+            <ul class="list-disc list-inside space-y-0.5">
+                @foreach($errors->all() as $err)
+                    <li>{{ $err }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     {{-- Setelan Biaya global --}}
     <details class="bg-white rounded-2xl border border-stone-200 p-5">

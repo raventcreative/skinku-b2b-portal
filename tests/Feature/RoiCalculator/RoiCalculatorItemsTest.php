@@ -111,4 +111,17 @@ class RoiCalculatorItemsTest extends TestCase
             ->post('/kalkulator-roi/items', ['product_id' => $p->id, 'selling_price' => -5])
             ->assertSessionHasErrors('selling_price');
     }
+
+    public function test_edit_gagal_menampilkan_banner_error(): void
+    {
+        $p = $this->product();
+        $item = RoiItem::create(['product_id' => $p->id, 'selling_price' => 39000]);
+
+        $this->actingAs($this->admin())
+            ->from('/kalkulator-roi')
+            ->followingRedirects()
+            ->post("/kalkulator-roi/items/{$item->id}", ['selling_price' => ''])
+            ->assertOk()
+            ->assertSee('Periksa input yang dimasukkan');
+    }
 }
