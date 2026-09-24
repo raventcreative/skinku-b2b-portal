@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\RoiItem;
+use App\Models\RoiSetting;
+
 /**
  * Kalkulator ROI TikTok Shop: dari Harga Jual + Modal + potongan platform,
  * hitung Profit Bersih dan target ROI/ROAS iklan (dgn & tanpa affiliate).
@@ -67,6 +70,60 @@ class RoiCalculatorService
             'target_aff' => $targetAff,
             'avg_min' => $avg($targetNoaff[10], $targetAff[10]),
             'avg_optimum' => $avg($targetNoaff[20], $targetAff[20]),
+        ];
+    }
+
+    /** Gabung override baris dgn setelan global; modal null -> COGS produk. */
+    public function effectiveInputs(RoiItem $item, RoiSetting $s): array
+    {
+        $cogs = (int) round((float) ($item->product->cogs ?? 0));
+
+        return [
+            'selling_price' => (int) $item->selling_price,
+            'modal' => $item->modal ?? $cogs,
+            'packing' => $item->packing ?? $s->packing_default,
+            'proses_order' => $item->proses_order ?? $s->proses_order_default,
+            'admin_pct' => $item->admin_pct ?? $s->admin_pct,
+            'voucher_pct' => $item->voucher_pct ?? $s->voucher_pct,
+            'komisi_pct' => $item->komisi_pct ?? $s->komisi_pct,
+            'komisi_cap' => $item->komisi_cap ?? $s->komisi_cap,
+            'mall_pct' => $item->mall_pct ?? $s->mall_pct,
+            'pajak_pct' => $item->pajak_pct ?? $s->pajak_pct,
+            'operasional_pct' => $item->operasional_pct ?? $s->operasional_pct,
+            'affiliate_pct' => $item->affiliate_pct ?? $s->affiliate_pct,
+        ];
+    }
+
+    /** Satu baris siap-render: item + produk + input efektif + hasil hitung. */
+    public function rowFor(RoiItem $item, RoiSetting $s): array
+    {
+        $in = $this->effectiveInputs($item, $s);
+
+        return [
+            'item' => $item,
+            'product' => $item->product,
+            'in' => $in,
+            'result' => $this->compute($in),
+        ];
+    }
+
+    /** Rata-rata Target ROI Min & Optimum lintas baris (lewati yang null). */
+    public function summary(iterable $rows): array
+    {
+        $mins = [];
+        $opts = [];
+        foreach ($rows as $r) {
+            if (($r['result']['avg_min'] ?? null) !== null) {
+                $mins[] = $r['result']['avg_min'];
+            }
+            if (($r['result']['avg_optimum'] ?? null) !== null) {
+                $opts[] = $r['result']['avg_optimum'];
+            }
+        }
+
+        return [
+            'avg_min_all' => $mins ? array_sum($mins) / count($mins) : null,
+            'avg_optimum_all' => $opts ? array_sum($opts) / count($opts) : null,
         ];
     }
 }
