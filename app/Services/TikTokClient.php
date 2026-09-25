@@ -291,6 +291,14 @@ class TikTokClient
         ]);
     }
 
+    /** Perbarui harga satu SKU (Product Price API 202309). Amount = string, currency IDR. */
+    public function updatePrice(string $accessToken, string $shopCipher, string $productId, string $skuId, float $price): array
+    {
+        return $this->request('POST', "/product/202309/products/{$productId}/prices/update", $accessToken, $shopCipher, [], [
+            'skus' => [['id' => $skuId, 'price' => ['amount' => (string) (int) round($price), 'currency' => 'IDR']]],
+        ]);
+    }
+
     /** Cari produk aktif toko — dipakai memetakan produk lokal ↔ product/SKU TikTok. */
     public function searchProducts(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
     {
