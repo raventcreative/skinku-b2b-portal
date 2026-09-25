@@ -119,7 +119,7 @@ Tambahan di `Permissions::DEFINITIONS` / `DEFAULTS` (FR-05):
 'content.create'         => ['content_creator', 'admin'],
 'content.review'         => ['admin'],
 'content.publish.manage' => ['admin'],
-'social.connect'         => [],            // super_admin selalu lolos
+'social.connect'         => ['content_creator'], // revisi 2026-09-25; super_admin selalu lolos
 ```
 
 Route (di dalam grup `['auth','role']` yang ada):
