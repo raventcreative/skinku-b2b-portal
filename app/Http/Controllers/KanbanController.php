@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 /**
  * Kanban ala Trello. Seluruh route di balik permission kanban.view; siapa pun
@@ -68,7 +69,7 @@ class KanbanController extends Controller
 
     public function show(Board $board)
     {
-        $board->load(['columns.cards.assignee', 'columns.cards.comments.author', 'columns.cards.files']);
+        $board->load(['columns.cards.assignee', 'columns.cards.creator', 'columns.cards.comments.author', 'columns.cards.files']);
 
         // Kandidat penanggung jawab: pengguna internal aktif — mitra tak ikut
         // (mereka tak punya akses kanban sama sekali).
@@ -188,6 +189,7 @@ class KanbanController extends Controller
     {
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+            'priority' => ['sometimes', 'required', Rule::in(array_keys(BoardCard::PRIORITIES))],
             'description' => ['nullable', 'string', 'max:5000'],
             'assignee_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'due_date' => ['nullable', 'date'],

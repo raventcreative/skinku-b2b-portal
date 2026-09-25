@@ -218,6 +218,33 @@ class KanbanTest extends TestCase
         $this->assertSame('2026-07-25', $card->due_date->format('Y-m-d'));
     }
 
+    public function test_update_prioritas_kartu_tampil_di_papan_dengan_pembuat(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN, 'kbprio1');
+        $pj = $this->user(User::ROLE_ADMIN, 'kbprio2');
+        $board = $this->board($admin);
+        $card = $board->columns[0]->cards()->create(['title' => 'Kartu Prio', 'position' => 0, 'created_by' => $admin->id]);
+        $this->assertSame('normal', $card->fresh()->priority);
+
+        $this->actingAs($admin)->put(route('kanban.cards.update', $card), [
+            'title' => 'Kartu Prio', 'priority' => 'penting', 'assignee_user_id' => $pj->id,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('penting', $card->fresh()->priority);
+        $this->actingAs($admin)->get(route('kanban.show', $board))->assertOk()
+            ->assertSee('Penting')->assertSee('oleh KBPRIO1')->assertSee('KBPRIO2');
+    }
+
+    public function test_prioritas_kartu_tidak_valid_ditolak(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN, 'kbprio3');
+        $card = $this->board($admin)->columns[0]->cards()->create(['title' => 'Kartu', 'position' => 0]);
+
+        $this->actingAs($admin)->put(route('kanban.cards.update', $card), ['title' => 'Kartu', 'priority' => 'xyz'])
+            ->assertSessionHasErrors('priority');
+        $this->assertSame('normal', $card->fresh()->priority);
+    }
+
     public function test_papan_tampil_dengan_kolom_dan_kartunya(): void
     {
         $admin = $this->user(User::ROLE_ADMIN, 'kbadm10');
@@ -269,7 +296,7 @@ class KanbanTest extends TestCase
 
         $html = $this->actingAs($admin)->get(route('kanban.show', $board))->assertOk()->getContent();
         $this->assertStringContainsString('Tolong follow up KOL ini besok', $html);
-        $this->assertStringContainsString('💬 1', $html);                 // hitungan di muka kartu
+        $this->assertMatchesRegularExpression('#title="komentar">\s*<svg.*?</svg>\s*1</span>#s', $html);                 // hitungan di muka kartu
         $this->assertStringContainsString('Deskripsi', $html);            // modal memuat field lengkap
         $this->assertStringContainsString('Deadline', $html);
         $this->assertStringContainsString('Penanggung jawab', $html);
@@ -335,7 +362,7 @@ class KanbanTest extends TestCase
 
         // Muncul di modal kartu + badge lampiran di muka kartu.
         $html = $this->actingAs($admin)->get(route('kanban.show', $board))->getContent();
-        $this->assertStringContainsString('🖼️ 1', $html);
+        $this->assertMatchesRegularExpression('#title="ada lampiran">\s*<svg.*?</svg>\s*1</span>#s', $html);
     }
 
     /** Beberapa gambar sekaligus dalam satu unggahan. */

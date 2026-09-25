@@ -15,8 +15,16 @@ class BoardCard extends Model
     /** Koleksi lampiran gambar kartu (mockup, tangkapan layar, referensi). */
     public const ATTACHMENT = 'card_attachment';
 
+    /** Prioritas kartu → [label, kelas badge]. 'normal' tidak ditampilkan di muka kartu. */
+    public const PRIORITIES = [
+        'rendah' => ['Rendah', 'bg-stone-50 text-stone-600 border-stone-200'],
+        'normal' => ['Normal', 'bg-sky-50 text-sky-700 border-sky-200'],
+        'penting' => ['Penting', 'bg-amber-50 text-amber-700 border-amber-200'],
+        'urgent' => ['Urgent', 'bg-rose-50 text-rose-700 border-rose-200'],
+    ];
+
     protected $fillable = [
-        'column_id', 'title', 'description', 'assignee_user_id', 'due_date', 'position', 'created_by', 'created_via',
+        'column_id', 'title', 'priority', 'description', 'assignee_user_id', 'due_date', 'position', 'created_by', 'created_via',
     ];
 
     protected function casts(): array
@@ -69,6 +77,11 @@ class BoardCard extends Model
     public function assignee()
     {
         return $this->belongsTo(User::class, 'assignee_user_id');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /** Urut kronologis (tertua dulu) — dibaca seperti percakapan. */

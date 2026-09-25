@@ -58,23 +58,42 @@
                         $atts = $card->attachments();
                     @endphp
                     {{-- Muka kartu ala Trello: judul + badge. Klik → modal detail. --}}
-                    <div class="bg-white rounded-xl border border-stone-200 shadow-xs p-3 cursor-grab hover:border-stone-300"
+                    @php [$prioLabel, $prioCls] = \App\Models\BoardCard::PRIORITIES[$card->priority] ?? \App\Models\BoardCard::PRIORITIES['normal']; @endphp
+                    <div class="bg-white rounded-2xl border border-stone-200 shadow-xs p-4 cursor-grab hover:border-stone-300 hover:shadow-sm transition"
                         data-card="{{ $card->id }}" data-opens="cardModal-{{ $card->id }}">
-                        <p class="text-sm font-semibold text-stone-800">{{ $card->title }}</p>
-                        <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
-                            @if($card->fromAi())
-                                <span class="px-1.5 py-0.5 rounded-sm bg-violet-100 text-violet-700 font-bold" title="Kartu ini dibuat oleh Asisten AI">✨ AI</span>
-                            @endif
+                        @if($card->priority !== 'normal' || $card->fromAi())
+                            <div class="flex flex-wrap items-center gap-1.5 mb-2">
+                                @if($card->priority !== 'normal')
+                                    <span class="px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide {{ $prioCls }}">{{ $prioLabel }}</span>
+                                @endif
+                                @if($card->fromAi())
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-[10px] font-bold" title="Kartu ini dibuat oleh Asisten AI">@include('kanban._icon', ['n' => 'sparkles', 'c' => 'w-3 h-3']) AI</span>
+                                @endif
+                            </div>
+                        @endif
+                        <p class="text-[15px] font-bold leading-snug text-stone-900">{{ $card->title }}</p>
+                        <div class="flex flex-wrap items-center gap-1.5 mt-2.5 text-[11px]">
                             @if($card->due_date)
-                                <span class="px-1.5 py-0.5 rounded-sm {{ $overdue ? 'bg-rose-100 text-rose-700 font-bold' : 'bg-stone-100 text-stone-500' }}">📅 {{ $card->due_date->format('d M') }}{{ $overdue ? ' — lewat!' : '' }}</span>
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border {{ $overdue ? 'border-rose-200 bg-rose-50 text-rose-700 font-bold' : 'border-stone-200 text-stone-600' }}" title="Deadline">@include('kanban._icon', ['n' => 'calendar', 'c' => 'w-3 h-3']){{ $card->due_date->format('Y-m-d') }}{{ $overdue ? ' · lewat' : '' }}</span>
                             @endif
-                            @if($card->description)<span class="text-stone-400" title="ada deskripsi">≡</span>@endif
-                            @if($card->comments->count())<span class="text-stone-500">💬 {{ $card->comments->count() }}</span>@endif
-                            @if($atts->count())<span class="text-stone-500" title="ada lampiran">🖼️ {{ $atts->count() }}</span>@endif
-                            @if($card->assignee)
-                                <span class="ml-auto px-1.5 py-0.5 rounded-sm bg-indigo-50 text-indigo-700 font-semibold">{{ $card->assignee->fullname }}</span>
-                            @endif
+                            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600">Dibuat {{ $card->created_at->format('d M Y') }}</span>
+                            @if($card->description)<span class="text-stone-400" title="ada deskripsi">@include('kanban._icon', ['n' => 'text'])</span>@endif
+                            @if($card->comments->count())<span class="inline-flex items-center gap-0.5 text-stone-500" title="komentar">@include('kanban._icon', ['n' => 'comment']){{ $card->comments->count() }}</span>@endif
+                            @if($atts->count())<span class="inline-flex items-center gap-0.5 text-stone-500" title="ada lampiran">@include('kanban._icon', ['n' => 'image']){{ $atts->count() }}</span>@endif
                         </div>
+                        @if($card->assignee || $card->creator)
+                            <div class="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-stone-100 text-[11px]">
+                                @if($card->assignee)
+                                    <span class="flex items-center gap-1.5 min-w-0 text-stone-700">
+                                        <span class="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 text-[10px] font-bold flex items-center justify-center shrink-0">{{ mb_strtoupper(mb_substr($card->assignee->fullname, 0, 1)) }}</span>
+                                        <span class="truncate">{{ $card->assignee->fullname }}</span>
+                                    </span>
+                                @else
+                                    <span class="text-stone-400">Belum ada PJ</span>
+                                @endif
+                                @if($card->creator)<span class="text-stone-400 truncate">oleh {{ $card->creator->fullname }}</span>@endif
+                            </div>
+                        @endif
                     </div>
 
                     {{-- Modal detail kartu (native <dialog> — tanpa library). --}}
@@ -82,7 +101,7 @@
                         <div class="p-5">
                             <div class="flex items-start justify-between gap-3 mb-3">
                                 <p class="text-[10px] uppercase tracking-wide text-stone-400 font-semibold">Kolom: {{ $column->name }}</p>
-                                <button type="button" onclick="this.closest('dialog').close()" class="text-stone-400 hover:text-stone-700 text-lg leading-none">✕</button>
+                                <button type="button" onclick="this.closest('dialog').close()" class="text-stone-400 hover:text-stone-700" aria-label="Tutup">@include('kanban._icon', ['n' => 'x', 'c' => 'w-5 h-5'])</button>
                             </div>
 
                             <form method="POST" action="{{ route('kanban.cards.update', $card) }}" class="space-y-3">
@@ -91,9 +110,9 @@
                                     class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-semibold">
                                 <div data-desc>
                                     <div class="flex items-center justify-between mb-1">
-                                        <label class="block text-[11px] font-semibold text-stone-500">≡ Deskripsi</label>
+                                        <label class="flex items-center gap-1 text-[11px] font-semibold text-stone-500">@include('kanban._icon', ['n' => 'text']) Deskripsi</label>
                                         @if(filled($card->description))
-                                            <button type="button" data-desc-edit-btn class="text-[11px] text-indigo-600 hover:underline">✎ ubah</button>
+                                            <button type="button" data-desc-edit-btn class="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:underline">@include('kanban._icon', ['n' => 'pencil', 'c' => 'w-3 h-3']) ubah</button>
                                         @endif
                                     </div>
                                     {{-- Tampil baca: URL http(s) otomatis jadi tautan klik (aman XSS). Klik "ubah" → textarea. --}}
@@ -104,8 +123,16 @@
                                         class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm {{ filled($card->description) ? 'hidden' : '' }}">{{ $card->description }}</textarea>
                                 </div>
                                 <div class="grid grid-cols-2 gap-3">
+                                    <div class="col-span-2">
+                                        <label class="flex items-center gap-1 text-[11px] font-semibold text-stone-500 mb-1">@include('kanban._icon', ['n' => 'flag']) Prioritas</label>
+                                        <select name="priority" class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                                            @foreach(\App\Models\BoardCard::PRIORITIES as $key => [$label])
+                                                <option value="{{ $key }}" @selected($card->priority === $key)>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                     <div>
-                                        <label class="block text-[11px] font-semibold text-stone-500 mb-1">👤 Penanggung jawab</label>
+                                        <label class="flex items-center gap-1 text-[11px] font-semibold text-stone-500 mb-1">@include('kanban._icon', ['n' => 'user']) Penanggung jawab</label>
                                         <select name="assignee_user_id" class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                                             <option value="">— pilih —</option>
                                             @foreach($assignees as $a)
@@ -114,7 +141,7 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-[11px] font-semibold text-stone-500 mb-1">📅 Deadline</label>
+                                        <label class="flex items-center gap-1 text-[11px] font-semibold text-stone-500 mb-1">@include('kanban._icon', ['n' => 'calendar']) Deadline</label>
                                         <input type="date" name="due_date" value="{{ $card->due_date?->format('Y-m-d') }}"
                                             class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                                     </div>
@@ -126,7 +153,7 @@
                                  terpisah dari form kartu di atas (input file butuh multipart &
                                  route sendiri; HTML tak boleh form bersarang). --}}
                             <div class="mt-5 pt-4 border-t border-stone-100">
-                                <p class="text-[11px] font-semibold text-stone-500 mb-2">🖼️ Lampiran ({{ $atts->count() }}/8)</p>
+                                <p class="flex items-center gap-1 text-[11px] font-semibold text-stone-500 mb-2">@include('kanban._icon', ['n' => 'image']) Lampiran ({{ $atts->count() }}/8)</p>
                                 @if($atts->count())
                                     <div class="grid grid-cols-3 gap-2 mb-3">
                                         @foreach($atts as $att)
@@ -138,7 +165,7 @@
                                                 <form method="POST" action="{{ route('kanban.attachments.destroy', $att) }}"
                                                     onsubmit="return confirm('Hapus lampiran ini?')" class="absolute top-1 right-1">
                                                     @csrf @method('DELETE')
-                                                    <button class="w-6 h-6 rounded-full bg-black/60 text-white text-xs leading-none hover:bg-rose-600" title="Hapus lampiran">✕</button>
+                                                    <button class="w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-rose-600" title="Hapus lampiran" aria-label="Hapus lampiran">@include('kanban._icon', ['n' => 'x', 'c' => 'w-3.5 h-3.5'])</button>
                                                 </form>
                                             </div>
                                         @endforeach
@@ -175,7 +202,7 @@
 
                             {{-- Thread komentar — kronologis, seperti Trello. --}}
                             <div class="mt-5 pt-4 border-t border-stone-100">
-                                <p class="text-[11px] font-semibold text-stone-500 mb-2">💬 Komentar ({{ $card->comments->count() }})</p>
+                                <p class="flex items-center gap-1 text-[11px] font-semibold text-stone-500 mb-2">@include('kanban._icon', ['n' => 'comment']) Komentar ({{ $card->comments->count() }})</p>
                                 <div class="space-y-3 max-h-56 overflow-y-auto">
                                     @forelse($card->comments as $comment)
                                         <div class="text-sm">
@@ -380,7 +407,7 @@ new Sortable(document.getElementById('boardColumns'), {
     },
 });
 
-// Lampiran ala "Tambah Foto": klik tile -> pilih file -> pratinjau (bisa ✕
+// Lampiran ala "Tambah Foto": klik tile -> pilih file -> pratinjau (bisa dibuang
 // buang) -> "Unggah" sekali untuk semua. File dimasukkan ke input lewat
 // DataTransfer sebelum form submit normal, jadi server tetap terima images[].
 document.querySelectorAll('[data-attach-form]').forEach(form => {
@@ -406,9 +433,10 @@ document.querySelectorAll('[data-attach-form]').forEach(form => {
             img.className = 'w-full h-full object-cover';
             const x = document.createElement('button');
             x.type = 'button';
-            x.textContent = '✕';
+            x.innerHTML = @json(view('kanban._icon', ['n' => 'x', 'c' => 'w-3.5 h-3.5'])->render());
             x.title = 'Buang';
-            x.className = 'absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs leading-none hover:bg-rose-600';
+            x.setAttribute('aria-label', 'Buang');
+            x.className = 'absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-rose-600';
             x.addEventListener('click', () => { pending.splice(i, 1); render(); });
             tile.append(img, x);
             grid.insertBefore(tile, addTile);
