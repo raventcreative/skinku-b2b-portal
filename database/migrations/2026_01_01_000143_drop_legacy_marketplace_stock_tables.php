@@ -33,10 +33,10 @@ return new class extends Migration
                 if (! $product) {
                     continue;
                 }
-                $m = MarketplaceMaster::where('master_sku', $product->sku)->first();
-                if (! $m) {
-                    continue;
-                }
+                $m = MarketplaceMaster::firstOrCreate(
+                    ['master_sku' => $product->sku],
+                    ['name' => $product->name, 'product_id' => $product->id],
+                );
                 MarketplaceMasterChannel::updateOrCreate(
                     ['master_id' => $m->id, 'channel' => $ov->channel],
                     ['stock' => $ov->quantity, 'seeded_at' => $ov->seeded_at],

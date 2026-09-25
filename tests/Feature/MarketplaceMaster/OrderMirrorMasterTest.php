@@ -270,4 +270,42 @@ class OrderMirrorMasterTest extends TestCase
         $this->assertSame(97, $p->refresh()->hq_stock); // 100-3
         $this->assertSame(ShopeeOrder::STATUS_DEDUCTED, $order->refresh()->stock_status);
     }
+
+    /**
+     * Divergensi YANG DISENGAJA antara mirror marketplace & potong HQ untuk SKU
+     * bundle: mirror (applyOrderDelta via listing.master_id) mengurangi master
+     * sebesar qty ORDER MENTAH (1 unit listing = 1 unit master, tak kenal resep),
+     * sedangkan HQ (resolve() via TiktokSkuMap → adjustHqStock) mengurangi
+     * komponen sebesar qty ORDER × qty RESEP. Product.sku ('BND-P') sengaja BEDA
+     * dari master_sku/seller_sku/tiktok_sku ('BND') — membuktikan dua jalur
+     * resolve itu independen (listing dicari by seller_sku, bukan Product.sku).
+     */
+    public function test_tiktok_mirror_master_pakai_qty_mentah_hq_pakai_resep_skumap_bundle(): void
+    {
+        $p = Product::create([
+            'name' => 'Bundle Hemat', 'sku' => 'BND-P', 'status' => 'active',
+            'price_distributor' => 1, 'price_reseller' => 1, 'hq_stock' => 100, 'cogs' => 1000,
+        ]);
+        TiktokSkuMap::create(['tiktok_sku' => 'BND', 'product_id' => $p->id, 'qty' => 2]); // resep: 1 listing = 2 fisik
+        $m = $this->masterWithListing('tiktok', 'BND', 50);
+        $hqBefore = StockMovement::count();
+
+        $svc = app(TikTokOrderService::class);
+        $svc->store([[
+            'id' => 'OBND1', 'status' => 'AWAITING_COLLECTION', 'create_time' => now()->addMinute()->timestamp,
+            'payment' => ['total_amount' => 1, 'currency' => 'IDR'],
+            'line_items' => [['seller_sku' => 'BND', 'quantity' => 3, 'product_name' => 'Bundle Hemat']],
+        ]]);
+
+        // Mirror: master turun sebesar qty MENTAH order (3), BUKAN ×2.
+        $this->assertSame(47, $m->refresh()->base_stock); // 50-3
+
+        $order = TiktokOrder::where('tiktok_order_id', 'OBND1')->firstOrFail();
+        $svc->deduct($order);
+
+        // HQ: komponen turun sebesar qty order × qty resep (3×2=6), tercatat StockMovement.
+        $this->assertSame($hqBefore + 1, StockMovement::count());
+        $this->assertSame(94, $p->refresh()->hq_stock); // 100-6
+        $this->assertSame(TiktokOrder::STATUS_DEDUCTED, $order->refresh()->stock_status);
+    }
 }

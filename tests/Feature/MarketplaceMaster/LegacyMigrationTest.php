@@ -58,4 +58,43 @@ class LegacyMigrationTest extends TestCase
         $this->assertFalse(Schema::hasTable('marketplace_stocks'));
         $this->assertFalse(Schema::hasTable('marketplace_channel_overrides'));
     }
+
+    /**
+     * Produk yang HANYA punya override channel (tak pernah ada baris di
+     * marketplace_stocks/base pool) dulu ke-skip diam-diam di loop kedua
+     * (where()->first() → null → continue). Sekarang loop kedua ikut pakai
+     * firstOrCreate() spt loop pertama, jadi master tetap dibuat (base_stock
+     * null krn tak pernah di-set loop pertama) & override-nya tak hilang.
+     */
+    public function test_migrasi_override_tanpa_base_pool_tetap_buat_master(): void
+    {
+        // Rekreasi tabel lama yang sudah di-drop 000143 saat setup RefreshDatabase.
+        Schema::create('marketplace_stocks', function ($t) {
+            $t->id();
+            $t->unsignedBigInteger('product_id');
+            $t->integer('quantity')->default(0);
+            $t->timestamp('seeded_at')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('marketplace_channel_overrides', function ($t) {
+            $t->id();
+            $t->unsignedBigInteger('product_id');
+            $t->string('channel', 16);
+            $t->integer('quantity')->default(0);
+            $t->timestamp('seeded_at')->nullable();
+            $t->timestamps();
+        });
+
+        $p = Product::create(['name' => 'Toner', 'sku' => 'TN-1', 'status' => 'active', 'price_distributor' => 1, 'price_reseller' => 1]);
+        // TAK ADA baris marketplace_stocks utk produk ini — hanya override channel.
+        DB::table('marketplace_channel_overrides')->insert(['product_id' => $p->id, 'channel' => 'tiktok', 'quantity' => 8, 'seeded_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        (require database_path('migrations/2026_01_01_000143_drop_legacy_marketplace_stock_tables.php'))->up();
+
+        $m = MarketplaceMaster::where('master_sku', 'TN-1')->first();
+        $this->assertNotNull($m);
+        $this->assertNull($m->base_stock);
+        $this->assertEquals($p->id, $m->product_id);
+        $this->assertSame(8, MarketplaceMasterChannel::where('master_id', $m->id)->where('channel', 'tiktok')->value('stock'));
+    }
 }

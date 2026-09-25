@@ -44,4 +44,15 @@ class ChannelPageMasterTest extends TestCase
     {
         $this->actingAs($this->admin())->get('/marketplace-stock/lazada')->assertNotFound();
     }
+
+    public function test_channel_page_render(): void
+    {
+        Http::fake(['*' => Http::response(['code' => 0, 'data' => []])]);
+        $m = MarketplaceMaster::create(['master_sku' => 'A', 'name' => 'A', 'base_stock' => 20]);
+        MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'A', 'master_id' => $m->id, 'item_id' => 'P']);
+
+        $this->actingAs($this->admin())->get('/marketplace-stock/tiktok')
+            ->assertOk()
+            ->assertSee($m->name);
+    }
 }
