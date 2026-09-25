@@ -101,4 +101,112 @@ class PushMasterTest extends TestCase
         $this->assertSame('ok', $r['stock']);
         $this->assertSame('ok', $r['price']);
     }
+
+    // ---- Cakupan aggregate: pushMaster/pushDirty/pushAll + tallyPush ----
+
+    public function test_push_dirty_hanya_kirim_yang_berubah(): void
+    {
+        $this->tiktokConn();
+        Http::fake(['*' => Http::response(['code' => 0, 'data' => []])]);
+
+        // Listing 1: sudah sinkron (last_pushed_qty/price == base) -> skip dua-duanya.
+        $mUnchanged = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'FM1', 'base_stock' => 30, 'base_price' => 39000]);
+        MarketplaceListing::create([
+            'channel' => 'tiktok', 'seller_sku' => 'FM-1', 'master_id' => $mUnchanged->id,
+            'item_id' => 'PID1', 'variation_id' => 'SKU1', 'warehouse_id' => 'WH1',
+            'last_pushed_qty' => 30, 'last_pushed_price' => 39000,
+        ]);
+
+        // Listing 2: baru (belum pernah dipush) -> push dua-duanya.
+        $mFresh = MarketplaceMaster::create(['master_sku' => 'FM-2', 'name' => 'FM2', 'base_stock' => 10, 'base_price' => 15000]);
+        MarketplaceListing::create([
+            'channel' => 'tiktok', 'seller_sku' => 'FM-2', 'master_id' => $mFresh->id,
+            'item_id' => 'PID2', 'variation_id' => 'SKU2', 'warehouse_id' => 'WH1',
+        ]);
+
+        $r = app(MarketplaceMasterService::class)->pushDirty();
+
+        // stok & harga dihitung sbg unit terpisah: fresh -> 2 pushed, unchanged -> 2 skipped.
+        $this->assertSame(['pushed' => 2, 'skipped' => 2, 'failed' => 0], $r);
+        Http::assertSentCount(2); // hanya listing fresh yg kirim HTTP (1 stok + 1 harga)
+    }
+
+    public function test_push_all_memaksa_kirim_ulang_walau_belum_berubah(): void
+    {
+        $this->tiktokConn();
+        Http::fake(['*' => Http::response(['code' => 0, 'data' => []])]);
+
+        $m = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'FM', 'base_stock' => 30, 'base_price' => 39000]);
+        MarketplaceListing::create([
+            'channel' => 'tiktok', 'seller_sku' => 'FM-1', 'master_id' => $m->id,
+            'item_id' => 'PID1', 'variation_id' => 'SKU1', 'warehouse_id' => 'WH1',
+            'last_pushed_qty' => 30, 'last_pushed_price' => 39000, // sudah sama persis
+        ]);
+
+        $r = app(MarketplaceMasterService::class)->pushAll();
+
+        $this->assertSame(['pushed' => 2, 'skipped' => 0, 'failed' => 0], $r);
+        Http::assertSentCount(2);
+    }
+
+    public function test_push_master_mengirim_semua_listing_master_itu(): void
+    {
+        $this->tiktokConn();
+        Http::fake(['*' => Http::response(['code' => 0, 'data' => []])]);
+
+        $m = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'FM', 'base_stock' => 30, 'base_price' => 39000]);
+        MarketplaceListing::create([
+            'channel' => 'tiktok', 'seller_sku' => 'FM-1', 'master_id' => $m->id,
+            'item_id' => 'PID1', 'variation_id' => 'SKU1', 'warehouse_id' => 'WH1',
+        ]);
+        MarketplaceListing::create([
+            'channel' => 'tiktok', 'seller_sku' => 'FM-1-ALT', 'master_id' => $m->id,
+            'item_id' => 'PID2', 'variation_id' => 'SKU2', 'warehouse_id' => 'WH1',
+        ]);
+
+        $r = app(MarketplaceMasterService::class)->pushMaster($m);
+
+        // 2 listing x (stok+harga) = 4 unit, semua ok.
+        $this->assertSame(['pushed' => 4, 'skipped' => 0, 'failed' => 0], $r);
+        Http::assertSentCount(4);
+    }
+
+    public function test_push_dirty_lewati_listing_tanpa_master_id(): void
+    {
+        $this->tiktokConn();
+        Http::fake();
+
+        // item_id ada (sudah resolve) tapi master_id null -> difilter di query pushEach(),
+        // jadi tak ikut masuk loop sama sekali (bukan cuma 'skip' via pushListing).
+        MarketplaceListing::create([
+            'channel' => 'tiktok', 'seller_sku' => 'ORPHAN', 'master_id' => null,
+            'item_id' => 'PID1', 'variation_id' => 'SKU1', 'warehouse_id' => 'WH1',
+        ]);
+
+        $r = app(MarketplaceMasterService::class)->pushDirty();
+
+        $this->assertSame(['pushed' => 0, 'skipped' => 0, 'failed' => 0], $r);
+        Http::assertNothingSent();
+    }
+
+    public function test_push_listing_stok_gagal_harga_sukses_tercatat_terpisah(): void
+    {
+        $this->tiktokConn();
+        Http::fake([
+            '*inventory/update*' => Http::response(['code' => 36004, 'message' => 'no permission'], 200),
+            '*prices/update*' => Http::response(['code' => 0, 'data' => []]),
+            '*' => Http::response(['code' => 0, 'data' => []]),
+        ]);
+        $m = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'FM', 'base_stock' => 30, 'base_price' => 39000]);
+        $l = MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'FM-1', 'master_id' => $m->id, 'item_id' => 'PID1', 'variation_id' => 'SKU1', 'warehouse_id' => 'WH1']);
+
+        $r = app(MarketplaceMasterService::class)->pushListing($l, true);
+
+        $this->assertSame(['stock' => 'failed', 'price' => 'ok'], $r);
+        $l->refresh();
+        $this->assertSame('failed', $l->last_status);
+        $this->assertNotNull($l->last_error);
+        $this->assertSame('ok', $l->last_price_status);
+        $this->assertNotNull($l->last_pushed_price);
+    }
 }
