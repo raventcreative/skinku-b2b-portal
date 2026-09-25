@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" href="{{ asset('img/favicon.png') }}?v=2">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=2">
     <title>Login · {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite('resources/css/app.css')
 </head>
 <body class="h-full bg-stone-100 flex items-center justify-center p-4">
     <div class="w-full max-w-4xl bg-white rounded-3xl shadow-xl overflow-hidden grid md:grid-cols-2 min-h-[520px] border border-stone-200">
@@ -41,7 +41,7 @@
                     <div>
                         <label class="block text-xs font-semibold text-stone-700 mb-1">Username / Email</label>
                         <input name="login" value="{{ old('login') }}" required autofocus
-                               class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600"
+                               class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600"
                                placeholder="username atau email">
                     </div>
                     <div>
@@ -50,16 +50,17 @@
                             <a href="{{ route('password.request') }}" class="text-xs text-stone-500 hover:text-stone-800 hover:underline">Lupa Password?</a>
                         </div>
                         <input type="password" name="password" required
-                               class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600"
+                               class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600"
                                placeholder="password">
                     </div>
                     <label class="flex items-center gap-2 text-xs text-stone-600">
-                        <input type="checkbox" name="remember" class="rounded border-stone-300"> Ingat saya
+                        <input type="checkbox" name="remember" class="rounded-sm border-stone-300"> Ingat saya
                     </label>
                     <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition">Log Masuk Sekarang</button>
                 </form>
             </div>
         </div>
     </div>
+@include('partials.password-toggle')
 </body>
 </html>

@@ -195,7 +195,7 @@
         <div class="space-y-1.5 mb-3">
             {{-- Akun utama dari kols --}}
             <div class="flex items-center justify-between gap-2 text-sm">
-                <span><span class="text-[9px] uppercase tracking-wide text-stone-400 mr-1">{{ $kol->platformLabel() }}</span> {{ '@'.$kol->tiktok_username }} <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">utama</span></span>
+                <span><span class="text-[9px] uppercase tracking-wide text-stone-400 mr-1">{{ $kol->platformLabel() }}</span> {{ '@'.$kol->tiktok_username }} <span class="text-[10px] px-1.5 py-0.5 rounded-sm bg-emerald-100 text-emerald-700">utama</span></span>
                 <span class="text-xs text-stone-500">{{ number_format($kol->followers, 0, ',', '.') }}</span>
             </div>
             @foreach($kol->accounts as $acc)
@@ -346,8 +346,8 @@
                             <form method="POST" action="{{ route('kol-screenings.ratecard', $s) }}" class="flex gap-1 justify-end">
                                 @csrf @method('PATCH')
                                 <input type="number" name="ratecard" min="0" required placeholder="isi harga"
-                                    class="w-24 px-2 py-1 border border-stone-300 rounded text-[11px] text-right">
-                                <button class="px-2 py-1 bg-stone-700 text-white rounded text-[11px]">Set</button>
+                                    class="w-24 px-2 py-1 border border-stone-300 rounded-sm text-[11px] text-right">
+                                <button class="px-2 py-1 bg-stone-700 text-white rounded-sm text-[11px]">Set</button>
                             </form>
                         @else
                             —
@@ -426,7 +426,7 @@
             @forelse($kol->contactLogs as $log)
                 <div class="flex items-start justify-between gap-2 border border-stone-100 rounded-xl p-2.5">
                     <div class="min-w-0">
-                        <p class="text-xs"><span class="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{{ $channels[$log->channel] ?? $log->channel }}</span> <span class="text-stone-400">{{ $log->contacted_at->format('d M Y') }}{{ $log->creator ? ' · '.$log->creator->fullname : '' }}</span></p>
+                        <p class="text-xs"><span class="text-[10px] px-1.5 py-0.5 rounded-sm bg-stone-100 text-stone-500">{{ $channels[$log->channel] ?? $log->channel }}</span> <span class="text-stone-400">{{ $log->contacted_at->format('d M Y') }}{{ $log->creator ? ' · '.$log->creator->fullname : '' }}</span></p>
                         <p class="text-sm text-stone-700 mt-1 whitespace-pre-line">{{ $log->note }}</p>
                     </div>
                     @if($u->canDo('kol.screening.manage'))

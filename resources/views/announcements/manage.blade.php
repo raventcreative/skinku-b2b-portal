@@ -39,8 +39,8 @@
                         <td class="px-4 py-2 font-semibold text-stone-700">{{ $it->role }}</td>
                         <td class="text-stone-600">{{ $it->label() }}</td>
                         <td>
-                            @if($it->note_enabled)<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] mr-1">box</span>@endif
-                            @if($it->banner_enabled)<span class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[10px]">popup</span>@endif
+                            @if($it->note_enabled)<span class="px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-700 text-[10px] mr-1">box</span>@endif
+                            @if($it->banner_enabled)<span class="px-1.5 py-0.5 rounded-sm bg-indigo-100 text-indigo-700 text-[10px]">popup</span>@endif
                         </td>
                         <td>
                             @if($it->note_enabled || $it->banner_enabled)
@@ -162,7 +162,7 @@
                     </div>
                     <div class="flex flex-wrap items-center gap-3 mt-2">
                         @if($c->qrUrl())
-                            <img src="{{ $c->qrUrl() }}" alt="QR {{ $r }}" class="w-14 h-14 object-contain rounded border border-stone-200">
+                            <img src="{{ $c->qrUrl() }}" alt="QR {{ $r }}" class="w-14 h-14 object-contain rounded-sm border border-stone-200">
                             <label class="flex items-center gap-1 text-[11px] text-rose-600"><input type="checkbox" name="remove_qr" value="1"> hapus QR</label>
                         @endif
                         <label class="text-[11px] text-stone-500">QR (opsional)

@@ -32,7 +32,7 @@
             </label>
             <label class="flex items-center gap-1.5 text-xs text-stone-600 px-3 py-2 rounded-lg border border-stone-200">
                 Mulai potong dari
-                <input type="date" name="deduct_from" value="{{ $connection->deduct_from?->format('Y-m-d') }}" onchange="this.form.submit()" class="px-2 py-1 border border-stone-300 rounded text-xs">
+                <input type="date" name="deduct_from" value="{{ $connection->deduct_from?->format('Y-m-d') }}" onchange="this.form.submit()" class="px-2 py-1 border border-stone-300 rounded-sm text-xs">
             </label>
         </form>
     @endif
@@ -91,13 +91,13 @@
                         <form method="POST" action="{{ route('shopee.sku-map') }}" class="flex items-center gap-1.5 text-xs mt-2 pt-2 border-t border-stone-100">
                             @csrf
                             <input type="hidden" name="shopee_sku" value="{{ $sku }}">
-                            <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded flex-1 min-w-0">
+                            <select name="product_id" required class="px-2 py-1 border border-stone-300 rounded-sm flex-1 min-w-0">
                                 <option value="">— produk —</option>
                                 @foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} ({{ $p->sku }})</option>@endforeach
                             </select>
                             <span class="text-stone-400 shrink-0">×</span>
-                            <input type="number" name="qty" value="1" min="1" max="999" class="w-12 px-1.5 py-1 border border-stone-300 rounded text-right shrink-0">
-                            <button type="submit" class="px-2.5 py-1 bg-stone-800 text-white rounded hover:bg-stone-900 shrink-0">+</button>
+                            <input type="number" name="qty" value="1" min="1" max="999" class="w-12 px-1.5 py-1 border border-stone-300 rounded-sm text-right shrink-0">
+                            <button type="submit" class="px-2.5 py-1 bg-stone-800 text-white rounded-sm hover:bg-stone-900 shrink-0">+</button>
                         </form>
                     </div>
                 @endforeach

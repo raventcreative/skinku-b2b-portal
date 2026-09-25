@@ -16,7 +16,7 @@
             <option value="belum" @selected(($filters['bayar'] ?? '')==='belum')>Belum Lunas</option>
             <option value="lunas" @selected(($filters['bayar'] ?? '')==='lunas')>Lunas</option>
         </select>
-        <select name="product" class="px-3 py-2 text-sm border border-stone-300 rounded-lg max-w-[12rem]" title="Tampilkan hanya PO yang memuat produk ini">
+        <select name="product" class="px-3 py-2 text-sm border border-stone-300 rounded-lg max-w-48" title="Tampilkan hanya PO yang memuat produk ini">
             <option value="">Semua Produk</option>
             @foreach($products as $p)<option value="{{ $p->id }}" @selected((string) ($filters['product'] ?? '') === (string) $p->id)>{{ $p->name }}</option>@endforeach
         </select>

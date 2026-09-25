@@ -46,7 +46,7 @@
     </div>
 
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden mb-4">
-        <div class="overflow-x-auto max-h-[28rem] overflow-y-auto">
+        <div class="overflow-x-auto max-h-112 overflow-y-auto">
         <table class="w-full text-xs whitespace-nowrap">
             <thead class="bg-stone-50 text-stone-500 uppercase text-[10px] sticky top-0">
                 <tr>

@@ -101,7 +101,7 @@
                                 @elseif($soon)<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Jatuh tempo ≤ H-1</span>@endif
                                 <a href="{{ route('kol-deals.edit', $d) }}" class="text-sm font-semibold text-indigo-600 hover:underline">{{ '@'.$d->kol->tiktok_username }}</a>
                                 <span class="text-[10px] uppercase tracking-wide text-stone-400">{{ $d->kode }}</span>
-                                <span class="text-[10px] px-1.5 py-0.5 rounded {{ $d->status_bayar === 'dp' ? 'bg-sky-100 text-sky-700' : 'bg-stone-100 text-stone-500' }}">bayar {{ $d->status_bayar }}</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded-sm {{ $d->status_bayar === 'dp' ? 'bg-sky-100 text-sky-700' : 'bg-stone-100 text-stone-500' }}">bayar {{ $d->status_bayar }}</span>
                             </div>
                             @if($d->status_bayar === 'dp' && $d->dp_percent > 0)
                                 <p class="text-[10px] text-stone-400 mt-0.5">DP {{ $d->dp_percent }}% dibayar ({{ $rp($d->dpAmount()) }}) — sisa {{ $rp($d->remainingUnpaid()) }}</p>

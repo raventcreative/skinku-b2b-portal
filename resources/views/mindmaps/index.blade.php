@@ -16,7 +16,7 @@
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @forelse($maps as $map)
-            <div class="bg-white rounded-2xl border border-stone-200 p-5 hover:border-stone-400 hover:shadow-sm transition">
+            <div class="bg-white rounded-2xl border border-stone-200 p-5 hover:border-stone-400 hover:shadow-xs transition">
                 <a href="{{ route('mindmaps.show', $map) }}" class="block">
                     <p class="text-sm font-bold text-stone-900 truncate">{{ $map->title }}</p>
                     <p class="text-[11px] text-stone-400 mt-2">oleh {{ $map->creator?->fullname ?? $map->creator?->name ?? '—' }} · diperbarui {{ $map->updated_at->diffForHumans() }}</p>

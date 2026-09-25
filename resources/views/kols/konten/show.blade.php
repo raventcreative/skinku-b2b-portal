@@ -21,7 +21,7 @@
                     <img src="{{ $content->thumbnail_url }}" alt="" class="w-16 h-20 object-cover rounded-lg border border-stone-200 shrink-0">
                 @endif
                 <div class="min-w-0">
-                    <a href="{{ $content->url }}" target="_blank" rel="noopener noreferrer" class="text-lg font-bold text-stone-800 hover:text-indigo-600 break-words">{{ $content->title ?: $content->url }}</a>
+                    <a href="{{ $content->url }}" target="_blank" rel="noopener noreferrer" class="text-lg font-bold text-stone-800 hover:text-indigo-600 wrap-break-word">{{ $content->title ?: $content->url }}</a>
                     <div class="flex flex-wrap items-center gap-2 mt-1.5 text-sm">
                         <a href="{{ route('kols.show', $content->kol_id) }}" class="text-indigo-600 hover:underline">{{ '@'.$content->kol->tiktok_username }}</a>
                         <span class="text-[10px] px-2 py-0.5 rounded-full {{ $content->label === 'paid' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700' }}">{{ $content->label }}</span>
@@ -72,12 +72,12 @@
             <summary class="cursor-pointer text-sm font-semibold text-stone-700">+ Tambah snapshot (satuan)</summary>
             <form method="POST" action="{{ route('kol-konten.snapshot.store', $content) }}" class="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-sm">
                 @csrf
-                <label class="block"><span class="text-[11px] text-stone-500">Tanggal</span><input type="date" name="captured_on" value="{{ now()->toDateString() }}" required class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
-                <label class="block"><span class="text-[11px] text-stone-500">Views</span><input type="number" name="views" min="0" required class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
-                <label class="block"><span class="text-[11px] text-stone-500">Likes</span><input type="number" name="likes" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
-                <label class="block"><span class="text-[11px] text-stone-500">Komen</span><input type="number" name="comments" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
-                <label class="block"><span class="text-[11px] text-stone-500">Share</span><input type="number" name="shares" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
-                <label class="block"><span class="text-[11px] text-stone-500">Saves</span><input type="number" name="saves" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Tanggal</span><input type="date" name="captured_on" value="{{ now()->toDateString() }}" required class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Views</span><input type="number" name="views" min="0" required class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Likes</span><input type="number" name="likes" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Komen</span><input type="number" name="comments" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Share</span><input type="number" name="shares" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
+                <label class="block"><span class="text-[11px] text-stone-500">Saves</span><input type="number" name="saves" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
                 <div class="col-span-2 sm:col-span-3 lg:col-span-6"><button class="px-4 py-1.5 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800">Simpan snapshot</button> <span class="text-[10px] text-stone-400 ml-2">tanggal sama = perbarui</span></div>
             </form>
         </details>

@@ -10,17 +10,10 @@
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=2">
     <link rel="apple-touch-icon" href="{{ asset('img/favicon.png') }}?v=2">
     <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite('resources/css/app.css')
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css">
     <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: { extend: { colors: {
-                brand: { dark: '#1c1917', gold: '#c8a96a', emerald: '#0f4c3a', cream: '#faf7f2' }
-            }}}
-        };
-    </script>
     @stack('head')
 </head>
 <body class="h-full bg-stone-100 text-stone-800 antialiased">
@@ -30,7 +23,7 @@
      atas nama mereka. --}}
 @isset($impersonator)
 @if($impersonator)
-    <div class="sticky top-0 z-50 bg-amber-400 text-amber-950 px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm font-semibold shadow">
+    <div class="sticky top-0 z-50 bg-amber-400 text-amber-950 px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm font-semibold shadow-sm">
         <span>⚠ Anda sedang masuk sebagai <b>{{ auth()->user()?->fullname }}</b> ({{ auth()->user()?->role }}) — bukan akun Anda.</span>
         <form method="POST" action="{{ route('impersonate.stop') }}">
             @csrf
@@ -70,7 +63,7 @@
                 </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 text-[9px] rounded font-bold uppercase bg-white/20 text-white">{{ str_replace('_', ' ', $u->role) }}</span>
+                <span class="px-2 py-0.5 text-[9px] rounded-sm font-bold uppercase bg-white/20 text-white">{{ str_replace('_', ' ', $u->role) }}</span>
                 @if($u->company_name)<span class="text-[9.5px] text-red-200 truncate max-w-[110px]">{{ $u->company_name }}</span>@endif
             </div>
         </div>
@@ -182,7 +175,9 @@
                 {!! navItem('purchase-orders.create', 'Buat PO', 'purchase-orders.create') !!}
             @endif
 
-            {!! navItem('purchase-orders.index', $u->isPartner() ? 'Riwayat PO' : 'Purchase Orders', 'purchase-orders.index') !!}
+            @if($u->isStaff() || $u->isPartner())
+                {!! navItem('purchase-orders.index', $u->isPartner() ? 'Riwayat PO' : 'Purchase Orders', 'purchase-orders.index') !!}
+            @endif
 
             @if($u->isPartner() && $u->downlines()->exists())
                 {!! navItem('jaringan-saya.index', 'Jaringan Saya', 'jaringan-saya.index') !!}
@@ -341,6 +336,30 @@
 
             @if($u->canDo('manage_roi_calculator'))
                 {!! navItem('roi-calculator.index', 'Kalkulator ROI', 'roi-calculator.*') !!}
+            @endif
+
+            @php
+                // Grup accordion "Konten" (Portal Content Creator): setor konten → review → terbit ke akun brand.
+                $kontenGroupOpen = request()->routeIs('creator.*') || request()->routeIs('content*') || request()->routeIs('social.*');
+            @endphp
+            @if($u->canDo('content.create') || $u->canDo('content.review') || $u->canDo('social.connect'))
+                <button type="button" onclick="toggleNavGroup('grpKonten')"
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $kontenGroupOpen ? 'text-white' : '' }}">
+                    <span class="flex items-center gap-3">{!! navIcon('kol-konten.index') !!}<span>Konten</span></span>
+                    <svg id="grpKontenChevron" class="w-3.5 h-3.5 transition-transform {{ $kontenGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                </button>
+                <div id="grpKonten" class="{{ $kontenGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                    @if($u->canDo('content.create'))
+                        {!! navItem('creator.dashboard', 'Dashboard Creator', 'creator.dashboard', [], null, 'dashboard') !!}
+                        {!! navItem('content.index', 'Konten Saya', 'content.index', [], request()->routeIs('content.index', 'content.create', 'content.edit'), 'kol-konten.index') !!}
+                    @endif
+                    @if($u->canDo('content.review'))
+                        {!! navItem('content-review.index', 'Review Konten', 'content-review.*', [], null, 'audit-logs.index') !!}
+                    @endif
+                    @if($u->canDo('social.connect'))
+                        {!! navItem('social.index', 'Akun Sosial Media', 'social.*', [], null, 'grp-integrasi') !!}
+                    @endif
+                </div>
             @endif
 
             @if($u->canDo('view_learning'))
@@ -704,5 +723,6 @@
 </script>
 @endif
 @stack('scripts')
+@include('partials.password-toggle')
 </body>
 </html>

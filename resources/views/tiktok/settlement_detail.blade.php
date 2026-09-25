@@ -106,7 +106,7 @@
                         <td class="text-right pr-4 font-mono {{ (float) $amount < 0 ? 'text-rose-600' : 'text-stone-700' }}">{{ $amount !== null ? $rp($amount) : '—' }}</td>
                         <td class="px-4">
                             <details><summary class="cursor-pointer text-indigo-600 text-[11px]">lihat</summary>
-                                <pre class="mt-1 text-[10px] bg-stone-50 rounded p-2 max-w-md overflow-x-auto whitespace-pre-wrap">{{ json_encode($t, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+                                <pre class="mt-1 text-[10px] bg-stone-50 rounded-sm p-2 max-w-md overflow-x-auto whitespace-pre-wrap">{{ json_encode($t, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
                             </details>
                         </td>
                     </tr>

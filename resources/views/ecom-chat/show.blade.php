@@ -9,7 +9,7 @@
     @endif
     <a href="{{ route('ecom-chat.index') }}" class="text-xs text-stone-500 hover:text-stone-800">&larr; Kembali ke inbox</a>
 
-    <div class="mt-3 bg-white border border-stone-200 rounded-2xl overflow-hidden h-[calc(100vh-13rem)] min-h-[24rem]">
+    <div class="mt-3 bg-white border border-stone-200 rounded-2xl overflow-hidden h-[calc(100vh-13rem)] min-h-96">
         @include('ecom-chat._thread')
     </div>
 </div>

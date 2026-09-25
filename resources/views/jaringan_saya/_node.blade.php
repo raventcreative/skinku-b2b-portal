@@ -7,12 +7,12 @@
 @endphp
 <div class="p-3" style="padding-left: {{ 0.75 + $depth * 1.5 }}rem">
     <div class="flex items-start justify-between gap-3 flex-wrap">
-        <div class="min-w-[10rem]">
+        <div class="min-w-40">
             <div class="flex items-center gap-2">
                 @if($depth > 0)<span class="text-stone-300">└</span>@endif
                 <span class="font-semibold text-sm text-stone-800">{{ $node['name'] }}</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-600">{{ $node['tier'] }}</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded {{ $badge[1] }}">{{ $badge[0] }}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-sm bg-stone-100 text-stone-600">{{ $node['tier'] }}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-sm {{ $badge[1] }}">{{ $badge[0] }}</span>
             </div>
             <div class="text-[11px] text-stone-400 mt-0.5">
                 {{ $node['member_id'] ?? '—' }}@if($node['region']) · {{ $node['region'] }}@endif · {{ $node['downline_count'] }} downline

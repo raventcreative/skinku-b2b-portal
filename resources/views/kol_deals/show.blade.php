@@ -120,7 +120,7 @@
             <div class="flex items-center justify-between py-1.5 border-t border-stone-50 text-sm">
                 <a href="{{ route('kol-konten.show', $c) }}" class="text-stone-700 hover:text-red-700 truncate max-w-[60%]">{{ $c->title ?: $c->url }}</a>
                 <span class="text-xs text-stone-500 tabular-nums">{{ number_format((int) ($c->latestSnapshot->views ?? 0), 0, ',', '.') }} views
-                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] {{ $c->label === 'paid' ? 'bg-red-50 text-red-600' : 'bg-stone-100 text-stone-500' }}">{{ $c->label }}</span></span>
+                    <span class="ml-1 px-1.5 py-0.5 rounded-sm text-[10px] {{ $c->label === 'paid' ? 'bg-red-50 text-red-600' : 'bg-stone-100 text-stone-500' }}">{{ $c->label }}</span></span>
             </div>
         @empty
             <p class="text-sm text-stone-400 italic">Belum ada konten tertaut ke deal ini.</p>

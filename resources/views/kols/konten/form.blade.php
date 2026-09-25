@@ -90,11 +90,11 @@
                 <div class="border-t border-stone-100 pt-3">
                     <p class="text-[11px] font-semibold text-stone-500 mb-2">Views awal + metrik (opsional — jadi snapshot pertama)</p>
                     <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
-                        <label class="block"><span class="text-[11px] text-stone-500">Views</span><input type="number" name="views_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
-                        <label class="block"><span class="text-[11px] text-stone-500">Likes</span><input type="number" name="likes_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
-                        <label class="block"><span class="text-[11px] text-stone-500">Komen</span><input type="number" name="comments_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
-                        <label class="block"><span class="text-[11px] text-stone-500">Share</span><input type="number" name="shares_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
-                        <label class="block"><span class="text-[11px] text-stone-500">Saves</span><input type="number" name="saves_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded text-xs"></label>
+                        <label class="block"><span class="text-[11px] text-stone-500">Views</span><input type="number" name="views_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
+                        <label class="block"><span class="text-[11px] text-stone-500">Likes</span><input type="number" name="likes_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
+                        <label class="block"><span class="text-[11px] text-stone-500">Komen</span><input type="number" name="comments_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
+                        <label class="block"><span class="text-[11px] text-stone-500">Share</span><input type="number" name="shares_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
+                        <label class="block"><span class="text-[11px] text-stone-500">Saves</span><input type="number" name="saves_awal" min="0" class="mt-1 w-full px-2 py-1.5 border border-stone-300 rounded-sm text-xs"></label>
                     </div>
                 </div>
             @endunless

@@ -74,7 +74,7 @@
                                         <span class="text-stone-400">belum dipetakan</span>
                                     @endif
                                     @if($row['tiktok_override'] !== null)
-                                        <div class="mt-1"><span class="inline-block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold">Override: {{ $row['tiktok_override'] }}</span></div>
+                                        <div class="mt-1"><span class="inline-block px-1.5 py-0.5 rounded-sm bg-indigo-50 text-indigo-700 text-[10px] font-semibold">Override: {{ $row['tiktok_override'] }}</span></div>
                                     @endif
                                 </td>
                                 <td class="py-2.5">
@@ -86,7 +86,7 @@
                                         <span class="text-stone-400">belum dipetakan</span>
                                     @endif
                                     @if($row['shopee_override'] !== null)
-                                        <div class="mt-1"><span class="inline-block px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold">Override: {{ $row['shopee_override'] }}</span></div>
+                                        <div class="mt-1"><span class="inline-block px-1.5 py-0.5 rounded-sm bg-indigo-50 text-indigo-700 text-[10px] font-semibold">Override: {{ $row['shopee_override'] }}</span></div>
                                     @endif
                                 </td>
                                 <td class="py-2.5 pr-4">

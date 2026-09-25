@@ -51,7 +51,7 @@
                 <form method="POST" action="{{ route('kol-affiliate.gmv-target') }}" class="flex items-center gap-1 text-xs">
                     @csrf
                     <span class="text-stone-400">target</span>
-                    <input type="number" name="gmv_target" min="0" value="{{ $gmvTarget }}" class="w-32 px-2 py-1 border border-stone-300 rounded text-right">
+                    <input type="number" name="gmv_target" min="0" value="{{ $gmvTarget }}" class="w-32 px-2 py-1 border border-stone-300 rounded-sm text-right">
                     <button class="text-indigo-600 hover:underline">simpan</button>
                 </form>
             @endif
@@ -98,21 +98,21 @@
                                 <form method="POST" action="{{ route('kol-affiliate.match') }}" class="flex items-center gap-1">
                                     @csrf
                                     <input type="hidden" name="raw_username" value="{{ $row->raw_username }}">
-                                    <input type="text" data-select-search="matchsel{{ $loop->index }}" placeholder="cari KOL…" class="w-28 px-2 py-1 border border-stone-300 rounded text-xs">
-                                    <select name="kol_id" id="matchsel{{ $loop->index }}" required class="px-2 py-1 border border-stone-300 rounded text-xs bg-white">
+                                    <input type="text" data-select-search="matchsel{{ $loop->index }}" placeholder="cari KOL…" class="w-28 px-2 py-1 border border-stone-300 rounded-sm text-xs">
+                                    <select name="kol_id" id="matchsel{{ $loop->index }}" required class="px-2 py-1 border border-stone-300 rounded-sm text-xs bg-white">
                                         <option value="">tautkan ke…</option>
                                         @foreach($kols as $k)
                                             <option value="{{ $k->id }}">{{ '@'.$k->tiktok_username }}</option>
                                         @endforeach
                                     </select>
-                                    <button class="px-2 py-1 bg-stone-700 hover:bg-stone-800 text-white text-xs rounded">Tautkan</button>
+                                    <button class="px-2 py-1 bg-stone-700 hover:bg-stone-800 text-white text-xs rounded-sm">Tautkan</button>
                                 </form>
                                 <span class="text-[10px] text-stone-400">atau</span>
                                 <form method="POST" action="{{ route('kol-affiliate.promote') }}"
                                     onsubmit="return confirm('Tambahkan @{{ $row->raw_username }} ke Database KOL sebagai affiliate baru? Semua ordernya ikut tertaut.')">
                                     @csrf
                                     <input type="hidden" name="raw_username" value="{{ $row->raw_username }}">
-                                    <button class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded font-semibold">+ Jadikan KOL</button>
+                                    <button class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-sm font-semibold">+ Jadikan KOL</button>
                                 </form>
                             </div>
                         @endif
@@ -155,7 +155,7 @@
                             <td class="px-4 py-2.5 text-right text-stone-600">{{ $rm['rpm'] !== null ? $rp($rm['rpm']) : '—' }}</td>
                             <td class="px-3 py-2.5">
                                 <div class="flex items-end gap-0.5 justify-center h-6">
-                                    @foreach($spark as $g)<div class="w-1.5 bg-red-400 rounded-sm" style="height: {{ max(2, round($g / $sparkMax * 100)) }}%" title="{{ $rc($g) }}"></div>@endforeach
+                                    @foreach($spark as $g)<div class="w-1.5 bg-red-400 rounded-xs" style="height: {{ max(2, round($g / $sparkMax * 100)) }}%" title="{{ $rc($g) }}"></div>@endforeach
                                 </div>
                             </td>
                             <td class="px-4 py-2.5 text-center">

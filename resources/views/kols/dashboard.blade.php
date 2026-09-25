@@ -195,8 +195,8 @@
                 <p class="text-sm font-semibold text-stone-700">Views kumulatif (konten tayang)</p>
                 {{-- Legend HTML (bukan di canvas) biar teks tajam. --}}
                 <div class="flex items-center gap-3 text-[11px] text-stone-500">
-                    <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded-sm" style="background:#dc2626"></span>Paid</span>
-                    <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded-sm" style="background:#059669"></span>Earned</span>
+                    <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded-xs" style="background:#dc2626"></span>Paid</span>
+                    <span class="flex items-center gap-1"><span class="inline-block w-3 h-1.5 rounded-xs" style="background:#059669"></span>Earned</span>
                     <span class="flex items-center gap-1"><span class="inline-block w-3 border-t border-dashed border-stone-400"></span>Target</span>
                 </div>
             </div>

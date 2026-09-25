@@ -199,9 +199,9 @@
                         <a href="{{ $prof ?? route('kols.show', $kol) }}" @if($prof) target="_blank" rel="noopener" @endif
                             class="font-bold text-red-700 hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
                         <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $kol->platformLabel() }}</span>
-                        @if($kol->role !== 'kol')<span class="ml-1 text-[9px] px-1 py-0.5 rounded bg-sky-100 text-sky-700">{{ $roleLabels[$kol->role] ?? $kol->role }}</span>@endif
-                        @if($kol->is_gapok)<span class="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title="Anggota Tim Affiliate Gapok">💰 GAPOK</span>@endif
-                        @if($kol->isBlacklisted())<span class="ml-1 text-[9px] px-1 py-0.5 rounded bg-rose-100 text-rose-700">BLACKLIST</span>@endif
+                        @if($kol->role !== 'kol')<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-sky-100 text-sky-700">{{ $roleLabels[$kol->role] ?? $kol->role }}</span>@endif
+                        @if($kol->is_gapok)<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-amber-100 text-amber-700 font-semibold" title="Anggota Tim Affiliate Gapok">💰 GAPOK</span>@endif
+                        @if($kol->isBlacklisted())<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-rose-100 text-rose-700">BLACKLIST</span>@endif
                         @if($kol->name)<span class="block text-[10px] text-stone-500">{{ $kol->name }}</span>@endif
                         @if($kol->phone)
                             <span class="block text-[10px] text-stone-400">📱 <a href="{{ $kol->whatsappUrl() }}" target="_blank" rel="noopener" class="hover:text-emerald-600">{{ $kol->phone }}</a></span>

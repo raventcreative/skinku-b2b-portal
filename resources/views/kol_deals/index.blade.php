@@ -61,9 +61,9 @@
             <form method="POST" action="{{ route('kol-deals.budget') }}" class="flex items-center gap-1 text-xs">
                 @csrf
                 <span class="text-stone-400">cap</span>
-                <input type="number" name="budget" min="0" value="{{ $budget['budget'] }}" class="w-28 px-2 py-1 border border-stone-300 rounded text-right">
+                <input type="number" name="budget" min="0" value="{{ $budget['budget'] }}" class="w-28 px-2 py-1 border border-stone-300 rounded-sm text-right">
                 <span class="text-stone-400">CPM anchor</span>
-                <input type="number" name="anchor" min="0" value="{{ $budget['anchor'] }}" class="w-20 px-2 py-1 border border-stone-300 rounded text-right">
+                <input type="number" name="anchor" min="0" value="{{ $budget['anchor'] }}" class="w-20 px-2 py-1 border border-stone-300 rounded-sm text-right">
                 <button class="text-indigo-600 hover:underline">simpan</button>
             </form>
         </div>
@@ -98,8 +98,8 @@
             <div class="flex items-center justify-between text-xs mb-1.5">
                 <span class="text-stone-500">Terpakai {{ $terpakaiPct }}% dari {{ $rp($budget['budget']) }}</span>
                 <span class="flex items-center gap-3 text-[10px] text-stone-500">
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-red-500 inline-block"></span>Lunas</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block"></span>Committed</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-red-500 inline-block"></span>Lunas</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-amber-400 inline-block"></span>Committed</span>
                 </span>
             </div>
             <div class="h-2.5 w-full bg-stone-100 rounded-full overflow-hidden flex">
@@ -145,7 +145,7 @@
                     @foreach($extraTx as $tx)
                         <div class="flex items-center justify-between py-1.5 text-xs">
                             <div class="flex items-center gap-2">
-                                <span class="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 text-[10px]">{{ $tx->categoryLabel() }}</span>
+                                <span class="px-1.5 py-0.5 rounded-sm bg-stone-100 text-stone-600 text-[10px]">{{ $tx->categoryLabel() }}</span>
                                 <span class="text-stone-600">{{ $tx->note ?: '—' }}</span>
                             </div>
                             <div class="flex items-center gap-3">
@@ -166,7 +166,7 @@
                     @foreach($txCategories as $val => $lbl)<option value="{{ $val }}">{{ $lbl }}</option>@endforeach
                 </select>
                 <input type="number" name="amount" min="1" placeholder="nominal (Rp)" required class="w-32 px-2 py-1.5 border border-stone-300 rounded-lg tabular-nums">
-                <input name="note" maxlength="200" placeholder="catatan (opsional)" class="flex-1 min-w-[8rem] px-2 py-1.5 border border-stone-300 rounded-lg">
+                <input name="note" maxlength="200" placeholder="catatan (opsional)" class="flex-1 min-w-32 px-2 py-1.5 border border-stone-300 rounded-lg">
                 <button class="px-3 py-1.5 bg-stone-800 text-white rounded-lg hover:bg-stone-900 font-semibold">+ Catat</button>
             </form>
         </div>
@@ -206,7 +206,7 @@
                         <a href="{{ route('kols.show', $d->kol_id) }}" class="text-red-700 hover:underline font-semibold">{{ '@'.($d->kol->tiktok_username ?? '?') }}</a>
                         @if($d->campaign)<span class="block text-[10px] text-indigo-500">📣 {{ $d->campaign->name }}</span>@endif
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
-                            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold {{ $levelBadge[$d->kol?->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $d->kol?->level ?? '—' }}</span>
+                            <span class="px-1.5 py-0.5 rounded-sm text-[10px] font-semibold {{ $levelBadge[$d->kol?->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $d->kol?->level ?? '—' }}</span>
                             @if($sc)
                                 <span class="text-[10px] text-stone-500">{{ $sc->verdict_median }}</span>
                                 @if($sc->cpv_median !== null)<span class="text-[10px] text-stone-400">CPV {{ number_format($sc->cpv_median, 0, ',', '.') }}</span>@endif

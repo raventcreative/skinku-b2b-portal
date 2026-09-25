@@ -65,6 +65,10 @@ class Permissions
         'manage_ecommerce_chat' => 'Chat E-commerce (Balas Chat Marketplace)',
         'manage_marketplace_stock' => 'Kontrol Stok Marketplace',
         'manage_roi_calculator' => 'Kalkulator ROI',
+        'content.create' => 'Buat & Kelola Konten Sendiri (Content Creator)',
+        'content.review' => 'Review Konten — Setujui/Tolak (semua creator)',
+        'content.publish.manage' => 'Kelola Publikasi Konten (retry, tandai terbit manual)',
+        'social.connect' => 'Hubungkan Akun Sosial Media Brand (FB/IG/Threads)',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -145,6 +149,14 @@ class Permissions
         'manage_ecommerce_chat' => [User::ROLE_ADMIN],
         'manage_marketplace_stock' => [User::ROLE_ADMIN],
         'manage_roi_calculator' => [User::ROLE_ADMIN],
+        // Portal Content Creator. content_creator = role dinamis (migrasi 000142).
+        // Pembuat ≠ penyetuju: creator TIDAK dapat content.review (OQ-1: approval wajib).
+        // Kalau HQ memutuskan tanpa approval, beri content.review lewat matriks (FR-34).
+        'content.create' => ['content_creator', User::ROLE_ADMIN],
+        'content.review' => [User::ROLE_ADMIN],
+        'content.publish.manage' => [User::ROLE_ADMIN],
+        // Token akun brand = kunci posting atas nama SKINKU → super_admin saja.
+        'social.connect' => [],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */

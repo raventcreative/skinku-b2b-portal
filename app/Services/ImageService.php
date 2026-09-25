@@ -39,7 +39,8 @@ class ImageService
             'disk' => 'public',
             'path' => $path,
             'original_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getClientMimeType(),
+            // MIME hasil deteksi isi file (server), bukan klaim browser; gambar yang di-resize selalu JPEG.
+            'mime_type' => $isImage && str_ends_with($path, '.jpg') ? 'image/jpeg' : ($file->getMimeType() ?: $file->getClientMimeType()),
             'size' => $file->getSize(),
             'sort_order' => $nextSort,
         ]);

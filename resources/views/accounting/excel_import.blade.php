@@ -21,7 +21,7 @@
       onsubmit="return confirm('Hapus PERMANEN semua jurnal hasil impor Excel' + (document.getElementById('purgePeriod').value ? ' periode ' + document.getElementById('purgePeriod').value : '') + '? Jurnal manual & impor bank tidak tersentuh.')">
     @csrf
     <span class="text-[11px] text-stone-500">Mau impor ulang? Bersihkan dulu hasil impor Excel:</span>
-    <input type="month" id="purgePeriod" name="period" value="2026-06" class="px-2 py-1 border border-stone-300 rounded text-xs">
+    <input type="month" id="purgePeriod" name="period" value="2026-06" class="px-2 py-1 border border-stone-300 rounded-sm text-xs">
     <button class="px-3 py-1.5 text-xs bg-rose-600 text-white rounded-lg hover:bg-rose-700">🗑 Hapus impor Excel (periode ini)</button>
     <span class="text-[10px] text-stone-400">kosongkan bulan = hapus semua periode</span>
 </form>
@@ -344,7 +344,7 @@
 
     function renderMapping() {
         const tb = document.getElementById('mapRows');
-        tb.innerHTML = KEYS.map(k => `<tr class="border-t border-stone-100"><td class="px-3 py-1.5 font-mono text-stone-700">${k}</td><td class="py-1.5"><select data-key="${k}" onchange="markMap(this)" class="map-sel w-72 px-2 py-1 border border-stone-300 rounded">${accOptions(suggest(k))}</select></td></tr>`).join('');
+        tb.innerHTML = KEYS.map(k => `<tr class="border-t border-stone-100"><td class="px-3 py-1.5 font-mono text-stone-700">${k}</td><td class="py-1.5"><select data-key="${k}" onchange="markMap(this)" class="map-sel w-72 px-2 py-1 border border-stone-300 rounded-sm">${accOptions(suggest(k))}</select></td></tr>`).join('');
         document.querySelectorAll('.map-sel').forEach(markMap);
     }
     function markMap(sel) { sel.closest('td').classList.toggle('bg-rose-50', !sel.value); }
@@ -409,7 +409,7 @@
         const uk = Object.entries(window._UNMAPPED).sort((a, b) => b[1] - a[1]);
         if (uk.length) {
             warn.innerHTML = `⚠️ <b>${unmapped} jurnal akan DILEWATI</b> karena kunci ini belum dipetakan ke akun (naik ke "Petakan Akun", pilih akunnya, lalu Terapkan lagi):<br>` +
-                uk.map(([k, v]) => `<span class="inline-block mt-1 mr-2 px-2 py-0.5 rounded bg-rose-100 font-mono">${k} → ${Math.round(v).toLocaleString('id-ID')}</span>`).join('');
+                uk.map(([k, v]) => `<span class="inline-block mt-1 mr-2 px-2 py-0.5 rounded-sm bg-rose-100 font-mono">${k} → ${Math.round(v).toLocaleString('id-ID')}</span>`).join('');
             warn.classList.remove('hidden');
         } else { warn.classList.add('hidden'); }
         document.getElementById('previewCard').classList.remove('hidden');

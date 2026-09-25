@@ -13,10 +13,10 @@
     <a href="{{ route('kanban.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Semua papan</a>
     <details class="relative">
         <summary class="text-xs text-stone-500 cursor-pointer select-none hover:text-stone-800">ubah nama papan</summary>
-        <form method="POST" action="{{ route('kanban.update', $board) }}" class="absolute z-20 mt-1 bg-white border border-stone-200 rounded-lg shadow p-2 flex gap-1">
+        <form method="POST" action="{{ route('kanban.update', $board) }}" class="absolute z-20 mt-1 bg-white border border-stone-200 rounded-lg shadow-sm p-2 flex gap-1">
             @csrf @method('PUT')
-            <input name="name" value="{{ $board->name }}" required maxlength="150" class="px-2 py-1 border border-stone-300 rounded text-xs w-48">
-            <button class="px-2 py-1 bg-stone-700 text-white rounded text-xs">Simpan</button>
+            <input name="name" value="{{ $board->name }}" required maxlength="150" class="px-2 py-1 border border-stone-300 rounded-sm text-xs w-48">
+            <button class="px-2 py-1 bg-stone-700 text-white rounded-sm text-xs">Simpan</button>
         </form>
     </details>
     <span class="ml-auto text-[11px] text-stone-400">Klik kartu = detail & komentar · geser kartu = pindah kolom (tersimpan otomatis).</span>
@@ -36,11 +36,11 @@
                 </p>
                 <details class="relative">
                     <summary class="text-stone-400 hover:text-stone-700 cursor-pointer select-none text-xs px-1">⋯</summary>
-                    <div class="absolute right-0 z-20 mt-1 bg-white border border-stone-200 rounded-lg shadow p-2 w-52 space-y-2">
+                    <div class="absolute right-0 z-20 mt-1 bg-white border border-stone-200 rounded-lg shadow-sm p-2 w-52 space-y-2">
                         <form method="POST" action="{{ route('kanban.columns.update', $column) }}" class="flex gap-1">
                             @csrf @method('PUT')
-                            <input name="name" value="{{ $column->name }}" required maxlength="100" class="flex-1 px-2 py-1 border border-stone-300 rounded text-xs">
-                            <button class="px-2 py-1 bg-stone-700 text-white rounded text-xs">OK</button>
+                            <input name="name" value="{{ $column->name }}" required maxlength="100" class="flex-1 px-2 py-1 border border-stone-300 rounded-sm text-xs">
+                            <button class="px-2 py-1 bg-stone-700 text-white rounded-sm text-xs">OK</button>
                         </form>
                         <form method="POST" action="{{ route('kanban.columns.destroy', $column) }}"
                             onsubmit="return confirm('Hapus kolom {{ $column->name }}? (hanya bisa bila kosong)')">
@@ -51,28 +51,28 @@
                 </details>
             </div>
 
-            <div class="px-2 pb-2 space-y-2 min-h-[2.5rem] max-h-[60vh] overflow-y-auto" data-cards data-column-id="{{ $column->id }}">
+            <div class="px-2 pb-2 space-y-2 min-h-10 max-h-[60vh] overflow-y-auto" data-cards data-column-id="{{ $column->id }}">
                 @foreach($column->cards as $card)
                     @php
                         $overdue = $card->due_date && $card->due_date->isPast();
                         $atts = $card->attachments();
                     @endphp
                     {{-- Muka kartu ala Trello: judul + badge. Klik → modal detail. --}}
-                    <div class="bg-white rounded-xl border border-stone-200 shadow-sm p-3 cursor-grab hover:border-stone-300"
+                    <div class="bg-white rounded-xl border border-stone-200 shadow-xs p-3 cursor-grab hover:border-stone-300"
                         data-card="{{ $card->id }}" data-opens="cardModal-{{ $card->id }}">
                         <p class="text-sm font-semibold text-stone-800">{{ $card->title }}</p>
                         <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
                             @if($card->fromAi())
-                                <span class="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-bold" title="Kartu ini dibuat oleh Asisten AI">✨ AI</span>
+                                <span class="px-1.5 py-0.5 rounded-sm bg-violet-100 text-violet-700 font-bold" title="Kartu ini dibuat oleh Asisten AI">✨ AI</span>
                             @endif
                             @if($card->due_date)
-                                <span class="px-1.5 py-0.5 rounded {{ $overdue ? 'bg-rose-100 text-rose-700 font-bold' : 'bg-stone-100 text-stone-500' }}">📅 {{ $card->due_date->format('d M') }}{{ $overdue ? ' — lewat!' : '' }}</span>
+                                <span class="px-1.5 py-0.5 rounded-sm {{ $overdue ? 'bg-rose-100 text-rose-700 font-bold' : 'bg-stone-100 text-stone-500' }}">📅 {{ $card->due_date->format('d M') }}{{ $overdue ? ' — lewat!' : '' }}</span>
                             @endif
                             @if($card->description)<span class="text-stone-400" title="ada deskripsi">≡</span>@endif
                             @if($card->comments->count())<span class="text-stone-500">💬 {{ $card->comments->count() }}</span>@endif
                             @if($atts->count())<span class="text-stone-500" title="ada lampiran">🖼️ {{ $atts->count() }}</span>@endif
                             @if($card->assignee)
-                                <span class="ml-auto px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">{{ $card->assignee->fullname }}</span>
+                                <span class="ml-auto px-1.5 py-0.5 rounded-sm bg-indigo-50 text-indigo-700 font-semibold">{{ $card->assignee->fullname }}</span>
                             @endif
                         </div>
                     </div>
@@ -98,7 +98,7 @@
                                     </div>
                                     {{-- Tampil baca: URL http(s) otomatis jadi tautan klik (aman XSS). Klik "ubah" → textarea. --}}
                                     @if(filled($card->description))
-                                        <div data-desc-view class="px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-700 bg-stone-50 leading-relaxed break-words">{!! $card->descriptionHtml() !!}</div>
+                                        <div data-desc-view class="px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-700 bg-stone-50 leading-relaxed wrap-break-word">{!! $card->descriptionHtml() !!}</div>
                                     @endif
                                     <textarea name="description" rows="3" maxlength="5000" placeholder="rincian tugas… (link http(s) otomatis bisa diklik)" data-autogrow data-desc-edit
                                         class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm {{ filled($card->description) ? 'hidden' : '' }}">{{ $card->description }}</textarea>
@@ -190,7 +190,7 @@
                                                     </form>
                                                 @endif
                                             </div>
-                                            <p class="text-xs text-stone-600 break-words">{!! $comment->bodyHtml() !!}</p>
+                                            <p class="text-xs text-stone-600 wrap-break-word">{!! $comment->bodyHtml() !!}</p>
                                         </div>
                                     @empty
                                         <p class="text-xs text-stone-300">Belum ada komentar.</p>

@@ -36,7 +36,7 @@
         @endforeach
 
         <div class="flex items-center gap-2 sticky bottom-4">
-            <button class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold shadow">Simpan {{ $groups[$activeTab] }}</button>
+            <button class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold shadow-sm">Simpan {{ $groups[$activeTab] }}</button>
             <span class="text-[11px] text-stone-400">Tersimpan langsung dipakai di obrolan/chat berikutnya.</span>
         </div>
     </form>

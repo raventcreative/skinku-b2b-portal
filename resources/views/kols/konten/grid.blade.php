@@ -55,11 +55,11 @@
                                             <span class="block text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 mt-0.5" title="{{ $snap->captured_on->format('d M') }}">basi {{ (int) $snap->captured_on->diffInDays(now()) }} hr</span>
                                         @endif
                                     </td>
-                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][views]" class="w-24 px-2 py-1 border border-stone-300 rounded text-right"></td>
-                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][likes]" class="w-20 px-2 py-1 border border-stone-300 rounded text-right"></td>
-                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][comments]" class="w-20 px-2 py-1 border border-stone-300 rounded text-right"></td>
-                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][shares]" class="w-20 px-2 py-1 border border-stone-300 rounded text-right"></td>
-                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][saves]" class="w-20 px-2 py-1 border border-stone-300 rounded text-right"></td>
+                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][views]" class="w-24 px-2 py-1 border border-stone-300 rounded-sm text-right"></td>
+                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][likes]" class="w-20 px-2 py-1 border border-stone-300 rounded-sm text-right"></td>
+                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][comments]" class="w-20 px-2 py-1 border border-stone-300 rounded-sm text-right"></td>
+                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][shares]" class="w-20 px-2 py-1 border border-stone-300 rounded-sm text-right"></td>
+                                    <td class="px-3 py-2"><input type="number" min="0" name="rows[{{ $i }}][saves]" class="w-20 px-2 py-1 border border-stone-300 rounded-sm text-right"></td>
                                 </tr>
                             @endforeach
                         </tbody>

@@ -144,7 +144,7 @@
                                                     <input type="number" step="any" min="0" name="{{ $name }}" value="{{ $val }}"
                                                         placeholder="{{ $name === 'selling_price' ? '' : 'warisi' }}"
                                                         {{ $name === 'selling_price' ? 'required' : '' }}
-                                                        class="mt-0.5 w-20 px-1.5 py-1 border border-stone-300 rounded text-[11px]">
+                                                        class="mt-0.5 w-20 px-1.5 py-1 border border-stone-300 rounded-sm text-[11px]">
                                                 </label>
                                             @endforeach
                                             <button class="px-3 py-1.5 text-[11px] bg-stone-800 text-white rounded-lg hover:bg-stone-900">Simpan</button>
