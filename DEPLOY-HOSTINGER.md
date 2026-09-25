@@ -80,6 +80,8 @@ Buka `https://system.skinku.id` → login dengan `SUPER_ADMIN_USERNAME` / passwo
 ---
 
 ## Update aplikasi di masa depan
+> Aset CSS (Tailwind) sudah ter-build di repo (`public/build`) — server **tidak** butuh Node/npm.
+
 ```bash
 cd ~/laravel/skinku-b2b
 # upload file baru / git pull
@@ -93,3 +95,16 @@ php artisan config:cache && php artisan route:cache && php artisan view:cache
 - JANGAN jalankan `DevDataSeeder` di server produksi.
 - Ganti `SUPER_ADMIN_PASSWORD` sebelum seed.
 - Folder aplikasi di luar `public_html`; hanya `public/` yang diekspos.
+
+## Portal Content Creator (migrasi 000142)
+1. `php artisan migrate --force` (tabel konten + role `content_creator`).
+2. Isi `.env` server: `META_APP_ID`, `META_APP_SECRET`, `THREADS_APP_ID`, `THREADS_APP_SECRET`
+   (lihat `.env.example`), lalu `php artisan config:cache`. `APP_URL` **wajib** `https://system.skinku.id` —
+   Instagram & Threads mengambil media dari URL publik ini.
+3. Di Meta Developer App daftarkan redirect URI:
+   `https://system.skinku.id/social-connections/meta/callback` dan `.../social-connections/threads/callback`.
+4. Login super_admin → menu **Konten → Akun Sosial Media** → Hubungkan Meta & Threads.
+5. Upload video sampai 300 MB butuh batas PHP yang cukup (hPanel → PHP Options):
+   `upload_max_filesize=300M`, `post_max_size=310M`, `max_execution_time=300`.
+6. Cron `schedule:run` yang sudah ada otomatis menjalankan `content:publish-due` (tiap menit)
+   & `social:refresh-tokens` (harian).

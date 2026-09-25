@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" href="{{ asset('img/favicon.png') }}?v=2">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=2">
     <title>Reset Password · {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite('resources/css/app.css')
 </head>
 <body class="h-full bg-stone-100 flex items-center justify-center p-4">
     <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-stone-200">
@@ -25,20 +25,21 @@
             <div>
                 <label class="block text-xs font-semibold text-stone-700 mb-1">Email</label>
                 <input type="email" name="email" value="{{ old('email', $email) }}" required
-                       class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600">
+                       class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-stone-700 mb-1">Password Baru</label>
                 <input type="password" name="password" required
-                       class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600">
+                       class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-stone-700 mb-1">Konfirmasi Password Baru</label>
                 <input type="password" name="password_confirmation" required
-                       class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600">
+                       class="w-full px-4 py-2.5 bg-white text-sm border border-stone-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600">
             </div>
             <button type="submit" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Simpan Password Baru</button>
         </form>
     </div>
+@include('partials.password-toggle')
 </body>
 </html>

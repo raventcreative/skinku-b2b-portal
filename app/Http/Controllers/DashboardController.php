@@ -40,6 +40,11 @@ class DashboardController extends Controller
         }
         $announce = ['boxes' => $boxes, 'popups' => $popups, 'showPopups' => $showPopups];
 
+        // Content creator punya dashboard sendiri (FR-10) — beda dari dashboard mitra.
+        if (! $user->isStaff() && ! $user->isPartner() && $user->canDo('content.create')) {
+            return redirect()->route('creator.dashboard');
+        }
+
         // Limited roles (not staff, not partner — e.g. affiliator) get a minimal
         // dashboard with no sales/stock data, just shortcuts to what they can access.
         if (! $user->isStaff() && ! $user->isPartner()) {

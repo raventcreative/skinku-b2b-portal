@@ -171,4 +171,16 @@ return [
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
     ],
 
+    // Portal Content Creator (Fase 1): publikasi ke akun brand FB Page + Instagram
+    // (Meta App) dan Threads (Threads API — app id/secret terpisah di dashboard Meta).
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'graph_version' => env('META_GRAPH_VERSION', 'v23.0'),
+    ],
+    'threads' => [
+        'app_id' => env('THREADS_APP_ID'),
+        'app_secret' => env('THREADS_APP_SECRET'),
+    ],
+
 ];

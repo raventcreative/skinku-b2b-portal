@@ -101,3 +101,11 @@ Schedule::command('members:auto-freeze')->dailyAt('03:00')->withoutOverlapping(6
 // tiap 5 menit. withoutOverlapping(4) < interval agar kunci lepas sebelum jadwal
 // berikutnya kalau proses macet — maksimal 1 siklus terlewat, bukan 24 jam (default).
 Schedule::command('marketplace:push-stock')->everyFiveMinutes()->withoutOverlapping(4);
+
+// Portal Content Creator: terbitkan konten terjadwal ke FB/IG/Threads tiap menit
+// (retry & polling container video dikelola di tabel). withoutOverlapping(5)
+// supaya satu siklus lambat tak menumpuk proses kembar.
+Schedule::command('content:publish-due')->everyMinute()->withoutOverlapping(5);
+
+// Perpanjang token Threads (±60 hari) sebelum kedaluwarsa.
+Schedule::command('social:refresh-tokens')->dailyAt('04:10')->withoutOverlapping(30);

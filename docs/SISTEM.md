@@ -24,6 +24,7 @@ Kalau kamu baru pertama baca: mulai dari [Ringkasan](#0-ringkasan) → [Konvensi
 - [8. Integrasi TikTok](#8-integrasi-tiktok)
 - [9. Integrasi Shopee (Fase 1–4)](#9-integrasi-shopee-fase-14)
 - [9b. Kalkulator ROI](#9b-kalkulator-roi)
+- [9c. Portal Content Creator](#9c-portal-content-creator)
 - [10. Akuntansi / GL (buku besar)](#10-akuntansi--gl-buku-besar)
 
 **Laporan & Produktivitas**
@@ -368,6 +369,22 @@ Tabel `roi_settings` (migrasi `000141`) — setelan **global** singleton (`id=1`
 `RoiCalculatorController` (5 rute `roi-calculator.*`) → halaman `/kalkulator-roi`: setelan global + tabel produk (tambah dari katalog/edit override per-baris/hapus).
 
 **Izin:** `manage_roi_calculator` (default admin, super_admin implisit). Menu sidebar berdiri sendiri "Kalkulator ROI".
+
+---
+
+## 9c. Portal Content Creator
+
+**Tujuan:** creator (role `content_creator`) menyetor konten → admin review → portal menerbitkan ke **akun brand SKINKU** di Facebook Page, Instagram Business, Threads (API) dan TikTok (manual, Fase 2 via API). Spec: `docs/superpowers/specs/2026-09-25-content-creator/` (BRD/PRD/FRD/TRD).
+
+Tabel (migrasi `000142`): `content_posts` (konten + status level konten), `content_post_targets` (status per platform: `external_id`, `permalink`, `attempts`, `next_attempt_at`, `container_id`), `social_connections` (satu akun per platform, token cast `encrypted`). Media = `files` polymorphic collection `content_media` via `ImageService` (gambar → JPEG maks 1440px, video apa adanya).
+
+Alur status konten: `draft → in_review → (rejected ↺) → scheduled → publishing → done / partial / failed`; diturunkan dari status target oleh `ContentPost::recomputeStatus()`. Semua transisi + audit log di `ContentPostService` (submit/withdraw/approve/reject/retry/markPublished); validasi media/caption per platform di `ContentPostService::submitErrors()` + `config/content.php`.
+
+Publikasi: cron `content:publish-due` tiap menit (inline, bukan queue job) → `Social\ContentPublisher` (FB sinkron; IG/Threads container → tunggu `FINISHED` → publish) lewat `Social\MetaClient` (Http facade, token via header Authorization). Gagal → retry 5/15/60 menit lalu `failed`; admin bisa retry / tandai terbit manual (tempel link). `social:refresh-tokens` harian memperpanjang token Threads. **Butuh `APP_URL` HTTPS publik** (IG/Threads mengambil media dari URL).
+
+**Izin:** `content.create` (content_creator, admin), `content.review` (admin), `content.publish.manage` (admin), `social.connect` (super_admin saja). Pembuat ≠ penyetuju. Menu sidebar grup "Konten". Login `content_creator` di `/dashboard` → diarahkan ke `/creator`.
+
+**Middleware `business`** (dibuat bersama modul ini): route PO/retur/inventory/penjualan mitra/komisi hanya untuk staff & mitra — sebelumnya role kustom non-staff (kol_specialist, affiliator) jatuh ke jalur staff dan melihat data semua mitra.
 
 ---
 

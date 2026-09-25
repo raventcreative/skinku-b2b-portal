@@ -58,6 +58,9 @@ Model komisi terpusat lama → **dorman (revivable)**. Semua ke-wire (route+nav+
 ### Kalkulator ROI
 - **Kalkulator ROI** — SELESAI (branch `feat/kalkulator-roi`, belum merge ke `main`): 2 tabel `roi_settings`/`roi_items` (migrasi `000141`), `RoiCalculatorService` (compute + effectiveInputs/rowFor/summary), `RoiCalculatorController` (1 controller), halaman `/kalkulator-roi`, izin `manage_roi_calculator`, tes Unit+Feature (27 tes).
 
+### Portal Content Creator
+- **Content Creator** — Fase 1 SELESAI: 3 tabel (migrasi `000142`), `ContentPostService`, `Social\MetaClient` + `Social\ContentPublisher`, `ContentPostController` / `ContentReviewController` / `SocialConnectionController`, command `content:publish-due` + `social:refresh-tokens`, izin `content.*` + `social.connect`, middleware `business`, tes `ContentCreatorTest`. Fase 2 (TikTok Content Posting API) & 3 (insight) belum.
+
 ---
 
 ## ⛔ BELUM dibangun (diverifikasi lewat KETIADAAN kode)

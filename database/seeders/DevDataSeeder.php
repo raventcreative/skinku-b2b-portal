@@ -50,6 +50,8 @@ class DevDataSeeder extends Seeder
             );
         }
 
+        $this->call(ContentCreatorDemoSeeder::class);
+
         $products = [
             ['Amino Body Wash', 'SKN-ABW-01', 'Sabun Cair', 45000, 55000, 75000, 28000, 500],
             ['Brightening Body Serum', 'SKN-BBS-02', 'Serum', 80000, 95000, 135000, 50000, 300],

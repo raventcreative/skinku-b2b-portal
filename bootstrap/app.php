@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\BusinessOnlyMiddleware;
 use App\Http\Middleware\InternalOnlyMiddleware;
 use App\Http\Middleware\PermissionMiddleware;
 use App\Http\Middleware\RoleMiddleware;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'internal' => InternalOnlyMiddleware::class,
+            'business' => BusinessOnlyMiddleware::class,
         ]);
 
         // Webhook Telegram: request publik dari server Telegram, tak pernah

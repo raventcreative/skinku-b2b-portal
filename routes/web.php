@@ -10,6 +10,8 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackdatedSaleController;
 use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\ContentPostController;
+use App\Http\Controllers\ContentReviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DownlineOrderController;
 use App\Http\Controllers\EcomChatController;
@@ -57,6 +59,7 @@ use App\Http\Controllers\RoiCalculatorController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShopeeController;
 use App\Http\Controllers\ShopeePushController;
+use App\Http\Controllers\SocialConnectionController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockReceiptController;
@@ -136,7 +139,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::post('/account/rekening', [AuthController::class, 'updateBankAccount']);
 
     /* ---------------- Purchase Orders ---------------- */
-    Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
+    Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->middleware('business')->name('purchase-orders.index');
 
     // Create PO — gated by the configurable "create_po" capability
     Route::middleware('permission:create_po')->group(function () {
@@ -145,20 +148,20 @@ Route::middleware(['auth', 'role'])->group(function () {
     });
 
     // Export SEBELUM {purchaseOrder}: tanpa ini, "export" tertelan model binding.
-    Route::get('/purchase-orders/export', [ExportController::class, 'purchaseOrders'])->name('purchase-orders.export');
+    Route::get('/purchase-orders/export', [ExportController::class, 'purchaseOrders'])->middleware('business')->name('purchase-orders.export');
     // Mini-detail JSON untuk popup di daftar PO (isi item + sisa bisa retur).
-    Route::get('/purchase-orders/{purchaseOrder}/quick', [PurchaseOrderController::class, 'quick'])->name('purchase-orders.quick');
-    Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
-    Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
+    Route::get('/purchase-orders/{purchaseOrder}/quick', [PurchaseOrderController::class, 'quick'])->middleware('business')->name('purchase-orders.quick');
+    Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->middleware('business')->name('purchase-orders.show');
+    Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->middleware('business')->name('purchase-orders.cancel');
 
     // Edit isi PO (item & qty) — hanya selagi pending & belum bayar. Otorisasi
     // (owner mitra pemegang stok ATAU admin update_po_status) dicek inline di
     // controller, jadi route ini cukup auth (bukan di grup permission).
-    Route::get('/purchase-orders/{purchaseOrder}/edit', [PurchaseOrderController::class, 'edit'])->name('purchase-orders.edit');
-    Route::put('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'update'])->name('purchase-orders.update');
+    Route::get('/purchase-orders/{purchaseOrder}/edit', [PurchaseOrderController::class, 'edit'])->middleware('business')->name('purchase-orders.edit');
+    Route::put('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'update'])->middleware('business')->name('purchase-orders.update');
 
     // Buyer uploads transfer proof for their own PO
-    Route::post('/purchase-orders/{purchaseOrder}/payment-proof', [PurchaseOrderController::class, 'uploadPayment'])->name('purchase-orders.payment-proof');
+    Route::post('/purchase-orders/{purchaseOrder}/payment-proof', [PurchaseOrderController::class, 'uploadPayment'])->middleware('business')->name('purchase-orders.payment-proof');
 
     Route::middleware('permission:update_po_status')->group(function () {
         // Mass approve / ubah status banyak PO sekaligus (sebelum route {purchaseOrder}).
@@ -188,41 +191,41 @@ Route::middleware(['auth', 'role'])->group(function () {
     });
 
     // Retur PO — mitra ajukan (kepemilikan PO), HQ (process_return) proses/acc.
-    Route::get('/retur', [ReturController::class, 'index'])->name('retur.index');
-    Route::get('/purchase-orders/{purchaseOrder}/retur', [ReturController::class, 'create'])->name('retur.create');
-    Route::post('/retur', [ReturController::class, 'store'])->name('retur.store');
-    Route::post('/retur/{retur}/void', [ReturController::class, 'void'])->name('retur.void'); // super_admin (cek di controller)
-    Route::delete('/retur/{retur}/force', [ReturController::class, 'forceDestroy'])->name('retur.force-destroy'); // super_admin (cek di controller)
-    Route::post('/join-transactions/{joinTransaction}/cancel', [ReturController::class, 'cancelJoin'])->name('join-transactions.cancel'); // manage_users (cek di controller)
+    Route::get('/retur', [ReturController::class, 'index'])->middleware('business')->name('retur.index');
+    Route::get('/purchase-orders/{purchaseOrder}/retur', [ReturController::class, 'create'])->middleware('business')->name('retur.create');
+    Route::post('/retur', [ReturController::class, 'store'])->middleware('business')->name('retur.store');
+    Route::post('/retur/{retur}/void', [ReturController::class, 'void'])->middleware('business')->name('retur.void'); // super_admin (cek di controller)
+    Route::delete('/retur/{retur}/force', [ReturController::class, 'forceDestroy'])->middleware('business')->name('retur.force-destroy'); // super_admin (cek di controller)
+    Route::post('/join-transactions/{joinTransaction}/cancel', [ReturController::class, 'cancelJoin'])->middleware('business')->name('join-transactions.cancel'); // manage_users (cek di controller)
     Route::middleware('permission:process_return')->group(function () {
         Route::post('/retur/{retur}/approve', [ReturController::class, 'approve'])->name('retur.approve');
         Route::post('/retur/{retur}/reject', [ReturController::class, 'reject'])->name('retur.reject');
     });
 
     /* ---------------- Inventory & Stock Movements ---------------- */
-    Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
-    Route::post('/inventory/partner-adjust', [InventoryController::class, 'adjustPartner'])->name('inventory.partner-adjust');
-    Route::post('/inventory/partner-set', [InventoryController::class, 'setPartner'])->name('inventory.partner-set');
+    Route::get('/inventory', [InventoryController::class, 'index'])->middleware('business')->name('inventory.index');
+    Route::post('/inventory/partner-adjust', [InventoryController::class, 'adjustPartner'])->middleware('business')->name('inventory.partner-adjust');
+    Route::post('/inventory/partner-set', [InventoryController::class, 'setPartner'])->middleware('business')->name('inventory.partner-set');
     // Penyesuaian stok multi-baris (halaman sendiri, mirip nota penjualan).
-    Route::get('/inventory/adjust', [InventoryController::class, 'adjustForm'])->name('inventory.adjust');
-    Route::post('/inventory/adjust', [InventoryController::class, 'adjustBulk'])->name('inventory.adjust.store');
+    Route::get('/inventory/adjust', [InventoryController::class, 'adjustForm'])->middleware('business')->name('inventory.adjust');
+    Route::post('/inventory/adjust', [InventoryController::class, 'adjustBulk'])->middleware('business')->name('inventory.adjust.store');
 
     // Penjualan mitra ke customer akhir (barang keluar bentuk nota). Di bawah
     // menu Stok, bukan menu sidebar baru.
-    Route::get('/inventory/sales', [PartnerSaleController::class, 'index'])->name('partner-sales.index');
-    Route::get('/inventory/sales/export', [ExportController::class, 'partnerSales'])->name('partner-sales.export');
-    Route::post('/inventory/sales', [PartnerSaleController::class, 'store'])->name('partner-sales.store');
+    Route::get('/inventory/sales', [PartnerSaleController::class, 'index'])->middleware('business')->name('partner-sales.index');
+    Route::get('/inventory/sales/export', [ExportController::class, 'partnerSales'])->middleware('business')->name('partner-sales.export');
+    Route::post('/inventory/sales', [PartnerSaleController::class, 'store'])->middleware('business')->name('partner-sales.store');
 
     // "Jaringan Saya" — mitra upline pantau subtree (read-only). Gate isPartner di controller.
-    Route::get('/jaringan-saya', [JaringanSayaController::class, 'index'])->name('jaringan-saya.index');
+    Route::get('/jaringan-saya', [JaringanSayaController::class, 'index'])->middleware('business')->name('jaringan-saya.index');
     // "Rekrutan Saya" — perekrut (sponsor/GD/distri) lihat lead + earning. Gate isPartner di controller.
-    Route::get('/rekrutan-saya', [RecruitController::class, 'index'])->name('rekrutan-saya.index');
-    Route::post('/inventory/minimum', [InventoryController::class, 'setMinimum'])->name('inventory.minimum');
+    Route::get('/rekrutan-saya', [RecruitController::class, 'index'])->middleware('business')->name('rekrutan-saya.index');
+    Route::post('/inventory/minimum', [InventoryController::class, 'setMinimum'])->middleware('business')->name('inventory.minimum');
 
     // "Saldo Komisi" — mitra lihat saldo tersedia + ajukan penarikan. Gate isPartner di controller.
-    Route::get('/komisi-saya', [CommissionController::class, 'index'])->name('commissions.index');
-    Route::post('/komisi-saya/tarik', [CommissionController::class, 'withdraw'])->name('commissions.withdraw');
-    Route::post('/komisi-saya/tarik/{withdrawal}/batal', [CommissionController::class, 'cancel'])->name('commissions.withdraw-cancel');
+    Route::get('/komisi-saya', [CommissionController::class, 'index'])->middleware('business')->name('commissions.index');
+    Route::post('/komisi-saya/tarik', [CommissionController::class, 'withdraw'])->middleware('business')->name('commissions.withdraw');
+    Route::post('/komisi-saya/tarik/{withdrawal}/batal', [CommissionController::class, 'cancel'])->middleware('business')->name('commissions.withdraw-cancel');
 
     // "Penarikan" — HQ proses antrean penarikan komisi mitra (setujui/tolak/cairkan).
     Route::middleware('permission:process_withdrawal')->group(function () {
@@ -654,6 +657,37 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::delete('/kalkulator-roi/items/{item}', [RoiCalculatorController::class, 'deleteItem'])->name('roi-calculator.items.destroy');
     });
 
+    /* ---------------- Portal Content Creator (spec 2026-09-25) ---------------- */
+    Route::middleware('permission:content.create')->group(function () {
+        Route::get('/creator', [ContentPostController::class, 'dashboard'])->name('creator.dashboard');
+        Route::get('/content', [ContentPostController::class, 'index'])->name('content.index');
+        Route::get('/content/create', [ContentPostController::class, 'create'])->name('content.create');
+        Route::post('/content', [ContentPostController::class, 'store'])->name('content.store');
+        Route::get('/content/{post}/edit', [ContentPostController::class, 'edit'])->name('content.edit');
+        Route::put('/content/{post}', [ContentPostController::class, 'update'])->name('content.update');
+        Route::delete('/content/{post}', [ContentPostController::class, 'destroy'])->name('content.destroy');
+        Route::post('/content/{post}/submit', [ContentPostController::class, 'submit'])->name('content.submit');
+        Route::post('/content/{post}/withdraw', [ContentPostController::class, 'withdraw'])->name('content.withdraw');
+    });
+    // Detail: pemilik (content.create) ATAU reviewer (content.review) — dicek di controller.
+    Route::get('/content/{post}', [ContentPostController::class, 'show'])->name('content.show');
+    Route::middleware('permission:content.review')->group(function () {
+        Route::get('/content-review', [ContentReviewController::class, 'index'])->name('content-review.index');
+        Route::post('/content/{post}/approve', [ContentReviewController::class, 'approve'])->name('content.approve');
+        Route::post('/content/{post}/reject', [ContentReviewController::class, 'reject'])->name('content.reject');
+    });
+    Route::middleware('permission:content.publish.manage')->group(function () {
+        Route::post('/content-targets/{target}/retry', [ContentReviewController::class, 'retry'])->name('content-targets.retry');
+        Route::post('/content-targets/{target}/mark-published', [ContentReviewController::class, 'markPublished'])->name('content-targets.mark-published');
+    });
+    Route::middleware('permission:social.connect')->group(function () {
+        Route::get('/social-connections', [SocialConnectionController::class, 'index'])->name('social.index');
+        Route::get('/social-connections/{provider}/connect', [SocialConnectionController::class, 'connect'])->name('social.connect');
+        Route::get('/social-connections/{provider}/callback', [SocialConnectionController::class, 'callback'])->name('social.callback');
+        Route::post('/social-connections/meta/page', [SocialConnectionController::class, 'selectPage'])->name('social.page');
+        Route::delete('/social-connections/{platform}', [SocialConnectionController::class, 'destroy'])->name('social.destroy');
+    });
+
     /* ---------------- Product management ---------------- */
     Route::middleware('permission:manage_products')->group(function () {
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
@@ -810,5 +844,5 @@ Route::middleware(['auth', 'role'])->group(function () {
     });
 
     /* Stock movements visible to partners too (their own) */
-    Route::get('/my-stock-movements', [StockMovementController::class, 'index'])->name('stock-movements.mine');
+    Route::get('/my-stock-movements', [StockMovementController::class, 'index'])->middleware('business')->name('stock-movements.mine');
 });
