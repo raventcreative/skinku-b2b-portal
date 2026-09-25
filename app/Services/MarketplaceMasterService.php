@@ -308,6 +308,79 @@ class MarketplaceMasterService
         }
     }
 
+    // ---- Seed awal dari TikTok & cermin order (aditif; HQ TAK disentuh) ----
+
+    public function seedFromTiktok(): array
+    {
+        $c = $this->tiktokConn();
+        if (! $c) {
+            return ['seeded' => 0, 'skipped' => 0];
+        }
+        $tok = $this->tiktokToken($c);
+        $seeded = $skipped = 0;
+        $pageToken = '';
+
+        // TikTokClient::request() sudah unwrap 'data' → path TANPA prefiks 'data.'.
+        for ($guard = 0; $guard < 200; $guard++) {
+            $res = $this->tiktok->searchProducts($tok, $c->shop_cipher, 50, $pageToken);
+            foreach (data_get($res, 'products', []) as $prod) {
+                $title = data_get($prod, 'title');
+                foreach ($prod['skus'] ?? [] as $sku) {
+                    $sellerSku = (string) data_get($sku, 'seller_sku', '');
+                    if ($sellerSku === '') {
+                        continue;
+                    }
+                    $qty = data_get($sku, 'inventory.0.quantity'); // absen → data tak lengkap
+                    if ($qty === null) {
+                        $skipped++;
+
+                        continue;
+                    }
+                    // SEMUA unit (termasuk bundle) → tiap seller_sku = 1 master.
+                    $m = $this->findOrCreateMaster($sellerSku, $title !== null ? (string) $title : null);
+                    $this->setMasterStock($m, (int) $qty);
+                    $seeded++;
+                }
+            }
+            $pageToken = (string) data_get($res, 'next_page_token', '');
+            if ($pageToken === '') {
+                break;
+            }
+        }
+
+        $this->pushAll();
+
+        return compact('seeded', 'skipped');
+    }
+
+    /** Cermin order marketplace → turunkan/kembalikan bucket efektif stok master (HQ TAK disentuh). */
+    public function applyOrderDelta(MarketplaceListing $listing, int $delta, Carbon $orderCreatedAt): void
+    {
+        if (! $listing->master_id) {
+            return;
+        }
+        $master = $listing->master;
+        if (! $master) {
+            return;
+        }
+        $channel = $listing->channel;
+        $override = MarketplaceMasterChannel::where('master_id', $master->id)->where('channel', $channel)->first();
+
+        if ($override && $override->stock !== null) {
+            if ($override->seeded_at === null || $orderCreatedAt->lt($override->seeded_at)) {
+                return;
+            }
+            $override->update(['stock' => max(0, (int) $override->stock + $delta)]);
+
+            return;
+        }
+
+        if ($master->base_stock === null || $master->seeded_at === null || $orderCreatedAt->lt($master->seeded_at)) {
+            return;
+        }
+        $master->update(['base_stock' => max(0, (int) $master->base_stock + $delta)]);
+    }
+
     /**
      * Upsert satu baris marketplace_listings by (channel, seller_sku) lalu
      * pastikan punya master (auto-buat via findOrCreateMaster). Listing yang
