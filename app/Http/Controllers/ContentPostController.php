@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\ContentPost;
 use App\Models\ContentPostTarget;
+use App\Models\SocialConnection;
 use App\Services\AuditService;
 use App\Services\ContentPostService;
+use App\Services\Social\MetaClient;
+use App\Services\Social\TikTokContentClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -76,7 +79,29 @@ class ContentPostController extends Controller
         $history = AuditLog::where('target_type', 'content_post')->where('target_id', $post->id)
             ->orderBy('id')->get(['action', 'performed_by_email', 'after_data', 'created_at']);
 
-        return view('content.show', ['post' => $post, 'media' => $post->filesIn(ContentPost::MEDIA)->get(), 'history' => $history]);
+        return view('content.show', ['post' => $post, 'media' => $post->filesIn(ContentPost::MEDIA)->get(), 'history' => $history,
+            'tiktokInfo' => $this->tiktokCreatorInfo($request, $post)]);
+    }
+
+    /**
+     * Info akun TikTok untuk form approve (pedoman UX TikTok: tampilkan nama akun,
+     * opsi privacy dari API, matikan toggle yang dinonaktifkan kreator). Hanya
+     * saat reviewer membuka konten in_review yang akan terbit ke TikTok via API.
+     */
+    private function tiktokCreatorInfo(Request $request, ContentPost $post): ?array
+    {
+        $target = $post->targets->firstWhere('platform', 'tiktok');
+        if (! $target || $post->status !== ContentPost::IN_REVIEW || ! $request->user()->canDo('content.review') || $target->isManual()) {
+            return null;
+        }
+
+        try {
+            $client = app(TikTokContentClient::class);
+
+            return $client->creatorInfo($client->freshToken(SocialConnection::for('tiktok')));
+        } catch (\Throwable $e) {
+            return ['error' => MetaClient::sanitize($e->getMessage())];
+        }
     }
 
     public function edit(Request $request, ContentPost $post): View
@@ -140,7 +165,7 @@ class ContentPostController extends Controller
             'scheduled_at' => ['nullable', 'date', 'after:now'],
             'creator_note' => ['nullable', 'string', 'max:2000'],
             'media' => ['array', 'max:'.config('content.carousel_max')],
-            'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime', 'max:'.config('content.video_max_kb')],
+            'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,application/mp4', 'max:'.config('content.video_max_kb')],
         ], [
             'media.*.mimetypes' => 'Media harus JPG/PNG/WEBP atau video MP4/MOV.',
             'media.*.max' => 'File media terlalu besar.',

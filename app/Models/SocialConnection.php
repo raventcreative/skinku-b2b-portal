@@ -40,7 +40,8 @@ class SocialConnection extends Model
 
     public function isActive(): bool
     {
-        return $this->status === 'active' && ! $this->isExpired();
+        // Token akses kedaluwarsa masih bisa dipakai bila ada refresh token (TikTok: akses 24 jam, refresh 365 hari).
+        return $this->status === 'active' && (! $this->isExpired() || filled($this->refresh_token));
     }
 
     public function isExpired(): bool

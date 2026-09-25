@@ -31,7 +31,8 @@ class ContentPostService
     {
         $errors = [];
         $images = array_filter($media, fn ($m) => str_starts_with($m['mime'], 'image/'));
-        $videos = array_filter($media, fn ($m) => str_starts_with($m['mime'], 'video/'));
+        // application/mp4 = kontainer MP4 yang dideteksi server tanpa label video (umum di file HP).
+        $videos = array_filter($media, fn ($m) => str_starts_with($m['mime'], 'video/') || $m['mime'] === 'application/mp4');
         $min = config('content.carousel_min');
         $max = config('content.carousel_max');
 
@@ -119,7 +120,8 @@ class ContentPostService
             if ($files !== []) {
                 $post->filesIn(ContentPost::MEDIA)->get()->each->delete();
                 foreach ($files as $file) {
-                    $this->images->attach($post, $file, ContentPost::MEDIA, 1440);
+                    // 1080px: batas foto TikTok (maks 1080p) sekaligus ukuran rekomendasi Instagram.
+                    $this->images->attach($post, $file, ContentPost::MEDIA, 1080);
                 }
             }
 
@@ -169,6 +171,20 @@ class ContentPostService
             foreach ($post->targets as $t) {
                 if (array_key_exists($t->platform, $edits['captions'] ?? [])) {
                     $t->caption_override = ($edits['captions'][$t->platform] ?? '') ?: null;
+                }
+                // TikTok via API: pilihan privacy WAJIB dari reviewer (pedoman UX TikTok — tanpa default).
+                if ($t->platform === 'tiktok' && ! $t->isManual()) {
+                    $opt = $edits['tiktok'] ?? [];
+                    if (empty($opt['privacy_level']) || empty($opt['consent'])) {
+                        throw ValidationException::withMessages(['tiktok' => 'Pilih privacy TikTok dan centang persetujuan Music Usage Confirmation.']);
+                    }
+                    $t->options = [
+                        'privacy_level' => $opt['privacy_level'],
+                        'allow_comment' => ! empty($opt['allow_comment']),
+                        'allow_duet' => ! empty($opt['allow_duet']),
+                        'allow_stitch' => ! empty($opt['allow_stitch']),
+                        'brand_organic' => ! empty($opt['brand_organic']),
+                    ];
                 }
             }
             $this->assertComplete($post, $post->targets->pluck('caption_override', 'platform')->all());

@@ -45,8 +45,8 @@ Lokal (Mac, MariaDB Homebrew): `.env` pakai `DB_USERNAME=<user OS>`, `DB_PASSWOR
 ## Pekerjaan aktif: Portal Content Creator
 Spec: `docs/superpowers/specs/2026-09-25-content-creator/` — `BRD.md`, `PRD.md`, `FRD.md`, `TRD.md`.
 - Role `content_creator`, dashboard terpisah dari distributor, posting ke **akun brand SKINKU**.
-- **Fase 1 SELESAI** (FB Page + Instagram + Threads via Meta API, TikTok mode manual) — ringkasan
-  & penyimpangan di kepala `TRD.md`, peta kode di `docs/SISTEM.md` §9c. Berikutnya: Fase 2 TikTok API.
+- **Fase 1 & 2 SELESAI di kode** (FB Page + Instagram + Threads via Meta API, TikTok via Content Posting API) — ringkasan
+  & penyimpangan di kepala `TRD.md`, peta kode di `docs/SISTEM.md` §9c. Berikutnya: review app TikTok, lalu Fase 3 (insight).
 - Akun demo lokal: `creator_demo` / `password123` (`ContentCreatorDemoSeeder`, dev only).
 - Setiap perubahan harus bisa ditelusuri ke ID `FR-xx` di FRD; test di `tests/Feature/ContentCreatorTest.php`.
 - Route bisnis (PO/retur/inventory/komisi) wajib middleware `business` (staff & mitra saja).

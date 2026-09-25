@@ -128,6 +128,45 @@
                     <input type="datetime-local" name="scheduled_at" value="{{ old('scheduled_at', $post->scheduled_at?->format('Y-m-d\TH:i')) }}" class="mt-1 block w-full px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
                     <span class="text-[10px] text-stone-500">Kosong / sudah lewat = terbit di menit berikutnya.</span>
                 </label>
+                @if($tiktokInfo !== null)
+                    {{-- Pedoman UX TikTok Content Posting API: tampilkan akun tujuan, privacy TANPA
+                         default, toggle interaksi default mati (dan terkunci bila dimatikan kreator),
+                         serta pernyataan Music Usage Confirmation. --}}
+                    <div class="border border-stone-200 rounded-xl p-3 space-y-2">
+                        <p class="text-xs font-bold text-stone-800">TikTok
+                            @if(! empty($tiktokInfo['creator_nickname']))<span class="font-normal text-stone-500">— posting ke {{ $tiktokInfo['creator_nickname'] }}{{ ! empty($tiktokInfo['creator_username']) ? ' (@'.$tiktokInfo['creator_username'].')' : '' }}</span>@endif
+                        </p>
+                        @if(! empty($tiktokInfo['error']))
+                            <p class="text-[11px] text-rose-700">Gagal membaca info akun TikTok: {{ $tiktokInfo['error'] }}</p>
+                        @endif
+                        @php
+                            $privacyOptions = $tiktokInfo['privacy_level_options'] ?? array_keys(\App\Services\Social\TikTokContentClient::PRIVACY_LABELS);
+                            $isVideo = $post->type === 'video';
+                        @endphp
+                        <label class="block">
+                            <span class="text-[11px] font-semibold text-stone-600">Siapa yang bisa melihat? *</span>
+                            <select name="tiktok[privacy_level]" required class="mt-1 block w-full px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
+                                <option value="" disabled @selected(! old('tiktok.privacy_level'))>— pilih —</option>
+                                @foreach($privacyOptions as $opt)
+                                    <option value="{{ $opt }}" @selected(old('tiktok.privacy_level') === $opt)>{{ \App\Services\Social\TikTokContentClient::PRIVACY_LABELS[$opt] ?? $opt }}</option>
+                                @endforeach
+                            </select>
+                            <span class="text-[10px] text-stone-500">Selama app belum lolos audit TikTok, hanya "Hanya saya (private)" yang diterima.</span>
+                        </label>
+                        <div class="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-stone-700">
+                            <label class="flex items-center gap-1"><input type="checkbox" name="tiktok[allow_comment]" value="1" @disabled(! empty($tiktokInfo['comment_disabled']))> Izinkan komentar</label>
+                            @if($isVideo)
+                                <label class="flex items-center gap-1"><input type="checkbox" name="tiktok[allow_duet]" value="1" @disabled(! empty($tiktokInfo['duet_disabled']))> Duet</label>
+                                <label class="flex items-center gap-1"><input type="checkbox" name="tiktok[allow_stitch]" value="1" @disabled(! empty($tiktokInfo['stitch_disabled']))> Stitch</label>
+                                <label class="flex items-center gap-1"><input type="checkbox" name="tiktok[brand_organic]" value="1"> Konten promosi brand sendiri</label>
+                            @endif
+                        </div>
+                        <label class="flex items-start gap-1.5 text-[11px] text-stone-700">
+                            <input type="checkbox" name="tiktok[consent]" value="1" required class="mt-0.5">
+                            <span>Dengan memposting, saya menyetujui <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer" class="underline">Music Usage Confirmation</a> TikTok. Setelah diposting, TikTok butuh beberapa menit untuk memproses konten.</span>
+                        </label>
+                    </div>
+                @endif
                 <button class="w-full px-5 py-2.5 text-sm bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold">Setujui &amp; Jadwalkan</button>
             </form>
 

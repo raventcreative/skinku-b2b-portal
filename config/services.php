@@ -182,5 +182,10 @@ return [
         'app_id' => env('THREADS_APP_ID'),
         'app_secret' => env('THREADS_APP_SECRET'),
     ],
+    // TikTok Content Posting API (app terpisah dari TikTok Shop di atas).
+    'tiktok_content' => [
+        'client_key' => env('TIKTOK_CONTENT_CLIENT_KEY'),
+        'client_secret' => env('TIKTOK_CONTENT_CLIENT_SECRET'),
+    ],
 
 ];

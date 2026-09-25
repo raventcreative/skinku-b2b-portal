@@ -6,8 +6,10 @@ use App\Models\ContentPost;
 use App\Models\ContentPostTarget;
 use App\Models\User;
 use App\Services\ContentPostService;
+use App\Services\Social\TikTokContentClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /** Review & publikasi konten semua creator (FR-31, FR-32, FR-55, FR-57, FR-72). */
@@ -45,6 +47,13 @@ class ContentReviewController extends Controller
             'caption' => ['nullable', 'string', 'max:63206'],
             'captions' => ['array'],
             'captions.*' => ['nullable', 'string', 'max:63206'],
+            'tiktok' => ['array'],
+            'tiktok.privacy_level' => ['nullable', Rule::in(array_keys(TikTokContentClient::PRIVACY_LABELS))],
+            'tiktok.consent' => ['nullable', 'boolean'], // wajib bila TikTok via API — dicek di ContentPostService::approve
+            'tiktok.allow_comment' => ['nullable', 'boolean'],
+            'tiktok.allow_duet' => ['nullable', 'boolean'],
+            'tiktok.allow_stitch' => ['nullable', 'boolean'],
+            'tiktok.brand_organic' => ['nullable', 'boolean'],
             'scheduled_at' => ['nullable', 'date'],
         ]);
         $this->service->approve($post, $request->user(), $edits);

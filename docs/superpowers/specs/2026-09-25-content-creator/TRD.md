@@ -10,6 +10,8 @@ Dokumen terkait: [BRD](BRD.md) · [PRD](PRD.md) · [FRD](FRD.md)
 > - Kolom tambahan `content_post_targets.container_polls` (batas polling container video 30 menit).
 > - Belum dikerjakan (prioritas S): widget antrean review di dashboard staff (FR-15), preview per platform (FR-26), notifikasi ke reviewer & Telegram (FR-61/62), kalender (FR-73), hapus media otomatis (FR-74), cek kuota IG (FR-59). Notifikasi creator (FR-60) = banner "Perlu perhatian" di dashboard creator.
 > - Tambahan di luar spec: middleware `business` menutup route PO/retur/inventory/komisi untuk role kustom non-staff (kebocoran data yang ditemukan saat implementasi).
+>
+> **Fase 2 (TikTok) selesai di kode (2026-09-25):** `Social\TikTokContentClient` (Login Kit + Content Posting API Direct Post). Video = FILE_UPLOAD per potongan 10 MB; foto/carousel = PULL_FROM_URL (domain `skinku.id` sudah terverifikasi di developer portal). Mode TikTok `auto`: API bila akun terhubung, selain itu manual. Reviewer wajib memilih privacy + setuju Music Usage Confirmation saat approve (pedoman UX TikTok); opsi disimpan di `content_post_targets.options` (migrasi `000143`). Token akses 24 jam diperbarui on-demand + harian. Halaman publik `/privacy` & `/terms`. Sebelum app lolos audit TikTok, postingan hanya bisa `SELF_ONLY`.
 
 Prinsip: ikuti pola yang sudah ada di repo (role dinamis, matriks permission, `ImageService`,
 koneksi OAuth ala TikTok/Shopee, queue via scheduler). Tidak ada dependency baru — HTTP client

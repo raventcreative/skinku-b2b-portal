@@ -8,7 +8,7 @@
         'facebook' => ['Facebook Page', 'meta', 'Lewat tombol Hubungkan Meta.'],
         'instagram' => ['Instagram Business', 'meta', 'Otomatis ikut Page yang tertaut ke akun IG Business.'],
         'threads' => ['Threads', 'threads', 'Login Threads terpisah.'],
-        'tiktok' => ['TikTok', null, 'Fase 2 — sementara diposting manual oleh admin (download media + salin caption).'],
+        'tiktok' => ['TikTok', 'tiktok', 'Selama belum terhubung, konten TikTok diposting manual oleh admin (download media + salin caption).'],
     ];
 @endphp
 <div class="space-y-5 max-w-4xl">
@@ -47,11 +47,11 @@
                 </div>
                 <div class="flex items-center gap-2">
                     @if($provider)
-                        @php $ready = $provider === 'meta' ? $metaReady : $threadsReady; @endphp
+                        @php $ready = ['meta' => $metaReady, 'threads' => $threadsReady, 'tiktok' => $tiktokReady][$provider]; @endphp
                         @if($ready)
-                            <a href="{{ route('social.connect', $provider) }}" class="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">{{ $c ? 'Hubungkan ulang' : 'Hubungkan '.($provider === 'meta' ? 'Meta' : 'Threads') }}</a>
+                            <a href="{{ route('social.connect', $provider) }}" class="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">{{ $c ? 'Hubungkan ulang' : 'Hubungkan '.['meta' => 'Meta', 'threads' => 'Threads', 'tiktok' => 'TikTok'][$provider] }}</a>
                         @else
-                            <span class="text-[11px] text-stone-400">Isi {{ $provider === 'meta' ? 'META_APP_ID/SECRET' : 'THREADS_APP_ID/SECRET' }} di .env</span>
+                            <span class="text-[11px] text-stone-400">Isi {{ ['meta' => 'META_APP_ID/SECRET', 'threads' => 'THREADS_APP_ID/SECRET', 'tiktok' => 'TIKTOK_CONTENT_CLIENT_KEY/SECRET'][$provider] }} di .env</span>
                         @endif
                     @endif
                     @if($c)

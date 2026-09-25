@@ -30,13 +30,14 @@ class ContentPostTarget extends Model
     ];
 
     protected $fillable = [
-        'content_post_id', 'platform', 'caption_override', 'status', 'external_id', 'container_id',
+        'content_post_id', 'platform', 'caption_override', 'options', 'status', 'external_id', 'container_id',
         'container_polls', 'permalink', 'published_at', 'attempts', 'next_attempt_at', 'last_error',
     ];
 
     protected function casts(): array
     {
         return [
+            'options' => 'array',
             'published_at' => 'datetime',
             'next_attempt_at' => 'datetime',
             'attempts' => 'integer',
@@ -64,8 +65,13 @@ class ContentPostTarget extends Model
         return self::STATUS_LABELS[$this->status] ?? $this->status;
     }
 
+    /** Manual = admin posting sendiri & tempel link. Mode auto → manual selama akun platform belum terhubung. */
     public function isManual(): bool
     {
-        return config("content.platforms.{$this->platform}.mode") === 'manual';
+        return match (config("content.platforms.{$this->platform}.mode")) {
+            'manual' => true,
+            'auto' => ! SocialConnection::for($this->platform)?->isActive(),
+            default => false,
+        };
     }
 }

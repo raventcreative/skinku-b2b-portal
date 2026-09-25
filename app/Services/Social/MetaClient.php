@@ -135,7 +135,7 @@ class MetaClient
     /** Buang rahasia dari pesan error (exception koneksi Guzzle menyertakan URL lengkap). */
     public static function sanitize(string $message): string
     {
-        return mb_substr(preg_replace('/(access_token|client_secret|fb_exchange_token|code)=[^&\s"]+/', '$1=***', $message), 0, 1000);
+        return mb_substr(preg_replace('/(access_token|refresh_token|client_secret|client_key|fb_exchange_token|code)=[^&\s"]+/', '$1=***', $message), 0, 1000);
     }
 
     private function decode($response): array

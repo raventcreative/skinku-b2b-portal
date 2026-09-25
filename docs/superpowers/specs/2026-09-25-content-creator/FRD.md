@@ -71,7 +71,7 @@ Status per platform (level target): `pending` → `queued` → `publishing` → 
 | FR-40 | Halaman "Akun Sosial Media" (permission `social.connect`) menampilkan status koneksi FB Page, IG, Threads, TikTok: nama akun, terhubung oleh, kedaluwarsa token, error terakhir. | M |
 | FR-41 | Tombol "Hubungkan Meta" menjalankan OAuth Facebook Login; setelah callback, admin memilih Page, dan sistem mendeteksi akun IG Business yang tertaut ke Page tersebut. | M |
 | FR-42 | Tombol "Hubungkan Threads" menjalankan OAuth Threads terpisah. | M |
-| FR-43 | Tombol "Hubungkan TikTok" (OAuth Content Posting API). | F2 |
+| FR-43 | Tombol "Hubungkan TikTok" (OAuth Content Posting API). | F2 ✅ |
 | FR-44 | Tombol "Putuskan" menghapus token dari database. | M |
 | FR-45 | Token di-refresh otomatis sebelum kedaluwarsa; bila gagal, status koneksi `error` dan admin mendapat peringatan di dashboard. | M |
 | FR-46 | Hanya satu koneksi aktif per platform (akun brand tunggal). | M |
@@ -84,7 +84,7 @@ Status per platform (level target): `pending` → `queued` → `publishing` → 
 | FR-51 | Publish ke Facebook Page: foto, video, atau multi-foto. | M |
 | FR-52 | Publish ke Instagram: foto, Reels (video), carousel (container → publish). | M |
 | FR-53 | Publish ke Threads: teks + foto, video, carousel (container → publish). | M |
-| FR-54 | Publish ke TikTok: video/foto via Content Posting API. Sebelum app lolos audit, privacy = `SELF_ONLY`. | F2 |
+| FR-54 | Publish ke TikTok: video/foto via Content Posting API. Sebelum app lolos audit, privacy = `SELF_ONLY`. | F2 ✅ |
 | FR-55 | Selama Fase 1, target TikTok berstatus `manual_pending`; admin menandai terbit dengan menempelkan URL postingan. | M |
 | FR-56 | Setiap target menyimpan: ID eksternal, permalink, waktu terbit, jumlah percobaan, error terakhir. | M |
 | FR-57 | Gagal → retry otomatis maks. 3x dengan jeda bertingkat (5, 15, 60 menit); setelah itu `failed` + notifikasi. Admin dapat retry manual. | M |

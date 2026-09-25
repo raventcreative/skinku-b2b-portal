@@ -118,6 +118,10 @@ Route::post('/api/kol-agent/affiliate', [KolAgentController::class, 'affiliate']
 
 Route::get('/', fn () => redirect()->route('dashboard'));
 
+// Halaman publik Kebijakan Privasi & Syarat Layanan — wajib untuk review app TikTok/Meta.
+Route::view('/privacy', 'legal.privacy')->name('legal.privacy');
+Route::view('/terms', 'legal.terms')->name('legal.terms');
+
 /*
 |--------------------------------------------------------------------------
 | Authenticated routes (active account enforced by RoleMiddleware)

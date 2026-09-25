@@ -5,6 +5,7 @@ namespace App\Services\Social;
 use App\Models\ContentPost;
 use App\Models\ContentPostTarget;
 use App\Models\SocialConnection;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
@@ -13,12 +14,13 @@ use RuntimeException;
  * - Instagram & Threads: container → tunggu FINISHED → publish. Video butuh waktu
  *   proses, jadi hasil 'pending' berarti "cek lagi nanti" (container_id disimpan).
  * Media diambil platform dari URL publik HTTPS (APP_URL harus domain publik).
+ * - TikTok: video di-upload langsung (FILE_UPLOAD), foto via PULL_FROM_URL; lalu cek status.
  *
  * @return array{status:'published',external_id:string,permalink:?string}|array{status:'pending',container_id:string}
  */
 class ContentPublisher
 {
-    public function __construct(private MetaClient $meta) {}
+    public function __construct(private MetaClient $meta, private TikTokContentClient $tiktok) {}
 
     public function publish(ContentPostTarget $target): array
     {
@@ -43,6 +45,7 @@ class ContentPublisher
                 'base' => MetaClient::THREADS_BASE, 'create' => 'threads', 'publish' => 'threads_publish',
                 'caption' => 'text', 'video' => 'VIDEO', 'status' => 'status', 'error' => 'error_message', 'child_type' => true,
             ]),
+            'tiktok' => $this->tiktok($target, $conn, $urls),
             default => throw new RuntimeException("Platform {$target->platform} belum didukung publikasi API."),
         };
     }
@@ -73,6 +76,61 @@ class ContentPublisher
         }
 
         return ['status' => 'published', 'external_id' => (string) $id, 'permalink' => $link];
+    }
+
+    private function tiktok(ContentPostTarget $target, SocialConnection $conn, array $urls): array
+    {
+        $token = $this->tiktok->freshToken($conn);
+        $publishId = $target->container_id;
+
+        if (! $publishId) {
+            $opt = $target->options ?? [];
+            if (empty($opt['privacy_level'])) {
+                throw new RuntimeException('Privacy TikTok belum dipilih reviewer — tolak & ajukan ulang, atau posting manual.');
+            }
+            $caption = $target->caption();
+
+            if ($target->post->type === 'video') {
+                $file = $target->post->filesIn(ContentPost::MEDIA)->first();
+                if (! $file) {
+                    throw new RuntimeException('Konten tidak punya file video.');
+                }
+                $publishId = $this->tiktok->postVideo($token, [
+                    'title' => mb_substr($caption, 0, 2200),
+                    'privacy_level' => $opt['privacy_level'],
+                    'disable_comment' => empty($opt['allow_comment']),
+                    'disable_duet' => empty($opt['allow_duet']),
+                    'disable_stitch' => empty($opt['allow_stitch']),
+                    'brand_organic_toggle' => ! empty($opt['brand_organic']),
+                ], Storage::disk($file->disk ?: 'public')->path($file->path), str_starts_with((string) $file->mime_type, 'video/') ? $file->mime_type : 'video/mp4');
+            } else {
+                // Foto: judul maks 90, deskripsi maks 4000 (UTF-16).
+                $publishId = $this->tiktok->postPhotos($token, [
+                    'title' => mb_substr(trim(explode("\n", $caption)[0]) ?: $target->post->title, 0, 90),
+                    'description' => mb_substr($caption, 0, 4000),
+                    'privacy_level' => $opt['privacy_level'],
+                    'disable_comment' => empty($opt['allow_comment']),
+                    'auto_add_music' => true,
+                ], $urls);
+            }
+            $target->update(['container_id' => $publishId]);
+        }
+
+        $status = $this->tiktok->status($token, $publishId);
+        $state = $status['status'] ?? '';
+        if ($state === 'FAILED') {
+            throw new RuntimeException('TikTok menolak postingan: '.($status['fail_reason'] ?? 'tanpa alasan'));
+        }
+        if ($state !== 'PUBLISH_COMPLETE') {
+            return ['status' => 'pending', 'container_id' => $publishId];
+        }
+
+        // ID publik baru ada setelah moderasi & hanya untuk postingan non-private.
+        $postId = $status['publicaly_available_post_id'][0] ?? null;
+        $username = $conn->meta['username'] ?? null;
+
+        return ['status' => 'published', 'external_id' => (string) ($postId ?? $publishId),
+            'permalink' => $postId && $username ? "https://www.tiktok.com/@{$username}/video/{$postId}" : null];
     }
 
     private function viaContainer(ContentPostTarget $target, SocialConnection $conn, array $urls, array $spec): array

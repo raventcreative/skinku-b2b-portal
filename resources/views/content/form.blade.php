@@ -76,7 +76,8 @@
                     <label class="flex items-center gap-2 text-sm font-semibold text-stone-800">
                         <input type="checkbox" name="platforms[]" value="{{ $key }}" @checked(in_array($key, $selected, true))>
                         {{ $cfg['label'] }}
-                        @if($cfg['mode'] === 'manual')<span class="text-[10px] font-normal px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">diposting manual oleh admin</span>@endif
+                        @if($cfg['mode'] === 'manual')<span class="text-[10px] font-normal px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">diposting manual oleh admin</span>
+                        @elseif($cfg['mode'] === 'auto')<span class="text-[10px] font-normal px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">otomatis bila akun terhubung, selain itu manual</span>@endif
                     </label>
                     <details class="mt-2" @if(old("captions.$key", $captions[$key] ?? null)) open @endif>
                         <summary class="text-[11px] text-stone-500 cursor-pointer">Caption khusus {{ $cfg['label'] }} (maks {{ number_format($cfg['caption_max'], 0, ',', '.') }})</summary>

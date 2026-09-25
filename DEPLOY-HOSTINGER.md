@@ -108,3 +108,12 @@ php artisan config:cache && php artisan route:cache && php artisan view:cache
    `upload_max_filesize=300M`, `post_max_size=310M`, `max_execution_time=300`.
 6. Cron `schedule:run` yang sudah ada otomatis menjalankan `content:publish-due` (tiap menit)
    & `social:refresh-tokens` (harian).
+
+### TikTok (Fase 2)
+1. App **SKINKU Content Portal** di developers.tiktok.com (Login Kit + Content Posting API, Direct Post aktif,
+   scope `user.info.basic`, `video.upload`, `video.publish`). Domain `skinku.id` sudah diverifikasi (DNS TXT).
+2. Isi `.env`: `TIKTOK_CONTENT_CLIENT_KEY`, `TIKTOK_CONTENT_CLIENT_SECRET`, `LEGAL_CONTACT_EMAIL`; lalu
+   `php artisan migrate --force` (migrasi `000143`) & `php artisan config:cache`.
+3. Pastikan `https://system.skinku.id/privacy` & `/terms` bisa dibuka (dipakai reviewer TikTok).
+4. Super admin → Konten → Akun Sosial Media → **Hubungkan TikTok**.
+5. Sebelum app lolos audit TikTok: posting hanya **private (SELF_ONLY)**; uji di mode Sandbox dulu.

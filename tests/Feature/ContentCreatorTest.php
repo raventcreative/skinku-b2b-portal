@@ -203,7 +203,7 @@ class ContentCreatorTest extends TestCase
         ]);
 
         $post = $this->submitted($creator, ['facebook', 'threads']);
-        $this->actingAs($admin)->post(route('content.approve', $post));
+        $this->actingAs($admin)->post(route('content.approve', $post))->assertSessionHasNoErrors();
 
         $this->artisan('content:publish-due');
         $threads = $post->targets()->where('platform', 'threads')->first();
@@ -235,7 +235,7 @@ class ContentCreatorTest extends TestCase
         Http::fake();
 
         $post = $this->submitted($creator, ['facebook'], 'image', ['scheduled_at' => now()->addDay()->format('Y-m-d H:i')]);
-        $this->actingAs($admin)->post(route('content.approve', $post));
+        $this->actingAs($admin)->post(route('content.approve', $post))->assertSessionHasNoErrors();
         $this->artisan('content:publish-due');
 
         Http::assertNothingSent();
