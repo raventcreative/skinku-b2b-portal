@@ -199,8 +199,14 @@ class MarketplaceMasterService
     /**
      * Upsert satu baris marketplace_listings by (channel, seller_sku) lalu
      * pastikan punya master (auto-buat via findOrCreateMaster). Listing yang
-     * SUDAH tertaut ke master (mis. hasil tautkanListing manual) TAK dipindah
-     * paksa ke master lain — resolve tak boleh menimpa tautan manual.
+     * SUDAH tertaut ke master (mis. hasil tautkanListing manual, sering ke
+     * master ber-master_sku BEDA dari seller_sku listing ini — itu maksudnya
+     * "gabung") SAMA SEKALI TAK disentuh: TAK ada lookup/pembuatan master
+     * apa pun dijalankan. Kalau findOrCreateMaster(seller_sku) dipanggil
+     * tanpa syarat di sini, tiap resolve ulang bakal bikin master ORPHAN baru
+     * ber-master_sku = seller_sku listing ini (krn master_sku itu tak
+     * ditemukan — listing-nya sudah "pindah rumah" ke master lain) — orphan
+     * itu permanen krn tak ada yang mem-prune master. Makanya guard dulu.
      */
     private function upsertListing(string $channel, string $sellerSku, string $itemId, string $variationId, ?string $warehouseId, ?string $title): MarketplaceListing
     {
@@ -208,8 +214,8 @@ class MarketplaceMasterService
             ['channel' => $channel, 'seller_sku' => $sellerSku],
             ['item_id' => $itemId, 'variation_id' => $variationId, 'warehouse_id' => $warehouseId, 'title' => $title, 'resolved_at' => now()],
         );
-        $master = $this->findOrCreateMaster($sellerSku, $title);
         if ($l->master_id === null) {
+            $master = $this->findOrCreateMaster($sellerSku, $title);
             $l->update(['master_id' => $master->id]);
         }
 
@@ -228,13 +234,20 @@ class MarketplaceMasterService
             return ['found' => 0, 'mastered' => 0];
         }
         $tok = $this->tiktokToken($c);
-        // Gudang SALES pertama sbg default warehouse_id listing.
+        // Gudang SALES diutamakan sbg default warehouse_id listing; kalau tak ada
+        // yang bertipe itu (atau field/enum-nya beda dari dugaan), JATUH BALIK ke
+        // gudang pertama drpd membiarkan warehouse_id null utk SEMUA listing —
+        // spt MarketplaceStockService::resolveTiktok() (proven) yg pakai warehouses.0.id.
+        $warehouses = data_get($this->tiktok->getWarehouses($tok, $c->shop_cipher), 'warehouses', []);
         $warehouseId = null;
-        foreach (data_get($this->tiktok->getWarehouses($tok, $c->shop_cipher), 'warehouses', []) as $w) {
+        foreach ($warehouses as $w) {
             if (($w['type'] ?? null) === 'SALES_WAREHOUSE') {
                 $warehouseId = (string) $w['id'];
                 break;
             }
+        }
+        if ($warehouseId === null && $warehouses) {
+            $warehouseId = (string) data_get($warehouses[0], 'id');
         }
 
         $found = $mastered = 0;
