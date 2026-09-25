@@ -1,0 +1,11 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-DpnwW5Ut.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/app.css",
+    "isEntry": true
+  }
+}

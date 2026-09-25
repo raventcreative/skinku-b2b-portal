@@ -37,7 +37,7 @@
     {{-- Kotak cari --}}
     <form method="GET" action="{{ route('kol-cek-tiktok.index') }}" class="flex gap-2">
         <input type="text" name="q" value="{{ $q }}" autofocus placeholder="username TikTok, mis. dewick02"
-            class="flex-1 rounded-xl border border-stone-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none">
+            class="flex-1 rounded-xl border border-stone-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden">
         <button type="submit" @disabled(! $connected)
             class="rounded-xl bg-red-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">
             🔍 Cari
@@ -151,7 +151,7 @@
                     @if($canManage && $c['username'])
                         <div class="flex flex-wrap gap-2 pt-2 border-t border-stone-100 mt-auto">
                             @if($k)
-                                <form method="POST" action="{{ route('kol-cek-tiktok.save') }}" class="flex-1 min-w-[8rem]">
+                                <form method="POST" action="{{ route('kol-cek-tiktok.save') }}" class="flex-1 min-w-32">
                                     @csrf
                                     <input type="hidden" name="username" value="{{ $c['username'] }}">
                                     <input type="hidden" name="q" value="{{ $q }}">

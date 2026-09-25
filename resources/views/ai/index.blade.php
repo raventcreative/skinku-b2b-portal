@@ -15,15 +15,15 @@
     </div>
 
     {{-- Percakapan --}}
-    <div class="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-3 min-h-[16rem]">
+    <div class="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-3 min-h-64">
         @forelse($thread as $msg)
             @if($msg['role'] === 'user')
                 <div class="flex justify-end">
-                    <div class="max-w-[80%] px-3 py-2 rounded-2xl rounded-br-sm bg-red-600 text-white text-sm whitespace-pre-line">{{ $msg['content'] }}</div>
+                    <div class="max-w-[80%] px-3 py-2 rounded-2xl rounded-br-xs bg-red-600 text-white text-sm whitespace-pre-line">{{ $msg['content'] }}</div>
                 </div>
             @else
                 <div class="flex justify-start">
-                    <div class="max-w-[85%] px-3 py-2 rounded-2xl rounded-bl-sm bg-white border border-stone-200 text-sm text-stone-800">{!! nl2br(e($msg['content'])) !!}</div>
+                    <div class="max-w-[85%] px-3 py-2 rounded-2xl rounded-bl-xs bg-white border border-stone-200 text-sm text-stone-800">{!! nl2br(e($msg['content'])) !!}</div>
                 </div>
             @endif
         @empty
@@ -54,7 +54,7 @@
     <form method="POST" action="{{ route('ai.send') }}" class="mt-3 flex items-end gap-2" {{ $pending ? 'hidden' : '' }}>
         @csrf
         <textarea name="message" rows="2" maxlength="2000" required autofocus placeholder="Tulis pertanyaan atau perintah…"
-            class="flex-1 px-3 py-2 border border-stone-300 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200"
+            class="flex-1 px-3 py-2 border border-stone-300 rounded-xl text-sm resize-none focus:outline-hidden focus:ring-2 focus:ring-red-200"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.submit();}"></textarea>
         <button class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold shrink-0">Kirim</button>
     </form>

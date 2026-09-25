@@ -288,7 +288,7 @@
         const i = ri++;
         const tr = document.createElement('tr');
         tr.className = 'border-t border-stone-100';
-        const dirBadge = dir === 'keluar' ? '<span class="px-2 py-0.5 rounded bg-rose-50 text-rose-700">Keluar</span>' : '<span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">Masuk</span>';
+        const dirBadge = dir === 'keluar' ? '<span class="px-2 py-0.5 rounded-sm bg-rose-50 text-rose-700">Keluar</span>' : '<span class="px-2 py-0.5 rounded-sm bg-emerald-50 text-emerald-700">Masuk</span>';
         const dEsc = desc.replace(/"/g, '&quot;');
         tr.innerHTML = `
             <td class="px-4 py-2 text-stone-600">${date}<input type="hidden" name="rows[${i}][date]" value="${date}"></td>
@@ -327,7 +327,7 @@
                     tr.querySelector('[type=checkbox]').checked = true;
                     tr.querySelector('.coa-sel').disabled = true;
                     tr.classList.add('opacity-50', 'bg-stone-50');
-                    tr.children[2].insertAdjacentHTML('beforeend', ' <span class="px-1.5 py-0.5 rounded bg-stone-200 text-stone-600 text-[9px] font-bold">sudah diimpor</span>');
+                    tr.children[2].insertAdjacentHTML('beforeend', ' <span class="px-1.5 py-0.5 rounded-sm bg-stone-200 text-stone-600 text-[9px] font-bold">sudah diimpor</span>');
                 }
             });
             document.getElementById('dupNote').textContent = dup ? `· ${dup} baris sudah pernah diimpor (dicentang Abaikan otomatis)` : '';

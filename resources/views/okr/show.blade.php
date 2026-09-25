@@ -113,7 +113,7 @@
             <div class="flex flex-wrap items-start justify-between gap-2">
                 <div>
                     <p class="text-sm font-bold text-stone-900">Fakta server
-                        <span class="ml-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[9px] font-bold uppercase align-middle">tetap</span>
+                        <span class="ml-1 px-1.5 py-0.5 rounded-sm bg-emerald-100 text-emerald-700 text-[9px] font-bold uppercase align-middle">tetap</span>
                     </p>
                     <p class="text-[11px] text-stone-500 mt-0.5">Diambil ulang dari query sistem. Metrik & urutannya <b>sama tiap generate</b> — bukan dipilih AI.</p>
                 </div>
@@ -137,7 +137,7 @@
             @if($okr->analysis_summary)
                 <div class="mt-4 pt-3 border-t border-stone-100">
                     <p class="text-sm font-bold text-stone-900">Analisis &amp; rekomendasi AI
-                        <span class="ml-1 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[9px] font-bold uppercase align-middle">bisa berbeda tiap generate</span>
+                        <span class="ml-1 px-1.5 py-0.5 rounded-sm bg-violet-100 text-violet-700 text-[9px] font-bold uppercase align-middle">bisa berbeda tiap generate</span>
                     </p>
                     <p class="text-[11px] text-stone-500 mt-0.5">Opini model atas fakta di atas. Narasinya bisa berubah tiap generate — perlakukan sebagai draf, bukan angka.</p>
                     <p class="mt-2 text-xs leading-5 text-stone-700">{{ $okr->analysis_summary }}</p>

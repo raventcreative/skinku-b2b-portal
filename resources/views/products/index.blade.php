@@ -42,13 +42,13 @@
                         <div class="flex items-center gap-2">
                             @if(count($urls))
                                 <a href="{{ $urls[0] }}" class="glightbox shrink-0" data-gallery="prod-{{ $p->id }}" title="Klik untuk lihat foto">
-                                    <img src="{{ $urls[0] }}" class="w-10 h-10 rounded object-cover border border-stone-200 hover:opacity-80 transition">
+                                    <img src="{{ $urls[0] }}" class="w-10 h-10 rounded-sm object-cover border border-stone-200 hover:opacity-80 transition">
                                 </a>
                                 @foreach(array_slice($urls, 1) as $u)
                                     <a href="{{ $u }}" class="glightbox" data-gallery="prod-{{ $p->id }}" style="display:none"></a>
                                 @endforeach
                             @else
-                                <span class="w-10 h-10 rounded bg-stone-100 flex items-center justify-center shrink-0">{{ $p->image ?: '🧴' }}</span>
+                                <span class="w-10 h-10 rounded-sm bg-stone-100 flex items-center justify-center shrink-0">{{ $p->image ?: '🧴' }}</span>
                             @endif
                             <span>{{ $p->name }}</span>
                             @if(count($urls) > 1)<span class="text-[9px] text-stone-400">({{ count($urls) }} foto)</span>@endif

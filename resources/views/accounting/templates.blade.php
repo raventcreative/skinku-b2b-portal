@@ -28,7 +28,7 @@
                     <td class="px-4 py-2.5 font-semibold text-stone-800">{{ $t->name }}@if($t->description)<span class="block text-[10px] text-stone-400 font-normal">{{ $t->description }}</span>@endif</td>
                     <td class="text-stone-600">
                         @foreach($t->lines as $l)
-                            <span class="inline-block mr-2 mb-0.5 px-2 py-0.5 rounded {{ $l->side==='debit' ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700' }}">
+                            <span class="inline-block mr-2 mb-0.5 px-2 py-0.5 rounded-sm {{ $l->side==='debit' ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700' }}">
                                 {{ strtoupper(substr($l->side,0,1)) }}: {{ $l->account?->name ?? 'Kas/Bank (pilih saat input)' }}
                             </span>
                         @endforeach
@@ -69,7 +69,7 @@
             <div class="border border-stone-200 rounded-xl overflow-hidden">
                 <div class="flex items-center justify-between px-3 py-2 bg-stone-50 border-b border-stone-100">
                     <span class="text-xs font-bold text-stone-700">Baris Template</span>
-                    <button type="button" onclick="addLine()" class="px-2.5 py-1 text-[11px] bg-stone-800 text-white rounded">+ Baris</button>
+                    <button type="button" onclick="addLine()" class="px-2.5 py-1 text-[11px] bg-stone-800 text-white rounded-sm">+ Baris</button>
                 </div>
                 <table class="w-full text-xs">
                     <thead class="text-stone-400 text-[10px] uppercase"><tr><th class="text-left px-3 py-2">Akun</th><th class="text-left w-28">Sisi</th><th class="w-8"></th></tr></thead>

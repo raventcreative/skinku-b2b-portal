@@ -21,7 +21,7 @@
     </div>
 
     {{-- KANAN: panel chat (di-load AJAX) --}}
-    <div id="ecomChatPane" class="flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-[24rem] flex items-center justify-center text-sm text-stone-400 p-6 text-center">
+    <div id="ecomChatPane" class="flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-96 flex items-center justify-center text-sm text-stone-400 p-6 text-center">
         Pilih percakapan di kiri untuk membuka chat.
     </div>
 </div>
@@ -85,13 +85,13 @@
     // area pesan bisa scroll sendiri & kotak balas TETAP kelihatan di bawah — tanpa
     // ini, di mobile tak ada tinggi pasti → kotak balas kedorong jauh & tak bisa dibalas.
     function threadMode() {
-        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden h-[80vh] min-h-[24rem] lg:h-full';
+        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden h-[80vh] min-h-96 lg:h-full';
     }
 
     // Kembalikan panel kanan ke keadaan kosong (dipakai saat ganti channel: chat yang
     // sedang kebuka milik channel lama, jadi jangan dibiarkan nyangkut di kanan).
     function emptyMode() {
-        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-[24rem] flex items-center justify-center text-sm text-stone-400 p-6 text-center';
+        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-96 flex items-center justify-center text-sm text-stone-400 p-6 text-center';
         pane.innerHTML = 'Pilih percakapan di kiri untuk membuka chat.';
     }
 

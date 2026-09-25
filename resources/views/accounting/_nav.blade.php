@@ -18,7 +18,7 @@
 <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <div class="flex gap-1 bg-stone-100 rounded-xl p-1 text-sm overflow-x-auto">
         @foreach($tabs as $key => [$label, $url])
-            <a href="{{ $url }}{{ $key === 'comparison' || $key === 'trend' ? '' : '?period='.$period }}" class="px-4 py-1.5 rounded-lg whitespace-nowrap {{ $tab === $key ? 'bg-white shadow-sm font-semibold text-red-700' : 'text-stone-600 hover:text-stone-900' }}">{{ $label }}</a>
+            <a href="{{ $url }}{{ $key === 'comparison' || $key === 'trend' ? '' : '?period='.$period }}" class="px-4 py-1.5 rounded-lg whitespace-nowrap {{ $tab === $key ? 'bg-white shadow-xs font-semibold text-red-700' : 'text-stone-600 hover:text-stone-900' }}">{{ $label }}</a>
         @endforeach
     </div>
     @unless($ownSelector)

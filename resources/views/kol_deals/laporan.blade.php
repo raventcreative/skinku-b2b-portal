@@ -47,7 +47,7 @@
                     <td class="px-4 py-2.5"><a href="{{ route('kol-deals.edit', $d) }}" class="font-semibold text-stone-700 hover:underline">{{ $d->kode }}</a></td>
                     <td>
                         <span class="text-red-700 font-semibold">{{ '@'.($d->kol->tiktok_username ?? '?') }}</span>
-                        <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold {{ $levelBadge[$d->kol?->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $d->kol?->level ?? '—' }}</span>
+                        <span class="ml-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold {{ $levelBadge[$d->kol?->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $d->kol?->level ?? '—' }}</span>
                     </td>
                     <td class="text-stone-600 capitalize">{{ $d->hasil_tujuan ?? '—' }}</td>
                     <td class="text-right text-stone-600">{{ $num($d->hasil_video_upload) }} / {{ $num($d->hasil_video_fyp) }}</td>

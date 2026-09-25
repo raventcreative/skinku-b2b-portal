@@ -11,7 +11,7 @@
     {{-- header --}}
     <div class="px-4 py-3 border-b border-stone-200 flex items-center justify-between gap-3 shrink-0">
         <div class="flex items-center gap-2 min-w-0">
-            <span class="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($buyerName, 0, 1) }}</span>
+            <span class="shrink-0 w-8 h-8 rounded-full bg-linear-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($buyerName, 0, 1) }}</span>
             <span class="font-bold text-stone-800 truncate">{{ $buyerName }}</span>
         </div>
         <div class="flex items-center gap-3 shrink-0">
@@ -57,7 +57,7 @@
             @php($isProduct = $m->type === 'product_card' || $__prodJson)
             @php($productId = $m->type === 'product_card' ? (string) ($m->meta['product_id'] ?? '') : ($__prodJson ? (string) $__dec['product_id'] : ''))
             <div class="flex items-end gap-2 {{ $mine ? 'flex-row-reverse' : '' }}">
-                <span class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold uppercase {{ $mine ? 'bg-stone-300 text-stone-700' : 'bg-gradient-to-br from-red-500 to-rose-600 text-white' }}">
+                <span class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold uppercase {{ $mine ? 'bg-stone-300 text-stone-700' : 'bg-linear-to-br from-red-500 to-rose-600 text-white' }}">
                     {{ mb_substr($mine ? 'Toko' : $buyerName, 0, 1) }}
                 </span>
                 <div class="max-w-[75%] min-w-0">
@@ -116,7 +116,7 @@
                     @elseif($isOther)
                         <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">{{ $m->text }}</div>
                     @else
-                        <div class="px-3 py-2 rounded-2xl text-sm whitespace-pre-line break-words {{ $mine ? 'bg-red-600 text-white' : 'bg-white border border-stone-200 text-stone-800' }}">{{ $m->text }}</div>
+                        <div class="px-3 py-2 rounded-2xl text-sm whitespace-pre-line wrap-break-word {{ $mine ? 'bg-red-600 text-white' : 'bg-white border border-stone-200 text-stone-800' }}">{{ $m->text }}</div>
                     @endif
                     <div class="text-[9px] text-stone-400 mt-0.5 {{ $mine ? 'text-right' : '' }}">
                         {{ $mine ? ($m->via === 'ai' ? '🤖 AI SKINKU' : 'Toko') : $buyerName }} · {{ optional($m->sent_at)->format('d M H:i') }}

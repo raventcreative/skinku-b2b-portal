@@ -126,7 +126,7 @@ resources/views/     Blade (layout, auth, dashboard, users, products, purchase_o
 routes/web.php       Semua route + middleware role
 ```
 
-UI memakai Tailwind & Chart.js via CDN (tanpa build step). Untuk produksi, pertimbangkan compile aset lewat Vite.
+UI memakai Tailwind v4 terkompilasi lewat Vite (`resources/css/app.css` → `public/build`, **ikut di-commit** agar deploy cukup `git pull`). Chart.js dll. masih via CDN. Setelah mengubah kelas di Blade/CSS: `npm run build` lalu commit `public/build`. Dev: `npm run dev` bersamaan dengan `php artisan serve`.
 
 ## Keamanan
 

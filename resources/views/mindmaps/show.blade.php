@@ -56,7 +56,7 @@
                 @forelse($map->members as $m)
                     <div class="flex items-center gap-2 py-0.5">
                         <span class="text-xs text-stone-700">{{ $m->user?->fullname ?? $m->user?->name ?? 'user #'.$m->user_id }}</span>
-                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold {{ $m->can_edit ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500' }}">{{ $m->can_edit ? 'edit' : 'lihat' }}</span>
+                        <span class="px-1.5 py-0.5 rounded-sm text-[10px] font-semibold {{ $m->can_edit ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500' }}">{{ $m->can_edit ? 'edit' : 'lihat' }}</span>
                         <form method="POST" action="{{ route('mindmaps.members.destroy', [$map, $m->user_id]) }}" class="ml-auto">
                             @csrf @method('DELETE')
                             <button class="text-[11px] text-rose-500 hover:text-rose-700">keluarkan</button>
@@ -79,7 +79,7 @@
                         @endforeach
                     </select>
                     <label class="flex items-center gap-1 text-xs text-stone-600">
-                        <input type="checkbox" name="can_edit" value="1" checked class="rounded border-stone-300"> boleh edit
+                        <input type="checkbox" name="can_edit" value="1" checked class="rounded-sm border-stone-300"> boleh edit
                     </label>
                     <button class="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Undang</button>
                 </form>
@@ -156,7 +156,7 @@
         if (!el) {
             el = document.createElement('div');
             el.id = 'mmn-' + n.id;
-            el.className = 'absolute rounded-xl border border-stone-300 shadow-sm p-2 text-xs text-stone-800';
+            el.className = 'absolute rounded-xl border border-stone-300 shadow-xs p-2 text-xs text-stone-800';
             el.dataset.id = n.id;
             nodesLayer.appendChild(el);
             attachNode(el);
@@ -167,7 +167,7 @@
         if (document.activeElement !== el.querySelector('.mm-text')) {
             el.innerHTML = '';
             var t = document.createElement('div');
-            t.className = 'mm-text w-full h-full outline-none whitespace-pre-wrap break-words overflow-hidden';
+            t.className = 'mm-text w-full h-full outline-hidden whitespace-pre-wrap wrap-break-word overflow-hidden';
             t.style.touchAction = 'auto';
             t.contentEditable = CAN_EDIT ? 'true' : 'false';
             t.textContent = n.text || '';
@@ -177,12 +177,12 @@
                 h.className = 'mm-port absolute -right-1.5 top-1/2 -mt-1.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white cursor-crosshair';
                 el.appendChild(h);
                 var plus = document.createElement('div');
-                plus.className = 'mm-plus absolute left-1/2 -ml-2.5 -bottom-2.5 w-5 h-5 rounded-full bg-red-600 text-white text-sm leading-none flex items-center justify-center shadow cursor-pointer select-none';
+                plus.className = 'mm-plus absolute left-1/2 -ml-2.5 -bottom-2.5 w-5 h-5 rounded-full bg-red-600 text-white text-sm leading-none flex items-center justify-center shadow-sm cursor-pointer select-none';
                 plus.textContent = '+';
                 plus.title = 'Tambah cabang';
                 el.appendChild(plus);
                 var rz = document.createElement('div');
-                rz.className = 'mm-resize absolute -right-1 -bottom-1 w-3 h-3 rounded-sm bg-stone-400 border border-white cursor-nwse-resize';
+                rz.className = 'mm-resize absolute -right-1 -bottom-1 w-3 h-3 rounded-xs bg-stone-400 border border-white cursor-nwse-resize';
                 rz.title = 'Seret untuk ubah ukuran sticky';
                 el.appendChild(rz);
             }

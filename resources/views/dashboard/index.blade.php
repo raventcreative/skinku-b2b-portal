@@ -23,7 +23,7 @@
         onclick="if (event.target === this) this.remove()">
         <div class="relative max-w-lg w-full my-8">
             <button type="button" onclick="document.getElementById('annBanner').remove()"
-                class="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-stone-700 shadow flex items-center justify-center hover:bg-stone-100 z-10">✕</button>
+                class="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-stone-700 shadow-sm flex items-center justify-center hover:bg-stone-100 z-10">✕</button>
             <div class="space-y-3">
                 @foreach($popups as $p)
                     @if($p->banner_link)
@@ -250,7 +250,7 @@
         {{-- Kartu ber-tautan = <a> utuh (seluruh kartu bisa diklik), bukan cuma
              teks kecil tersembunyi. Hover memberi tanda bisa diklik. --}}
         <{{ $link ? 'a' : 'div' }} @if($link) href="{{ $link }}" @endif
-            class="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col {{ $link ? 'hover:border-stone-400 hover:shadow-sm transition cursor-pointer' : '' }}">
+            class="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col {{ $link ? 'hover:border-stone-400 hover:shadow-xs transition cursor-pointer' : '' }}">
             <div class="flex items-baseline justify-between gap-1">
                 <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">{{ $label }}</p>
                 <span class="text-[9px] text-stone-300 shrink-0">{{ $note }}</span>
@@ -274,7 +274,7 @@
                 </div>
             @endif
 
-            <span class="inline-block mt-3 w-8 h-1 rounded bg-{{ $color }}-500"></span>
+            <span class="inline-block mt-3 w-8 h-1 rounded-sm bg-{{ $color }}-500"></span>
         </{{ $link ? 'a' : 'div' }}>
     @endforeach
 </div>

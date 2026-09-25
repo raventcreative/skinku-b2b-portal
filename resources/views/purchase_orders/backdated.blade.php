@@ -136,7 +136,7 @@
                                     @csrf @method('PATCH')
                                     <input type="date" name="order_date" value="{{ $po->orderDate()->format('Y-m-d') }}"
                                         onchange="this.form.submit()" title="ubah tanggal order"
-                                        class="px-1.5 py-1 border border-transparent hover:border-stone-300 focus:border-indigo-500 rounded text-xs text-stone-600 bg-transparent cursor-pointer">
+                                        class="px-1.5 py-1 border border-transparent hover:border-stone-300 focus:border-indigo-500 rounded-sm text-xs text-stone-600 bg-transparent cursor-pointer">
                                 </form>
                             </td>
                             {{-- Jatuh ke nama user kalau company_name kosong — jangan tampilkan

@@ -36,13 +36,13 @@
                             <form method="POST" action="{{ route('inventory.hq-adjust') }}" class="flex gap-1 justify-end items-center">
                                 @csrf
                                 <input type="hidden" name="product_id" value="{{ $p->id }}">
-                                <select name="type" class="px-2 py-1 border border-stone-300 rounded text-[11px]">
+                                <select name="type" class="px-2 py-1 border border-stone-300 rounded-sm text-[11px]">
                                     @foreach($movementTypes as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
                                 </select>
-                                <input type="number" name="quantity" min="1" value="1" class="w-16 px-2 py-1 border border-stone-300 rounded text-center text-[11px]">
+                                <input type="number" name="quantity" min="1" value="1" class="w-16 px-2 py-1 border border-stone-300 rounded-sm text-center text-[11px]">
                                 <input type="text" name="notes" required maxlength="500" placeholder="Alasan (wajib)"
-                                    class="w-40 px-2 py-1 border border-stone-300 rounded text-[11px]">
-                                <button class="px-3 py-1 bg-red-600 text-white rounded text-[11px]">Simpan</button>
+                                    class="w-40 px-2 py-1 border border-stone-300 rounded-sm text-[11px]">
+                                <button class="px-3 py-1 bg-red-600 text-white rounded-sm text-[11px]">Simpan</button>
                             </form>
                         </td>
                     </tr>
@@ -67,7 +67,7 @@
              penjualan sesuai permintaan. --}}
         <div class="px-5 py-4 border-b border-stone-100 bg-stone-50/60 space-y-3">
             <div class="flex flex-wrap items-center gap-3">
-                <div class="flex-1 min-w-[14rem]">
+                <div class="flex-1 min-w-56">
                     <p class="text-sm font-bold text-stone-800">📝 Penyesuaian Stok / Adjustment</p>
                     <p class="text-[11px] text-stone-400">Samakan stok dengan hitungan fisik, atau isi saldo awal — banyak produk sekaligus dalam satu form.</p>
                 </div>
@@ -77,7 +77,7 @@
                 </a>
             </div>
             <div class="flex flex-wrap items-center gap-3 border-t border-stone-200/70 pt-3">
-                <div class="flex-1 min-w-[14rem]">
+                <div class="flex-1 min-w-56">
                     <p class="text-sm font-bold text-stone-800">📤 Barang Keluar (Penjualan)</p>
                     <p class="text-[11px] text-stone-400">Jual ke customer: satu nota bisa banyak produk, lengkap dengan harga &amp; total. Stok terpotong otomatis.</p>
                 </div>
@@ -115,13 +115,13 @@
                                 @csrf
                                 <input type="hidden" name="user_id" value="{{ $line->user_id }}">
                                 <input type="hidden" name="product_id" value="{{ $line->product_id }}">
-                                <select name="type" class="px-2 py-1 border border-stone-300 rounded text-[11px]">
+                                <select name="type" class="px-2 py-1 border border-stone-300 rounded-sm text-[11px]">
                                     @foreach($movementTypes as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
                                 </select>
-                                <input type="number" name="quantity" min="1" value="1" class="w-14 px-2 py-1 border border-stone-300 rounded text-center text-[11px]">
+                                <input type="number" name="quantity" min="1" value="1" class="w-14 px-2 py-1 border border-stone-300 rounded-sm text-center text-[11px]">
                                 <input type="text" name="notes" required maxlength="500" placeholder="Alasan (wajib)"
-                                    class="w-40 px-2 py-1 border border-stone-300 rounded text-[11px]">
-                                <button class="px-3 py-1 bg-red-600 text-white rounded text-[11px]">OK</button>
+                                    class="w-40 px-2 py-1 border border-stone-300 rounded-sm text-[11px]">
+                                <button class="px-3 py-1 bg-red-600 text-white rounded-sm text-[11px]">OK</button>
                             </form>
                         @endif
                     </td>

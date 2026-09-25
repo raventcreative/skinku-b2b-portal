@@ -14,9 +14,9 @@ $tierOptions = collect(\App\Support\PartnerHierarchy::TIERS)
     <div class="flex items-center justify-between flex-wrap gap-2">
         <p class="text-xs text-stone-500">💡 <b>Seret</b> node/chip ke node lain = jadikan <b>upline</b> · seret ke <b>"Belum ditempatkan"</b> = lepas · tombol <b>⋯</b> = ubah tier · seret area kosong = geser · scroll = zoom.</p>
         <div class="flex items-center gap-1">
-            <button id="sjZoomOut" class="w-7 h-7 rounded border border-stone-300 bg-white hover:bg-stone-100 text-sm">−</button>
-            <button id="sjFit" class="px-2 h-7 rounded border border-stone-300 bg-white hover:bg-stone-100 text-xs">fit</button>
-            <button id="sjZoomIn" class="w-7 h-7 rounded border border-stone-300 bg-white hover:bg-stone-100 text-sm">+</button>
+            <button id="sjZoomOut" class="w-7 h-7 rounded-sm border border-stone-300 bg-white hover:bg-stone-100 text-sm">−</button>
+            <button id="sjFit" class="px-2 h-7 rounded-sm border border-stone-300 bg-white hover:bg-stone-100 text-xs">fit</button>
+            <button id="sjZoomIn" class="w-7 h-7 rounded-sm border border-stone-300 bg-white hover:bg-stone-100 text-sm">+</button>
         </div>
     </div>
 
@@ -103,9 +103,9 @@ $tierOptions = collect(\App\Support\PartnerHierarchy::TIERS)
             + '</div>'
             + '<div class="text-[10px] text-stone-500 font-mono">' + esc(n.member_id || '—') + '</div>'
             + '<div class="mt-0.5 flex items-center gap-1 flex-wrap">'
-            + '<span class="text-[9px] px-1 rounded bg-emerald-100 text-emerald-800">' + esc(n.tier) + '</span>'
+            + '<span class="text-[9px] px-1 rounded-sm bg-emerald-100 text-emerald-800">' + esc(n.tier) + '</span>'
             + (n.region ? '<span class="text-[9px] text-stone-400">' + esc(n.region) + '</span>' : '')
-            + '<span class="text-[9px] px-1 rounded ' + (n.stockist ? 'bg-amber-100 text-amber-800' : 'bg-stone-100 text-stone-500') + '">' + (n.stockist ? 'stockist' : 'non-stok') + '</span>'
+            + '<span class="text-[9px] px-1 rounded-sm ' + (n.stockist ? 'bg-amber-100 text-amber-800' : 'bg-stone-100 text-stone-500') + '">' + (n.stockist ? 'stockist' : 'non-stok') + '</span>'
             + '</div>';
     }
 
@@ -119,7 +119,7 @@ $tierOptions = collect(\App\Support\PartnerHierarchy::TIERS)
             el.dataset.node = n.id; el.dataset.dropNode = n.id; el.dataset.dropRole = n.role;
             el.dataset.dragUser = n.id; el.dataset.dragRole = n.role;
             el.setAttribute('draggable', 'true');
-            el.className = 'absolute rounded-lg border border-stone-200 bg-white shadow-sm px-2 py-1 text-xs cursor-move';
+            el.className = 'absolute rounded-lg border border-stone-200 bg-white shadow-xs px-2 py-1 text-xs cursor-move';
             el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; el.style.width = NODE_W + 'px';
             el.innerHTML = nodeHtml(n);
             world.appendChild(el);
@@ -134,7 +134,7 @@ $tierOptions = collect(\App\Support\PartnerHierarchy::TIERS)
 
         document.getElementById('sjPoolCount').textContent = '(' + unplaced.length + ')';
         pool.innerHTML = unplaced.length ? unplaced.map(function (n) {
-            return '<span class="inline-flex items-center gap-1 rounded border border-dashed border-stone-300 px-2 py-1 text-xs mr-1 mb-1">'
+            return '<span class="inline-flex items-center gap-1 rounded-sm border border-dashed border-stone-300 px-2 py-1 text-xs mr-1 mb-1">'
                 + '<span draggable="true" data-drag-user="' + n.id + '" data-drag-role="' + n.role + '" class="cursor-move">' + esc(n.name) + ' <span class="text-stone-400">' + esc(n.tier) + '</span></span>'
                 + '<button data-tier-btn="' + n.id + '" class="text-stone-400 hover:text-stone-800 leading-none" title="Ubah tier">⋯</button>'
                 + '</span>';

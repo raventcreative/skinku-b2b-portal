@@ -75,7 +75,7 @@
         @php([$label, $cls] = $badgeFor($c->status, $c->last_reply_via))
         @php($nama = $c->buyer_name ?: ($c->channel === 'shopee' ? 'Pembeli Shopee' : 'Pembeli TikTok'))
         <button type="button" data-conv-id="{{ $c->id }}" onclick="ecomOpen(this)" class="w-full text-left flex items-center gap-3 p-3 hover:bg-stone-50">
-            <span class="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($nama, 0, 1) }}</span>
+            <span class="shrink-0 w-9 h-9 rounded-full bg-linear-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($nama, 0, 1) }}</span>
             <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-stone-800 truncate">
                     <span data-conv-flag class="text-amber-500 {{ $c->flagged ? '' : 'hidden' }}">★</span>{{ $nama }}

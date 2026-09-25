@@ -6,10 +6,10 @@
             @elseif($lesson->isDocument())
                 @php $ext = strtoupper($lesson->documentExtension() ?? 'DOC'); @endphp
                 <span class="text-4xl">📄</span>
-                <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-stone-800 text-white text-[10px] font-bold">{{ $ext }}</span>
+                <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded-sm bg-stone-800 text-white text-[10px] font-bold">{{ $ext }}</span>
             @endif
             @if($lesson->isVideo() && $lesson->isDocument())
-                <span class="absolute top-2 right-2 px-2 py-0.5 rounded bg-stone-800 text-white text-[10px] font-bold">+ DOK</span>
+                <span class="absolute top-2 right-2 px-2 py-0.5 rounded-sm bg-stone-800 text-white text-[10px] font-bold">+ DOK</span>
             @endif
         </div>
         <span class="absolute inset-0 flex items-center justify-center">

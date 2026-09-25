@@ -93,7 +93,7 @@
                                 @if($canManage)
                                     <input type="date" value="{{ optional($r['joined_at'])->toDateString() }}"
                                            data-joindate data-kol="{{ $r['kol']->id }}"
-                                           class="w-36 px-2 py-1 border border-stone-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-red-500" title="Tanggal gabung Tim Gapok">
+                                           class="w-36 px-2 py-1 border border-stone-300 rounded-sm text-xs focus:outline-hidden focus:ring-2 focus:ring-red-500" title="Tanggal gabung Tim Gapok">
                                 @else
                                     <span class="text-xs text-stone-600">{{ $r['joined_at'] ? $r['joined_at']->translatedFormat('d M Y') : '—' }}</span>
                                 @endif
@@ -126,7 +126,7 @@
                                         <input type="hidden" name="monthly_salary" value="{{ $r['salary'] }}">
                                         <input type="text" inputmode="numeric" placeholder="0"
                                                value="{{ $r['salary'] ? number_format($r['salary'], 0, ',', '.') : '' }}"
-                                               class="salary-input w-28 px-2 py-1 border border-stone-300 rounded text-right text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                                               class="salary-input w-28 px-2 py-1 border border-stone-300 rounded-sm text-right text-sm focus:outline-hidden focus:ring-2 focus:ring-red-500">
                                         <button class="text-xs text-red-600 hover:underline">simpan</button>
                                     </form>
                                 @else
@@ -159,8 +159,8 @@
                                 </div>
                                 @if($canManage)
                                     <form data-pay-form class="flex items-center justify-end gap-1 mt-1">
-                                        <input type="text" inputmode="numeric" data-pay-amount placeholder="Rp" class="w-20 px-1.5 py-0.5 border border-stone-300 rounded text-right text-[11px] focus:outline-none focus:ring-1 focus:ring-red-500">
-                                        <input type="date" data-pay-date value="{{ now()->toDateString() }}" class="px-1 py-0.5 border border-stone-300 rounded text-[11px]">
+                                        <input type="text" inputmode="numeric" data-pay-amount placeholder="Rp" class="w-20 px-1.5 py-0.5 border border-stone-300 rounded-sm text-right text-[11px] focus:outline-hidden focus:ring-1 focus:ring-red-500">
+                                        <input type="date" data-pay-date value="{{ now()->toDateString() }}" class="px-1 py-0.5 border border-stone-300 rounded-sm text-[11px]">
                                         <button type="submit" class="text-[11px] text-red-600 hover:underline whitespace-nowrap">+ bayar</button>
                                     </form>
                                 @endif
@@ -216,7 +216,7 @@
                 <div class="flex items-center">
                     <span class="px-2 py-2 border border-r-0 border-stone-300 rounded-l-xl text-stone-400 text-sm bg-stone-50">@</span>
                     <input type="text" name="username" required placeholder="mis. dianci22" autocomplete="off"
-                           class="px-3 py-2 border border-stone-300 rounded-r-xl text-sm w-52 focus:outline-none focus:ring-2 focus:ring-red-500">
+                           class="px-3 py-2 border border-stone-300 rounded-r-xl text-sm w-52 focus:outline-hidden focus:ring-2 focus:ring-red-500">
                 </div>
                 <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Tambahkan</button>
             </form>
@@ -228,7 +228,7 @@
                         @csrf
                         <input type="hidden" name="is_gapok" value="1">
                         <span class="text-stone-500 text-sm">atau pilih dari KOL yang ada:</span>
-                        <select name="kol_id" required class="px-3 py-2 border border-stone-300 rounded-xl text-sm min-w-[240px] focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <select name="kol_id" required class="px-3 py-2 border border-stone-300 rounded-xl text-sm min-w-[240px] focus:outline-hidden focus:ring-2 focus:ring-red-500">
                             <option value="">— pilih kreator (klik lalu ketik) —</option>
                             @foreach($nonGapok as $k)
                                 <option value="{{ $k->id }}">{{ $k->tiktok_username }}{{ $k->name ? ' — '.$k->name : '' }}</option>

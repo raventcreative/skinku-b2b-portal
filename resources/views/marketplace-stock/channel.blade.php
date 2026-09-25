@@ -53,9 +53,9 @@
                                 <td class="py-2.5">
                                     <div class="font-semibold text-stone-800">{{ $row['effective'] ?? '—' }}</div>
                                     @if($row['override'] !== null)
-                                        <span class="inline-block mt-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold">Override: {{ $row['override'] }}</span>
+                                        <span class="inline-block mt-1 px-1.5 py-0.5 rounded-sm bg-indigo-50 text-indigo-700 text-[10px] font-semibold">Override: {{ $row['override'] }}</span>
                                     @else
-                                        <span class="inline-block mt-1 px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 text-[10px] font-semibold">Ikut Master</span>
+                                        <span class="inline-block mt-1 px-1.5 py-0.5 rounded-sm bg-stone-100 text-stone-500 text-[10px] font-semibold">Ikut Master</span>
                                     @endif
                                 </td>
                                 <td class="py-2.5">

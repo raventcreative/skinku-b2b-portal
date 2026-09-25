@@ -81,7 +81,7 @@
                 <form method="POST" action="{{ route('kol-konten.target') }}" class="mt-1 flex items-center gap-1">
                     @csrf
                     <span class="text-[11px] text-stone-400">target</span>
-                    <input type="number" name="target" min="0" value="{{ $target }}" class="w-28 px-2 py-1 border border-stone-300 rounded text-xs text-right">
+                    <input type="number" name="target" min="0" value="{{ $target }}" class="w-28 px-2 py-1 border border-stone-300 rounded-sm text-xs text-right">
                     <button class="text-[11px] text-indigo-600 hover:underline">simpan</button>
                 </form>
             @else

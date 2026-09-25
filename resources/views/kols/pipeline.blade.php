@@ -15,7 +15,7 @@
 
     {{-- Toggle papan (pill, ala Iyuro): KOL scouting vs Affiliate pembinaan --}}
     <div class="flex items-center justify-between gap-3 flex-wrap">
-        <div class="inline-flex rounded-xl border border-stone-200 bg-white p-1 text-sm shadow-sm">
+        <div class="inline-flex rounded-xl border border-stone-200 bg-white p-1 text-sm shadow-xs">
             <a href="{{ route('kol-pipeline.index', ['kind' => 'kol']) }}" class="px-3.5 py-1.5 rounded-lg font-semibold transition {{ ! $isAff ? 'bg-red-600 text-white' : 'text-stone-500 hover:text-stone-800' }}">Scouting KOL <span class="ml-1 text-[11px] tabular-nums {{ ! $isAff ? 'text-red-100' : 'text-stone-400' }}">{{ $countKol }}</span></a>
             <a href="{{ route('kol-pipeline.index', ['kind' => 'affiliate']) }}" class="px-3.5 py-1.5 rounded-lg font-semibold transition {{ $isAff ? 'bg-red-600 text-white' : 'text-stone-500 hover:text-stone-800' }}">Pembinaan Affiliate <span class="ml-1 text-[11px] tabular-nums {{ $isAff ? 'text-red-100' : 'text-stone-400' }}">{{ $countAffiliate }}</span></a>
         </div>
@@ -112,14 +112,14 @@
                             data-late="{{ $late ? 1 : 0 }}" data-soon="{{ $soon ? 1 : 0 }}" data-noaction="{{ ! $c->next_action_at ? 1 : 0 }}"
                             data-hasaction="{{ $c->next_action_at ? 1 : 0 }}"
                             @if($u->canDo('kol.pipeline.manage')) draggable="true" @endif
-                            class="bg-white rounded-xl border border-stone-200 p-3 space-y-2 shadow-sm {{ $u->canDo('kol.pipeline.manage') ? 'cursor-grab active:cursor-grabbing' : '' }}">
+                            class="bg-white rounded-xl border border-stone-200 p-3 space-y-2 shadow-xs {{ $u->canDo('kol.pipeline.manage') ? 'cursor-grab active:cursor-grabbing' : '' }}">
                             {{-- Kepala: handle + nama + tier + FU --}}
                             <div class="flex items-start gap-2">
                                 @if($u->canDo('kol.pipeline.manage'))<span class="text-stone-300 leading-none mt-0.5 shrink-0 select-none" aria-hidden="true">⠿</span>@endif
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-1.5 flex-wrap">
                                         <a href="{{ route('kols.show', $c->kol_id) }}" class="text-sm font-semibold text-stone-800 hover:text-indigo-600 truncate">{{ '@'.$c->kol->tiktok_username }}</a>
-                                        <span class="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 shrink-0">{{ $c->kol->level }}</span>
+                                        <span class="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-stone-100 text-stone-500 shrink-0">{{ $c->kol->level }}</span>
                                     </div>
                                 </div>
                                 @if($c->followup_count > 0)

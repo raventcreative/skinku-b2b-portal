@@ -4,7 +4,7 @@
 <div id="aiWidget" class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 print:hidden">
 
     {{-- Panel chat --}}
-    <div id="aiPanel" class="hidden w-[92vw] max-w-sm h-[70vh] max-h-[32rem] bg-white rounded-2xl shadow-2xl border border-stone-200 flex-col overflow-hidden">
+    <div id="aiPanel" class="hidden w-[92vw] max-w-sm h-[70vh] max-h-128 bg-white rounded-2xl shadow-2xl border border-stone-200 flex-col overflow-hidden">
         <div class="px-4 py-3 bg-red-700 text-white flex items-center justify-between shrink-0">
             <div class="min-w-0">
                 <p class="text-sm font-bold leading-tight">Asisten AI</p>
@@ -22,7 +22,7 @@
         <div id="aiBody" class="flex-1 overflow-y-auto p-3 space-y-2 bg-stone-50 text-sm"></div>
         <form id="aiForm" class="p-2 border-t border-stone-200 flex items-end gap-2 shrink-0">
             <textarea id="aiInput" rows="1" maxlength="2000" placeholder="Tulis pertanyaan atau perintah…"
-                class="flex-1 px-3 py-2 border border-stone-300 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200 max-h-24"></textarea>
+                class="flex-1 px-3 py-2 border border-stone-300 rounded-xl text-sm resize-none focus:outline-hidden focus:ring-2 focus:ring-red-200 max-h-24"></textarea>
             <button type="submit" id="aiSend" class="w-9 h-9 shrink-0 bg-red-600 text-white rounded-xl hover:bg-red-700 flex items-center justify-center disabled:opacity-50" aria-label="Kirim">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7"/></svg>
             </button>
@@ -75,9 +75,9 @@
         wrap.className = role === 'user' ? 'flex justify-end' : 'flex justify-start';
         var b = document.createElement('div');
         b.className = (role === 'user'
-            ? 'bg-red-600 text-white rounded-br-sm'
-            : 'bg-white border border-stone-200 text-stone-800 rounded-bl-sm')
-            + ' max-w-[85%] px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words';
+            ? 'bg-red-600 text-white rounded-br-xs'
+            : 'bg-white border border-stone-200 text-stone-800 rounded-bl-xs')
+            + ' max-w-[85%] px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap wrap-break-word';
         b.textContent = text;            // textContent = aman dari XSS
         wrap.appendChild(b);
         return wrap;
@@ -98,7 +98,7 @@
             var c = document.createElement('div');
             c.className = 'rounded-xl bg-amber-50 border border-amber-200 p-3';
             var p = document.createElement('p'); p.className = 'text-[11px] font-semibold text-amber-800 mb-1'; p.textContent = 'Konfirmasi aksi';
-            var t = document.createElement('p'); t.className = 'text-sm text-stone-700 whitespace-pre-wrap break-words'; t.textContent = state.pending.preview;
+            var t = document.createElement('p'); t.className = 'text-sm text-stone-700 whitespace-pre-wrap wrap-break-word'; t.textContent = state.pending.preview;
             var row = document.createElement('div'); row.className = 'flex gap-2 mt-2';
             var ya = document.createElement('button'); ya.className = 'px-3 py-1.5 text-xs bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700'; ya.textContent = 'Ya, jalankan';
             var no = document.createElement('button'); no.className = 'px-3 py-1.5 text-xs text-stone-500 hover:text-stone-800'; no.textContent = 'Batal';
@@ -117,7 +117,7 @@
         var t = document.getElementById('aiTyping');
         if (on && !t) {
             t = document.createElement('div'); t.id = 'aiTyping'; t.className = 'flex justify-start';
-            t.innerHTML = '<div class="bg-white border border-stone-200 text-stone-400 px-3 py-2 rounded-2xl rounded-bl-sm text-sm">mengetik…</div>';
+            t.innerHTML = '<div class="bg-white border border-stone-200 text-stone-400 px-3 py-2 rounded-2xl rounded-bl-xs text-sm">mengetik…</div>';
             body.appendChild(t); body.scrollTop = body.scrollHeight;
         } else if (!on && t) { t.remove(); }
     }
