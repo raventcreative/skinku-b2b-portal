@@ -58,9 +58,12 @@ class ContentCreatorTest extends TestCase
         $this->actingAs($creator)->get(route('creator.dashboard'))->assertOk()
             ->assertSee('Dashboard Creator')->assertSee('Konten Saya')->assertDontSee('Produk Master');
 
-        foreach (['products.index', 'purchase-orders.index', 'kols.index', 'content-review.index', 'social.index', 'users.index'] as $route) {
+        foreach (['products.index', 'purchase-orders.index', 'kols.index', 'content-review.index', 'users.index'] as $route) {
             $this->actingAs($creator)->get(route($route))->assertForbidden();
         }
+        // FR-05 (revisi 2026-09-25): kreator yang menghubungkan akun brand.
+        $this->actingAs($creator)->get(route('social.index'))->assertOk()->assertSee('Akun Sosial Media Brand');
+        $this->actingAs($creator)->get(route('creator.dashboard'))->assertSee('Akun Sosial Media');
 
         // Role kustom lain juga tak lagi bisa melihat PO/stok semua mitra (middleware business).
         $kol = $this->user('kol_specialist', 'ks1');
