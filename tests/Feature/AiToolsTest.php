@@ -230,6 +230,6 @@ class AiToolsTest extends TestCase
         $col->cards()->create(['title' => 'Kartu Manual', 'position' => 2, 'created_by' => $sa->id]);   // manual → tanpa lencana
 
         $this->actingAs($sa)->get(route('kanban.show', $board))->assertOk()
-            ->assertSee('✨ AI', false)->assertSee('Kartu AI')->assertSee('Kartu Manual');
+            ->assertSee('title="Kartu ini dibuat oleh Asisten AI"', false)->assertSee('Kartu AI')->assertSee('Kartu Manual');
     }
 }
