@@ -196,6 +196,118 @@ class MarketplaceMasterService
         $listing->update(['master_id' => $m->id]);
     }
 
+    // ---- Push stok & harga (aditif; independen per listing, anti-push null) ----
+
+    /** Push stok & harga efektif satu listing (via master+channel). Kedua field independen, anti-push null. */
+    public function pushListing(MarketplaceListing $l, bool $force = false): array
+    {
+        $master = $l->master_id ? $l->master : null;
+        if (! $master || ! $l->item_id) {
+            return ['stock' => 'skip', 'price' => 'skip'];
+        }
+        $stock = $this->effectiveStock($master, $l->channel);
+        $price = $this->effectivePrice($master, $l->channel);
+
+        return [
+            'stock' => $this->pushStock($l, $stock, $force),
+            'price' => $this->pushPrice($l, $price, $force),
+        ];
+    }
+
+    private function pushStock(MarketplaceListing $l, ?int $stock, bool $force): string
+    {
+        if ($stock === null) {
+            return 'skip';
+        }
+        if (! $force && $l->last_pushed_qty === $stock) {
+            return 'skip';
+        }
+        try {
+            if ($l->channel === 'tiktok') {
+                $c = $this->tiktokConn() ?? throw new \RuntimeException('TikTok belum terhubung');
+                $this->tiktok->updateStock($this->tiktokToken($c), $c->shop_cipher, $l->item_id, (string) $l->variation_id, (string) $l->warehouse_id, $stock);
+            } else {
+                $c = $this->shopeeConn() ?? throw new \RuntimeException('Shopee belum terhubung');
+                $this->shopee->updateStock($this->shopeeToken($c), $c->shop_id, (int) $l->item_id, (int) $l->variation_id, $stock);
+            }
+            $l->update(['last_pushed_qty' => $stock, 'last_status' => 'ok', 'last_error' => null, 'last_pushed_at' => now()]);
+
+            return 'ok';
+        } catch (\Throwable $e) {
+            $l->update(['last_status' => 'failed', 'last_error' => mb_substr($e->getMessage(), 0, 500)]);
+
+            return 'failed';
+        }
+    }
+
+    private function pushPrice(MarketplaceListing $l, ?float $price, bool $force): string
+    {
+        if ($price === null) {
+            return 'skip';
+        }
+        if (! $force && $l->last_pushed_price !== null && (float) $l->last_pushed_price === $price) {
+            return 'skip';
+        }
+        try {
+            if ($l->channel === 'tiktok') {
+                $c = $this->tiktokConn() ?? throw new \RuntimeException('TikTok belum terhubung');
+                $this->tiktok->updatePrice($this->tiktokToken($c), $c->shop_cipher, $l->item_id, (string) $l->variation_id, $price);
+            } else {
+                $c = $this->shopeeConn() ?? throw new \RuntimeException('Shopee belum terhubung');
+                $this->shopee->updatePrice($this->shopeeToken($c), $c->shop_id, (int) $l->item_id, (int) $l->variation_id, $price);
+            }
+            $l->update(['last_pushed_price' => $price, 'last_price_status' => 'ok', 'last_price_error' => null, 'last_price_pushed_at' => now()]);
+
+            return 'ok';
+        } catch (\Throwable $e) {
+            $l->update(['last_price_status' => 'failed', 'last_price_error' => mb_substr($e->getMessage(), 0, 500)]);
+
+            return 'failed';
+        }
+    }
+
+    public function pushMaster(MarketplaceMaster $m, bool $force = true): array
+    {
+        $out = ['pushed' => 0, 'skipped' => 0, 'failed' => 0];
+        foreach ($m->listings()->whereNotNull('item_id')->get() as $l) {
+            $this->tallyPush($out, $this->pushListing($l, $force));
+        }
+
+        return $out;
+    }
+
+    public function pushDirty(): array
+    {
+        return $this->pushEach(false);
+    }
+
+    public function pushAll(): array
+    {
+        return $this->pushEach(true);
+    }
+
+    private function pushEach(bool $force): array
+    {
+        $out = ['pushed' => 0, 'skipped' => 0, 'failed' => 0];
+        foreach (MarketplaceListing::whereNotNull('item_id')->whereNotNull('master_id')->get() as $l) {
+            $this->tallyPush($out, $this->pushListing($l, $force));
+        }
+
+        return $out;
+    }
+
+    /** Hitung stok & harga sbg dua unit terpisah: ok→pushed, failed→failed, skip→skipped. */
+    private function tallyPush(array &$out, array $res): void
+    {
+        foreach (['stock', 'price'] as $field) {
+            match ($res[$field]) {
+                'ok' => $out['pushed']++,
+                'failed' => $out['failed']++,
+                default => $out['skipped']++,
+            };
+        }
+    }
+
     /**
      * Upsert satu baris marketplace_listings by (channel, seller_sku) lalu
      * pastikan punya master (auto-buat via findOrCreateMaster). Listing yang
