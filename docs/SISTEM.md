@@ -23,6 +23,7 @@ Kalau kamu baru pertama baca: mulai dari [Ringkasan](#0-ringkasan) → [Konvensi
 **Marketplace & Akuntansi**
 - [8. Integrasi TikTok](#8-integrasi-tiktok)
 - [9. Integrasi Shopee (Fase 1–4)](#9-integrasi-shopee-fase-14)
+- [9b. Kalkulator ROI](#9b-kalkulator-roi)
 - [10. Akuntansi / GL (buku besar)](#10-akuntansi--gl-buku-besar)
 
 **Laporan & Produktivitas**
@@ -353,6 +354,20 @@ Migrasi: `000042` (connections/orders/sku_maps), `000093` (returns), `000094` (s
 **Izin:** `manage_shopee` (semua route `/shopee/*`, default admin).
 
 **Env** (`config/services.php`): `SHOPEE_PARTNER_ID/PARTNER_KEY` + `SHOPEE_API_BASE`. Host sandbox BENAR = `openplatform.sandbox.test-stable.shopee.sg`; live = `partner.shopeemobile.com`. `SHOPEE_INSECURE` = bypass TLS **dev-only** (Windows lokal yang TLS-nya diintersepsi proxy/AV). Key format `shpk`+60hex dipakai **utuh** (jangan decode).
+
+---
+
+## 9b. Kalkulator ROI
+
+**Tujuan:** alat bantu internal hitung biaya jual TikTok Shop per produk dan target ROI iklan — bukan bagian alur transaksi (tak sentuh PO/stok/akuntansi).
+
+Tabel `roi_settings` (migrasi `000141`) — setelan **global** singleton (`id=1`, auto-dibuat dari `DEFAULTS` via `RoiSetting::current()`): persentase admin/voucher/komisi(+cap)/mall/pajak/operasional/affiliate + default packing/proses-order. Tabel `roi_items` (unik `product_id`) — baris per produk: `selling_price` + kolom override nullable (sama seperti settings, plus `modal`) yang menang atas global bila diisi; `modal` kosong → warisi `Product.cogs`.
+
+`RoiCalculatorService::compute()` (murni, tanpa DB): Total Biaya = SUM(admin+voucher+komisi+proses_order+mall+pajak+operasional), Profit Bersih = (Harga−Modal)−Packing−Total Biaya, komisi dipotong `cap` (`min(raw,cap)`). BEP ROI = Harga/Profit Bersih; Target ROI @5/10/15/20% dihitung dgn & tanpa potongan affiliate; pembagi ≤0 → `null` (guard bagi-nol). `effectiveInputs()`/`rowFor()` gabung override+global jadi input efektif per-baris; `summary()` rata-rata Target Min(10%)/Optimum(20%) lintas semua baris (lewati null).
+
+`RoiCalculatorController` (5 rute `roi-calculator.*`) → halaman `/kalkulator-roi`: setelan global + tabel produk (tambah dari katalog/edit override per-baris/hapus).
+
+**Izin:** `manage_roi_calculator` (default admin, super_admin implisit). Menu sidebar berdiri sendiri "Kalkulator ROI".
 
 ---
 

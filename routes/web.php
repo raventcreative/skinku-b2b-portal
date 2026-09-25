@@ -53,6 +53,7 @@ use App\Http\Controllers\RecruitController;
 use App\Http\Controllers\ReportBotAdminController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReturController;
+use App\Http\Controllers\RoiCalculatorController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShopeeController;
 use App\Http\Controllers\ShopeePushController;
@@ -642,6 +643,15 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/marketplace-stock/push-all', [MarketplaceStockController::class, 'pushAll'])->name('marketplace-stock.push-all');
         Route::post('/marketplace-stock/resolve', [MarketplaceStockController::class, 'resolve'])->name('marketplace-stock.resolve');
         Route::post('/marketplace-stock/seed-tiktok', [MarketplaceStockController::class, 'seed'])->name('marketplace-stock.seed');
+    });
+
+    /* ---------------- Kalkulator ROI ---------------- */
+    Route::middleware('permission:manage_roi_calculator')->group(function () {
+        Route::get('/kalkulator-roi', [RoiCalculatorController::class, 'index'])->name('roi-calculator.index');
+        Route::post('/kalkulator-roi/settings', [RoiCalculatorController::class, 'saveSettings'])->name('roi-calculator.settings');
+        Route::post('/kalkulator-roi/items', [RoiCalculatorController::class, 'storeItem'])->name('roi-calculator.items.store');
+        Route::post('/kalkulator-roi/items/{item}', [RoiCalculatorController::class, 'updateItem'])->name('roi-calculator.items.update');
+        Route::delete('/kalkulator-roi/items/{item}', [RoiCalculatorController::class, 'deleteItem'])->name('roi-calculator.items.destroy');
     });
 
     /* ---------------- Product management ---------------- */
