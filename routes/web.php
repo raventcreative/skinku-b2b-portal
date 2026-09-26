@@ -653,6 +653,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/marketplace-stock/push-all', [MarketplaceStockController::class, 'pushAll'])->name('marketplace-stock.push-all');
         Route::post('/marketplace-stock/resolve', [MarketplaceStockController::class, 'resolve'])->name('marketplace-stock.resolve');
         Route::post('/marketplace-stock/seed-tiktok', [MarketplaceStockController::class, 'seed'])->name('marketplace-stock.seed');
+        Route::post('/marketplace-stock/siapkan', [MarketplaceStockController::class, 'siapkan'])->name('marketplace-stock.siapkan');
+        Route::delete('/marketplace-stock/master/{master}', [MarketplaceStockController::class, 'deleteMaster'])->name('marketplace-stock.master.hapus');
     });
 
     /* ---------------- Kalkulator ROI ---------------- */

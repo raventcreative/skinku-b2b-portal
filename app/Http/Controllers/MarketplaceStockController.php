@@ -165,6 +165,27 @@ class MarketplaceStockController extends Controller
         return $redirect;
     }
 
+    /** Aksi "Siapkan Master": resolve tiktok+shopee lalu bersihkan master orphan. */
+    public function siapkan(MarketplaceMasterService $svc): RedirectResponse
+    {
+        $r = $svc->siapkanMaster();
+        $msg = "Siapkan master: {$r['found']} listing diproses, {$r['orphan_deleted']} master kosong dibersihkan.";
+        $redirect = back()->with('status', $msg);
+        if ($r['errors']) {
+            $redirect->with('error', implode(' · ', $r['errors']).' — cek izin/scope Product di channel.');
+        }
+
+        return $redirect;
+    }
+
+    public function deleteMaster(MarketplaceMaster $master): RedirectResponse
+    {
+        $name = $master->name;
+        $master->delete();
+
+        return back()->with('status', "Master \"{$name}\" dihapus.");
+    }
+
     public function seed(MarketplaceMasterService $svc): RedirectResponse
     {
         try {

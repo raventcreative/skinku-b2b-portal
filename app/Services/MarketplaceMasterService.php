@@ -162,6 +162,43 @@ class MarketplaceMasterService
     }
 
     /**
+     * Aksi tombol "Siapkan Master": resolve listing tiktok+shopee (per-channel
+     * try/catch biar satu channel gagal tak menggagalkan yang lain), lalu
+     * bersihkan master orphan (tanpa listing sama sekali) hasil sisa gabung/
+     * tautkan manual.
+     *
+     * @return array{found:int, errors:string[], orphan_deleted:int}
+     */
+    public function siapkanMaster(): array
+    {
+        $found = 0;
+        $errors = [];
+        foreach (['tiktok', 'shopee'] as $channel) {
+            try {
+                $r = $this->resolveListings($channel);
+                $found += (int) ($r['found'] ?? 0);
+            } catch (\Throwable $e) {
+                $errors[] = ucfirst($channel).': '.$e->getMessage();
+            }
+        }
+        $orphanDeleted = $this->deleteOrphanMasters();
+
+        return ['found' => $found, 'errors' => $errors, 'orphan_deleted' => $orphanDeleted];
+    }
+
+    /** Hapus master yang tak punya listing sama sekali. */
+    public function deleteOrphanMasters(): int
+    {
+        $n = 0;
+        foreach (MarketplaceMaster::doesntHave('listings')->get() as $m) {
+            $m->delete(); // master_channels ikut cascade
+            $n++;
+        }
+
+        return $n;
+    }
+
+    /**
      * Cari master by `name_key` (nama ternormalisasi dari $name, fallback ke
      * $sellerSku kalau $name kosong) — dedup SEKARANG by NAMA, bukan lagi
      * master_sku, biar listing lintas-channel/varian yang namanya sama (mis.
