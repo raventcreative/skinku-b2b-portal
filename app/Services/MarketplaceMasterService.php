@@ -222,6 +222,26 @@ class MarketplaceMasterService
         $listing->update(['master_id' => $m->id]);
     }
 
+    /** Tautkan banyak listing ke master (bulk). Return jumlah listing ter-update. */
+    public function linkListings(MarketplaceMaster $m, array $ids): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return MarketplaceListing::whereIn('id', $ids)->update(['master_id' => $m->id]);
+    }
+
+    /** Lepas banyak listing dari master — HANYA yang memang milik master ini (safety). */
+    public function unlinkListings(MarketplaceMaster $m, array $ids): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return MarketplaceListing::whereIn('id', $ids)->where('master_id', $m->id)->update(['master_id' => null]);
+    }
+
     // ---- Push stok & harga (aditif; independen per listing, anti-push null) ----
 
     /** Push stok & harga efektif satu listing (via master+channel). Kedua field independen, anti-push null. */

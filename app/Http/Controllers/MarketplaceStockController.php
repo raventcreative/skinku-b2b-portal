@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
+use App\Models\ShopeeConnection;
+use App\Models\TiktokConnection;
 use App\Services\ImageService;
 use App\Services\MarketplaceMasterService;
 use Illuminate\Http\RedirectResponse;
@@ -37,6 +39,12 @@ class MarketplaceStockController extends Controller
             ],
             'unlinkedListings' => MarketplaceListing::whereNull('master_id')->orderBy('channel')->orderBy('seller_sku')->get(['id', 'channel', 'seller_sku', 'title']),
             'unlinkedCount' => MarketplaceListing::whereNull('master_id')->count(),
+            'allListings' => MarketplaceListing::orderBy('channel')->orderBy('seller_sku')->get(['id', 'channel', 'seller_sku', 'title', 'master_id']),
+            'masterNames' => MarketplaceMaster::pluck('name', 'id'),
+            'shopNames' => [
+                'tiktok' => TiktokConnection::latest('id')->value('shop_name'),
+                'shopee' => ShopeeConnection::latest('id')->value('shop_name'),
+            ],
         ]);
     }
 
@@ -199,6 +207,29 @@ class MarketplaceStockController extends Controller
         $svc->tautkanListing($listing, $data['master_id'] ?? null, $data['new_sku'] ?? null, $data['new_name'] ?? null);
 
         return back()->with('status', "Listing {$listing->seller_sku} ditautkan.");
+    }
+
+    public function kaitkan(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $data = $r->validate([
+            'listing_ids' => ['required', 'array', 'min:1'],
+            'listing_ids.*' => ['integer', 'exists:marketplace_listings,id'],
+        ]);
+        $n = $svc->linkListings($master, $data['listing_ids']);
+        $svc->pushMaster($master);
+
+        return back()->with('status', "$n listing ditautkan ke \"{$master->name}\" & stok didorong.");
+    }
+
+    public function lepas(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $data = $r->validate([
+            'listing_ids' => ['required', 'array', 'min:1'],
+            'listing_ids.*' => ['integer', 'exists:marketplace_listings,id'],
+        ]);
+        $n = $svc->unlinkListings($master, $data['listing_ids']);
+
+        return back()->with('status', "$n listing dilepas dari \"{$master->name}\".");
     }
 
     /** Tandai/lepas master sbg Bundle (paket berisi >1 produk, bukan satuan). */
