@@ -51,7 +51,7 @@
                         @if($ready)
                             <a href="{{ route('social.connect', $provider) }}" class="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">{{ $c ? 'Hubungkan ulang' : 'Hubungkan '.['meta' => 'Meta', 'threads' => 'Threads', 'tiktok' => 'TikTok'][$provider] }}</a>
                         @else
-                            <span class="text-[11px] text-stone-400">Isi {{ ['meta' => 'META_APP_ID/SECRET', 'threads' => 'THREADS_APP_ID/SECRET', 'tiktok' => 'TIKTOK_CONTENT_CLIENT_KEY/SECRET'][$provider] }} di .env</span>
+                            <span class="text-[11px] text-stone-400">Isi kredensial {{ ['meta' => 'Meta', 'threads' => 'Threads', 'tiktok' => 'TikTok'][$provider] }} di bawah</span>
                         @endif
                     @endif
                     @if($c)
@@ -64,5 +64,32 @@
             </div>
         @endforeach
     </div>
+
+    {{-- Kredensial app (alternatif .env). Rahasia tersimpan terenkripsi, tak pernah ditampilkan; kosongkan = tidak diubah. --}}
+    <form method="POST" action="{{ route('social.credentials') }}" class="bg-white rounded-2xl border border-stone-200 p-5 space-y-4">@csrf
+        <div>
+            <p class="text-sm font-bold text-stone-800">Kredensial App</p>
+            <p class="text-xs text-stone-500">Dari developers.facebook.com &amp; developers.tiktok.com. Isi di sini atau di .env server — isian di sini yang dipakai.
+                Kolom rahasia yang dikosongkan tidak diubah.</p>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+            @foreach($credentials as $field => $c)
+                <label class="block">
+                    <span class="text-[11px] font-semibold text-stone-600">{{ $c['label'] }}</span>
+                    <input name="{{ $field }}" type="{{ $c['secret'] ? 'password' : 'text' }}" autocomplete="off"
+                        value="{{ $c['secret'] ? '' : old($field) }}"
+                        placeholder="{{ $c['source'] ? ($c['secret'] ? '•••••••• tersimpan ('.$c['source'].')' : $c['value'].' ('.$c['source'].')') : 'belum diisi' }}"
+                        class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                </label>
+            @endforeach
+        </div>
+        <div class="text-[11px] text-stone-500 space-y-0.5">
+            <p>Redirect URI yang didaftarkan di app:</p>
+            @foreach(['meta', 'threads', 'tiktok'] as $p)
+                <p><span class="font-semibold">{{ ucfirst($p) }}:</span> <code class="bg-stone-50 px-1 rounded">{{ route('social.callback', $p) }}</code></p>
+            @endforeach
+        </div>
+        <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg font-semibold hover:bg-stone-900">Simpan Kredensial</button>
+    </form>
 </div>
 @endsection
