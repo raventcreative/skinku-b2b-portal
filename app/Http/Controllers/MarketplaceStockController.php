@@ -6,6 +6,7 @@ use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Services\ImageService;
 use App\Services\MarketplaceMasterService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,9 +17,19 @@ use Illuminate\View\View;
  */
 class MarketplaceStockController extends Controller
 {
-    public function index(MarketplaceMasterService $svc): View
+    public function index(Request $request, MarketplaceMasterService $svc): View
     {
-        $masters = MarketplaceMaster::with(['channels', 'listings'])->orderBy('name')->get();
+        $tab = in_array($request->query('tab'), ['satuan', 'bundle'], true) ? $request->query('tab') : 'semua';
+
+        $base = MarketplaceMaster::with(['channels', 'listings']);
+        $q = (clone $base);
+        if ($tab === 'satuan') {
+            $q->where('is_bundle', false);
+        } elseif ($tab === 'bundle') {
+            $q->where('is_bundle', true);
+        }
+        $masters = $q->orderBy('name')->get();
+
         $rows = $masters->map(fn (MarketplaceMaster $m) => [
             'master' => $m,
             'tiktok' => $this->channelSummary($svc, $m, 'tiktok'),
@@ -26,10 +37,33 @@ class MarketplaceStockController extends Controller
         ]);
 
         return view('marketplace-stock.index', [
+            'tab' => $tab,
             'rows' => $rows,
-            'unmastered' => MarketplaceListing::whereNull('master_id')->get(),
-            'masters' => $masters,
+            'counts' => [
+                'semua' => (clone $base)->count(),
+                'satuan' => (clone $base)->where('is_bundle', false)->count(),
+                'bundle' => (clone $base)->where('is_bundle', true)->count(),
+            ],
+            'unmasteredCount' => MarketplaceListing::whereNull('master_id')->count(),
+            // Sama scope tab dgn baris tabel: cegah dropdown "Gabung ke master lain" di
+            // tab Satuan/Bundle membocorkan nama master kategori lain ke HTML (row-nya
+            // tersembunyi, tapi <option>-nya tetap kerender kalau tak di-scope) — tab
+            // Semua tetap lihat semua master (minus dirinya sendiri, lihat @if di view).
+            'allMasters' => $this->mastersForTab($tab)->orderBy('name')->get(['id', 'master_sku', 'name']),
         ]);
+    }
+
+    /** Query dasar (tanpa eager-load) untuk daftar master ter-filter tab yg sama dgn baris tabel. */
+    private function mastersForTab(string $tab): Builder
+    {
+        $query = MarketplaceMaster::query();
+        if ($tab === 'satuan') {
+            $query->where('is_bundle', false);
+        } elseif ($tab === 'bundle') {
+            $query->where('is_bundle', true);
+        }
+
+        return $query;
     }
 
     public function channel(string $channel, MarketplaceMasterService $svc): View
