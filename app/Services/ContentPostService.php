@@ -158,6 +158,7 @@ class ContentPostService
     public function approve(ContentPost $post, User $reviewer, array $edits = []): void
     {
         $this->assertStatus($post, [ContentPost::IN_REVIEW], 'disetujui');
+        $this->assertNotOwnPost($post, $reviewer);
 
         DB::transaction(function () use ($post, $reviewer, $edits) {
             $before = ['caption' => $post->caption, 'scheduled_at' => $post->scheduled_at?->toDateTimeString()];
@@ -207,6 +208,7 @@ class ContentPostService
     public function reject(ContentPost $post, User $reviewer, string $note): void
     {
         $this->assertStatus($post, [ContentPost::IN_REVIEW], 'ditolak');
+        $this->assertNotOwnPost($post, $reviewer);
 
         $post->update(['status' => ContentPost::REJECTED, 'review_note' => $note, 'reviewed_by' => $reviewer->id, 'reviewed_at' => now()]);
         AuditService::log(action: 'content.reject', targetType: 'content_post', targetId: $post->id, after: ['note' => $note]);
@@ -250,6 +252,14 @@ class ContentPostService
     {
         if (! in_array($post->status, $allowed, true)) {
             throw ValidationException::withMessages(['status' => "Konten berstatus \"{$post->statusLabel()}\" tidak bisa {$verb}."]);
+        }
+    }
+
+    /** Pembuat ≠ penyetuju: kreator boleh mereview konten kreator lain, bukan kontennya sendiri. */
+    private function assertNotOwnPost(ContentPost $post, User $reviewer): void
+    {
+        if ($post->user_id === $reviewer->id) {
+            throw ValidationException::withMessages(['status' => 'Konten sendiri tidak bisa kamu setujui/tolak — minta kreator lain atau admin mereview.']);
         }
     }
 

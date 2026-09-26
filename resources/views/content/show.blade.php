@@ -110,7 +110,10 @@
             </form>
         @endif
 
-        @if($canReview && $post->status === 'in_review')
+        @if($canReview && $isOwner && $post->status === 'in_review')
+            <p class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800">Ini konten kamu sendiri — review dilakukan kreator lain atau admin.</p>
+        @endif
+        @if($canReview && ! $isOwner && $post->status === 'in_review')
             <form method="POST" action="{{ route('content.approve', $post) }}" class="bg-white rounded-2xl border border-emerald-200 p-5 space-y-3">@csrf
                 <p class="text-sm font-bold text-stone-800">Setujui</p>
                 <label class="block">

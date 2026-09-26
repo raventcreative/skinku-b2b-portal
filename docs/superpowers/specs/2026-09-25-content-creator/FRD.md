@@ -15,7 +15,7 @@ Prioritas: **M** = Must (Fase 1), **S** = Should (Fase 1 bila sempat), **F2/F3**
 | FR-02 | Super admin/admin dapat membuat, mengedit, menonaktifkan user `content_creator` melalui menu Kelola Anggota yang sudah ada. | M |
 | FR-03 | Tersedia 1 akun demo `creator_demo` (hanya lewat seeder dev, tidak jalan di production). | M |
 | FR-04 | `content_creator` **bukan** partner & **bukan** staff: tidak dapat mengakses PO, inventory, harga, komisi, KOL, keuangan, laporan penjualan (HTTP 403 / menu tidak tampil). | M |
-| FR-05 | Permission baru di matriks permission (default role dalam kurung):<br>• `content.create` — buat & kelola konten sendiri (content_creator, admin)<br>• `content.review` — lihat semua konten & setujui/tolak (admin)<br>• `content.publish.manage` — retry, tandai terbit manual, lihat log publish (admin)<br>• `social.connect` — hubungkan/putus akun brand (content_creator; super_admin selalu lolos — revisi 2026-09-25 atas keputusan HQ) | M |
+| FR-05 | Permission baru di matriks permission (default role dalam kurung):<br>• `content.create` — buat & kelola konten sendiri (content_creator, admin)<br>• `content.review` — lihat semua konten & setujui/tolak (content_creator, admin — revisi 2026-09-26: kreator saling review; konten sendiri tidak bisa disetujui/ditolak pembuatnya; menu Review Konten & Akun Sosial Media disembunyikan dari super admin)<br>• `content.publish.manage` — retry, tandai terbit manual, lihat log publish (admin)<br>• `social.connect` — hubungkan/putus akun brand (content_creator; super_admin selalu lolos — revisi 2026-09-25 atas keputusan HQ) | M |
 | FR-06 | Sidebar untuk `content_creator` hanya menampilkan: Dashboard Creator, Konten Saya, Kalender, Ganti Password. | M |
 
 ## 2. Dashboard Creator

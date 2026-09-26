@@ -353,10 +353,11 @@
                         {!! navItem('creator.dashboard', 'Dashboard Creator', 'creator.dashboard', [], null, 'dashboard') !!}
                         {!! navItem('content.index', 'Konten Saya', 'content.index', [], request()->routeIs('content.index', 'content.create', 'content.edit'), 'kol-konten.index') !!}
                     @endif
-                    @if($u->canDo('content.review'))
+                    {{-- Keputusan HQ 2026-09-26: Review Konten & Akun Sosial Media dikerjakan kreator; disembunyikan dari menu super admin (akses URL tetap). --}}
+                    @if($u->canDo('content.review') && $u->role !== \App\Models\User::ROLE_SUPER_ADMIN)
                         {!! navItem('content-review.index', 'Review Konten', 'content-review.*', [], null, 'audit-logs.index') !!}
                     @endif
-                    @if($u->canDo('social.connect'))
+                    @if($u->canDo('social.connect') && $u->role !== \App\Models\User::ROLE_SUPER_ADMIN)
                         {!! navItem('social.index', 'Akun Sosial Media', 'social.*', [], null, 'grp-integrasi') !!}
                     @endif
                 </div>
