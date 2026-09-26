@@ -19,6 +19,7 @@ Aplikasi ini adalah hasil migrasi dari prototipe **Vite + React + TypeScript + F
 - Inventory (stok pusat & mitra) + Stock Movement ledger.
 - Reporting & dashboard chart berbasis SQL aggregate (tren penjualan, top produk, per distributor, per region, distribusi status PO, HQ vs mitra).
 - Audit log untuk semua aksi penting.
+- Portal Content Creator (role `content_creator`): kreator membuat konten, saling review (tidak bisa approve konten sendiri), lalu konten terbit ke akun brand SKINKU — Facebook Page, Instagram, Threads (Meta API) dan TikTok (Content Posting API). Detail: `docs/superpowers/specs/2026-09-25-content-creator/`.
 
 ## Persyaratan
 
@@ -136,6 +137,8 @@ UI memakai Tailwind v4 terkompilasi lewat Vite (`resources/css/app.css` → `pub
 - CSRF aktif di semua form; query lewat Eloquent/Query Builder (anti SQL injection).
 - Upload foto divalidasi (mime + ukuran). Soft delete pada user/produk/PO untuk menjaga histori.
 - Credential DB & super admin via `.env`, tidak di kode.
+- Kredensial app Meta/Threads/TikTok diisi di **Konten → Akun Sosial Media → Kredensial App** (permission `social.connect`) atau di `.env` (`META_APP_ID`, `THREADS_APP_ID`, `TIKTOK_CONTENT_CLIENT_KEY`, dst. — lihat `.env.example`). Isian portal disimpan terenkripsi di `app_settings` dan **menimpa** `.env`; secret tidak pernah ditampilkan, kolom kosong = nilai lama dipertahankan.
+- Kolom secret di form itu memakai `autocomplete="new-password"`: Chrome mengabaikan `autocomplete="off"` dan sempat mengisi Meta App ID/Secret dengan username/password login. Setelah menyimpan, pastikan isian bukan hasil autofill browser.
 
 ## Catatan Migrasi (lama → baru)
 
