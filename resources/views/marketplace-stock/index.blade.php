@@ -81,27 +81,23 @@
                                     <button class="text-xs text-indigo-600 hover:underline">set</button>
                                 </form>
                             </td>
-                            <td class="px-4 py-3 text-stone-600">{{ $produkTerkait > 0 ? $produkTerkait.' Produk' : '—' }}</td>
-                            <td class="px-4 py-3 text-stone-600">{{ $tokoTerkait > 0 ? $tokoTerkait.' Toko' : '—' }}</td>
+                            <td class="px-4 py-3">
+                                @if($produkTerkait > 0)
+                                    <button type="button" data-master-id="{{ $m->id }}" data-master-sku="{{ $m->master_sku }}" data-master-name="{{ $m->name }}" data-tab="terkait" onclick="mpOpenKaitkan(this)" class="text-indigo-600 hover:underline">{{ $produkTerkait }} Produk</button>
+                                @else <span class="text-stone-400">—</span> @endif
+                            </td>
+                            <td class="px-4 py-3">
+                                @if($tokoTerkait > 0)
+                                    <button type="button" data-master-id="{{ $m->id }}" data-master-sku="{{ $m->master_sku }}" data-master-name="{{ $m->name }}" data-tab="terkait" onclick="mpOpenKaitkan(this)" class="text-indigo-600 hover:underline">{{ $tokoTerkait }} Toko</button>
+                                @else <span class="text-stone-400">—</span> @endif
+                            </td>
                             <td class="px-4 py-3 text-right">
                                 <details class="relative inline-block text-left">
                                     <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700">Atur ▾</summary>
                                     <div class="absolute right-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-lg z-20 py-1 text-left">
                                         <a href="{{ route('marketplace-stock.edit', $m) }}" class="block px-4 py-2 hover:bg-stone-50">Ubah</a>
                                         <form method="POST" action="{{ route('marketplace-stock.duplikat', $m) }}">@csrf<button class="w-full text-left px-4 py-2 hover:bg-stone-50">Duplikat Produk</button></form>
-                                        <details class="group">
-                                            <summary class="cursor-pointer list-none px-4 py-2 hover:bg-stone-50">Tambah ke Marketplace</summary>
-                                            <form method="POST" action="{{ route('marketplace-stock.tautkan') }}" class="px-4 py-2 space-y-1 bg-stone-50">@csrf
-                                                <input type="hidden" name="master_id" value="{{ $m->id }}">
-                                                <select name="listing_id" required class="w-full px-2 py-1 border border-stone-200 rounded text-xs">
-                                                    <option value="">Pilih listing…</option>
-                                                    @foreach($unlinkedListings as $l)
-                                                        <option value="{{ $l->id }}">{{ strtoupper($l->channel) }} · {{ $l->seller_sku }}{{ $l->title ? ' — '.\Illuminate\Support\Str::limit($l->title, 30) : '' }}</option>
-                                                    @endforeach
-                                                </select>
-                                                <button class="w-full px-2 py-1 bg-indigo-600 text-white rounded text-xs">Tautkan</button>
-                                            </form>
-                                        </details>
+                                        <button type="button" data-master-id="{{ $m->id }}" data-master-sku="{{ $m->master_sku }}" data-master-name="{{ $m->name }}" onclick="mpOpenKaitkan(this)" class="w-full text-left px-4 py-2 hover:bg-stone-50">Tambah ke Marketplace</button>
                                         <form method="POST" action="{{ route('marketplace-stock.master.bundle', $m) }}">@csrf<button class="w-full text-left px-4 py-2 hover:bg-stone-50">{{ $m->is_bundle ? 'Jadikan Satuan' : 'Jadikan Bundle' }}</button></form>
                                         <form method="POST" action="{{ route('marketplace-stock.master.hapus', $m) }}" onsubmit="return confirm('Hapus produk master ini?')">@csrf @method('DELETE')<button class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Hapus</button></form>
                                     </div>
@@ -114,4 +110,121 @@
         </div>
     @endif
 </div>
+
+{{-- Modal Kaitkan Produk (ala Desty) --}}
+<div id="kaitkanModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+    <div class="bg-white rounded-2xl border border-stone-200 w-full max-w-3xl max-h-[85vh] flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-stone-200">
+            <h3 class="font-semibold text-stone-800">Kaitkan Produk (<span id="kaitkanSku"></span>)</h3>
+            <button type="button" onclick="mpCloseKaitkan()" class="text-stone-400 hover:text-stone-600 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="px-5 py-3 border-b border-stone-100 flex flex-wrap gap-2 items-center">
+            <input id="kaitkanSearch" type="text" placeholder="Cari nama produk atau SKU" class="flex-1 min-w-[180px] px-3 py-1.5 border border-stone-200 rounded-lg text-sm" oninput="mpRenderKaitkan()">
+            <select id="kaitkanChannel" class="px-3 py-1.5 border border-stone-200 rounded-lg text-sm" onchange="mpRenderKaitkan()">
+                <option value="">Semua channel</option>
+                <option value="tiktok">TikTok</option>
+                <option value="shopee">Shopee</option>
+            </select>
+        </div>
+        <div class="px-5 pt-3 flex gap-1 text-sm flex-wrap">
+            <button type="button" data-ktab="semua" onclick="mpSetKaitkanTab('semua')" class="kaitkan-tab px-3 py-1.5 rounded-lg">Semua <span id="kaitkanCountAll" class="opacity-70"></span></button>
+            <button type="button" data-ktab="terkait" onclick="mpSetKaitkanTab('terkait')" class="kaitkan-tab px-3 py-1.5 rounded-lg">Produk Terkait <span id="kaitkanCountTerkait" class="opacity-70"></span></button>
+            <button type="button" data-ktab="tidak" onclick="mpSetKaitkanTab('tidak')" class="kaitkan-tab px-3 py-1.5 rounded-lg">Produk Tidak Terkait <span id="kaitkanCountTidak" class="opacity-70"></span></button>
+        </div>
+        <div class="flex-1 overflow-y-auto px-5 py-3">
+            <table class="w-full text-sm">
+                <thead class="text-left text-stone-500 border-b border-stone-200">
+                    <tr><th class="py-2 w-8"></th><th class="py-2 font-medium">Informasi Produk</th><th class="py-2 font-medium">SKU Marketplace</th><th class="py-2 font-medium">Channel / Toko</th><th class="py-2 font-medium">Status</th></tr>
+                </thead>
+                <tbody id="kaitkanRows" class="divide-y divide-stone-100"></tbody>
+            </table>
+            <p id="kaitkanEmpty" class="hidden py-8 text-center text-stone-400 text-sm">Tidak ada listing.</p>
+        </div>
+        <div class="px-5 py-4 border-t border-stone-200 flex items-center justify-between gap-2 flex-wrap">
+            <span class="text-xs text-amber-700">Pengaitan akan mendorong stok dari Master ke listing.</span>
+            <div class="flex gap-2">
+                <button type="button" onclick="mpSubmitKaitkan('link')" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Tautkan terpilih</button>
+                <button type="button" onclick="mpSubmitKaitkan('unlink')" class="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700">Lepas terpilih</button>
+                <button type="button" onclick="mpCloseKaitkan()" class="px-4 py-2 text-sm bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200">Tutup</button>
+            </div>
+        </div>
+    </div>
+    <form id="kaitkanForm" method="POST" class="hidden">@csrf<div id="kaitkanFormIds"></div></form>
+    <form id="lepasForm" method="POST" class="hidden">@csrf<div id="lepasFormIds"></div></form>
+</div>
+<script>
+window.__mp = {
+    listings: <?= json_encode($allListings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+    masterNames: <?= json_encode($masterNames, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+    shopNames: <?= json_encode($shopNames, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+    kaitkanTpl: '{{ route('marketplace-stock.kaitkan', ['master' => '__ID__']) }}',
+    lepasTpl: '{{ route('marketplace-stock.lepas', ['master' => '__ID__']) }}',
+};
+(function () {
+    var state = { masterId: null, tab: 'semua' };
+    function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+    function statusOf(l){ if(l.master_id===state.masterId) return 'terkait'; if(l.master_id===null||l.master_id===undefined) return 'tidak'; return 'lain'; }
+    window.mpOpenKaitkan = function(btn){
+        state.masterId = parseInt(btn.getAttribute('data-master-id'),10);
+        state.tab = btn.getAttribute('data-tab') || 'semua';
+        var sku = document.getElementById('kaitkanSku'); if(sku) sku.textContent = btn.getAttribute('data-master-sku') || '';
+        var modal = document.getElementById('kaitkanModal'); modal.classList.remove('hidden'); modal.classList.add('flex');
+        var s = document.getElementById('kaitkanSearch'); if(s) s.value=''; var c=document.getElementById('kaitkanChannel'); if(c) c.value='';
+        mpSetKaitkanTab(state.tab);
+    };
+    window.mpCloseKaitkan = function(){ var m=document.getElementById('kaitkanModal'); m.classList.add('hidden'); m.classList.remove('flex'); };
+    window.mpSetKaitkanTab = function(tab){
+        state.tab = tab;
+        document.querySelectorAll('.kaitkan-tab').forEach(function(b){
+            var on = b.getAttribute('data-ktab')===tab;
+            b.className = 'kaitkan-tab px-3 py-1.5 rounded-lg ' + (on ? 'bg-stone-800 text-white' : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50');
+        });
+        mpRenderKaitkan();
+    };
+    window.mpRenderKaitkan = function(){
+        var q=(document.getElementById('kaitkanSearch').value||'').toLowerCase();
+        var ch=document.getElementById('kaitkanChannel').value;
+        var all=window.__mp.listings||[]; var terkait=0, tidak=0; var rows=[];
+        all.forEach(function(l){
+            var st=statusOf(l);
+            if(st==='terkait') terkait++; if(st==='tidak') tidak++;
+            if(state.tab==='terkait' && st!=='terkait') return;
+            if(state.tab==='tidak' && st!=='tidak') return;
+            if(ch && l.channel!==ch) return;
+            var hay=((l.title||'')+' '+(l.seller_sku||'')).toLowerCase();
+            if(q && hay.indexOf(q)===-1) return;
+            rows.push({l:l, st:st});
+        });
+        var setTxt=function(id,v){ var e=document.getElementById(id); if(e) e.textContent='('+v+')'; };
+        setTxt('kaitkanCountAll', all.length); setTxt('kaitkanCountTerkait', terkait); setTxt('kaitkanCountTidak', tidak);
+        var tb=document.getElementById('kaitkanRows'); tb.innerHTML='';
+        rows.forEach(function(r){
+            var l=r.l, st=r.st, shop=(window.__mp.shopNames||{})[l.channel]||'';
+            var badge = st==='terkait' ? '<span class="text-[11px] text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5">✅ Tertaut</span>'
+                : st==='tidak' ? '<span class="text-[11px] text-stone-500 bg-stone-100 rounded px-1.5 py-0.5">⬜ Belum</span>'
+                : '<span class="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">🔗 '+esc((window.__mp.masterNames||{})[l.master_id]||'master lain')+'</span>';
+            var dis = st==='lain' ? 'disabled' : '';
+            var tr=document.createElement('tr');
+            tr.innerHTML='<td class="py-2"><input type="checkbox" class="kaitkan-cb" data-id="'+l.id+'" data-st="'+st+'" '+dis+'></td>'
+                +'<td class="py-2">'+esc(l.title||'(tanpa nama)')+'</td>'
+                +'<td class="py-2 text-stone-600">'+esc(l.seller_sku)+'</td>'
+                +'<td class="py-2 text-stone-600">'+esc((l.channel||'').toUpperCase())+(shop?' · '+esc(shop):'')+'</td>'
+                +'<td class="py-2">'+badge+'</td>';
+            tb.appendChild(tr);
+        });
+        document.getElementById('kaitkanEmpty').classList.toggle('hidden', rows.length>0);
+    };
+    window.mpSubmitKaitkan = function(mode){
+        var want = mode==='link' ? 'tidak' : 'terkait';
+        var ids=[];
+        document.querySelectorAll('#kaitkanRows .kaitkan-cb:checked').forEach(function(cb){ if(cb.getAttribute('data-st')===want) ids.push(cb.getAttribute('data-id')); });
+        if(ids.length===0){ alert(mode==='link'?'Centang listing yang BELUM tertaut untuk ditautkan.':'Centang listing yang TERTAUT ke master ini untuk dilepas.'); return; }
+        var form=document.getElementById(mode==='link'?'kaitkanForm':'lepasForm');
+        var box=document.getElementById(mode==='link'?'kaitkanFormIds':'lepasFormIds'); box.innerHTML='';
+        ids.forEach(function(id){ var i=document.createElement('input'); i.type='hidden'; i.name='listing_ids[]'; i.value=id; box.appendChild(i); });
+        form.action=(mode==='link'?window.__mp.kaitkanTpl:window.__mp.lepasTpl).replace('__ID__', state.masterId);
+        form.submit();
+    };
+})();
+</script>
 @endsection

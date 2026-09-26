@@ -59,13 +59,26 @@ class CatalogPageTest extends TestCase
             ->assertOk()->assertSee('Paket')->assertDontSee('>Satuan<', false);
     }
 
-    public function test_picker_tambah_ke_marketplace_berisi_listing_belum_tertaut(): void
+    public function test_modal_kaitkan_dan_data_terembed(): void
     {
-        MarketplaceMaster::create(['master_sku' => 'X-1', 'name' => 'X', 'name_key' => 'x']);
+        $m = MarketplaceMaster::create(['master_sku' => 'X-1', 'name' => 'X', 'name_key' => 'x']);
         MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'NEW-SKU', 'item_id' => 'P9', 'master_id' => null, 'title' => 'Produk Baru']);
 
-        $this->actingAs($this->admin())->get(route('marketplace-stock.index'))
-            ->assertOk()->assertSee('NEW-SKU');
+        $res = $this->actingAs($this->admin())->get(route('marketplace-stock.index'))->assertOk();
+        $res->assertSee('id="kaitkanModal"', false);   // modal ada
+        $res->assertSee('window.__mp', false);          // data ter-embed
+        $res->assertSee('Tambah ke Marketplace');       // tombol pembuka di menu Atur
+        $res->assertSee('NEW-SKU');                      // listing masuk data embed
+    }
+
+    public function test_angka_terkait_klik_buka_modal(): void
+    {
+        $m = MarketplaceMaster::create(['master_sku' => 'X-1', 'name' => 'X', 'name_key' => 'x']);
+        MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'A', 'item_id' => 'P1', 'master_id' => $m->id]);
+
+        $res = $this->actingAs($this->admin())->get(route('marketplace-stock.index'))->assertOk();
+        $res->assertSee('mpOpenKaitkan(this)', false);  // tombol angka Terkait memicu modal
+        $res->assertSee('1 Produk');
     }
 
     public function test_akses_ditolak_non_izin(): void
