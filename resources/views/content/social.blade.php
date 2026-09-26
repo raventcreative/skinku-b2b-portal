@@ -76,7 +76,10 @@
             @foreach($credentials as $field => $c)
                 <label class="block">
                     <span class="text-[11px] font-semibold text-stone-600">{{ $c['label'] }}</span>
-                    <input name="{{ $field }}" type="{{ $c['secret'] ? 'password' : 'text' }}" autocomplete="off"
+                    <input name="{{ $field }}" type="{{ $c['secret'] ? 'password' : 'text' }}"
+                        {{-- Chrome mengabaikan autocomplete="off" di form berkolom password & mengisi username/password login;
+                             "new-password" mencegahnya. --}}
+                        autocomplete="{{ $c['secret'] ? 'new-password' : 'off' }}" data-1p-ignore data-lpignore="true"
                         value="{{ $c['secret'] ? '' : old($field) }}"
                         placeholder="{{ $c['source'] ? ($c['secret'] ? '•••••••• tersimpan ('.$c['source'].')' : $c['value'].' ('.$c['source'].')') : 'belum diisi' }}"
                         class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
