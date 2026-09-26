@@ -44,16 +44,6 @@ class MarketplaceMasterService
         return $m->base_price !== null ? (float) $m->base_price : null;
     }
 
-    /** Gabung dua master: pindahkan semua listing $source ke $target, lalu hapus $source. */
-    public function mergeMaster(MarketplaceMaster $source, MarketplaceMaster $target): void
-    {
-        if ($source->id === $target->id) {
-            return;
-        }
-        $source->listings()->update(['master_id' => $target->id]);
-        $source->delete();
-    }
-
     /** Gandakan master jadi baris baru (SKU "-COPY", nama "(copy)") tanpa listing/override/foto/stok — mulai bersih. */
     public function duplicateMaster(MarketplaceMaster $m): MarketplaceMaster
     {
@@ -169,61 +159,19 @@ class MarketplaceMasterService
         return $expireIn ? now()->addSeconds((int) $expireIn) : null;
     }
 
-    // ---- Resolve listing dari channel + auto-buat Master + tautkan/gabung ----
+    // ---- Resolve listing dari channel + tautkan manual ----
 
     /**
      * Isi/segarkan marketplace_listings dari channel (item_id/variation_id/
-     * warehouse_id) & pastikan tiap listing punya master (auto-buat kalau
-     * belum ada baris marketplace_masters ber-master_sku = seller_sku-nya).
-     * TERPISAH dari MarketplaceStockService::resolveListings() (SkuMap/HQ) —
-     * di sini tak ada konsep 'unmapped', semua listing selalu dapat master.
+     * warehouse_id). TAK auto-buat/tautkan master — penautan ke master
+     * dilakukan manual lewat tautkanListing(). TERPISAH dari
+     * MarketplaceStockService::resolveListings() (SkuMap/HQ).
      *
-     * @return array{found:int, mastered:int}
+     * @return array{found:int}
      */
     public function resolveListings(string $channel): array
     {
         return $channel === 'tiktok' ? $this->resolveTiktok() : $this->resolveShopee();
-    }
-
-    /**
-     * Aksi tombol "Siapkan Master": resolve listing tiktok+shopee (per-channel
-     * try/catch biar satu channel gagal tak menggagalkan yang lain), lalu
-     * bersihkan master orphan (tanpa listing sama sekali) hasil sisa gabung/
-     * tautkan manual.
-     *
-     * @return array{found:int, errors:string[], orphan_deleted:int}
-     */
-    public function siapkanMaster(): array
-    {
-        $found = 0;
-        $errors = [];
-        foreach (['tiktok', 'shopee'] as $channel) {
-            try {
-                $r = $this->resolveListings($channel);
-                $found += (int) ($r['found'] ?? 0);
-            } catch (\Throwable $e) {
-                $errors[] = ucfirst($channel).': '.$e->getMessage();
-            }
-        }
-        $orphanDeleted = $this->deleteOrphanMasters();
-
-        return ['found' => $found, 'errors' => $errors, 'orphan_deleted' => $orphanDeleted];
-    }
-
-    /** Hapus master yang tak punya listing sama sekali — kecuali sudah dikonfigurasi (stok/harga/foto upload). */
-    public function deleteOrphanMasters(): int
-    {
-        $n = 0;
-        foreach (MarketplaceMaster::doesntHave('listings')->get() as $m) {
-            // Jangan hapus orphan yang sudah dikonfigurasi (stok/harga/foto upload) — cegah kehilangan data diam-diam.
-            if ($m->base_stock !== null || $m->base_price !== null || $m->firstFileUrl(MarketplaceMaster::MASTER_IMAGE) !== null) {
-                continue;
-            }
-            $m->delete(); // master_channels ikut cascade
-            $n++;
-        }
-
-        return $n;
     }
 
     /**
@@ -272,25 +220,6 @@ class MarketplaceMasterService
         $sku = $newSku !== null && $newSku !== '' ? $newSku : $listing->seller_sku;
         $m = $this->findOrCreateMaster($sku, $newName ?? $listing->title);
         $listing->update(['master_id' => $m->id]);
-    }
-
-    /**
-     * Buat master otomatis untuk SEMUA listing yang belum termaster, dari data
-     * listing itu sendiri (master_sku = seller_sku, name = title) — tanpa panggil
-     * API channel. Dipakai tombol "Buat master otomatis (semua)" biar admin tak
-     * perlu Tautkan satu-satu, dan biar listing warisan (pra-rework) langsung
-     * bermaster. Idempoten: sekali jalan, listing yg sudah termaster tak disentuh.
-     */
-    public function masterizeUnmastered(): int
-    {
-        $n = 0;
-        foreach (MarketplaceListing::whereNull('master_id')->get() as $l) {
-            $master = $this->findOrCreateMaster($l->seller_sku, $l->title);
-            $l->update(['master_id' => $master->id]);
-            $n++;
-        }
-
-        return $n;
     }
 
     // ---- Push stok & harga (aditif; independen per listing, anti-push null) ----
@@ -405,50 +334,7 @@ class MarketplaceMasterService
         }
     }
 
-    // ---- Seed awal dari TikTok & cermin order (aditif; HQ TAK disentuh) ----
-
-    public function seedFromTiktok(): array
-    {
-        $c = $this->tiktokConn();
-        if (! $c) {
-            return ['seeded' => 0, 'skipped' => 0];
-        }
-        $tok = $this->tiktokToken($c);
-        $seeded = $skipped = 0;
-        $pageToken = '';
-
-        // TikTokClient::request() sudah unwrap 'data' → path TANPA prefiks 'data.'.
-        for ($guard = 0; $guard < 200; $guard++) {
-            $res = $this->tiktok->searchProducts($tok, $c->shop_cipher, 50, $pageToken);
-            foreach (data_get($res, 'products', []) as $prod) {
-                $title = data_get($prod, 'title');
-                foreach ($prod['skus'] ?? [] as $sku) {
-                    $sellerSku = (string) data_get($sku, 'seller_sku', '');
-                    if ($sellerSku === '') {
-                        continue;
-                    }
-                    $qty = data_get($sku, 'inventory.0.quantity'); // absen → data tak lengkap
-                    if ($qty === null) {
-                        $skipped++;
-
-                        continue;
-                    }
-                    // SEMUA unit (termasuk bundle) → tiap seller_sku = 1 master.
-                    $m = $this->findOrCreateMaster($sellerSku, $title !== null ? (string) $title : null);
-                    $this->setMasterStock($m, (int) $qty);
-                    $seeded++;
-                }
-            }
-            $pageToken = (string) data_get($res, 'next_page_token', '');
-            if ($pageToken === '') {
-                break;
-            }
-        }
-
-        $this->pushAll();
-
-        return compact('seeded', 'skipped');
-    }
+    // ---- Cermin order (aditif; HQ TAK disentuh) ----
 
     /** Cermin order marketplace → turunkan/kembalikan bucket efektif stok master (HQ TAK disentuh). */
     public function applyOrderDelta(MarketplaceListing $listing, int $delta, Carbon $orderCreatedAt): void
@@ -479,29 +365,15 @@ class MarketplaceMasterService
     }
 
     /**
-     * Upsert satu baris marketplace_listings by (channel, seller_sku) lalu
-     * pastikan punya master (auto-buat via findOrCreateMaster). Listing yang
-     * SUDAH tertaut ke master (mis. hasil tautkanListing manual, sering ke
-     * master ber-master_sku BEDA dari seller_sku listing ini — itu maksudnya
-     * "gabung") SAMA SEKALI TAK disentuh: TAK ada lookup/pembuatan master
-     * apa pun dijalankan. Kalau findOrCreateMaster(seller_sku) dipanggil
-     * tanpa syarat di sini, tiap resolve ulang bakal bikin master ORPHAN baru
-     * ber-master_sku = seller_sku listing ini (krn master_sku itu tak
-     * ditemukan — listing-nya sudah "pindah rumah" ke master lain) — orphan
-     * itu permanen krn tak ada yang mem-prune master. Makanya guard dulu.
+     * Upsert baris listing by (channel, seller_sku); master_id dibiarkan apa
+     * adanya — penautan ke master dilakukan manual lewat tautkanListing.
      */
-    private function upsertListing(string $channel, string $sellerSku, string $itemId, string $variationId, ?string $warehouseId, ?string $title, ?string $imageUrl = null): MarketplaceListing
+    private function upsertListing(string $channel, string $sellerSku, string $itemId, string $variationId, ?string $warehouseId, ?string $title): MarketplaceListing
     {
-        $l = MarketplaceListing::updateOrCreate(
+        return MarketplaceListing::updateOrCreate(
             ['channel' => $channel, 'seller_sku' => $sellerSku],
             ['item_id' => $itemId, 'variation_id' => $variationId, 'warehouse_id' => $warehouseId, 'title' => $title, 'resolved_at' => now()],
         );
-        if ($l->master_id === null) {
-            $master = $this->findOrCreateMaster($sellerSku, $title, $imageUrl);
-            $l->update(['master_id' => $master->id]);
-        }
-
-        return $l;
     }
 
     /**
@@ -513,7 +385,7 @@ class MarketplaceMasterService
     {
         $c = $this->tiktokConn();
         if (! $c) {
-            return ['found' => 0, 'mastered' => 0];
+            return ['found' => 0];
         }
         $tok = $this->tiktokToken($c);
         // Gudang SALES diutamakan sbg default warehouse_id listing; kalau tak ada
@@ -532,28 +404,20 @@ class MarketplaceMasterService
             $warehouseId = (string) data_get($warehouses[0], 'id');
         }
 
-        $found = $mastered = 0;
+        $found = 0;
         $pageToken = '';
         for ($guard = 0; $guard < 200; $guard++) {
             $res = $this->tiktok->searchProducts($tok, $c->shop_cipher, 50, $pageToken);
             foreach (data_get($res, 'products', []) as $prod) {
                 $pid = (string) data_get($prod, 'id', '');
                 $title = data_get($prod, 'title');
-                // main_images tak selalu ada di respons search 202309 (mis. produk lama/tanpa
-                // foto) — kalau absen, biarkan null (foto fallback ke placeholder / upload
-                // manual), JANGAN fatal. Field 'urls'/'thumb_urls' (BUKAN 'url_list'/
-                // 'thumb_url_list' — itu konvensi Shopee) diverifikasi dari skema Image
-                // TikTok Product API 202309 yang SAMA dipakai endpoint /products/{id} (lihat
-                // TikTokClient::getProduct + EcomChatService::cacheProduct, proven & live).
-                $img = (string) (data_get($prod, 'main_images.0.urls.0') ?? data_get($prod, 'main_images.0.thumb_urls.0') ?? '');
                 foreach ($prod['skus'] ?? [] as $sku) {
                     $sellerSku = (string) data_get($sku, 'seller_sku', '');
                     if ($sellerSku === '') {
                         continue;
                     }
-                    $this->upsertListing('tiktok', $sellerSku, $pid, (string) data_get($sku, 'id', ''), $warehouseId, $title !== null ? (string) $title : null, $img !== '' ? $img : null);
+                    $this->upsertListing('tiktok', $sellerSku, $pid, (string) data_get($sku, 'id', ''), $warehouseId, $title !== null ? (string) $title : null);
                     $found++;
-                    $mastered++;
                 }
             }
             $pageToken = (string) data_get($res, 'next_page_token', '');
@@ -565,7 +429,7 @@ class MarketplaceMasterService
             }
         }
 
-        return compact('found', 'mastered');
+        return ['found' => $found];
     }
 
     /**
@@ -578,11 +442,11 @@ class MarketplaceMasterService
     {
         $c = $this->shopeeConn();
         if (! $c) {
-            return ['found' => 0, 'mastered' => 0];
+            return ['found' => 0];
         }
 
         $tok = $this->shopeeToken($c);
-        $found = $mastered = 0;
+        $found = 0;
         $offset = 0;
 
         for ($guard = 0; $guard < 200; $guard++) {
@@ -598,9 +462,6 @@ class MarketplaceMasterService
                         continue;
                     }
                     $title = $info['item_name'] ?? null;
-                    // get_item_base_info memuat image.image_url_list secara andal (beda dari
-                    // TikTok search) — ambil sekali per item, dipakai utk semua model/variannya.
-                    $img = (string) (data_get($info, 'image.image_url_list.0') ?? '');
 
                     if (! empty($info['has_model'])) {
                         $models = data_get($this->shopee->getModelList($tok, $c->shop_id, (int) $itemId), 'response.model', []);
@@ -609,18 +470,16 @@ class MarketplaceMasterService
                             if ($sellerSku === '') {
                                 continue;
                             }
-                            $this->upsertListing('shopee', $sellerSku, $itemId, (string) ($mo['model_id'] ?? '0'), null, $title, $img !== '' ? $img : null);
+                            $this->upsertListing('shopee', $sellerSku, $itemId, (string) ($mo['model_id'] ?? '0'), null, $title);
                             $found++;
-                            $mastered++;
                         }
                     } else {
                         $sellerSku = (string) ($info['item_sku'] ?? '');
                         if ($sellerSku === '') {
                             continue;
                         }
-                        $this->upsertListing('shopee', $sellerSku, $itemId, '0', null, $title, $img !== '' ? $img : null);
+                        $this->upsertListing('shopee', $sellerSku, $itemId, '0', null, $title);
                         $found++;
-                        $mastered++;
                     }
                 }
             }
@@ -635,6 +494,6 @@ class MarketplaceMasterService
             }
         }
 
-        return compact('found', 'mastered');
+        return ['found' => $found];
     }
 }

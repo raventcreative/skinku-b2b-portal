@@ -209,39 +209,6 @@ class MarketplaceStockController extends Controller
         return back()->with('status', $master->is_bundle ? "\"{$master->name}\" ditandai Bundle." : "\"{$master->name}\" jadi Satuan.");
     }
 
-    /** Gabung master $master (sumber) ke master lain (target): listing pindah, sumber dihapus. */
-    public function gabung(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
-    {
-        $data = $r->validate(['target_master_id' => ['required', 'integer', 'exists:marketplace_masters,id', 'different:'.$master->id]]);
-        $svc->mergeMaster($master, MarketplaceMaster::findOrFail($data['target_master_id']));
-
-        return back()->with('status', 'Master digabung.');
-    }
-
-    /** Upload/ganti foto master secara manual (menang atas image_url hasil resolve channel). */
-    public function uploadFoto(Request $r, MarketplaceMaster $master, ImageService $img): RedirectResponse
-    {
-        $r->validate(['foto' => ['required', 'image', 'max:5120']]);
-        $img->attach($master, $r->file('foto'), MarketplaceMaster::MASTER_IMAGE);
-
-        return back()->with('status', "Foto \"{$master->name}\" diperbarui.");
-    }
-
-    /** Jadikan master otomatis SEMUA listing yang belum termaster (dari data listing, tanpa API). */
-    public function masterizeAll(MarketplaceMasterService $svc): RedirectResponse
-    {
-        $n = $svc->masterizeUnmastered();
-
-        return back()->with('status', "$n listing dijadikan Produk Master otomatis. Isi stok/harga di tabel Master, lalu Sinkron.");
-    }
-
-    public function push(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
-    {
-        $svc->pushMaster($master);
-
-        return back()->with('status', 'Disinkron.');
-    }
-
     public function pushAll(MarketplaceMasterService $svc): RedirectResponse
     {
         $r = $svc->pushAll();
@@ -256,7 +223,7 @@ class MarketplaceStockController extends Controller
         foreach (['tiktok', 'shopee'] as $channel) {
             try {
                 $r = $svc->resolveListings($channel);
-                $notes[] = ucfirst($channel).": {$r['found']} listing ({$r['mastered']} termaster)";
+                $notes[] = ucfirst($channel).": {$r['found']} listing";
             } catch (\Throwable $e) {
                 $errors[] = ucfirst($channel).' gagal: '.$e->getMessage();
             }
@@ -272,35 +239,11 @@ class MarketplaceStockController extends Controller
         return $redirect;
     }
 
-    /** Aksi "Siapkan Master": resolve tiktok+shopee lalu bersihkan master orphan. */
-    public function siapkan(MarketplaceMasterService $svc): RedirectResponse
-    {
-        $r = $svc->siapkanMaster();
-        $msg = "Siapkan master: {$r['found']} listing diproses, {$r['orphan_deleted']} master kosong dibersihkan.";
-        $redirect = back()->with('status', $msg);
-        if ($r['errors']) {
-            $redirect->with('error', implode(' · ', $r['errors']).' — cek izin/scope Product di channel.');
-        }
-
-        return $redirect;
-    }
-
     public function deleteMaster(MarketplaceMaster $master): RedirectResponse
     {
         $name = $master->name;
         $master->delete();
 
         return back()->with('status', "Master \"{$name}\" dihapus.");
-    }
-
-    public function seed(MarketplaceMasterService $svc): RedirectResponse
-    {
-        try {
-            $r = $svc->seedFromTiktok();
-        } catch (\Throwable $e) {
-            return back()->with('error', 'Gagal tarik stok awal dari TikTok: '.$e->getMessage().' — cek izin/scope Product.');
-        }
-
-        return back()->with('status', "Tarik stok awal dari TikTok: {$r['seeded']} unit di-seed, {$r['skipped']} dilewati.");
     }
 }
