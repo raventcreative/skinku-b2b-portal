@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
- * Task 7 — migrasi 000143 sudah men-drop marketplace_stocks/marketplace_channel_overrides
+ * Task 7 — migrasi 000146 sudah men-drop marketplace_stocks/marketplace_channel_overrides
  * SEBELUM test ini jalan (RefreshDatabase menjalankan seluruh riwayat migrasi termasuk
- * 000143 saat setup, di tabel yang saat itu kosong). Untuk menguji jalur migrasi-data
+ * 000146 saat setup, di tabel yang saat itu kosong). Untuk menguji jalur migrasi-data
  * ("jangan hilangkan data lama"), tabel lama direkreasi manual + diisi, baru up() migrasi
  * dipanggil LANGSUNG (require file migrasi mengembalikan instance kelas anonim baru —
  * pola yang sama dipakai Laravel Migrator sendiri).
@@ -24,7 +24,7 @@ class LegacyMigrationTest extends TestCase
 
     public function test_migrasi_data_lama_stok_dan_override_ke_master(): void
     {
-        // Rekreasi tabel lama yang sudah di-drop 000143 saat setup RefreshDatabase.
+        // Rekreasi tabel lama yang sudah di-drop 000146 saat setup RefreshDatabase.
         Schema::create('marketplace_stocks', function ($t) {
             $t->id();
             $t->unsignedBigInteger('product_id');
@@ -46,7 +46,7 @@ class LegacyMigrationTest extends TestCase
         DB::table('marketplace_channel_overrides')->insert(['product_id' => $p->id, 'channel' => 'tiktok', 'quantity' => 12, 'seeded_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
 
         // Jalankan up() migrasi langsung (file migrasi return instance kelas anonim).
-        (require database_path('migrations/2026_01_01_000143_drop_legacy_marketplace_stock_tables.php'))->up();
+        (require database_path('migrations/2026_01_01_000146_drop_legacy_marketplace_stock_tables.php'))->up();
 
         $m = MarketplaceMaster::where('master_sku', 'FM-1')->first();
         $this->assertNotNull($m);
@@ -68,7 +68,7 @@ class LegacyMigrationTest extends TestCase
      */
     public function test_migrasi_override_tanpa_base_pool_tetap_buat_master(): void
     {
-        // Rekreasi tabel lama yang sudah di-drop 000143 saat setup RefreshDatabase.
+        // Rekreasi tabel lama yang sudah di-drop 000146 saat setup RefreshDatabase.
         Schema::create('marketplace_stocks', function ($t) {
             $t->id();
             $t->unsignedBigInteger('product_id');
@@ -89,7 +89,7 @@ class LegacyMigrationTest extends TestCase
         // TAK ADA baris marketplace_stocks utk produk ini — hanya override channel.
         DB::table('marketplace_channel_overrides')->insert(['product_id' => $p->id, 'channel' => 'tiktok', 'quantity' => 8, 'seeded_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
 
-        (require database_path('migrations/2026_01_01_000143_drop_legacy_marketplace_stock_tables.php'))->up();
+        (require database_path('migrations/2026_01_01_000146_drop_legacy_marketplace_stock_tables.php'))->up();
 
         $m = MarketplaceMaster::where('master_sku', 'TN-1')->first();
         $this->assertNotNull($m);
