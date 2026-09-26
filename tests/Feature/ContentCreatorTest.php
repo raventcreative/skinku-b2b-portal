@@ -181,7 +181,8 @@ class ContentCreatorTest extends TestCase
 
         // Isian portal menimpa .env; secret tak pernah ditampilkan balik.
         $this->actingAs($creator)->get(route('social.index'))->assertSee($connectUrl, false)
-            ->assertSee('PORTAL-ID')->assertDontSee('RAHASIA-XYZ');
+            ->assertSee('PORTAL-ID')->assertDontSee('RAHASIA-XYZ')
+            ->assertSee('autocomplete="new-password"', false); // cegah autofill password login ke kolom secret
         $to = $this->actingAs($creator)->get(route('social.connect', 'meta'))->headers->get('Location');
         $this->assertStringContainsString('client_id=PORTAL-ID', $to);
 
