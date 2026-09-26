@@ -44,6 +44,16 @@ class MarketplaceMasterService
         return $m->base_price !== null ? (float) $m->base_price : null;
     }
 
+    /** Gabung dua master: pindahkan semua listing $source ke $target, lalu hapus $source. */
+    public function mergeMaster(MarketplaceMaster $source, MarketplaceMaster $target): void
+    {
+        if ($source->id === $target->id) {
+            return;
+        }
+        $source->listings()->update(['master_id' => $target->id]);
+        $source->delete();
+    }
+
     // ---- Setter Master ----
 
     public function setMasterStock(MarketplaceMaster $m, int $qty): void

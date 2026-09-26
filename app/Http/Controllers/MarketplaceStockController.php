@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
+use App\Services\ImageService;
 use App\Services\MarketplaceMasterService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -118,6 +119,32 @@ class MarketplaceStockController extends Controller
         $svc->tautkanListing($listing, $data['master_id'] ?? null, $data['new_sku'] ?? null, $data['new_name'] ?? null);
 
         return back()->with('status', "Listing {$listing->seller_sku} ditautkan.");
+    }
+
+    /** Tandai/lepas master sbg Bundle (paket berisi >1 produk, bukan satuan). */
+    public function toggleBundle(MarketplaceMaster $master): RedirectResponse
+    {
+        $master->update(['is_bundle' => ! $master->is_bundle]);
+
+        return back()->with('status', $master->is_bundle ? "\"{$master->name}\" ditandai Bundle." : "\"{$master->name}\" jadi Satuan.");
+    }
+
+    /** Gabung master $master (sumber) ke master lain (target): listing pindah, sumber dihapus. */
+    public function gabung(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $data = $r->validate(['target_master_id' => ['required', 'integer', 'exists:marketplace_masters,id', 'different:'.$master->id]]);
+        $svc->mergeMaster($master, MarketplaceMaster::findOrFail($data['target_master_id']));
+
+        return back()->with('status', 'Master digabung.');
+    }
+
+    /** Upload/ganti foto master secara manual (menang atas image_url hasil resolve channel). */
+    public function uploadFoto(Request $r, MarketplaceMaster $master, ImageService $img): RedirectResponse
+    {
+        $r->validate(['foto' => ['required', 'image', 'max:5120']]);
+        $img->attach($master, $r->file('foto'), MarketplaceMaster::MASTER_IMAGE);
+
+        return back()->with('status', "Foto \"{$master->name}\" diperbarui.");
     }
 
     /** Jadikan master otomatis SEMUA listing yang belum termaster (dari data listing, tanpa API). */
