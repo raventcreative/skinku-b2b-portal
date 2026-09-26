@@ -68,7 +68,7 @@ class Permissions
         'content.create' => 'Buat & Kelola Konten Sendiri (Content Creator)',
         'content.review' => 'Review Konten — Setujui/Tolak (semua creator)',
         'content.publish.manage' => 'Kelola Publikasi Konten (retry, tandai terbit manual)',
-        'social.connect' => 'Hubungkan Akun Sosial Media Brand (FB/IG/Threads)',
+        'social.connect' => 'Hubungkan Akun Sosial Media Brand (FB/IG/Threads/TikTok)',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -155,8 +155,9 @@ class Permissions
         'content.create' => ['content_creator', User::ROLE_ADMIN],
         'content.review' => [User::ROLE_ADMIN],
         'content.publish.manage' => [User::ROLE_ADMIN],
-        // Token akun brand = kunci posting atas nama SKINKU → super_admin saja.
-        'social.connect' => [],
+        // Keputusan HQ 2026-09-25: content creator yang menghubungkan akun brand (super_admin selalu lolos).
+        // Posting tetap lewat approval (content.review) — kreator tak bisa terbit sendiri.
+        'social.connect' => ['content_creator'],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */
