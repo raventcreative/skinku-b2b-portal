@@ -6,6 +6,7 @@ use App\Models\SocialConnection;
 use App\Services\AuditService;
 use App\Services\Social\MetaClient;
 use App\Services\Social\TikTokContentClient;
+use App\Support\SocialCredentials;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,10 +30,25 @@ class SocialConnectionController extends Controller
         return view('content.social', [
             'connections' => SocialConnection::with('connectedBy')->get()->keyBy('platform'),
             'pages' => collect($this->pendingPages($request))->map(fn ($p) => ['id' => $p['id'], 'name' => $p['name'] ?? $p['id'], 'ig' => $p['instagram_business_account']['username'] ?? null])->all(),
+            'credentials' => SocialCredentials::status(),
             'metaReady' => $this->meta->metaConfigured(),
             'threadsReady' => $this->meta->threadsConfigured(),
             'tiktokReady' => $this->tiktok->configured(),
         ]);
+    }
+
+    /** Isi kredensial app dari portal (alternatif .env). Rahasia tak pernah ditampilkan balik. */
+    public function saveCredentials(Request $request): RedirectResponse
+    {
+        $data = $request->validate(array_fill_keys(array_keys(SocialCredentials::FIELDS), ['nullable', 'string', 'max:255']));
+        $changed = SocialCredentials::save($data);
+        if ($changed === []) {
+            return redirect()->route('social.index')->with('error', 'Tidak ada kredensial yang diisi.');
+        }
+        // Audit tanpa nilai — hanya kolom mana yang diubah.
+        AuditService::log(action: 'social.credentials', targetType: 'app_setting', after: ['diubah' => $changed]);
+
+        return redirect()->route('social.index')->with('status', 'Kredensial disimpan: '.implode(', ', $changed).'.');
     }
 
     public function connect(Request $request, string $provider): RedirectResponse

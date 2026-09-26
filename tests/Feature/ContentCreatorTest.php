@@ -162,6 +162,34 @@ class ContentCreatorTest extends TestCase
         $this->actingAs($root)->get(route('social.index'))->assertOk();
     }
 
+    public function test_kreator_isi_kredensial_app_dari_portal_terenkripsi_dan_menimpa_env(): void
+    {
+        config(['services.meta.app_id' => 'ENV-ID', 'services.meta.app_secret' => null]);
+        $creator = $this->user('content_creator', 'cccred');
+
+        // Belum lengkap → belum ada tombol Hubungkan Meta.
+        $connectUrl = route('social.connect', 'meta');
+        $this->actingAs($creator)->get(route('social.index'))->assertOk()->assertDontSee($connectUrl, false);
+
+        $this->actingAs($creator)->post(route('social.credentials'), ['meta_app_id' => 'PORTAL-ID', 'meta_app_secret' => 'RAHASIA-XYZ'])
+            ->assertRedirect(route('social.index'))->assertSessionHas('status');
+
+        $raw = DB::table('app_settings')->where('key', 'social_cred.meta_app_secret')->value('value');
+        $this->assertNotEmpty($raw);
+        $this->assertStringNotContainsString('RAHASIA-XYZ', $raw);   // terenkripsi di DB
+        $this->assertDatabaseHas('audit_logs', ['action' => 'social.credentials']);
+
+        // Isian portal menimpa .env; secret tak pernah ditampilkan balik.
+        $this->actingAs($creator)->get(route('social.index'))->assertSee($connectUrl, false)
+            ->assertSee('PORTAL-ID')->assertDontSee('RAHASIA-XYZ');
+        $to = $this->actingAs($creator)->get(route('social.connect', 'meta'))->headers->get('Location');
+        $this->assertStringContainsString('client_id=PORTAL-ID', $to);
+
+        // Kolom kosong = tidak mengubah; semua kosong = ditolak.
+        $this->actingAs($creator)->post(route('social.credentials'), ['meta_app_secret' => ''])->assertSessionHas('error');
+        $this->assertSame($raw, DB::table('app_settings')->where('key', 'social_cred.meta_app_secret')->value('value'));
+    }
+
     public function test_publish_facebook_instagram_threads_dan_manual_tiktok(): void
     {
         $creator = $this->user('content_creator', 'cc4');

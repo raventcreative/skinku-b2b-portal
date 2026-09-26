@@ -6,6 +6,7 @@ Dokumen terkait: [BRD](BRD.md) · [PRD](PRD.md) · [FRD](FRD.md)
 > **Status implementasi (2026-09-25): Fase 1 selesai.** Penyimpangan dari rencana di bawah:
 > - Publikasi diproses **inline** oleh command `content:publish-due` (bukan `PublishContentTargetJob`) — API call singkat, video diproses async oleh platform. Pindah ke queue job bila volume per menit membesar.
 > - Dashboard creator digabung di `ContentPostController@dashboard` (route `creator.dashboard`, URL `/creator`); route koneksi: `social.*` di `/social-connections`.
+> - Kredensial app Meta/Threads/TikTok bisa diisi dari halaman Akun Sosial Media (`App\Support\SocialCredentials`, terenkripsi di `app_settings`, menimpa `.env`; diterapkan di konstruktor `MetaClient`/`TikTokContentClient`). Revisi 2026-09-26.
 > - Retry otomatis = 3x setelah percobaan pertama (total 4), jeda 5/15/60 menit.
 > - Kolom tambahan `content_post_targets.container_polls` (batas polling container video 30 menit).
 > - Belum dikerjakan (prioritas S): widget antrean review di dashboard staff (FR-15), preview per platform (FR-26), notifikasi ke reviewer & Telegram (FR-61/62), kalender (FR-73), hapus media otomatis (FR-74), cek kuota IG (FR-59). Notifikasi creator (FR-60) = banner "Perlu perhatian" di dashboard creator.

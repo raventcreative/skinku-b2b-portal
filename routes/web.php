@@ -688,6 +688,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     });
     Route::middleware('permission:social.connect')->group(function () {
         Route::get('/social-connections', [SocialConnectionController::class, 'index'])->name('social.index');
+        Route::post('/social-connections/credentials', [SocialConnectionController::class, 'saveCredentials'])->name('social.credentials');
         Route::get('/social-connections/{provider}/connect', [SocialConnectionController::class, 'connect'])->name('social.connect');
         Route::get('/social-connections/{provider}/callback', [SocialConnectionController::class, 'callback'])->name('social.callback');
         Route::post('/social-connections/meta/page', [SocialConnectionController::class, 'selectPage'])->name('social.page');

@@ -3,6 +3,7 @@
 namespace App\Services\Social;
 
 use App\Models\SocialConnection;
+use App\Support\SocialCredentials;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -27,6 +28,11 @@ class TikTokContentClient
     ];
 
     public const CHUNK = 10 * 1024 * 1024; // 5–64 MB diizinkan; potongan terakhir boleh s/d 128 MB
+
+    public function __construct()
+    {
+        SocialCredentials::apply(); // kredensial yang diisi di portal menimpa .env
+    }
 
     public function configured(): bool
     {

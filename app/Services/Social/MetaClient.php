@@ -2,6 +2,7 @@
 
 namespace App\Services\Social;
 
+use App\Support\SocialCredentials;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -20,6 +21,11 @@ class MetaClient
     ];
 
     public const THREADS_SCOPES = ['threads_basic', 'threads_content_publish'];
+
+    public function __construct()
+    {
+        SocialCredentials::apply(); // kredensial yang diisi di portal menimpa .env
+    }
 
     public function graphBase(): string
     {
