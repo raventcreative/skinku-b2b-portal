@@ -58,7 +58,7 @@ class ContentCreatorTest extends TestCase
         $this->actingAs($creator)->get(route('creator.dashboard'))->assertOk()
             ->assertSee('Dashboard Creator')->assertSee('Konten Saya')->assertDontSee('Produk Master');
 
-        foreach (['products.index', 'purchase-orders.index', 'kols.index', 'content-review.index', 'users.index'] as $route) {
+        foreach (['products.index', 'purchase-orders.index', 'kols.index', 'users.index'] as $route) {
             $this->actingAs($creator)->get(route($route))->assertForbidden();
         }
         // FR-05 (revisi 2026-09-25): kreator yang menghubungkan akun brand.
@@ -112,9 +112,14 @@ class ContentCreatorTest extends TestCase
         $this->assertSame(ContentPost::IN_REVIEW, $post->status);
         $this->assertSame(1, $post->filesIn(ContentPost::MEDIA)->count());
 
-        $this->actingAs($other)->get(route('content.show', $post))->assertForbidden();
+        // Kreator lain = reviewer (keputusan HQ 2026-09-26) → boleh melihat detail.
+        $this->actingAs($other)->get(route('content.show', $post))->assertOk()->assertSee('Setujui');
         $this->actingAs($creator)->get(route('content.edit', $post))->assertForbidden(); // sedang direview
-        $this->actingAs($creator)->post(route('content.approve', $post))->assertForbidden(); // pembuat ≠ penyetuju
+        // Pembuat ≠ penyetuju: konten sendiri tidak bisa disetujui/ditolak.
+        $this->actingAs($creator)->get(route('content.show', $post))->assertSee('Ini konten kamu sendiri');
+        $this->actingAs($creator)->post(route('content.approve', $post))->assertSessionHasErrors('status');
+        $this->actingAs($creator)->post(route('content.reject', $post), ['review_note' => 'Tolak sendiri'])->assertSessionHasErrors('status');
+        $this->assertSame(ContentPost::IN_REVIEW, $post->fresh()->status);
 
         // Tolak wajib alasan.
         $this->actingAs($admin)->post(route('content.reject', $post), ['review_note' => ''])->assertSessionHasErrors('review_note');
@@ -137,6 +142,24 @@ class ContentCreatorTest extends TestCase
         // Transisi ilegal ditolak (FR-30).
         $this->actingAs($admin)->post(route('content.approve', $post))->assertSessionHasErrors('status');
         $this->actingAs($creator)->post(route('content.withdraw', $post))->assertSessionHasErrors('status');
+    }
+
+    public function test_kreator_lain_bisa_setujui_dan_menu_review_sosmed_tersembunyi_dari_super_admin(): void
+    {
+        $creator = $this->user('content_creator', 'ccr1');
+        $reviewer = $this->user('content_creator', 'ccr2');
+        $post = $this->submitted($creator, ['facebook']);
+
+        $this->actingAs($reviewer)->get(route('content-review.index'))->assertOk();
+        $this->actingAs($reviewer)->post(route('content.approve', $post))->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(ContentPost::SCHEDULED, $post->fresh()->status);
+        $this->assertSame($reviewer->id, $post->fresh()->reviewed_by);
+
+        // Menu: kreator melihat Review Konten & Akun Sosial Media; super admin tidak (URL tetap bisa diakses).
+        $this->actingAs($reviewer)->get(route('creator.dashboard'))->assertSee('Review Konten')->assertSee('Akun Sosial Media');
+        $root = $this->user(User::ROLE_SUPER_ADMIN, 'rootmenu');
+        $this->actingAs($root)->get(route('dashboard'))->assertDontSee('Review Konten')->assertDontSee('Akun Sosial Media');
+        $this->actingAs($root)->get(route('social.index'))->assertOk();
     }
 
     public function test_publish_facebook_instagram_threads_dan_manual_tiktok(): void

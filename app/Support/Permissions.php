@@ -150,10 +150,10 @@ class Permissions
         'manage_marketplace_stock' => [User::ROLE_ADMIN],
         'manage_roi_calculator' => [User::ROLE_ADMIN],
         // Portal Content Creator. content_creator = role dinamis (migrasi 000142).
-        // Pembuat ≠ penyetuju: creator TIDAK dapat content.review (OQ-1: approval wajib).
-        // Kalau HQ memutuskan tanpa approval, beri content.review lewat matriks (FR-34).
+        // Keputusan HQ 2026-09-26: kreator saling review. Pembuat ≠ penyetuju tetap dijaga di
+        // ContentPostService (konten sendiri tidak bisa disetujui/ditolak oleh pembuatnya).
         'content.create' => ['content_creator', User::ROLE_ADMIN],
-        'content.review' => [User::ROLE_ADMIN],
+        'content.review' => ['content_creator', User::ROLE_ADMIN],
         'content.publish.manage' => [User::ROLE_ADMIN],
         // Keputusan HQ 2026-09-25: content creator yang menghubungkan akun brand (super_admin selalu lolos).
         // Posting tetap lewat approval (content.review) — kreator tak bisa terbit sendiri.
