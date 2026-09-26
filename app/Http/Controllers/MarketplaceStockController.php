@@ -6,7 +6,6 @@ use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Services\ImageService;
 use App\Services\MarketplaceMasterService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -17,53 +16,100 @@ use Illuminate\View\View;
  */
 class MarketplaceStockController extends Controller
 {
-    public function index(Request $request, MarketplaceMasterService $svc): View
+    public function index(Request $request): View
     {
         $tab = in_array($request->query('tab'), ['satuan', 'bundle'], true) ? $request->query('tab') : 'semua';
 
-        $base = MarketplaceMaster::with(['channels', 'listings']);
-        $q = (clone $base);
+        $q = MarketplaceMaster::with('listings:id,master_id,channel');
         if ($tab === 'satuan') {
             $q->where('is_bundle', false);
         } elseif ($tab === 'bundle') {
             $q->where('is_bundle', true);
         }
-        $masters = $q->orderBy('name')->get();
-
-        $rows = $masters->map(fn (MarketplaceMaster $m) => [
-            'master' => $m,
-            'tiktok' => $this->channelSummary($svc, $m, 'tiktok'),
-            'shopee' => $this->channelSummary($svc, $m, 'shopee'),
-        ]);
 
         return view('marketplace-stock.index', [
             'tab' => $tab,
-            'rows' => $rows,
+            'masters' => $q->orderBy('name')->get(),
             'counts' => [
-                'semua' => (clone $base)->count(),
-                'satuan' => (clone $base)->where('is_bundle', false)->count(),
-                'bundle' => (clone $base)->where('is_bundle', true)->count(),
+                'semua' => MarketplaceMaster::count(),
+                'satuan' => MarketplaceMaster::where('is_bundle', false)->count(),
+                'bundle' => MarketplaceMaster::where('is_bundle', true)->count(),
             ],
-            'unmasteredCount' => MarketplaceListing::whereNull('master_id')->count(),
-            // Sama scope tab dgn baris tabel: cegah dropdown "Gabung ke master lain" di
-            // tab Satuan/Bundle membocorkan nama master kategori lain ke HTML (row-nya
-            // tersembunyi, tapi <option>-nya tetap kerender kalau tak di-scope) — tab
-            // Semua tetap lihat semua master (minus dirinya sendiri, lihat @if di view).
-            'allMasters' => $this->mastersForTab($tab)->orderBy('name')->get(['id', 'master_sku', 'name']),
+            'unlinkedListings' => MarketplaceListing::whereNull('master_id')->orderBy('channel')->orderBy('seller_sku')->get(['id', 'channel', 'seller_sku', 'title']),
+            'unlinkedCount' => MarketplaceListing::whereNull('master_id')->count(),
         ]);
     }
 
-    /** Query dasar (tanpa eager-load) untuk daftar master ter-filter tab yg sama dgn baris tabel. */
-    private function mastersForTab(string $tab): Builder
+    public function create(): View
     {
-        $query = MarketplaceMaster::query();
-        if ($tab === 'satuan') {
-            $query->where('is_bundle', false);
-        } elseif ($tab === 'bundle') {
-            $query->where('is_bundle', true);
-        }
+        return view('marketplace-stock.form', ['master' => new MarketplaceMaster]);
+    }
 
-        return $query;
+    public function store(Request $r, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $this->validateMaster($r);
+        $master = MarketplaceMaster::create([
+            'master_sku' => $r->master_sku,
+            'name' => $r->name,
+            'name_key' => MarketplaceMaster::normalizeName($r->name),
+            'is_bundle' => $r->boolean('is_bundle'),
+        ]);
+        $this->applyMasterInputs($r, $master, $img, $svc);
+
+        return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" dibuat.");
+    }
+
+    public function edit(MarketplaceMaster $master): View
+    {
+        return view('marketplace-stock.form', ['master' => $master]);
+    }
+
+    public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $this->validateMaster($r);
+        $master->update([
+            'master_sku' => $r->master_sku,
+            'name' => $r->name,
+            'name_key' => MarketplaceMaster::normalizeName($r->name),
+            'is_bundle' => $r->boolean('is_bundle'),
+        ]);
+        $this->applyMasterInputs($r, $master, $img, $svc);
+        $svc->pushMaster($master);
+
+        return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" diperbarui.");
+    }
+
+    public function duplicate(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $copy = $svc->duplicateMaster($master);
+
+        return redirect()->route('marketplace-stock.edit', $copy)->with('status', "Digandakan dari \"{$master->name}\". Sesuaikan lalu simpan.");
+    }
+
+    private function validateMaster(Request $r): void
+    {
+        $r->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'master_sku' => ['required', 'string', 'max:255'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'stock' => ['nullable', 'integer', 'min:0'],
+            'is_bundle' => ['nullable', 'boolean'],
+            'foto' => ['nullable', 'image', 'max:5120'],
+        ]);
+    }
+
+    /** Set harga/stok (via setter supaya seeded_at ke-set) + attach foto bila di-upload. */
+    private function applyMasterInputs(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): void
+    {
+        if ($r->filled('price')) {
+            $svc->setMasterPrice($master, (float) $r->price);
+        }
+        if ($r->filled('stock')) {
+            $svc->setMasterStock($master, (int) $r->stock);
+        }
+        if ($r->hasFile('foto')) {
+            $img->attach($master, $r->file('foto'), MarketplaceMaster::MASTER_IMAGE);
+        }
     }
 
     public function channel(string $channel, MarketplaceMasterService $svc): View
@@ -163,39 +209,6 @@ class MarketplaceStockController extends Controller
         return back()->with('status', $master->is_bundle ? "\"{$master->name}\" ditandai Bundle." : "\"{$master->name}\" jadi Satuan.");
     }
 
-    /** Gabung master $master (sumber) ke master lain (target): listing pindah, sumber dihapus. */
-    public function gabung(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
-    {
-        $data = $r->validate(['target_master_id' => ['required', 'integer', 'exists:marketplace_masters,id', 'different:'.$master->id]]);
-        $svc->mergeMaster($master, MarketplaceMaster::findOrFail($data['target_master_id']));
-
-        return back()->with('status', 'Master digabung.');
-    }
-
-    /** Upload/ganti foto master secara manual (menang atas image_url hasil resolve channel). */
-    public function uploadFoto(Request $r, MarketplaceMaster $master, ImageService $img): RedirectResponse
-    {
-        $r->validate(['foto' => ['required', 'image', 'max:5120']]);
-        $img->attach($master, $r->file('foto'), MarketplaceMaster::MASTER_IMAGE);
-
-        return back()->with('status', "Foto \"{$master->name}\" diperbarui.");
-    }
-
-    /** Jadikan master otomatis SEMUA listing yang belum termaster (dari data listing, tanpa API). */
-    public function masterizeAll(MarketplaceMasterService $svc): RedirectResponse
-    {
-        $n = $svc->masterizeUnmastered();
-
-        return back()->with('status', "$n listing dijadikan Produk Master otomatis. Isi stok/harga di tabel Master, lalu Sinkron.");
-    }
-
-    public function push(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
-    {
-        $svc->pushMaster($master);
-
-        return back()->with('status', 'Disinkron.');
-    }
-
     public function pushAll(MarketplaceMasterService $svc): RedirectResponse
     {
         $r = $svc->pushAll();
@@ -210,7 +223,7 @@ class MarketplaceStockController extends Controller
         foreach (['tiktok', 'shopee'] as $channel) {
             try {
                 $r = $svc->resolveListings($channel);
-                $notes[] = ucfirst($channel).": {$r['found']} listing ({$r['mastered']} termaster)";
+                $notes[] = ucfirst($channel).": {$r['found']} listing";
             } catch (\Throwable $e) {
                 $errors[] = ucfirst($channel).' gagal: '.$e->getMessage();
             }
@@ -226,50 +239,11 @@ class MarketplaceStockController extends Controller
         return $redirect;
     }
 
-    /** Aksi "Siapkan Master": resolve tiktok+shopee lalu bersihkan master orphan. */
-    public function siapkan(MarketplaceMasterService $svc): RedirectResponse
-    {
-        $r = $svc->siapkanMaster();
-        $msg = "Siapkan master: {$r['found']} listing diproses, {$r['orphan_deleted']} master kosong dibersihkan.";
-        $redirect = back()->with('status', $msg);
-        if ($r['errors']) {
-            $redirect->with('error', implode(' · ', $r['errors']).' — cek izin/scope Product di channel.');
-        }
-
-        return $redirect;
-    }
-
     public function deleteMaster(MarketplaceMaster $master): RedirectResponse
     {
         $name = $master->name;
         $master->delete();
 
         return back()->with('status', "Master \"{$name}\" dihapus.");
-    }
-
-    public function seed(MarketplaceMasterService $svc): RedirectResponse
-    {
-        try {
-            $r = $svc->seedFromTiktok();
-        } catch (\Throwable $e) {
-            return back()->with('error', 'Gagal tarik stok awal dari TikTok: '.$e->getMessage().' — cek izin/scope Product.');
-        }
-
-        return back()->with('status', "Tarik stok awal dari TikTok: {$r['seeded']} unit di-seed, {$r['skipped']} dilewati.");
-    }
-
-    /** Ringkasan per channel utk tabel Produk Master: efektif + penanda override + status kirim. */
-    private function channelSummary(MarketplaceMasterService $svc, MarketplaceMaster $m, string $channel): array
-    {
-        $ch = $m->channels->firstWhere('channel', $channel);
-        $listing = $m->listings->firstWhere('channel', $channel);
-
-        return [
-            'eff_stock' => $svc->effectiveStock($m, $channel),
-            'eff_price' => $svc->effectivePrice($m, $channel),
-            'override_stock' => $ch?->stock,
-            'override_price' => $ch?->price,
-            'listing' => $listing,
-        ];
     }
 }

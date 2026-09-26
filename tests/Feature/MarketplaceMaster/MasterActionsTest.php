@@ -6,9 +6,7 @@ use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class MasterActionsTest extends TestCase
@@ -29,35 +27,21 @@ class MasterActionsTest extends TestCase
         $this->assertFalse($m->refresh()->is_bundle);
     }
 
-    public function test_gabung_master_pindah_listing_dan_hapus_sumber(): void
+    public function test_hapus_master_listing_jadi_unmastered(): void
     {
-        $src = MarketplaceMaster::create(['master_sku' => 'SRC', 'name' => 'Src', 'name_key' => 'src']);
-        $tgt = MarketplaceMaster::create(['master_sku' => 'TGT', 'name' => 'Tgt', 'name_key' => 'tgt']);
-        $l = MarketplaceListing::create(['channel' => 'shopee', 'seller_sku' => 'SRC', 'item_id' => 'P1', 'master_id' => $src->id]);
+        $m = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'Face Mist', 'name_key' => 'face mist']);
+        $l = MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'FM-1', 'item_id' => 'P1', 'master_id' => $m->id]);
 
-        $this->actingAs($this->admin())->post(route('marketplace-stock.master.gabung', $src), ['target_master_id' => $tgt->id])->assertRedirect()->assertSessionHas('status');
+        $this->actingAs($this->admin())->delete(route('marketplace-stock.master.hapus', $m))->assertRedirect()->assertSessionHas('status');
 
-        $this->assertSame($tgt->id, $l->refresh()->master_id);
-        $this->assertNull(MarketplaceMaster::find($src->id)); // sumber terhapus
+        $this->assertNull(MarketplaceMaster::find($m->id));
+        $this->assertNull($l->refresh()->master_id); // FK nullOnDelete
     }
 
-    public function test_upload_foto(): void
+    public function test_hapus_master_mitra_ditolak(): void
     {
-        Storage::fake('public');
-        $m = MarketplaceMaster::create(['master_sku' => 'A', 'name' => 'A', 'name_key' => 'a']);
-
-        $this->actingAs($this->admin())
-            ->post(route('marketplace-stock.master.foto', $m), ['foto' => UploadedFile::fake()->image('x.jpg', 600, 600)])
-            ->assertRedirect()->assertSessionHas('status');
-
-        $this->assertNotNull($m->refresh()->imageUrl()); // foto upload terpasang → imageUrl() ada
-    }
-
-    public function test_upload_foto_tolak_bukan_gambar(): void
-    {
-        $m = MarketplaceMaster::create(['master_sku' => 'A', 'name' => 'A', 'name_key' => 'a']);
-        $this->actingAs($this->admin())
-            ->post(route('marketplace-stock.master.foto', $m), ['foto' => UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')])
-            ->assertSessionHasErrors('foto');
+        $m = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'Face Mist', 'name_key' => 'face mist']);
+        $r = User::create(['name' => 'r', 'fullname' => 'R', 'username' => 'r'.uniqid(), 'email' => uniqid().'@t.test', 'password' => Hash::make('secret123'), 'role' => User::ROLE_RESELLER, 'status' => User::STATUS_ACTIVE]);
+        $this->actingAs($r)->delete(route('marketplace-stock.master.hapus', $m))->assertForbidden();
     }
 }

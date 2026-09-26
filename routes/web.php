@@ -641,6 +641,11 @@ Route::middleware(['auth', 'role'])->group(function () {
     /* ---------------- Kontrol Stok & Harga Marketplace (Produk Master) ---------------- */
     Route::middleware('permission:manage_marketplace_stock')->group(function () {
         Route::get('/marketplace-stock', [MarketplaceStockController::class, 'index'])->name('marketplace-stock.index');
+        Route::get('/marketplace-stock/create', [MarketplaceStockController::class, 'create'])->name('marketplace-stock.create');
+        Route::post('/marketplace-stock', [MarketplaceStockController::class, 'store'])->name('marketplace-stock.store');
+        Route::get('/marketplace-stock/master/{master}/edit', [MarketplaceStockController::class, 'edit'])->name('marketplace-stock.edit');
+        Route::put('/marketplace-stock/master/{master}', [MarketplaceStockController::class, 'update'])->name('marketplace-stock.update');
+        Route::post('/marketplace-stock/master/{master}/duplikat', [MarketplaceStockController::class, 'duplicate'])->name('marketplace-stock.duplikat');
         Route::get('/marketplace-stock/{channel}', [MarketplaceStockController::class, 'channel'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel');
         Route::post('/marketplace-stock/master/{master}/stok', [MarketplaceStockController::class, 'setMasterStock'])->name('marketplace-stock.master.stok');
         Route::post('/marketplace-stock/master/{master}/harga', [MarketplaceStockController::class, 'setMasterPrice'])->name('marketplace-stock.master.harga');
@@ -648,16 +653,10 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/marketplace-stock/{channel}/master/{master}/harga', [MarketplaceStockController::class, 'setChannelPrice'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel.harga');
         Route::post('/marketplace-stock/{channel}/master/{master}/ikut-master', [MarketplaceStockController::class, 'ikutMaster'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.ikut-master');
         Route::post('/marketplace-stock/tautkan', [MarketplaceStockController::class, 'tautkan'])->name('marketplace-stock.tautkan');
-        Route::post('/marketplace-stock/masterize-all', [MarketplaceStockController::class, 'masterizeAll'])->name('marketplace-stock.masterize-all');
-        Route::post('/marketplace-stock/push/{master}', [MarketplaceStockController::class, 'push'])->name('marketplace-stock.push');
         Route::post('/marketplace-stock/push-all', [MarketplaceStockController::class, 'pushAll'])->name('marketplace-stock.push-all');
         Route::post('/marketplace-stock/resolve', [MarketplaceStockController::class, 'resolve'])->name('marketplace-stock.resolve');
-        Route::post('/marketplace-stock/seed-tiktok', [MarketplaceStockController::class, 'seed'])->name('marketplace-stock.seed');
-        Route::post('/marketplace-stock/siapkan', [MarketplaceStockController::class, 'siapkan'])->name('marketplace-stock.siapkan');
         Route::delete('/marketplace-stock/master/{master}', [MarketplaceStockController::class, 'deleteMaster'])->name('marketplace-stock.master.hapus');
         Route::post('/marketplace-stock/master/{master}/bundle', [MarketplaceStockController::class, 'toggleBundle'])->name('marketplace-stock.master.bundle');
-        Route::post('/marketplace-stock/master/{master}/gabung', [MarketplaceStockController::class, 'gabung'])->name('marketplace-stock.master.gabung');
-        Route::post('/marketplace-stock/master/{master}/foto', [MarketplaceStockController::class, 'uploadFoto'])->name('marketplace-stock.master.foto');
     });
 
     /* ---------------- Kalkulator ROI ---------------- */
