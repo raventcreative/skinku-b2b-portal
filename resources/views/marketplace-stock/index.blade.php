@@ -14,6 +14,7 @@
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <div class="flex flex-wrap gap-2">
             <form method="POST" action="{{ route('marketplace-stock.siapkan') }}">@csrf<button class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">⚡ Siapkan Master (TikTok+Shopee)</button></form>
+            <form method="POST" action="{{ route('marketplace-stock.seed') }}" onsubmit="return confirm('Tarik stok awal semua produk dari TikTok? Ini menimpa stok master dengan angka dari TikTok.')">@csrf<button class="px-4 py-2 text-sm bg-sky-700 text-white rounded-lg hover:bg-sky-800">↧ Tarik Stok Awal dari TikTok</button></form>
             <form method="POST" action="{{ route('marketplace-stock.push-all') }}">@csrf<button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⇪ Sinkron semua</button></form>
             <a href="{{ route('marketplace-stock.channel', 'tiktok') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok & Harga TikTok →</a>
             <a href="{{ route('marketplace-stock.channel', 'shopee') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok & Harga Shopee →</a>
