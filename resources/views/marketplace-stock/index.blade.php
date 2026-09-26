@@ -3,7 +3,6 @@
 @section('heading','Produk Master E-commerce')
 @section('content')
 @php
-    $rp = fn ($v) => $v === null ? '—' : 'Rp'.number_format((float) $v, 0, ',', '.');
     $tabUrl = fn ($t) => route('marketplace-stock.index', array_filter(['tab' => $t === 'semua' ? null : $t]));
 @endphp
 <div class="space-y-4">
