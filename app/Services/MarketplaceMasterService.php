@@ -44,6 +44,16 @@ class MarketplaceMasterService
         return $m->base_price !== null ? (float) $m->base_price : null;
     }
 
+    /** Gabung dua master: pindahkan semua listing $source ke $target, lalu hapus $source. */
+    public function mergeMaster(MarketplaceMaster $source, MarketplaceMaster $target): void
+    {
+        if ($source->id === $target->id) {
+            return;
+        }
+        $source->listings()->update(['master_id' => $target->id]);
+        $source->delete();
+    }
+
     // ---- Setter Master ----
 
     public function setMasterStock(MarketplaceMaster $m, int $qty): void
@@ -162,18 +172,72 @@ class MarketplaceMasterService
     }
 
     /**
-     * Cari master ber-master_sku = $sellerSku, atau buat baru (name = $title,
-     * fallback ke $sellerSku kalau title kosong; product_id opsional lewat
-     * Product.sku yang sama). Master yang SUDAH ADA tak disentuh (name/product_id
-     * lama dipertahankan) — resolve bukan tugasnya menimpa master existing.
+     * Aksi tombol "Siapkan Master": resolve listing tiktok+shopee (per-channel
+     * try/catch biar satu channel gagal tak menggagalkan yang lain), lalu
+     * bersihkan master orphan (tanpa listing sama sekali) hasil sisa gabung/
+     * tautkan manual.
+     *
+     * @return array{found:int, errors:string[], orphan_deleted:int}
      */
-    public function findOrCreateMaster(string $sellerSku, ?string $title): MarketplaceMaster
+    public function siapkanMaster(): array
     {
-        $m = MarketplaceMaster::firstOrNew(['master_sku' => $sellerSku]);
+        $found = 0;
+        $errors = [];
+        foreach (['tiktok', 'shopee'] as $channel) {
+            try {
+                $r = $this->resolveListings($channel);
+                $found += (int) ($r['found'] ?? 0);
+            } catch (\Throwable $e) {
+                $errors[] = ucfirst($channel).': '.$e->getMessage();
+            }
+        }
+        $orphanDeleted = $this->deleteOrphanMasters();
+
+        return ['found' => $found, 'errors' => $errors, 'orphan_deleted' => $orphanDeleted];
+    }
+
+    /** Hapus master yang tak punya listing sama sekali — kecuali sudah dikonfigurasi (stok/harga/foto upload). */
+    public function deleteOrphanMasters(): int
+    {
+        $n = 0;
+        foreach (MarketplaceMaster::doesntHave('listings')->get() as $m) {
+            // Jangan hapus orphan yang sudah dikonfigurasi (stok/harga/foto upload) — cegah kehilangan data diam-diam.
+            if ($m->base_stock !== null || $m->base_price !== null || $m->firstFileUrl(MarketplaceMaster::MASTER_IMAGE) !== null) {
+                continue;
+            }
+            $m->delete(); // master_channels ikut cascade
+            $n++;
+        }
+
+        return $n;
+    }
+
+    /**
+     * Cari master by `name_key` (nama ternormalisasi dari $name, fallback ke
+     * $sellerSku kalau $name kosong) — dedup SEKARANG by NAMA, bukan lagi
+     * master_sku, biar listing lintas-channel/varian yang namanya sama (mis.
+     * beda cuma spasi/kapital) ketemu jadi 1 master. Master baru: master_sku =
+     * $sellerSku (SKU perwakilan = yg pertama bikin), is_bundle dideteksi dari
+     * nama, image_url dari $imageUrl (boleh null). Master yang SUDAH ADA tak
+     * ditimpa name/master_sku/is_bundle-nya — resolve bukan tugasnya menimpa
+     * master existing; image_url cuma di-backfill kalau master itu belum
+     * punya (jangan timpa foto upload manual / hasil resolve channel lain).
+     */
+    public function findOrCreateMaster(string $sellerSku, ?string $name, ?string $imageUrl = null): MarketplaceMaster
+    {
+        $displayName = $name !== null && $name !== '' ? $name : $sellerSku;
+        $key = MarketplaceMaster::normalizeName($displayName);
+
+        $m = MarketplaceMaster::firstOrNew(['name_key' => $key]);
         if (! $m->exists) {
-            $m->name = $title !== null && $title !== '' ? $title : $sellerSku;
+            $m->master_sku = $sellerSku;
+            $m->name = $displayName;
+            $m->is_bundle = MarketplaceMaster::detectBundle($displayName);
+            $m->image_url = $imageUrl;
             $m->product_id = Product::where('sku', $sellerSku)->value('id'); // opsional; boleh null
             $m->save();
+        } elseif ($imageUrl !== null && $imageUrl !== '' && ($m->image_url === null || $m->image_url === '')) {
+            $m->update(['image_url' => $imageUrl]); // backfill foto, jangan timpa yg sudah ada / upload manual
         }
 
         return $m;
@@ -412,14 +476,14 @@ class MarketplaceMasterService
      * ditemukan — listing-nya sudah "pindah rumah" ke master lain) — orphan
      * itu permanen krn tak ada yang mem-prune master. Makanya guard dulu.
      */
-    private function upsertListing(string $channel, string $sellerSku, string $itemId, string $variationId, ?string $warehouseId, ?string $title): MarketplaceListing
+    private function upsertListing(string $channel, string $sellerSku, string $itemId, string $variationId, ?string $warehouseId, ?string $title, ?string $imageUrl = null): MarketplaceListing
     {
         $l = MarketplaceListing::updateOrCreate(
             ['channel' => $channel, 'seller_sku' => $sellerSku],
             ['item_id' => $itemId, 'variation_id' => $variationId, 'warehouse_id' => $warehouseId, 'title' => $title, 'resolved_at' => now()],
         );
         if ($l->master_id === null) {
-            $master = $this->findOrCreateMaster($sellerSku, $title);
+            $master = $this->findOrCreateMaster($sellerSku, $title, $imageUrl);
             $l->update(['master_id' => $master->id]);
         }
 
@@ -461,12 +525,19 @@ class MarketplaceMasterService
             foreach (data_get($res, 'products', []) as $prod) {
                 $pid = (string) data_get($prod, 'id', '');
                 $title = data_get($prod, 'title');
+                // main_images tak selalu ada di respons search 202309 (mis. produk lama/tanpa
+                // foto) — kalau absen, biarkan null (foto fallback ke placeholder / upload
+                // manual), JANGAN fatal. Field 'urls'/'thumb_urls' (BUKAN 'url_list'/
+                // 'thumb_url_list' — itu konvensi Shopee) diverifikasi dari skema Image
+                // TikTok Product API 202309 yang SAMA dipakai endpoint /products/{id} (lihat
+                // TikTokClient::getProduct + EcomChatService::cacheProduct, proven & live).
+                $img = (string) (data_get($prod, 'main_images.0.urls.0') ?? data_get($prod, 'main_images.0.thumb_urls.0') ?? '');
                 foreach ($prod['skus'] ?? [] as $sku) {
                     $sellerSku = (string) data_get($sku, 'seller_sku', '');
                     if ($sellerSku === '') {
                         continue;
                     }
-                    $this->upsertListing('tiktok', $sellerSku, $pid, (string) data_get($sku, 'id', ''), $warehouseId, $title !== null ? (string) $title : null);
+                    $this->upsertListing('tiktok', $sellerSku, $pid, (string) data_get($sku, 'id', ''), $warehouseId, $title !== null ? (string) $title : null, $img !== '' ? $img : null);
                     $found++;
                     $mastered++;
                 }
@@ -513,6 +584,9 @@ class MarketplaceMasterService
                         continue;
                     }
                     $title = $info['item_name'] ?? null;
+                    // get_item_base_info memuat image.image_url_list secara andal (beda dari
+                    // TikTok search) — ambil sekali per item, dipakai utk semua model/variannya.
+                    $img = (string) (data_get($info, 'image.image_url_list.0') ?? '');
 
                     if (! empty($info['has_model'])) {
                         $models = data_get($this->shopee->getModelList($tok, $c->shop_id, (int) $itemId), 'response.model', []);
@@ -521,7 +595,7 @@ class MarketplaceMasterService
                             if ($sellerSku === '') {
                                 continue;
                             }
-                            $this->upsertListing('shopee', $sellerSku, $itemId, (string) ($mo['model_id'] ?? '0'), null, $title);
+                            $this->upsertListing('shopee', $sellerSku, $itemId, (string) ($mo['model_id'] ?? '0'), null, $title, $img !== '' ? $img : null);
                             $found++;
                             $mastered++;
                         }
@@ -530,7 +604,7 @@ class MarketplaceMasterService
                         if ($sellerSku === '') {
                             continue;
                         }
-                        $this->upsertListing('shopee', $sellerSku, $itemId, '0', null, $title);
+                        $this->upsertListing('shopee', $sellerSku, $itemId, '0', null, $title, $img !== '' ? $img : null);
                         $found++;
                         $mastered++;
                     }
