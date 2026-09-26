@@ -196,6 +196,25 @@ class MarketplaceMasterService
         $listing->update(['master_id' => $m->id]);
     }
 
+    /**
+     * Buat master otomatis untuk SEMUA listing yang belum termaster, dari data
+     * listing itu sendiri (master_sku = seller_sku, name = title) — tanpa panggil
+     * API channel. Dipakai tombol "Buat master otomatis (semua)" biar admin tak
+     * perlu Tautkan satu-satu, dan biar listing warisan (pra-rework) langsung
+     * bermaster. Idempoten: sekali jalan, listing yg sudah termaster tak disentuh.
+     */
+    public function masterizeUnmastered(): int
+    {
+        $n = 0;
+        foreach (MarketplaceListing::whereNull('master_id')->get() as $l) {
+            $master = $this->findOrCreateMaster($l->seller_sku, $l->title);
+            $l->update(['master_id' => $master->id]);
+            $n++;
+        }
+
+        return $n;
+    }
+
     // ---- Push stok & harga (aditif; independen per listing, anti-push null) ----
 
     /** Push stok & harga efektif satu listing (via master+channel). Kedua field independen, anti-push null. */

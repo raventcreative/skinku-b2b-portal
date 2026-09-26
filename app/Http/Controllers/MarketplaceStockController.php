@@ -120,6 +120,14 @@ class MarketplaceStockController extends Controller
         return back()->with('status', "Listing {$listing->seller_sku} ditautkan.");
     }
 
+    /** Jadikan master otomatis SEMUA listing yang belum termaster (dari data listing, tanpa API). */
+    public function masterizeAll(MarketplaceMasterService $svc): RedirectResponse
+    {
+        $n = $svc->masterizeUnmastered();
+
+        return back()->with('status', "$n listing dijadikan Produk Master otomatis. Isi stok/harga di tabel Master, lalu Sinkron.");
+    }
+
     public function push(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
         $svc->pushMaster($master);
