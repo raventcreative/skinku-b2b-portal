@@ -6,7 +6,6 @@ use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Services\ImageService;
 use App\Services\MarketplaceMasterService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -17,53 +16,28 @@ use Illuminate\View\View;
  */
 class MarketplaceStockController extends Controller
 {
-    public function index(Request $request, MarketplaceMasterService $svc): View
+    public function index(Request $request): View
     {
         $tab = in_array($request->query('tab'), ['satuan', 'bundle'], true) ? $request->query('tab') : 'semua';
 
-        $base = MarketplaceMaster::with(['channels', 'listings']);
-        $q = (clone $base);
+        $q = MarketplaceMaster::with('listings:id,master_id,channel');
         if ($tab === 'satuan') {
             $q->where('is_bundle', false);
         } elseif ($tab === 'bundle') {
             $q->where('is_bundle', true);
         }
-        $masters = $q->orderBy('name')->get();
-
-        $rows = $masters->map(fn (MarketplaceMaster $m) => [
-            'master' => $m,
-            'tiktok' => $this->channelSummary($svc, $m, 'tiktok'),
-            'shopee' => $this->channelSummary($svc, $m, 'shopee'),
-        ]);
 
         return view('marketplace-stock.index', [
             'tab' => $tab,
-            'rows' => $rows,
+            'masters' => $q->orderBy('name')->get(),
             'counts' => [
-                'semua' => (clone $base)->count(),
-                'satuan' => (clone $base)->where('is_bundle', false)->count(),
-                'bundle' => (clone $base)->where('is_bundle', true)->count(),
+                'semua' => MarketplaceMaster::count(),
+                'satuan' => MarketplaceMaster::where('is_bundle', false)->count(),
+                'bundle' => MarketplaceMaster::where('is_bundle', true)->count(),
             ],
-            'unmasteredCount' => MarketplaceListing::whereNull('master_id')->count(),
-            // Sama scope tab dgn baris tabel: cegah dropdown "Gabung ke master lain" di
-            // tab Satuan/Bundle membocorkan nama master kategori lain ke HTML (row-nya
-            // tersembunyi, tapi <option>-nya tetap kerender kalau tak di-scope) — tab
-            // Semua tetap lihat semua master (minus dirinya sendiri, lihat @if di view).
-            'allMasters' => $this->mastersForTab($tab)->orderBy('name')->get(['id', 'master_sku', 'name']),
+            'unlinkedListings' => MarketplaceListing::whereNull('master_id')->orderBy('channel')->orderBy('seller_sku')->get(['id', 'channel', 'seller_sku', 'title']),
+            'unlinkedCount' => MarketplaceListing::whereNull('master_id')->count(),
         ]);
-    }
-
-    /** Query dasar (tanpa eager-load) untuk daftar master ter-filter tab yg sama dgn baris tabel. */
-    private function mastersForTab(string $tab): Builder
-    {
-        $query = MarketplaceMaster::query();
-        if ($tab === 'satuan') {
-            $query->where('is_bundle', false);
-        } elseif ($tab === 'bundle') {
-            $query->where('is_bundle', true);
-        }
-
-        return $query;
     }
 
     public function create(): View
@@ -328,20 +302,5 @@ class MarketplaceStockController extends Controller
         }
 
         return back()->with('status', "Tarik stok awal dari TikTok: {$r['seeded']} unit di-seed, {$r['skipped']} dilewati.");
-    }
-
-    /** Ringkasan per channel utk tabel Produk Master: efektif + penanda override + status kirim. */
-    private function channelSummary(MarketplaceMasterService $svc, MarketplaceMaster $m, string $channel): array
-    {
-        $ch = $m->channels->firstWhere('channel', $channel);
-        $listing = $m->listings->firstWhere('channel', $channel);
-
-        return [
-            'eff_stock' => $svc->effectiveStock($m, $channel),
-            'eff_price' => $svc->effectivePrice($m, $channel),
-            'override_stock' => $ch?->stock,
-            'override_price' => $ch?->price,
-            'listing' => $listing,
-        ];
     }
 }

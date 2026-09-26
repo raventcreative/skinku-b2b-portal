@@ -13,14 +13,14 @@
 
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <div class="flex flex-wrap gap-2">
-            <form method="POST" action="{{ route('marketplace-stock.siapkan') }}">@csrf<button class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">⚡ Siapkan Master (TikTok+Shopee)</button></form>
-            <form method="POST" action="{{ route('marketplace-stock.seed') }}" onsubmit="return confirm('Tarik stok awal semua produk dari TikTok? Ini menimpa stok master dengan angka dari TikTok.')">@csrf<button class="px-4 py-2 text-sm bg-sky-700 text-white rounded-lg hover:bg-sky-800">↧ Tarik Stok Awal dari TikTok</button></form>
+            <a href="{{ route('marketplace-stock.create') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">+ Tambah Produk Baru</a>
             <form method="POST" action="{{ route('marketplace-stock.push-all') }}">@csrf<button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⇪ Sinkron semua</button></form>
+            <form method="POST" action="{{ route('marketplace-stock.resolve') }}">@csrf<button class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">↻ Refresh Listing</button></form>
             <a href="{{ route('marketplace-stock.channel', 'tiktok') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok & Harga TikTok →</a>
             <a href="{{ route('marketplace-stock.channel', 'shopee') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok & Harga Shopee →</a>
         </div>
-        @if($unmasteredCount > 0)
-            <p class="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{{ $unmasteredCount }} listing belum termaster — klik "Siapkan Master" untuk merapikan.</p>
+        @if($unlinkedCount > 0)
+            <p class="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{{ $unlinkedCount }} listing belum ditautkan ke master — pakai "Tambah ke Marketplace" pada produk untuk menautkan.</p>
         @endif
     </div>
 
@@ -31,83 +31,88 @@
         @endforeach
     </div>
 
-    <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-        @if(count($rows))
-            <div class="overflow-x-auto"><table class="w-full text-xs whitespace-nowrap">
-                <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]"><tr>
-                    <th class="text-left px-4 py-2">Produk</th>
-                    <th class="text-left">Master SKU</th>
-                    <th class="text-left">Harga</th>
-                    <th class="text-left">Stok</th>
-                    <th class="text-left">Channel Terkait</th>
-                    <th class="text-left pr-4">Atur</th>
-                </tr></thead>
-                <tbody>
-                @foreach($rows as $row)
-                    @php $m = $row['master']; @endphp
-                    <tr class="border-t border-stone-100 align-top">
-                        <td class="px-4 py-2.5">
-                            <div class="flex items-center gap-2">
-                                @if($m->imageUrl())
-                                    <img src="{{ $m->imageUrl() }}" alt="" class="w-9 h-9 rounded-lg object-cover border border-stone-200" loading="lazy">
-                                @else
-                                    <div class="w-9 h-9 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-300 text-[9px]">no img</div>
-                                @endif
-                                <div>
-                                    <div class="font-semibold text-stone-800 whitespace-normal max-w-[260px]">{{ $m->name }}</div>
-                                    @if($m->is_bundle)<span class="inline-block mt-0.5 px-1.5 py-0.5 rounded-sm bg-purple-50 text-purple-700 text-[9px] font-semibold">BUNDLE</span>@endif
-                                </div>
-                            </div>
-                        </td>
-                        <td class="py-2.5 font-mono text-stone-500">{{ $m->master_sku }}</td>
-                        <td class="py-2.5">
-                            <form method="POST" action="{{ route('marketplace-stock.master.harga', $m) }}" class="flex items-center gap-1">@csrf
-                                <input type="number" name="price" min="0" step="any" value="{{ $m->base_price !== null ? (int) $m->base_price : '' }}" placeholder="—" class="w-24 px-2 py-1 border border-stone-300 rounded-lg text-xs">
-                                <button class="px-2 py-1 bg-stone-800 text-white rounded-lg text-[11px]">✓</button>
-                            </form>
-                        </td>
-                        <td class="py-2.5">
-                            <form method="POST" action="{{ route('marketplace-stock.master.stok', $m) }}" class="flex items-center gap-1">@csrf
-                                <input type="number" name="quantity" min="0" step="1" value="{{ $m->base_stock }}" placeholder="—" class="w-20 px-2 py-1 border border-stone-300 rounded-lg text-xs">
-                                <button class="px-2 py-1 bg-stone-800 text-white rounded-lg text-[11px]">✓</button>
-                            </form>
-                        </td>
-                        <td class="py-2.5">
-                            @foreach(['tiktok' => 'TikTok', 'shopee' => 'Shopee'] as $ch => $lbl)
-                                @if($row[$ch]['listing'])
-                                    <div class="text-[11px] text-stone-600">{{ $lbl }}: stok {{ $row[$ch]['listing']->last_status ?? '—' }} / harga {{ $row[$ch]['listing']->last_price_status ?? '—' }}</div>
-                                @endif
-                            @endforeach
-                            @if(! $row['tiktok']['listing'] && ! $row['shopee']['listing'])<span class="text-stone-400 text-[11px]">belum ada listing</span>@endif
-                        </td>
-                        <td class="py-2.5 pr-4">
-                            <details class="inline-block">
-                                <summary class="cursor-pointer text-indigo-700 text-[11px]">Atur ▾</summary>
-                                <div class="mt-1 space-y-1 bg-stone-50 border border-stone-200 rounded-lg p-2 min-w-[220px]">
-                                    <form method="POST" action="{{ route('marketplace-stock.push', $m) }}">@csrf<button class="w-full text-left px-2 py-1 text-[11px] hover:bg-stone-100 rounded">⇪ Sinkron</button></form>
-                                    <form method="POST" action="{{ route('marketplace-stock.master.bundle', $m) }}">@csrf<button class="w-full text-left px-2 py-1 text-[11px] hover:bg-stone-100 rounded">{{ $m->is_bundle ? 'Jadikan Satuan' : 'Jadikan Bundle' }}</button></form>
-                                    <form method="POST" action="{{ route('marketplace-stock.master.foto', $m) }}" enctype="multipart/form-data" class="flex items-center gap-1 px-2 py-1">@csrf
-                                        <input type="file" name="foto" accept="image/*" class="text-[10px] w-32">
-                                        <button class="px-2 py-0.5 bg-stone-700 text-white rounded text-[10px]">Foto</button>
-                                    </form>
-                                    <form method="POST" action="{{ route('marketplace-stock.master.gabung', $m) }}" class="flex items-center gap-1 px-2 py-1">@csrf
-                                        <select name="target_master_id" required class="text-[10px] px-1 py-0.5 border border-stone-300 rounded max-w-[130px]">
-                                            <option value="">Gabung ke…</option>
-                                            @foreach($allMasters as $mm)@if($mm->id !== $m->id)<option value="{{ $mm->id }}">{{ $mm->name }}</option>@endif @endforeach
-                                        </select>
-                                        <button class="px-2 py-0.5 bg-amber-600 text-white rounded text-[10px]">Gabung</button>
-                                    </form>
-                                    <form method="POST" action="{{ route('marketplace-stock.master.hapus', $m) }}" onsubmit="return confirm('Hapus master ini?')">@csrf @method('DELETE')<button class="w-full text-left px-2 py-1 text-[11px] text-rose-600 hover:bg-rose-50 rounded">Hapus</button></form>
-                                </div>
-                            </details>
-                        </td>
+    @if($masters->isEmpty())
+        <div class="bg-white rounded-2xl border border-stone-200">
+            <p class="px-5 py-12 text-center text-stone-400 text-sm">Belum ada produk master. Klik <span class="font-medium text-stone-600">+ Tambah Produk Baru</span> untuk mulai.</p>
+        </div>
+    @else
+        <div class="bg-white rounded-2xl border border-stone-200 overflow-visible">
+            <table class="w-full text-sm">
+                <thead class="text-left text-stone-500 border-b border-stone-200">
+                    <tr>
+                        <th class="px-4 py-3 font-medium">Informasi Produk</th>
+                        <th class="px-4 py-3 font-medium">Master SKU</th>
+                        <th class="px-4 py-3 font-medium">Harga</th>
+                        <th class="px-4 py-3 font-medium">Stok</th>
+                        <th class="px-4 py-3 font-medium">Produk Terkait</th>
+                        <th class="px-4 py-3 font-medium">Toko Terkait</th>
+                        <th class="px-4 py-3 font-medium text-right">Atur</th>
                     </tr>
-                @endforeach
+                </thead>
+                <tbody class="divide-y divide-stone-100">
+                    @foreach($masters as $m)
+                        @php
+                            $produkTerkait = $m->listings->count();
+                            $tokoTerkait = $m->listings->pluck('channel')->unique()->count();
+                        @endphp
+                        <tr>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-3">
+                                    @if($m->imageUrl())
+                                        <img src="{{ $m->imageUrl() }}" alt="" class="w-10 h-10 rounded-lg object-cover border border-stone-200">
+                                    @else
+                                        <div class="w-10 h-10 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-300 text-[10px]">no img</div>
+                                    @endif
+                                    <div>
+                                        <div class="font-medium text-stone-800">{{ $m->name }}</div>
+                                        @if($m->is_bundle)<span class="text-[10px] uppercase tracking-wide text-amber-700 bg-amber-100 rounded px-1.5 py-0.5">Bundle</span>@endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-stone-600">{{ $m->master_sku }}</td>
+                            <td class="px-4 py-3">
+                                <form method="POST" action="{{ route('marketplace-stock.master.harga', $m) }}" class="flex items-center gap-1">@csrf
+                                    <input type="number" step="0.01" min="0" name="price" value="{{ $m->base_price }}" placeholder="—" class="w-24 px-2 py-1 border border-stone-200 rounded">
+                                    <button class="text-xs text-indigo-600 hover:underline">set</button>
+                                </form>
+                            </td>
+                            <td class="px-4 py-3">
+                                <form method="POST" action="{{ route('marketplace-stock.master.stok', $m) }}" class="flex items-center gap-1">@csrf
+                                    <input type="number" min="0" name="quantity" value="{{ $m->base_stock }}" placeholder="—" class="w-20 px-2 py-1 border border-stone-200 rounded">
+                                    <button class="text-xs text-indigo-600 hover:underline">set</button>
+                                </form>
+                            </td>
+                            <td class="px-4 py-3 text-stone-600">{{ $produkTerkait > 0 ? $produkTerkait.' Produk' : '—' }}</td>
+                            <td class="px-4 py-3 text-stone-600">{{ $tokoTerkait > 0 ? $tokoTerkait.' Toko' : '—' }}</td>
+                            <td class="px-4 py-3 text-right">
+                                <details class="relative inline-block text-left">
+                                    <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700">Atur ▾</summary>
+                                    <div class="absolute right-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-lg z-20 py-1 text-left">
+                                        <a href="{{ route('marketplace-stock.edit', $m) }}" class="block px-4 py-2 hover:bg-stone-50">Ubah</a>
+                                        <form method="POST" action="{{ route('marketplace-stock.duplikat', $m) }}">@csrf<button class="w-full text-left px-4 py-2 hover:bg-stone-50">Duplikat Produk</button></form>
+                                        <details class="group">
+                                            <summary class="cursor-pointer list-none px-4 py-2 hover:bg-stone-50">Tambah ke Marketplace</summary>
+                                            <form method="POST" action="{{ route('marketplace-stock.tautkan') }}" class="px-4 py-2 space-y-1 bg-stone-50">@csrf
+                                                <input type="hidden" name="master_id" value="{{ $m->id }}">
+                                                <select name="listing_id" required class="w-full px-2 py-1 border border-stone-200 rounded text-xs">
+                                                    <option value="">Pilih listing…</option>
+                                                    @foreach($unlinkedListings as $l)
+                                                        <option value="{{ $l->id }}">{{ strtoupper($l->channel) }} · {{ $l->seller_sku }}{{ $l->title ? ' — '.\Illuminate\Support\Str::limit($l->title, 30) : '' }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <button class="w-full px-2 py-1 bg-indigo-600 text-white rounded text-xs">Tautkan</button>
+                                            </form>
+                                        </details>
+                                        <form method="POST" action="{{ route('marketplace-stock.master.bundle', $m) }}">@csrf<button class="w-full text-left px-4 py-2 hover:bg-stone-50">{{ $m->is_bundle ? 'Jadikan Satuan' : 'Jadikan Bundle' }}</button></form>
+                                        <form method="POST" action="{{ route('marketplace-stock.master.hapus', $m) }}" onsubmit="return confirm('Hapus produk master ini?')">@csrf @method('DELETE')<button class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Hapus</button></form>
+                                    </div>
+                                </details>
+                            </td>
+                        </tr>
+                    @endforeach
                 </tbody>
-            </table></div>
-        @else
-            <p class="px-5 py-8 text-center text-stone-400 text-sm">Belum ada master. Klik "Siapkan Master (TikTok+Shopee)" untuk menariknya otomatis.</p>
-        @endif
-    </div>
+            </table>
+        </div>
+    @endif
 </div>
 @endsection
