@@ -641,6 +641,11 @@ Route::middleware(['auth', 'role'])->group(function () {
     /* ---------------- Kontrol Stok & Harga Marketplace (Produk Master) ---------------- */
     Route::middleware('permission:manage_marketplace_stock')->group(function () {
         Route::get('/marketplace-stock', [MarketplaceStockController::class, 'index'])->name('marketplace-stock.index');
+        Route::get('/marketplace-stock/create', [MarketplaceStockController::class, 'create'])->name('marketplace-stock.create');
+        Route::post('/marketplace-stock', [MarketplaceStockController::class, 'store'])->name('marketplace-stock.store');
+        Route::get('/marketplace-stock/master/{master}/edit', [MarketplaceStockController::class, 'edit'])->name('marketplace-stock.edit');
+        Route::put('/marketplace-stock/master/{master}', [MarketplaceStockController::class, 'update'])->name('marketplace-stock.update');
+        Route::post('/marketplace-stock/master/{master}/duplikat', [MarketplaceStockController::class, 'duplicate'])->name('marketplace-stock.duplikat');
         Route::get('/marketplace-stock/{channel}', [MarketplaceStockController::class, 'channel'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel');
         Route::post('/marketplace-stock/master/{master}/stok', [MarketplaceStockController::class, 'setMasterStock'])->name('marketplace-stock.master.stok');
         Route::post('/marketplace-stock/master/{master}/harga', [MarketplaceStockController::class, 'setMasterPrice'])->name('marketplace-stock.master.harga');

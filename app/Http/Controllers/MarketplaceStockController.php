@@ -66,6 +66,78 @@ class MarketplaceStockController extends Controller
         return $query;
     }
 
+    public function create(): View
+    {
+        return view('marketplace-stock.form', ['master' => new MarketplaceMaster]);
+    }
+
+    public function store(Request $r, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $this->validateMaster($r);
+        $master = MarketplaceMaster::create([
+            'master_sku' => $r->master_sku,
+            'name' => $r->name,
+            'name_key' => MarketplaceMaster::normalizeName($r->name),
+            'is_bundle' => $r->boolean('is_bundle'),
+        ]);
+        $this->applyMasterInputs($r, $master, $img, $svc);
+
+        return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" dibuat.");
+    }
+
+    public function edit(MarketplaceMaster $master): View
+    {
+        return view('marketplace-stock.form', ['master' => $master]);
+    }
+
+    public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $this->validateMaster($r);
+        $master->update([
+            'master_sku' => $r->master_sku,
+            'name' => $r->name,
+            'name_key' => MarketplaceMaster::normalizeName($r->name),
+            'is_bundle' => $r->boolean('is_bundle'),
+        ]);
+        $this->applyMasterInputs($r, $master, $img, $svc);
+        $svc->pushMaster($master);
+
+        return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" diperbarui.");
+    }
+
+    public function duplicate(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $copy = $svc->duplicateMaster($master);
+
+        return redirect()->route('marketplace-stock.edit', $copy)->with('status', "Digandakan dari \"{$master->name}\". Sesuaikan lalu simpan.");
+    }
+
+    private function validateMaster(Request $r): void
+    {
+        $r->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'master_sku' => ['required', 'string', 'max:255'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'stock' => ['nullable', 'integer', 'min:0'],
+            'is_bundle' => ['nullable', 'boolean'],
+            'foto' => ['nullable', 'image', 'max:5120'],
+        ]);
+    }
+
+    /** Set harga/stok (via setter supaya seeded_at ke-set) + attach foto bila di-upload. */
+    private function applyMasterInputs(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): void
+    {
+        if ($r->filled('price')) {
+            $svc->setMasterPrice($master, (float) $r->price);
+        }
+        if ($r->filled('stock')) {
+            $svc->setMasterStock($master, (int) $r->stock);
+        }
+        if ($r->hasFile('foto')) {
+            $img->attach($master, $r->file('foto'), MarketplaceMaster::MASTER_IMAGE);
+        }
+    }
+
     public function channel(string $channel, MarketplaceMasterService $svc): View
     {
         abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);

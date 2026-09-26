@@ -54,6 +54,20 @@ class MarketplaceMasterService
         $source->delete();
     }
 
+    /** Gandakan master jadi baris baru (SKU "-COPY", nama "(copy)") tanpa listing/override/foto/stok — mulai bersih. */
+    public function duplicateMaster(MarketplaceMaster $m): MarketplaceMaster
+    {
+        $name = $m->name.' (copy)';
+
+        return MarketplaceMaster::create([
+            'master_sku' => $m->master_sku.'-COPY',
+            'name' => $name,
+            'name_key' => MarketplaceMaster::normalizeName($name),
+            'is_bundle' => $m->is_bundle,
+            'base_price' => $m->base_price,
+        ]);
+    }
+
     // ---- Setter Master ----
 
     public function setMasterStock(MarketplaceMaster $m, int $qty): void
