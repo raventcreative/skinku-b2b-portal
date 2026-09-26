@@ -186,11 +186,15 @@ class MarketplaceMasterService
         return ['found' => $found, 'errors' => $errors, 'orphan_deleted' => $orphanDeleted];
     }
 
-    /** Hapus master yang tak punya listing sama sekali. */
+    /** Hapus master yang tak punya listing sama sekali — kecuali sudah dikonfigurasi (stok/harga/foto upload). */
     public function deleteOrphanMasters(): int
     {
         $n = 0;
         foreach (MarketplaceMaster::doesntHave('listings')->get() as $m) {
+            // Jangan hapus orphan yang sudah dikonfigurasi (stok/harga/foto upload) — cegah kehilangan data diam-diam.
+            if ($m->base_stock !== null || $m->base_price !== null || $m->firstFileUrl(MarketplaceMaster::MASTER_IMAGE) !== null) {
+                continue;
+            }
             $m->delete(); // master_channels ikut cascade
             $n++;
         }

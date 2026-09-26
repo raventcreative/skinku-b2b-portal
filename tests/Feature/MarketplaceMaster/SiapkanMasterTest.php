@@ -33,6 +33,17 @@ class SiapkanMasterTest extends TestCase
         $this->assertNotNull(MarketplaceMaster::find($keep->id));
     }
 
+    public function test_siapkan_tidak_hapus_orphan_yang_punya_data(): void
+    {
+        // Orphan (tanpa listing) tapi SUDAH dikonfigurasi (harga di-set manual) — jangan dihapus diam-diam.
+        $orphanBerdata = MarketplaceMaster::create(['master_sku' => 'CFG-1', 'name' => 'Sudah Diisi', 'name_key' => 'sudah diisi', 'base_price' => 15000]);
+        Http::fake(['*' => Http::response(['code' => 0, 'data' => []], 200)]);
+
+        $this->actingAs($this->admin())->post(route('marketplace-stock.siapkan'))->assertRedirect()->assertSessionHas('status');
+
+        $this->assertNotNull(MarketplaceMaster::find($orphanBerdata->id));
+    }
+
     public function test_hapus_master_listing_jadi_unmastered(): void
     {
         $m = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'Face Mist', 'name_key' => 'face mist']);
@@ -42,6 +53,13 @@ class SiapkanMasterTest extends TestCase
 
         $this->assertNull(MarketplaceMaster::find($m->id));
         $this->assertNull($l->refresh()->master_id); // FK nullOnDelete
+    }
+
+    public function test_hapus_master_mitra_ditolak(): void
+    {
+        $m = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'Face Mist', 'name_key' => 'face mist']);
+        $r = User::create(['name' => 'r', 'fullname' => 'R', 'username' => 'r'.uniqid(), 'email' => uniqid().'@t.test', 'password' => Hash::make('secret123'), 'role' => User::ROLE_RESELLER, 'status' => User::STATUS_ACTIVE]);
+        $this->actingAs($r)->delete(route('marketplace-stock.master.hapus', $m))->assertForbidden();
     }
 
     public function test_mitra_ditolak(): void
