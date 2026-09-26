@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MarketplaceListing;
 use App\Models\Product;
 use App\Models\ShopeeConnection;
 use App\Models\ShopeeOrder;
@@ -25,7 +26,7 @@ use RuntimeException;
  */
 class ShopeeOrderService
 {
-    public function __construct(private InventoryService $inventory, private MarketplaceStockService $marketplace) {}
+    public function __construct(private InventoryService $inventory, private MarketplaceMasterService $marketplace) {}
 
     /**
      * Simpan/perbarui order dari API. $apiOrders = hasil get_order_detail.
@@ -76,11 +77,14 @@ class ShopeeOrderService
     }
 
     /**
-     * Cermin order MASUK/BATAL ke pool "Stok Marketplace" bersama (marketplace_stocks),
-     * TERPISAH dari potong stok HQ (deduct()/reverse() via InventoryService::adjustHqStock).
-     * Sama persis logikanya dengan TikTokOrderService::mirrorMarketplace() — lihat di sana
-     * untuk penjelasan lengkap. `applyOrderDelta()` sendiri sudah aman dipanggil untuk
-     * produk yang pool-nya belum di-seed (no-op).
+     * Cermin order MASUK/BATAL ke stok "Produk Master" (marketplace_masters/
+     * marketplace_master_channels via listing.master_id), TERPISAH dari potong
+     * stok HQ (deduct()/reverse() via InventoryService::adjustHqStock). Sama
+     * persis logikanya dengan TikTokOrderService::mirrorMarketplace() — lihat
+     * di sana untuk penjelasan lengkap. Listing dicari langsung via (channel,
+     * seller_sku) — bukan lewat resep ShopeeSkuMap (itu punya jalur sendiri,
+     * dipakai potong stok HQ). `applyOrderDelta()` sendiri sudah aman dipanggil
+     * untuk master yang belum di-seed (no-op).
      */
     private function mirrorMarketplace(?ShopeeOrder $existing, array $o, string $id): void
     {
@@ -91,17 +95,18 @@ class ShopeeOrderService
 
         $sign = 0;
         if ($existing === null && ! $nowCancelled) {
-            $sign = -1; // order baru → kurangi pool
+            $sign = -1; // order baru → kurangi stok master
         } elseif ($existing && ! $wasCancelled && $nowCancelled) {
-            $sign = 1; // transisi ke batal → kembalikan pool
+            $sign = 1; // transisi ke batal → kembalikan stok master
         }
         if ($sign === 0) {
             return;
         }
 
         foreach ($this->normalizeItems($o) as $it) {
-            foreach ($this->resolve($it['sku']) as $c) {
-                $this->marketplace->applyOrderDelta($c['product'], 'shopee', $sign * $c['qty'] * (int) $it['qty'], $createdAt);
+            $listing = MarketplaceListing::where('channel', 'shopee')->where('seller_sku', $it['sku'])->first();
+            if ($listing) {
+                $this->marketplace->applyOrderDelta($listing, $sign * (int) $it['qty'], $createdAt);
             }
         }
     }

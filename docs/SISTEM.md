@@ -25,6 +25,7 @@ Kalau kamu baru pertama baca: mulai dari [Ringkasan](#0-ringkasan) → [Konvensi
 - [9. Integrasi Shopee (Fase 1–4)](#9-integrasi-shopee-fase-14)
 - [9b. Kalkulator ROI](#9b-kalkulator-roi)
 - [9c. Portal Content Creator](#9c-portal-content-creator)
+- [9d. Produk Master E-commerce](#9d-produk-master-e-commerce)
 - [10. Akuntansi / GL (buku besar)](#10-akuntansi--gl-buku-besar)
 
 **Laporan & Produktivitas**
@@ -386,6 +387,43 @@ Publikasi: cron `content:publish-due` tiap menit (inline, bukan queue job) → `
 
 **Middleware `business`** (dibuat bersama modul ini): route PO/retur/inventory/penjualan mitra/komisi hanya untuk staff & mitra — sebelumnya role kustom non-staff (kol_specialist, affiliator) jatuh ke jalur staff dan melihat data semua mitra.
 
+## 9d. Produk Master E-commerce
+
+**Status:** SELESAI (branch `feat/stok-marketplace-harga`, belum merge ke `main`).
+
+**Tujuan:** kontrol stok+harga marketplace ala Desty — tiap unit jualan (satuan/varian/**bundle**) = 1 baris "Produk Master" dengan stok & harga **di-set langsung** (bukan diturunkan dari pool produk HQ), dipetakan ke listing TikTok/Shopee, dengan opsi override per-channel. **TERPISAH TOTAL dari stok HQ** (`hq_stock`/`stock_movements` tak pernah dibaca/ditulis oleh modul ini). Rework dari model Fase 1/1.5 ("Kontrol Stok Marketplace" — pool per-`Product` + override per `(product,channel)`, tabel `marketplace_stocks`/`marketplace_channel_overrides`): tabel lama itu **sudah di-drop** (migrasi `000143`, data lama dimigrasikan ke master dulu bila ada).
+
+### Model & tabel
+| Model | Tabel | Kolom kunci |
+|---|---|---|
+| `MarketplaceMaster` | `marketplace_masters` | `master_sku` (unik), `name`, `product_id` (nullable, referensi opsional saja — **bukan** sumber stok), `base_stock` (nullable = belum di-set → tak di-push), `base_price`, `seeded_at` (patokan reconcile order-mirror) |
+| `MarketplaceMasterChannel` | `marketplace_master_channels` | `master_id`, `channel` (tiktok/shopee), `stock` (nullable = ikut Master), `price` (nullable = ikut Master), `seeded_at`; unik (`master_id`,`channel`) |
+| `MarketplaceListing` | `marketplace_listings` (dari Fase 1) | + `master_id` (nullable, FK ke master), + jejak push harga: `last_pushed_price`/`last_price_status`/`last_price_error`/`last_price_pushed_at` (jejak push stok — `last_pushed_qty`/`last_status`/`last_error`/`last_pushed_at` — sudah ada sejak Fase 1) |
+
+Migrasi: `000139`/`000140` (tabel Fase 1 — **di-drop** oleh `000143`), `000142` (tabel `marketplace_masters`/`marketplace_master_channels` + kolom master/harga di `marketplace_listings`), `000143` (migrasi data `marketplace_stocks`→`base_stock` Master + `marketplace_channel_overrides`→`MarketplaceMasterChannel`, guard `Schema::hasTable()` biar aman baik tabel lama ada maupun tidak, lalu `dropIfExists` keduanya).
+
+### Service — `MarketplaceMasterService`
+- **Nilai efektif** — `effectiveStock`/`effectivePrice(MarketplaceMaster, channel)`: override channel menang bila non-null, jatuh balik ke `base_stock`/`base_price` Master, `null` bila keduanya belum di-set (anti-push).
+- **Setter** — `setMasterStock`/`setMasterPrice` (Master langsung, stempel `seeded_at`); `setChannelStock`/`setChannelPrice` (override per channel, `updateOrCreate`); `ikutMaster(master, channel, field)` — kembalikan satu field (`stock`/`price`) ke ikut Master, hapus baris override kalau keduanya sudah null.
+- **Resolve & tautkan** — `resolveListings(channel)` tarik listing terbaru dari TikTok/Shopee + auto-`findOrCreateMaster()` (master_sku = seller_sku) untuk listing yang belum bermaster; listing yang **sudah** tertaut (mis. hasil gabung manual lintas SKU) tak disentuh sama sekali — mencegah master orphan baru tercipta tiap resolve ulang. `tautkanListing(listing, masterId?, newSku?, newName?)` — pindahkan listing ke master lain (gabung) atau buat master baru.
+- **Push** — `pushListing(listing, force)` push stok & harga sebagai **dua unit independen** (anti-push-null masing-masing, skip kalau nilainya = push terakhir kecuali `force`); `pushMaster(master)` sinkron semua listing 1 master; `pushDirty()`/`pushAll()` sinkron semua listing bermaster (dipakai cron & tombol "Sinkron Semua").
+- **Seed** — `seedFromTiktok()` tarik stok awal **SEMUA unit termasuk bundle** dari TikTok (beda dari Fase 1 yang skip bundle), lalu `pushAll()` supaya Shopee ikut selaras.
+- **Cermin order** — `applyOrderDelta(MarketplaceListing $listing, int $delta, Carbon $orderCreatedAt)`: turun/naikkan stok efektif (override channel dulu, jatuh balik ke `base_stock` Master) — hanya bila baris tujuan sudah `seeded_at` dan order terjadi setelahnya (order lama diabaikan). Dipanggil dari `TikTokOrderService`/`ShopeeOrderService` **berdampingan** dengan (bukan menggantikan) potong stok HQ via `InventoryService` — dua jalur independen yang tak saling baca.
+- **Client** — `TikTokClient::updatePrice()` (`POST /product/202309/products/{id}/prices/update`) & `ShopeeClient::updatePrice()` (`POST /api/v2/product/update_price`), dipakai jalur push harga.
+
+### Alur
+1. **Resolve** — tombol "Refresh Listing" (`/marketplace-stock/resolve`) → isi/segarkan `marketplace_listings` dari channel + auto-buat/tautkan `marketplace_masters`.
+2. **Set Master** — admin isi stok/harga langsung di baris Produk Master (`/marketplace-stock`) → `pushMaster()` sinkron seketika ke semua channel yang listing-nya sudah ter-resolve.
+3. **Override per channel** — admin isi stok/harga khusus 1 channel (`/marketplace-stock/{channel}`); "Ikut Master" hapus override, kembali mengikuti nilai Master.
+4. **Push berkala** — cron `marketplace:push-stock` tiap 5 menit → `pushDirty()` (hanya listing yang nilainya berubah sejak push terakhir; §20).
+5. **Order masuk** — `TikTokOrderService`/`ShopeeOrderService` potong stok HQ (jalur lama, tak berubah) **dan** panggil `applyOrderDelta()` supaya bucket master/override ikut turun — HQ tak disentuh oleh jalur ini.
+6. **Seed awal** — tombol "Tarik Stok Awal dari TikTok" → `seedFromTiktok()`.
+
+### Route / izin
+`MarketplaceStockController` (nama kelas dipertahankan dari Fase 1 demi kestabilan URL `/marketplace-stock*`; isinya kini 100% engine Produk Master) — rute index/channel/setMasterStock/setMasterPrice/setChannelStock/setChannelPrice/ikutMaster/tautkan/push/pushAll/resolve/seed. View pakai `<select>`/input native, POST + `@csrf` biasa (tanpa literal `@json([...])`).
+
+**Izin:** `manage_marketplace_stock` ("Kontrol Stok Marketplace" di matriks `/permissions`, default admin; super_admin implisit).
+
 ---
 
 ## 10. Akuntansi / GL (buku besar)
@@ -687,6 +725,7 @@ Didefinisikan di `routes/console.php`:
 | Harian 01:15 | `shopee:sync --returns` | Retur Shopee |
 | Harian 01:30 | `shopee:sync --settlements` | Settlement/escrow Shopee |
 | Harian 01:45 | `shopee:sync --wallet` | Wallet Shopee |
+| Tiap 5 menit | `marketplace:push-stock` | Push stok+harga Produk Master (§9c) yang berubah ke TikTok & Shopee |
 | Harian 02:30 | `db:backup` | Backup DB (safety-net) |
 
 **Manual/CLI only (tanpa cron):** `tiktok:backfill`, `tiktok:audit`, `shopee:ping`, `stock:reconcile-hq`, `po:purge`. Posting jurnal akuntansi **tetap manual/opt-in** (saklar `journal_enabled`, tombol post) — bukan cron.

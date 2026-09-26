@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MarketplaceListing;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\TiktokConnection;
@@ -15,7 +16,7 @@ use RuntimeException;
 
 class TikTokOrderService
 {
-    public function __construct(private InventoryService $inventory, private MarketplaceStockService $marketplace) {}
+    public function __construct(private InventoryService $inventory, private MarketplaceMasterService $marketplace) {}
 
     /** Simpan/opsir order dari API TikTok. Return jumlah yg tersimpan. */
     public function store(array $apiOrders): int
@@ -55,13 +56,16 @@ class TikTokOrderService
     }
 
     /**
-     * Cermin order MASUK/BATAL ke pool "Stok Marketplace" bersama (marketplace_stocks),
-     * TERPISAH dari potong stok HQ (deduct()/reverse() via InventoryService::adjustHqStock).
-     * Order baru (belum pernah tersimpan) & belum berstatus batal → kurangi pool sebesar
-     * qty-nya; order yang SEBELUMNYA belum batal lalu bertransisi ke batal → kembalikan.
-     * Re-sync tanpa perubahan status (atau order yang lahir sudah batal) tak menggeser apa
-     * pun. `applyOrderDelta()` sendiri sudah aman dipanggil untuk produk yang pool-nya
-     * belum di-seed (no-op).
+     * Cermin order MASUK/BATAL ke stok "Produk Master" (marketplace_masters/
+     * marketplace_master_channels via listing.master_id), TERPISAH dari potong
+     * stok HQ (deduct()/reverse() via InventoryService::adjustHqStock). Order
+     * baru (belum pernah tersimpan) & belum berstatus batal → kurangi stok
+     * efektif sebesar qty-nya; order yang SEBELUMNYA belum batal lalu
+     * bertransisi ke batal → kembalikan. Re-sync tanpa perubahan status (atau
+     * order yang lahir sudah batal) tak menggeser apa pun. Listing dicari
+     * langsung via (channel, seller_sku) — bukan lewat resep TiktokSkuMap
+     * (itu punya jalur sendiri, dipakai potong stok HQ). `applyOrderDelta()`
+     * sendiri sudah aman dipanggil untuk master yang belum di-seed (no-op).
      */
     private function mirrorMarketplace(?TiktokOrder $existing, array $o, string $id): void
     {
@@ -72,17 +76,18 @@ class TikTokOrderService
 
         $sign = 0;
         if ($existing === null && ! $nowCancelled) {
-            $sign = -1; // order baru → kurangi pool
+            $sign = -1; // order baru → kurangi stok master
         } elseif ($existing && ! $wasCancelled && $nowCancelled) {
-            $sign = 1; // transisi ke batal → kembalikan pool
+            $sign = 1; // transisi ke batal → kembalikan stok master
         }
         if ($sign === 0) {
             return;
         }
 
         foreach ($this->normalizeItems($o) as $it) {
-            foreach ($this->resolve($it['sku']) as $c) {
-                $this->marketplace->applyOrderDelta($c['product'], 'tiktok', $sign * $c['qty'] * (int) $it['qty'], $createdAt);
+            $listing = MarketplaceListing::where('channel', 'tiktok')->where('seller_sku', $it['sku'])->first();
+            if ($listing) {
+                $this->marketplace->applyOrderDelta($listing, $sign * (int) $it['qty'], $createdAt);
             }
         }
     }

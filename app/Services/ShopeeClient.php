@@ -229,6 +229,15 @@ class ShopeeClient
         ]);
     }
 
+    /** Perbarui harga satu model/varian (model_id=0 kalau item tanpa varian). */
+    public function updatePrice(string $accessToken, string $shopId, int $itemId, int $modelId, float $price): array
+    {
+        return $this->shopCall('POST', '/api/v2/product/update_price', $accessToken, $shopId, [
+            'item_id' => $itemId,
+            'price_list' => [['model_id' => $modelId, 'original_price' => (int) round($price)]],
+        ]);
+    }
+
     /** Daftar item toko (status NORMAL) — dipakai memetakan produk lokal ↔ item Shopee. */
     public function getItemList(string $accessToken, string $shopId, int $offset = 0, int $pageSize = 50): array
     {

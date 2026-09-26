@@ -638,15 +638,17 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/shopee/toggle-journal', [ShopeeController::class, 'toggleJournal'])->name('shopee.toggle-journal');
     });
 
-    /* ---------------- Kontrol Stok Marketplace ---------------- */
+    /* ---------------- Kontrol Stok & Harga Marketplace (Produk Master) ---------------- */
     Route::middleware('permission:manage_marketplace_stock')->group(function () {
         Route::get('/marketplace-stock', [MarketplaceStockController::class, 'index'])->name('marketplace-stock.index');
-        Route::get('/marketplace-stock/{channel}', [MarketplaceStockController::class, 'channel'])->name('marketplace-stock.channel');
-        Route::post('/marketplace-stock/{channel}/override/{product}', [MarketplaceStockController::class, 'setOverride'])->name('marketplace-stock.override');
-        Route::post('/marketplace-stock/{channel}/ikut-master/{product}', [MarketplaceStockController::class, 'ikutMaster'])->name('marketplace-stock.ikut-master');
-        Route::post('/marketplace-stock/{channel}/tautkan', [MarketplaceStockController::class, 'tautkan'])->name('marketplace-stock.tautkan');
-        Route::post('/marketplace-stock/set/{product}', [MarketplaceStockController::class, 'setStock'])->name('marketplace-stock.set');
-        Route::post('/marketplace-stock/push/{product}', [MarketplaceStockController::class, 'push'])->name('marketplace-stock.push');
+        Route::get('/marketplace-stock/{channel}', [MarketplaceStockController::class, 'channel'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel');
+        Route::post('/marketplace-stock/master/{master}/stok', [MarketplaceStockController::class, 'setMasterStock'])->name('marketplace-stock.master.stok');
+        Route::post('/marketplace-stock/master/{master}/harga', [MarketplaceStockController::class, 'setMasterPrice'])->name('marketplace-stock.master.harga');
+        Route::post('/marketplace-stock/{channel}/master/{master}/stok', [MarketplaceStockController::class, 'setChannelStock'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel.stok');
+        Route::post('/marketplace-stock/{channel}/master/{master}/harga', [MarketplaceStockController::class, 'setChannelPrice'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel.harga');
+        Route::post('/marketplace-stock/{channel}/master/{master}/ikut-master', [MarketplaceStockController::class, 'ikutMaster'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.ikut-master');
+        Route::post('/marketplace-stock/tautkan', [MarketplaceStockController::class, 'tautkan'])->name('marketplace-stock.tautkan');
+        Route::post('/marketplace-stock/push/{master}', [MarketplaceStockController::class, 'push'])->name('marketplace-stock.push');
         Route::post('/marketplace-stock/push-all', [MarketplaceStockController::class, 'pushAll'])->name('marketplace-stock.push-all');
         Route::post('/marketplace-stock/resolve', [MarketplaceStockController::class, 'resolve'])->name('marketplace-stock.resolve');
         Route::post('/marketplace-stock/seed-tiktok', [MarketplaceStockController::class, 'seed'])->name('marketplace-stock.seed');
