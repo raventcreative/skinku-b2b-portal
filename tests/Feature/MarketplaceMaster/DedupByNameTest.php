@@ -58,4 +58,15 @@ class DedupByNameTest extends TestCase
         $this->assertSame('SKU-X', $m->name);
         $this->assertSame(MarketplaceMaster::normalizeName('SKU-X'), $m->name_key);
     }
+
+    public function test_seller_sku_sama_nama_beda_jadi_dua_master_tanpa_crash(): void
+    {
+        // SKU sama antar channel tapi judul beda → 2 master by nama, TANPA unique violation.
+        $a = $this->svc()->findOrCreateMaster('ABC', 'Nama Versi TikTok');
+        $b = $this->svc()->findOrCreateMaster('ABC', 'Nama Versi Shopee');
+        $this->assertNotSame($a->id, $b->id);
+        $this->assertSame(2, MarketplaceMaster::count());
+        $this->assertSame('ABC', $a->master_sku);
+        $this->assertSame('ABC', $b->master_sku);
+    }
 }

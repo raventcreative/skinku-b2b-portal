@@ -29,11 +29,20 @@ class ModelTest extends TestCase
         $this->assertSame($m->id, $l->master->id);
     }
 
-    public function test_master_sku_unik(): void
+    /**
+     * Task 2 (dedup by NAMA) fix-round: constraint unique master_sku di-drop
+     * (migrasi 000148) krn identitas master sekarang murni via name_key
+     * (app-level, di MarketplaceMasterService::findOrCreateMaster) — master_sku
+     * cuma SKU representatif & SAH duplikat antar master (kasus nyata: SKU
+     * sama dipakai ulang di channel berbeda dgn judul produk berbeda).
+     * Dulu tes ini menuntut QueryException; sekarang justru menuntut SEBALIKNYA.
+     */
+    public function test_master_sku_boleh_duplikat_krn_dedup_sekarang_by_name_key(): void
     {
-        MarketplaceMaster::create(['master_sku' => 'DUP', 'name' => 'A']);
-        $this->expectException(QueryException::class);
-        MarketplaceMaster::create(['master_sku' => 'DUP', 'name' => 'B']);
+        $a = MarketplaceMaster::create(['master_sku' => 'DUP', 'name' => 'A']);
+        $b = MarketplaceMaster::create(['master_sku' => 'DUP', 'name' => 'B']);
+        $this->assertNotSame($a->id, $b->id);
+        $this->assertSame(2, MarketplaceMaster::where('master_sku', 'DUP')->count());
     }
 
     public function test_channel_unik_per_master(): void
