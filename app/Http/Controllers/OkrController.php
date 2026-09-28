@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Jobs\GenerateOkrDraftJob;
 use App\Models\Board;
+use App\Models\BoardCard;
 use App\Models\BoardColumn;
 use App\Models\OkrCycle;
+use App\Models\OkrKeyResult;
 use App\Models\OkrObjective;
+use App\Models\OkrTask;
 use App\Models\User;
 use App\Services\Ai\AiException;
 use App\Services\AuditService;
@@ -214,12 +217,28 @@ class OkrController extends Controller
 
     public function destroy(OkrCycle $okr): RedirectResponse
     {
-        abort_unless($okr->isDraft(), 422, 'Hanya draf OKR yang bisa dihapus.');
         $id = $okr->id;
-        $okr->delete();
-        AuditService::log(action: 'delete_okr_draft', targetType: 'okr_cycle', targetId: $id);
+        $wasActive = ! $okr->isDraft();
 
-        return redirect()->route('okr.index')->with('status', 'Draf OKR dihapus.');
+        DB::transaction(function () use ($okr) {
+            // Hapus kartu Kanban yang dibuat dari tugas OKR ini dulu, BARU
+            // $okr->delete() (meng-cascade objectives→KR→tasks via cascadeOnDelete).
+            // board_cards pakai SoftDeletes: ->delete() biasa cuma set deleted_at
+            // dan TIDAK memicu FK cascade ke board_card_comments. Pakai forceDelete()
+            // supaya benar-benar DELETE dan komentarnya ikut kehapus lewat FK.
+            // Draf tak punya kartu (board_card_id null) → aman lewat jalur yang sama.
+            $objectiveIds = $okr->objectives()->pluck('id');
+            $krIds = OkrKeyResult::whereIn('okr_objective_id', $objectiveIds)->pluck('id');
+            $cardIds = OkrTask::whereIn('okr_key_result_id', $krIds)->whereNotNull('board_card_id')->pluck('board_card_id');
+            BoardCard::whereIn('id', $cardIds)->forceDelete();
+            $okr->delete();
+        });
+
+        AuditService::log(action: 'delete_okr', targetType: 'okr_cycle', targetId: $id);
+
+        return redirect()->route('okr.index')->with('status', $wasActive
+            ? 'OKR dihapus (termasuk kartu Kanban terkait).'
+            : 'Draf OKR dihapus.');
     }
 
     /** @return Collection<int,User> */
