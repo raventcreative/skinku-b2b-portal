@@ -91,7 +91,8 @@ class ContentPublishDueCommand extends Command
         $target->update([
             'attempts' => $attempts,
             'last_error' => $error,
-            'container_id' => null, // container gagal/basi → buat ulang saat retry
+            // container_id dipertahankan: error jaringan setelah posting terkirim tak boleh
+            // memicu posting ulang. Publisher sendiri yang mengosongkannya bila platform menolak.
             'container_polls' => 0,
             'status' => $retry ? ContentPostTarget::QUEUED : ContentPostTarget::FAILED,
             'next_attempt_at' => $retry ? now()->addMinutes($backoff[$attempts - 1]) : null,
