@@ -222,6 +222,31 @@ class MarketplaceMasterService
         $listing->update(['master_id' => $m->id]);
     }
 
+    /**
+     * Tautkan banyak listing ke master (bulk). Return jumlah listing ter-update.
+     * Guard `whereNull('master_id')`: hanya listing yang BELUM tertaut yang boleh
+     * ditautkan — cegah "curi" listing milik master lain lewat POST langsung
+     * (UI modal memang cuma nawarin baris belum-tertaut). Simetris dg unlinkListings.
+     */
+    public function linkListings(MarketplaceMaster $m, array $ids): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return MarketplaceListing::whereIn('id', $ids)->whereNull('master_id')->update(['master_id' => $m->id]);
+    }
+
+    /** Lepas banyak listing dari master — HANYA yang memang milik master ini (safety). */
+    public function unlinkListings(MarketplaceMaster $m, array $ids): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return MarketplaceListing::whereIn('id', $ids)->where('master_id', $m->id)->update(['master_id' => null]);
+    }
+
     // ---- Push stok & harga (aditif; independen per listing, anti-push null) ----
 
     /** Push stok & harga efektif satu listing (via master+channel). Kedua field independen, anti-push null. */
