@@ -32,9 +32,10 @@ class ModelTest extends TestCase
     /**
      * Task 2 (dedup by NAMA) fix-round: constraint unique master_sku di-drop
      * (migrasi 000148) krn identitas master sekarang murni via name_key
-     * (app-level, di MarketplaceMasterService::findOrCreateMaster) — master_sku
-     * cuma SKU representatif & SAH duplikat antar master (kasus nyata: SKU
-     * sama dipakai ulang di channel berbeda dgn judul produk berbeda).
+     * (dulu didedup app-level saat jalur auto-master masih ada; sekarang
+     * master dibuat manual) — master_sku cuma SKU representatif & SAH
+     * duplikat antar master (kasus nyata: SKU sama dipakai ulang di channel
+     * berbeda dgn judul produk berbeda).
      * Dulu tes ini menuntut QueryException; sekarang justru menuntut SEBALIKNYA.
      */
     public function test_master_sku_boleh_duplikat_krn_dedup_sekarang_by_name_key(): void

@@ -23,12 +23,11 @@ class ResolveMasterTest extends TestCase
 
     /**
      * Regresi bug orphan: listing yang seller_sku-nya BEDA dari master_sku
-     * master tujuan (persis pola "gabung listing" di TautkanTest — SEBELUM
-     * pernah punya master sendiri) ditautkan manual ke master lain, lalu
-     * channel melaporkan seller_sku yang sama lagi di resolve berikutnya.
-     * Sejak jalur auto-master dibuang, upsertListing() TAK LAGI menyentuh
-     * master_id sama sekali — jadi tautan manual otomatis aman & tak ada
-     * master orphan baru yang mungkin dibuat.
+     * master tujuan (ditautkan manual ke master lain SEBELUM pernah punya
+     * master sendiri), lalu channel melaporkan seller_sku yang sama lagi di
+     * resolve berikutnya. Sejak jalur auto-master dibuang, upsertListing()
+     * TAK LAGI menyentuh master_id sama sekali — jadi tautan manual otomatis
+     * aman & tak ada master orphan baru yang mungkin dibuat.
      */
     public function test_resolve_ulang_tidak_membuat_master_orphan_untuk_listing_yang_sudah_ditautkan_manual(): void
     {
@@ -36,7 +35,7 @@ class ResolveMasterTest extends TestCase
 
         $master = MarketplaceMaster::create(['master_sku' => 'REI-3', 'name' => 'Reina 3']);
         $listing = MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'REI-30G', 'item_id' => 'IT']);
-        app(MarketplaceMasterService::class)->tautkanListing($listing, $master->id);
+        $listing->update(['master_id' => $master->id]); // tautan manual (dulu lewat tautkanListing(), kini dibuang)
         $countSebelum = MarketplaceMaster::count();
 
         Http::fake([
