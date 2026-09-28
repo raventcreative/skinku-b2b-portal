@@ -18,7 +18,10 @@ class TikTokContentClient
 {
     public const API = 'https://open.tiktokapis.com/v2';
 
-    public const SCOPES = ['user.info.basic', 'video.publish', 'video.upload', 'video.list']; // video.list: insight (FR-80)
+    // ponytail: video.list (insight TikTok, FR-80) ditunda — hanya membaca video publik, jadi tak bisa
+    // diperagakan di demo Sandbox (wajib private) untuk audit pertama. Tambahkan lagi + Display API di
+    // app TikTok sebagai revisi setelah lolos audit; videoStats() & ContentInsights sudah siap.
+    public const SCOPES = ['user.info.basic', 'video.publish', 'video.upload'];
 
     public const PRIVACY_LABELS = [
         'PUBLIC_TO_EVERYONE' => 'Publik',
