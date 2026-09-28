@@ -282,6 +282,51 @@ class ContentCreatorTest extends TestCase
         $this->assertSame(0, $threads->fresh()->attempts);
     }
 
+    public function test_gagal_ambil_permalink_atau_container_ditolak_tidak_posting_dobel(): void
+    {
+        $creator = $this->user('content_creator', 'cc7');
+        $admin = $this->user(User::ROLE_ADMIN, 'adm5');
+        SocialConnection::create(['platform' => 'facebook', 'account_id' => 'page1', 'access_token' => 'tok']);
+        SocialConnection::create(['platform' => 'instagram', 'account_id' => 'ig1', 'access_token' => 'tok']);
+
+        $containers = 0;
+        Http::fake(function (HttpRequest $r) use (&$containers) {
+            $url = $r->url();
+
+            return match (true) {
+                str_contains($url, '/page1/photos') => Http::response(['id' => 'ph1', 'post_id' => 'page1_1']),
+                str_contains($url, '/page1_1') => Http::response('', 500), // postingan terbit, link gagal
+                str_contains($url, '/ig1/media_publish') => Http::response(['id' => 'igm1']),
+                str_contains($url, '/ig1/media') => Http::response(['id' => 'igc'.(++$containers)]),
+                str_contains($url, '/igc1') => Http::response(['status_code' => 'ERROR', 'status' => 'Format tidak didukung']),
+                str_contains($url, '/igc2') => Http::response(['status_code' => 'FINISHED']),
+                str_contains($url, '/igm1') => Http::response(['permalink' => 'https://www.instagram.com/p/x/']),
+                default => Http::response(['error' => ['message' => 'unexpected '.$url]], 400),
+            };
+        });
+
+        $post = $this->submitted($creator, ['facebook', 'instagram']);
+        $this->actingAs($admin)->post(route('content.approve', $post))->assertSessionHasNoErrors();
+        $this->artisan('content:publish-due');
+
+        $fb = $post->targets()->where('platform', 'facebook')->first();
+        $this->assertSame(ContentPostTarget::PUBLISHED, $fb->status, (string) $fb->last_error);
+        $this->assertSame('page1_1', $fb->external_id);
+        $this->assertNull($fb->permalink);
+
+        // Container IG ditolak → dikosongkan, retry membuat container baru.
+        $ig = $post->targets()->where('platform', 'instagram')->first();
+        $this->assertSame(ContentPostTarget::QUEUED, $ig->status);
+        $this->assertNull($ig->container_id);
+
+        $this->travel(10)->minutes();
+        $this->artisan('content:publish-due');
+        $this->assertSame(ContentPostTarget::PUBLISHED, $ig->fresh()->status, (string) $ig->fresh()->last_error);
+
+        Http::assertSentCount(8); // fb: photos+link; ig: container1+cek, container2+cek+publish+link
+        $this->assertCount(1, Http::recorded(fn (HttpRequest $r) => str_contains($r->url(), '/page1/photos')));
+    }
+
     public function test_jadwal_masa_depan_belum_diterbitkan(): void
     {
         $creator = $this->user('content_creator', 'cc6');

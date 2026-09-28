@@ -70,7 +70,8 @@ class ContentPublisher
             $id = $res['post_id'] ?? $res['id'];
         }
 
-        $link = $this->meta->get($base, "/{$id}", $token, ['fields' => 'permalink_url'])['permalink_url'] ?? null;
+        // Postingan sudah terbit — gagal ambil link tak boleh memicu retry (= posting dobel).
+        $link = rescue(fn () => $this->meta->get($base, "/{$id}", $token, ['fields' => 'permalink_url'])['permalink_url'] ?? null, null, false);
         if ($link && str_starts_with($link, '/')) {
             $link = 'https://www.facebook.com'.$link;
         }
@@ -119,6 +120,7 @@ class ContentPublisher
         $status = $this->tiktok->status($token, $publishId);
         $state = $status['status'] ?? '';
         if ($state === 'FAILED') {
+            $target->update(['container_id' => null]); // ditolak → retry boleh posting ulang
             throw new RuntimeException('TikTok menolak postingan: '.($status['fail_reason'] ?? 'tanpa alasan'));
         }
         if ($state !== 'PUBLISH_COMPLETE') {
@@ -163,14 +165,18 @@ class ContentPublisher
         $check = $this->meta->get($base, "/{$container}", $token, ['fields' => $spec['status'].','.$spec['error']]);
         $status = strtoupper((string) ($check[$spec['status']] ?? ''));
         if (in_array($status, ['ERROR', 'EXPIRED'], true)) {
+            $target->update(['container_id' => null]); // container mati → retry buat ulang
             throw new RuntimeException('Platform menolak media: '.($check[$spec['error']] ?? $status));
         }
-        if ($status !== 'FINISHED' && $status !== 'PUBLISHED') {
+        if ($status === 'PUBLISHED') { // terbit, tapi respons publish hilang → jangan publish lagi
+            throw new RuntimeException('Media sudah terbit di platform tapi ID-nya tak tercatat — cek akun & tandai terbit manual.');
+        }
+        if ($status !== 'FINISHED') {
             return ['status' => 'pending', 'container_id' => $container];
         }
 
         $id = (string) $this->meta->post($base, "/{$uid}/{$spec['publish']}", $token, ['creation_id' => $container])['id'];
-        $link = $this->meta->get($base, "/{$id}", $token, ['fields' => 'permalink'])['permalink'] ?? null;
+        $link = rescue(fn () => $this->meta->get($base, "/{$id}", $token, ['fields' => 'permalink'])['permalink'] ?? null, null, false);
 
         return ['status' => 'published', 'external_id' => $id, 'permalink' => $link];
     }

@@ -142,6 +142,38 @@ class ContentTikTokTest extends TestCase
             && strlen($r->body()) === 1024000);
     }
 
+    public function test_status_gagal_jaringan_setelah_upload_tidak_upload_ulang(): void
+    {
+        $this->connect();
+        $statusCalls = 0;
+        Http::fake(function (HttpRequest $r) use (&$statusCalls) {
+            $ok = ['error' => ['code' => 'ok', 'message' => '']];
+
+            return match (true) {
+                str_contains($r->url(), '/video/init/') => Http::response($ok + ['data' => ['publish_id' => 'pub1', 'upload_url' => 'https://open-upload.tiktokapis.com/upload/?id=1']]),
+                str_contains($r->url(), 'open-upload.tiktokapis.com') => Http::response('', 201),
+                // Panggilan status pertama putus (5xx) padahal video sudah terkirim.
+                str_contains($r->url(), '/status/fetch/') => ++$statusCalls === 1
+                    ? Http::response('', 502)
+                    : Http::response($ok + ['data' => ['status' => 'PUBLISH_COMPLETE', 'publicaly_available_post_id' => [7551234567890]]]),
+                default => Http::response(['error' => ['code' => 'unexpected', 'message' => $r->url()]], 400),
+            };
+        });
+        $post = $this->submitted($this->user('content_creator', 'tc5'), 'video');
+        $this->actingAs($this->user(User::ROLE_ADMIN, 'ta5'))->post(route('content.approve', $post), ['tiktok' => ['privacy_level' => 'SELF_ONLY', 'consent' => '1']]);
+
+        $this->artisan('content:publish-due');
+        $target = $post->targets()->first();
+        $this->assertSame(ContentPostTarget::QUEUED, $target->status);
+        $this->assertSame('pub1', $target->container_id); // publish_id dipertahankan
+
+        $this->travel(10)->minutes();
+        $this->artisan('content:publish-due');
+
+        $this->assertSame(ContentPostTarget::PUBLISHED, $target->fresh()->status, (string) $target->fresh()->last_error);
+        Http::assertSentCount(4); // init + 1 potongan + 2x status — tanpa init kedua
+    }
+
     public function test_carousel_dikirim_sebagai_photo_post_pull_from_url(): void
     {
         $this->connect();
