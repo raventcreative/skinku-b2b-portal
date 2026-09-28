@@ -161,6 +161,7 @@ Route (di dalam grup `['auth','role']` yang ada):
 - **Publish IG**: `POST /{ig-user-id}/media` (`image_url` | `media_type=REELS`+`video_url`, `caption`) → poll `GET /{container-id}?fields=status_code` hingga `FINISHED` (video) → `POST /{ig-user-id}/media_publish` (`creation_id`) → `GET /{media-id}?fields=permalink`. Carousel: container anak `is_carousel_item=true` → container `media_type=CAROUSEL` + `children` → publish.
 - **Kuota**: `GET /{ig-user-id}/content_publishing_limit` sebelum publish (FR-59).
 - Versi API di `config('services.meta.graph_version')` (mis. `v23.0`).
+- **Insight (Fase 3)**: scope tambahan `read_insights`, `instagram_manage_insights`; Threads `threads_manage_insights`; TikTok `video.list`. Butuh hubungkan ulang akun; untuk akun di luar role app butuh Advanced Access/App Review.
 
 ### 6.2 Threads (Fase 1)
 - OAuth terpisah di `threads.net/oauth/authorize`, scope `threads_basic`, `threads_content_publish`. Short-lived → long-lived token (60 hari) → **refresh** via `GET /refresh_access_token` sebelum kedaluwarsa (scheduler harian).
@@ -230,7 +231,7 @@ Perintah: `php artisan test --filter=Content`.
 | 1a | Role + akun demo + permission + dashboard creator + CRUD konten + upload + workflow review + TikTok mode manual | 3–4 hari |
 | 1b | Koneksi Meta (FB+IG) + Threads + job publish + retry + refresh token + notifikasi | 4–5 hari (di luar waktu tunggu setup/review Meta App) |
 | 2 | TikTok Content Posting API (+ audit app oleh TikTok, 1–4 minggu di pihak TikTok) | 3–4 hari dev |
-| 3 | Insight/metrik & laporan creator | TBD |
+| 3 | Insight/metrik & laporan creator (FR-80..84) — **SELESAI di kode 2026-09-28**: `content_post_snapshots` (000149), `Social\ContentInsights`, `content:sync-insights`, halaman `content-insights.index` | 1 hari dev + reconnect akun |
 
 ## 11. Prasyarat dari SKINKU sebelum Fase 1b
 

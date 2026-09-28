@@ -109,3 +109,6 @@ Schedule::command('content:publish-due')->everyMinute()->withoutOverlapping(5);
 
 // Perpanjang token Threads (±60 hari) sebelum kedaluwarsa.
 Schedule::command('social:refresh-tokens')->dailyAt('04:10')->withoutOverlapping(30);
+
+// Insight konten brand (Fase 3): snapshot metrik harian setelah token diperpanjang.
+Schedule::command('content:sync-insights')->dailyAt('05:00')->withoutOverlapping(30);

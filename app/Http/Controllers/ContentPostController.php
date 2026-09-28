@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\ContentPost;
+use App\Models\ContentPostSnapshot;
 use App\Models\ContentPostTarget;
 use App\Models\SocialConnection;
 use App\Services\AuditService;
@@ -12,6 +13,7 @@ use App\Services\Social\MetaClient;
 use App\Services\Social\TikTokContentClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -35,6 +37,11 @@ class ContentPostController extends Controller
             ->whereHas('post', fn ($q) => $q->where('user_id', $request->user()->id))
             ->distinct('content_post_id')->count('content_post_id');
 
+        // Views snapshot terbaru dari postingan milik creator yang terbit 30 hari terakhir (FR-83).
+        $views30 = (int) ContentPostSnapshot::whereIn('id', ContentPostTarget::where('published_at', '>=', now()->subDays(30))
+            ->whereHas('post', fn ($q) => $q->where('user_id', $request->user()->id))
+            ->withMax('snapshots', 'id')->pluck('snapshots_max_id')->filter())->sum('views');
+
         return view('content.dashboard', [
             'cards' => [
                 ['Draft', $counts[ContentPost::DRAFT] ?? 0, 'bg-stone-500'],
@@ -42,6 +49,7 @@ class ContentPostController extends Controller
                 ['Ditolak', $counts[ContentPost::REJECTED] ?? 0, 'bg-rose-500'],
                 ['Terjadwal / Terbit', ($counts[ContentPost::SCHEDULED] ?? 0) + ($counts[ContentPost::PUBLISHING] ?? 0), 'bg-blue-500'],
                 ['Terbit Bulan Ini', $publishedThisMonth, 'bg-emerald-500'],
+                ['Views 30 Hari', $views30, 'bg-red-600'],
             ],
             'recent' => (clone $own)->with('targets')->latest('id')->limit(10)->get(),
             'attention' => (clone $own)->whereIn('status', [ContentPost::REJECTED, ContentPost::FAILED, ContentPost::PARTIAL])
@@ -74,13 +82,31 @@ class ContentPostController extends Controller
     public function show(Request $request, ContentPost $post): View
     {
         $this->authorizeView($request, $post);
-        $post->load(['targets', 'user', 'reviewer']);
+        $post->load(['targets.snapshots' => fn ($q) => $q->orderBy('captured_on'), 'user', 'reviewer']);
 
         $history = AuditLog::where('target_type', 'content_post')->where('target_id', $post->id)
             ->orderBy('id')->get(['action', 'performed_by_email', 'after_data', 'created_at']);
 
         return view('content.show', ['post' => $post, 'media' => $post->filesIn(ContentPost::MEDIA)->get(), 'history' => $history,
-            'tiktokInfo' => $this->tiktokCreatorInfo($request, $post)]);
+            'tiktokInfo' => $this->tiktokCreatorInfo($request, $post), 'insightChart' => $this->insightChart($post)]);
+    }
+
+    /** Grafik views per platform untuk detail konten (FR-82). Null bila belum ada snapshot. */
+    private function insightChart(ContentPost $post): ?array
+    {
+        $dates = $post->targets->flatMap->snapshots->map(fn ($s) => $s->captured_on->toDateString())->unique()->sort()->values();
+        if ($dates->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'labels' => $dates->map(fn ($d) => Carbon::parse($d)->format('d M'))->all(),
+            'datasets' => $post->targets->filter(fn ($t) => $t->snapshots->isNotEmpty())->map(function ($t) use ($dates) {
+                $byDate = $t->snapshots->keyBy(fn ($s) => $s->captured_on->toDateString());
+
+                return ['label' => $t->platformLabel(), 'data' => $dates->map(fn ($d) => $byDate[$d]->views ?? null)->all()];
+            })->values()->all(),
+        ];
     }
 
     /**

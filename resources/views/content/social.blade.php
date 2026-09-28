@@ -41,6 +41,9 @@
                             @elseif($c->access_expires_at) Token berlaku s/d {{ $c->access_expires_at->format('d M Y') }} (diperpanjang otomatis)
                             @else Aktif @endif
                         </p>
+                        @if(! empty($c->meta['insight_error']))
+                            <p class="text-[11px] text-amber-700">Insight belum bisa ditarik — hubungkan ulang untuk memberi izin insight. <span class="text-stone-400">{{ $c->meta['insight_error'] }}</span></p>
+                        @endif
                     @else
                         <p class="text-xs text-stone-400">Belum terhubung. {{ $hint }}</p>
                     @endif

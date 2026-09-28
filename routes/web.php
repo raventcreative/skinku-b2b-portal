@@ -11,6 +11,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackdatedSaleController;
 use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\ContentPostController;
+use App\Http\Controllers\ContentInsightController;
 use App\Http\Controllers\ContentReviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DownlineOrderController;
@@ -686,6 +687,7 @@ Route::middleware(['auth', 'role'])->group(function () {
     Route::get('/content/{post}', [ContentPostController::class, 'show'])->name('content.show');
     Route::middleware('permission:content.review')->group(function () {
         Route::get('/content-review', [ContentReviewController::class, 'index'])->name('content-review.index');
+        Route::get('/content-insights', [ContentInsightController::class, 'index'])->name('content-insights.index');
         Route::post('/content/{post}/approve', [ContentReviewController::class, 'approve'])->name('content.approve');
         Route::post('/content/{post}/reject', [ContentReviewController::class, 'reject'])->name('content.reject');
     });
