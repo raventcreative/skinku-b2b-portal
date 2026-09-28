@@ -57,6 +57,12 @@ class MarketplaceMasterService
         ]);
     }
 
+    /** Kosongkan SELURUH katalog master e-commerce (bulk). FK: listing.master_id auto-null (nullOnDelete), channel override auto-hapus (cascade). HQ TAK disentuh. Return jumlah master dihapus. */
+    public function deleteAllMasters(): int
+    {
+        return MarketplaceMaster::query()->delete();
+    }
+
     // ---- Setter Master ----
 
     public function setMasterStock(MarketplaceMaster $m, int $qty): void

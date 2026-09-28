@@ -262,4 +262,11 @@ class MarketplaceStockController extends Controller
 
         return back()->with('status', "Master \"{$name}\" dihapus.");
     }
+
+    public function kosongkan(MarketplaceMasterService $svc): RedirectResponse
+    {
+        $n = $svc->deleteAllMasters();
+
+        return back()->with('status', "$n master dihapus — katalog dikosongkan. Stok HQ tak terpengaruh.");
+    }
 }
