@@ -37,7 +37,6 @@ class MarketplaceStockController extends Controller
                 'satuan' => MarketplaceMaster::where('is_bundle', false)->count(),
                 'bundle' => MarketplaceMaster::where('is_bundle', true)->count(),
             ],
-            'unlinkedListings' => MarketplaceListing::whereNull('master_id')->orderBy('channel')->orderBy('seller_sku')->get(['id', 'channel', 'seller_sku', 'title']),
             'unlinkedCount' => MarketplaceListing::whereNull('master_id')->count(),
             'allListings' => MarketplaceListing::orderBy('channel')->orderBy('seller_sku')->get(['id', 'channel', 'seller_sku', 'title', 'master_id']),
             'masterNames' => MarketplaceMaster::pluck('name', 'id'),
