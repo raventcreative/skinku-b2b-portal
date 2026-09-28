@@ -389,7 +389,7 @@ Publikasi: cron `content:publish-due` tiap menit (inline, bukan queue job) → `
 
 ## 9d. Produk Master E-commerce
 
-**Status:** Model **MANUAL ala Desty** SELESAI di branch `feat/produk-master-manual` (4 task SDD), belum merge ke `main`. Menggantikan model auto-dedup-by-nama (branch `feat/produk-master-katalog`, sempat merge & LIVE di `main` — tombol "Siapkan Master"/"Tarik Stok Awal (seed)"/"Buat master otomatis"/gabung-otomatis) yang hasilnya berantakan (banyak baris stok unmapped/harga kosong). Sekarang admin membuat & menautkan tiap master satu-per-satu, persis Desty.
+**Status:** Model **MANUAL ala Desty** SELESAI & **MERGED ke `main`** (`7b87bef`, LIVE; branch `feat/produk-master-manual`, 4 task SDD). Menggantikan model auto-dedup-by-nama (branch `feat/produk-master-katalog`, sempat merge & LIVE di `main` — tombol "Siapkan Master"/"Tarik Stok Awal (seed)"/"Buat master otomatis"/gabung-otomatis) yang hasilnya berantakan (banyak baris stok unmapped/harga kosong). Sekarang admin membuat & menautkan tiap master satu-per-satu, persis Desty.
 
 **Tujuan:** kontrol stok+harga marketplace ala Desty — tiap unit jualan (satuan/varian/**bundle**) = 1 baris "Produk Master" dengan stok & harga **di-set langsung** (bukan diturunkan dari pool produk HQ), ditautkan manual ke listing TikTok/Shopee, dengan opsi override per-channel. **TERPISAH TOTAL dari stok HQ** (`hq_stock`/`stock_movements`/`InventoryService` tak pernah dibaca/ditulis oleh modul ini).
 
