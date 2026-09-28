@@ -79,4 +79,32 @@ class KaitkanTest extends TestCase
             ->post(route('marketplace-stock.kaitkan', $m), ['listing_ids' => [$l->id]])
             ->assertForbidden();
     }
+
+    public function test_flash_error_saat_push_gagal(): void
+    {
+        // Master ber-stok + listing ber-item_id TANPA koneksi channel → pushStock
+        // lempar "TikTok belum terhubung" (ketangkep → failed) → flash 'error' tersurface
+        // (bukan cuma "didorong" bohongan).
+        $m = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'Hana', 'name_key' => 'hana', 'base_stock' => 10, 'base_price' => 5000, 'seeded_at' => now()]);
+        $l = MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'A', 'item_id' => 'P1', 'variation_id' => 'V1', 'warehouse_id' => 'W1', 'master_id' => null]);
+
+        $this->actingAs($this->admin())
+            ->post(route('marketplace-stock.kaitkan', $m), ['listing_ids' => [$l->id]])
+            ->assertRedirect()
+            ->assertSessionHas('status')
+            ->assertSessionHas('error');
+
+        // status push kerekam gagal di listing (buat ditampilkan di halaman channel).
+        $this->assertSame('failed', $l->refresh()->last_status);
+    }
+
+    public function test_halaman_channel_tampilkan_pesan_error_push(): void
+    {
+        $m = MarketplaceMaster::create(['master_sku' => 'FM-1', 'name' => 'Hana', 'name_key' => 'hana', 'base_stock' => 10, 'seeded_at' => now()]);
+        MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'A', 'item_id' => 'P1', 'master_id' => $m->id, 'last_status' => 'failed', 'last_error' => 'Scope Product belum diotorisasi PRODUK_XYZ']);
+
+        $this->actingAs($this->admin())->get(route('marketplace-stock.channel', 'tiktok'))
+            ->assertOk()
+            ->assertSee('Scope Product belum diotorisasi PRODUK_XYZ');
+    }
 }

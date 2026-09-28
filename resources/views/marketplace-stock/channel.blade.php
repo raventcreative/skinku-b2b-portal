@@ -49,7 +49,12 @@
                                 <form method="POST" action="{{ route('marketplace-stock.ikut-master', ['channel'=>$channel,'master'=>$m]) }}" class="mt-1">@csrf<input type="hidden" name="field" value="price"><button class="px-2 py-1 bg-amber-600 text-white rounded-lg text-[11px]">Ikut Master</button></form>
                             @endif
                         </td>
-                        <td class="py-2.5 pr-4 text-[11px] text-stone-500">{{ $row['listing']->last_status ?? '—' }}/{{ $row['listing']->last_price_status ?? '—' }}</td>
+                        <td class="py-2.5 pr-4 text-[11px]">
+                            @php $lst = $row['listing']; $sFail = $lst?->last_status === 'failed'; $pFail = $lst?->last_price_status === 'failed'; @endphp
+                            <span class="{{ ($sFail || $pFail) ? 'text-rose-600 font-semibold' : 'text-stone-500' }}">{{ $lst?->last_status ?? '—' }}/{{ $lst?->last_price_status ?? '—' }}</span>
+                            @if($lst?->last_error)<div class="text-rose-500 mt-0.5 max-w-[240px] break-words" title="{{ $lst->last_error }}">stok: {{ \Illuminate\Support\Str::limit($lst->last_error, 80) }}</div>@endif
+                            @if($lst?->last_price_error)<div class="text-rose-500 mt-0.5 max-w-[240px] break-words" title="{{ $lst->last_price_error }}">harga: {{ \Illuminate\Support\Str::limit($lst->last_price_error, 80) }}</div>@endif
+                        </td>
                     </tr>
                 @endforeach
                 </tbody>

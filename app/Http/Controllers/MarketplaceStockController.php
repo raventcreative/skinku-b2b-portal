@@ -150,18 +150,16 @@ class MarketplaceStockController extends Controller
     {
         $r->validate(['quantity' => ['required', 'integer', 'min:0']]);
         $svc->setMasterStock($master, (int) $r->quantity);
-        $svc->pushMaster($master);
 
-        return back()->with('status', "Stok master {$master->name} disetel & disinkron.");
+        return $this->pushFlash(back(), $svc->pushMaster($master), "Stok master \"{$master->name}\" disetel.");
     }
 
     public function setMasterPrice(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
         $r->validate(['price' => ['required', 'numeric', 'min:0']]);
         $svc->setMasterPrice($master, (float) $r->price);
-        $svc->pushMaster($master);
 
-        return back()->with('status', "Harga master {$master->name} disetel & disinkron.");
+        return $this->pushFlash(back(), $svc->pushMaster($master), "Harga master \"{$master->name}\" disetel.");
     }
 
     public function setChannelStock(Request $r, string $channel, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
@@ -201,9 +199,8 @@ class MarketplaceStockController extends Controller
             'listing_ids.*' => ['integer', 'exists:marketplace_listings,id'],
         ]);
         $n = $svc->linkListings($master, $data['listing_ids']);
-        $svc->pushMaster($master);
 
-        return back()->with('status', "$n listing ditautkan ke \"{$master->name}\" & stok didorong.");
+        return $this->pushFlash(back(), $svc->pushMaster($master), "$n listing ditautkan ke \"{$master->name}\".");
     }
 
     public function lepas(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
@@ -227,9 +224,34 @@ class MarketplaceStockController extends Controller
 
     public function pushAll(MarketplaceMasterService $svc): RedirectResponse
     {
-        $r = $svc->pushAll();
+        return $this->pushFlash(back(), $svc->pushAll(), 'Sinkron semua.');
+    }
 
-        return back()->with('status', "Sinkron semua: {$r['pushed']} terkirim, {$r['skipped']} dilewati, {$r['failed']} gagal.");
+    /**
+     * Flash hasil push JUJUR: `status` berisi hitungan OK/dilewati/gagal (bukan
+     * asal "disinkron"); kalau ADA yang gagal → flash `error` + arahkan ke halaman
+     * Stok TikTok/Shopee untuk baca pesan error tiap listing.
+     *
+     * @param  array{pushed:int,skipped:int,failed:int}  $r
+     */
+    private function pushFlash(RedirectResponse $back, array $r, string $prefix): RedirectResponse
+    {
+        $counts = [];
+        if (($r['pushed'] ?? 0) > 0) {
+            $counts[] = "{$r['pushed']} sinkron OK";
+        }
+        if (($r['skipped'] ?? 0) > 0) {
+            $counts[] = "{$r['skipped']} dilewati";
+        }
+        if (($r['failed'] ?? 0) > 0) {
+            $counts[] = "{$r['failed']} GAGAL";
+        }
+        $back->with('status', trim($prefix.($counts !== [] ? ' ('.implode(', ', $counts).')' : '')));
+        if (($r['failed'] ?? 0) > 0) {
+            $back->with('error', "{$r['failed']} push ke marketplace GAGAL — stok/harga belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing (sering: scope Product app belum di-otorisasi ulang).");
+        }
+
+        return $back;
     }
 
     public function resolve(MarketplaceMasterService $svc): RedirectResponse
