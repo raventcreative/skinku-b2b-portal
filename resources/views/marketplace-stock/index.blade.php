@@ -15,6 +15,7 @@
             <a href="{{ route('marketplace-stock.create') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">+ Tambah Produk Baru</a>
             <form method="POST" action="{{ route('marketplace-stock.push-all') }}">@csrf<button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⇪ Sinkron semua</button></form>
             <form method="POST" action="{{ route('marketplace-stock.resolve') }}">@csrf<button class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">↻ Refresh Listing</button></form>
+            <form method="POST" action="{{ route('marketplace-stock.kosongkan') }}" onsubmit="return confirm('Kosongkan SEMUA produk master? Semua master + tautannya dihapus permanen (stok HQ TIDAK terpengaruh). Tidak bisa dibatalkan.')">@csrf<button class="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700">🗑 Kosongkan Semua Master</button></form>
             <a href="{{ route('marketplace-stock.channel', 'tiktok') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok & Harga TikTok →</a>
             <a href="{{ route('marketplace-stock.channel', 'shopee') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok & Harga Shopee →</a>
         </div>

@@ -431,13 +431,6 @@
             </div>
         </form>
 
-        <div class="flex justify-end mt-4">
-            <form method="POST" action="{{ route('okr.destroy', $okr) }}" onsubmit="return confirm('Hapus draf OKR ini?')">
-                @csrf @method('DELETE')
-                <button class="px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg">{{ $legacyDraft ? 'Hapus draf lama' : 'Hapus draf' }}</button>
-            </form>
-        </div>
-
         <script>
             function toggleInlineEditor(id) {
                 document.getElementById(id + '-view').classList.toggle('hidden');
@@ -478,6 +471,15 @@
                 if (bestOption) columnSelect.value = bestOption.value;
             }
         </script>
+    @endif
+
+    @if($canManage)
+        <div class="flex justify-end mt-4">
+            <form method="POST" action="{{ route('okr.destroy', $okr) }}" onsubmit="return confirm('{{ $okr->isDraft() ? 'Hapus draf OKR ini?' : 'Hapus OKR ini beserta SEMUA kartu Kanban dari tugasnya? Tidak bisa dibatalkan.' }}')">
+                @csrf @method('DELETE')
+                <button class="px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg">{{ $okr->isDraft() ? ($legacyDraft ? 'Hapus draf lama' : 'Hapus draf') : 'Hapus OKR' }}</button>
+            </form>
+        </div>
     @endif
     @endif {{-- tutup blok generating / failed / else --}}
 </div>

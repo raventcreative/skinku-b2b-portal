@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Models\MarketplaceMasterChannel;
-use App\Models\Product;
 use App\Models\ShopeeConnection;
 use App\Models\TiktokConnection;
 use Carbon\Carbon;
@@ -56,6 +55,12 @@ class MarketplaceMasterService
             'is_bundle' => $m->is_bundle,
             'base_price' => $m->base_price,
         ]);
+    }
+
+    /** Kosongkan SELURUH katalog master e-commerce (bulk). FK: listing.master_id auto-null (nullOnDelete), channel override auto-hapus (cascade). HQ TAK disentuh. Return jumlah master dihapus. */
+    public function deleteAllMasters(): int
+    {
+        return MarketplaceMaster::query()->delete();
     }
 
     // ---- Setter Master ----
@@ -164,62 +169,14 @@ class MarketplaceMasterService
     /**
      * Isi/segarkan marketplace_listings dari channel (item_id/variation_id/
      * warehouse_id). TAK auto-buat/tautkan master — penautan ke master
-     * dilakukan manual lewat tautkanListing(). TERPISAH dari
-     * MarketplaceStockService::resolveListings() (SkuMap/HQ).
+     * dilakukan manual (lewat modal Kaitkan di UI / linkListings()). TERPISAH
+     * dari MarketplaceStockService::resolveListings() (SkuMap/HQ).
      *
      * @return array{found:int}
      */
     public function resolveListings(string $channel): array
     {
         return $channel === 'tiktok' ? $this->resolveTiktok() : $this->resolveShopee();
-    }
-
-    /**
-     * Cari master by `name_key` (nama ternormalisasi dari $name, fallback ke
-     * $sellerSku kalau $name kosong) — dedup SEKARANG by NAMA, bukan lagi
-     * master_sku, biar listing lintas-channel/varian yang namanya sama (mis.
-     * beda cuma spasi/kapital) ketemu jadi 1 master. Master baru: master_sku =
-     * $sellerSku (SKU perwakilan = yg pertama bikin), is_bundle dideteksi dari
-     * nama, image_url dari $imageUrl (boleh null). Master yang SUDAH ADA tak
-     * ditimpa name/master_sku/is_bundle-nya — resolve bukan tugasnya menimpa
-     * master existing; image_url cuma di-backfill kalau master itu belum
-     * punya (jangan timpa foto upload manual / hasil resolve channel lain).
-     */
-    public function findOrCreateMaster(string $sellerSku, ?string $name, ?string $imageUrl = null): MarketplaceMaster
-    {
-        $displayName = $name !== null && $name !== '' ? $name : $sellerSku;
-        $key = MarketplaceMaster::normalizeName($displayName);
-
-        $m = MarketplaceMaster::firstOrNew(['name_key' => $key]);
-        if (! $m->exists) {
-            $m->master_sku = $sellerSku;
-            $m->name = $displayName;
-            $m->is_bundle = MarketplaceMaster::detectBundle($displayName);
-            $m->image_url = $imageUrl;
-            $m->product_id = Product::where('sku', $sellerSku)->value('id'); // opsional; boleh null
-            $m->save();
-        } elseif ($imageUrl !== null && $imageUrl !== '' && ($m->image_url === null || $m->image_url === '')) {
-            $m->update(['image_url' => $imageUrl]); // backfill foto, jangan timpa yg sudah ada / upload manual
-        }
-
-        return $m;
-    }
-
-    /**
-     * Tautkan/pindahkan satu listing ke master lain (gabung ke $masterId yang
-     * sudah ada), atau — kalau $masterId null — buat master baru ber-SKU
-     * $newSku (fallback ke seller_sku listing) & nama $newName lalu tautkan.
-     */
-    public function tautkanListing(MarketplaceListing $listing, ?int $masterId, ?string $newSku = null, ?string $newName = null): void
-    {
-        if ($masterId !== null) {
-            $listing->update(['master_id' => $masterId]);
-
-            return;
-        }
-        $sku = $newSku !== null && $newSku !== '' ? $newSku : $listing->seller_sku;
-        $m = $this->findOrCreateMaster($sku, $newName ?? $listing->title);
-        $listing->update(['master_id' => $m->id]);
     }
 
     /**
@@ -391,7 +348,7 @@ class MarketplaceMasterService
 
     /**
      * Upsert baris listing by (channel, seller_sku); master_id dibiarkan apa
-     * adanya — penautan ke master dilakukan manual lewat tautkanListing.
+     * adanya — penautan ke master dilakukan manual (lewat modal Kaitkan / linkListings()).
      */
     private function upsertListing(string $channel, string $sellerSku, string $itemId, string $variationId, ?string $warehouseId, ?string $title): MarketplaceListing
     {

@@ -23,38 +23,46 @@
             $progress = $total ? (int) round(($done / $total) * 100) : 0;
             $finished = !$cycle->isDraft() && $total > 0 && $done === $total;
         @endphp
-        <a href="{{ route('okr.show', $cycle) }}" class="block bg-white rounded-2xl border border-stone-200 p-5 hover:border-red-300 transition">
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <p class="font-bold text-stone-900">{{ $cycle->name }}</p>
-                    <p class="text-xs text-stone-500 mt-1">{{ $cycle->period_label }} · {{ $cycle->scopeLabel() }}</p>
+        <div class="relative">
+            <a href="{{ route('okr.show', $cycle) }}" class="block bg-white rounded-2xl border border-stone-200 p-5 pr-12 hover:border-red-300 transition">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="font-bold text-stone-900">{{ $cycle->name }}</p>
+                        <p class="text-xs text-stone-500 mt-1">{{ $cycle->period_label }} · {{ $cycle->scopeLabel() }}</p>
+                    </div>
+                    @if($cycle->isDraft())
+                        <span class="shrink-0 px-2 py-1 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">DRAF</span>
+                    @elseif($finished)
+                        <span class="shrink-0 px-2 py-1 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">SELESAI</span>
+                    @else
+                        <span class="shrink-0 px-2 py-1 text-[10px] font-bold rounded-full bg-indigo-100 text-indigo-800">AKTIF</span>
+                    @endif
                 </div>
-                @if($cycle->isDraft())
-                    <span class="shrink-0 px-2 py-1 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800">DRAF</span>
-                @elseif($finished)
-                    <span class="shrink-0 px-2 py-1 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">SELESAI</span>
-                @else
-                    <span class="shrink-0 px-2 py-1 text-[10px] font-bold rounded-full bg-indigo-100 text-indigo-800">AKTIF</span>
-                @endif
-            </div>
 
-            <div class="mt-5">
-                <div class="flex justify-between text-[11px] text-stone-500 mb-1.5">
-                    <span>{{ $done }}/{{ $total }} tugas selesai</span>
-                    <b class="text-stone-700">{{ $progress }}%</b>
+                <div class="mt-5">
+                    <div class="flex justify-between text-[11px] text-stone-500 mb-1.5">
+                        <span>{{ $done }}/{{ $total }} tugas selesai</span>
+                        <b class="text-stone-700">{{ $progress }}%</b>
+                    </div>
+                    <div class="h-2 rounded-full bg-stone-100 overflow-hidden">
+                        <div class="h-full {{ $finished ? 'bg-emerald-500' : 'bg-red-500' }} rounded-full" style="width: {{ $progress }}%"></div>
+                    </div>
                 </div>
-                <div class="h-2 rounded-full bg-stone-100 overflow-hidden">
-                    <div class="h-full {{ $finished ? 'bg-emerald-500' : 'bg-red-500' }} rounded-full" style="width: {{ $progress }}%"></div>
-                </div>
-            </div>
 
-            <p class="text-[11px] text-stone-400 mt-4">{{ $cycle->objectives->count() }} Objective · {{ $cycle->start_date->format('d M') }}–{{ $cycle->end_date->format('d M Y') }}</p>
-            <div class="flex gap-1 mt-2">
-                @foreach($cycle->objectives->pluck('specialist')->filter()->unique() as $specialist)
-                    <span class="px-1.5 py-0.5 rounded-sm bg-stone-100 text-[9px] font-bold text-stone-600">{{ strtoupper($specialist) }}</span>
-                @endforeach
-            </div>
-        </a>
+                <p class="text-[11px] text-stone-400 mt-4">{{ $cycle->objectives->count() }} Objective · {{ $cycle->start_date->format('d M') }}–{{ $cycle->end_date->format('d M Y') }}</p>
+                <div class="flex gap-1 mt-2">
+                    @foreach($cycle->objectives->pluck('specialist')->filter()->unique() as $specialist)
+                        <span class="px-1.5 py-0.5 rounded-sm bg-stone-100 text-[9px] font-bold text-stone-600">{{ strtoupper($specialist) }}</span>
+                    @endforeach
+                </div>
+            </a>
+            @if($u->canDo('okr.manage'))
+                <form method="POST" action="{{ route('okr.destroy', $cycle) }}" class="absolute top-3 right-3 z-10" onsubmit="return confirm('{{ $cycle->isDraft() ? 'Hapus draf OKR ini?' : 'Hapus OKR ini beserta SEMUA kartu Kanban dari tugasnya? Tidak bisa dibatalkan.' }}')">
+                    @csrf @method('DELETE')
+                    <button class="p-1.5 rounded-lg bg-white/90 border border-stone-200 text-rose-600 hover:bg-rose-50" title="Hapus OKR">🗑</button>
+                </form>
+            @endif
+        </div>
     @empty
         <div class="col-span-full py-14 text-center bg-white rounded-2xl border border-dashed border-stone-300">
             <p class="text-stone-500 text-sm">Belum ada OKR.</p>

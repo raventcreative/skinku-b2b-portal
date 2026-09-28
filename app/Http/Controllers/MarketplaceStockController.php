@@ -194,20 +194,6 @@ class MarketplaceStockController extends Controller
         return back()->with('status', "{$channel} — {$master->name} ({$data['field']}) kembali ikut Master.");
     }
 
-    public function tautkan(Request $r, MarketplaceMasterService $svc): RedirectResponse
-    {
-        $data = $r->validate([
-            'listing_id' => ['required', 'integer', 'exists:marketplace_listings,id'],
-            'master_id' => ['nullable', 'integer', 'exists:marketplace_masters,id'],
-            'new_sku' => ['nullable', 'string'],
-            'new_name' => ['nullable', 'string'],
-        ]);
-        $listing = MarketplaceListing::findOrFail($data['listing_id']);
-        $svc->tautkanListing($listing, $data['master_id'] ?? null, $data['new_sku'] ?? null, $data['new_name'] ?? null);
-
-        return back()->with('status', "Listing {$listing->seller_sku} ditautkan.");
-    }
-
     public function kaitkan(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
         $data = $r->validate([
@@ -275,5 +261,12 @@ class MarketplaceStockController extends Controller
         $master->delete();
 
         return back()->with('status', "Master \"{$name}\" dihapus.");
+    }
+
+    public function kosongkan(MarketplaceMasterService $svc): RedirectResponse
+    {
+        $n = $svc->deleteAllMasters();
+
+        return back()->with('status', "$n master dihapus — katalog dikosongkan. Stok HQ tak terpengaruh.");
     }
 }
