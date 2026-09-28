@@ -121,6 +121,19 @@ Status per platform (level target): `pending` → `queued` → `publishing` → 
 | FR-73 | Kalender bulanan konten terjadwal/terbit (creator: miliknya; reviewer: semua). | S |
 | FR-74 | File media dihapus N hari (default 90) setelah semua target terbit; metadata & link tetap. | S |
 
+## 9b. Insight (Fase 3 — ditambahkan 2026-09-28)
+
+Keputusan: pola tampilan meniru **KOL Konten & Views** (snapshot harian + ER + grafik); data **otomatis via API** platform.
+
+| ID | Requirement | Prio |
+|----|-------------|------|
+| FR-80 | Command `content:sync-insights` (harian 05:00) menarik metrik semua target terbit via API (bukan manual) dalam 90 hari terakhir → tabel `content_post_snapshots`, satu baris per target per hari (jalan ulang di hari sama menimpa). | M |
+| FR-81 | Metrik seragam: views, reach, likes, comments, shares, saves (null bila platform tak menyediakan). FB: reactions/comments/shares + views; IG: like_count/comments_count + insight `views,reach,shares,saved`; Threads: insight `views,likes,replies,reposts,quotes,shares` (replies→comments, reposts+quotes+shares→shares); TikTok: `POST /v2/video/query` (hanya postingan publik yang punya post_id). | M |
+| FR-82 | Detail konten menampilkan kartu insight per platform (Views, ER, like/komen, share/save) + grafik views per platform. ER = (likes+comments+shares+saves) ÷ views × 100; hijau ≥4%, kuning ≥1,5%. | M |
+| FR-83 | Halaman **Insight Konten** (`content.review`): filter 7/30/90 hari, total views, ER, interaksi, jumlah konten terbit, grafik views kumulatif, top 10 postingan, tabel performa per creator. Dashboard creator menampilkan kartu "Views 30 Hari" miliknya. | M |
+| FR-84 | Scope insight baru (`read_insights`, `instagram_manage_insights`, `threads_manage_insights`, TikTok `video.list`) → akun lama harus dihubungkan ulang. Selama scope belum ada, metrik dasar tetap disimpan, error insight dicatat di `social_connections.meta.insight_error` dan ditampilkan di Akun Sosial Media — **status koneksi tidak diubah** (publish tetap jalan). | M |
+| FR-85 | Tautan creator ↔ data KOL (PRD Fase 3) — **ditunda**. | C |
+
 ## 10. Traceability ke PRD
 
 | User Story | FR |

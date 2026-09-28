@@ -70,6 +70,20 @@
                             <button type="button" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent); this.textContent='Tersalin ✓'"
                                     class="absolute top-1.5 right-1.5 px-2 py-0.5 text-[10px] rounded-sm bg-white border border-stone-300 text-stone-600">Salin</button>
                         </div>
+                        @if($t->status === 'published' && ! $t->isManual())
+                            @php $s = $t->snapshots->last(); $er = $s?->er(); @endphp
+                            @if($s)
+                                <div class="grid grid-cols-4 gap-2 text-center" data-insight>
+                                    <div class="bg-stone-50 rounded-lg p-2"><p class="text-[10px] text-stone-500">Views</p><p class="text-sm font-bold text-stone-800 tabular-nums">{{ $s->views !== null ? number_format($s->views, 0, ',', '.') : '—' }}</p></div>
+                                    <div class="bg-stone-50 rounded-lg p-2"><p class="text-[10px] text-stone-500">ER</p><p class="text-sm font-bold tabular-nums {{ $er === null ? 'text-stone-400' : ($er >= 4 ? 'text-emerald-600' : ($er >= 1.5 ? 'text-amber-600' : 'text-stone-800')) }}">{{ $er === null ? '—' : number_format($er, 2, ',', '.').'%' }}</p></div>
+                                    <div class="bg-stone-50 rounded-lg p-2"><p class="text-[10px] text-stone-500">Like / komen</p><p class="text-sm font-bold text-stone-800 tabular-nums">{{ $s->likes ?? '—' }} / {{ $s->comments ?? '—' }}</p></div>
+                                    <div class="bg-stone-50 rounded-lg p-2"><p class="text-[10px] text-stone-500">Share / save</p><p class="text-sm font-bold text-stone-800 tabular-nums">{{ $s->shares ?? '—' }} / {{ $s->saves ?? '—' }}</p></div>
+                                </div>
+                                <p class="text-[10px] text-stone-400">Insight per {{ $s->captured_on->format('d M Y') }}</p>
+                            @else
+                                <p class="text-[11px] text-stone-400">Insight tersedia H+1 setelah terbit. Tetap kosong? Hubungkan ulang akun untuk memberi izin insight.</p>
+                            @endif
+                        @endif
                         @if($t->attempts || $t->last_error)
                             <p class="text-[11px] text-rose-700">Percobaan {{ $t->attempts }}× @if($t->last_error)— {{ $t->last_error }}@endif
                                 @if($t->next_attempt_at && $t->status === 'queued') · coba lagi {{ $t->next_attempt_at->diffForHumans() }}@endif</p>
@@ -93,6 +107,13 @@
                 @endforeach
             </div>
         </div>
+
+        @if($insightChart)
+            <div class="bg-white rounded-2xl border border-stone-200 p-4">
+                <p class="text-sm font-semibold text-stone-700 mb-2">Pertumbuhan views per platform</p>
+                <div class="relative h-56"><canvas id="chartInsight"></canvas></div>
+            </div>
+        @endif
     </div>
 
     <div class="space-y-5">
@@ -200,4 +221,17 @@
         </div>
     </div>
 </div>
+@if($insightChart)
+<script>
+    (function () {
+        if (!window.Chart) return;
+        var c = {!! json_encode($insightChart) !!}, colors = ['#dc2626', '#2563eb', '#16a34a', '#0f172a'];
+        new Chart(document.getElementById('chartInsight'), {
+            type: 'line',
+            data: { labels: c.labels, datasets: c.datasets.map(function (d, i) { return { label: d.label, data: d.data, borderColor: colors[i % 4], tension: .3, pointRadius: 3, spanGaps: true }; }) },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { size: 10 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 }, maxTicksLimit: 10 } } } }
+        });
+    })();
+</script>
+@endif
 @endsection

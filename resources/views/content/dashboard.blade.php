@@ -22,7 +22,7 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         @foreach($cards as [$label, $value, $bar])
             <div class="bg-white rounded-2xl border border-stone-200 p-4">
                 <p class="text-[11px] uppercase tracking-wide font-semibold text-stone-500">{{ $label }}</p>

@@ -18,7 +18,7 @@ class TikTokContentClient
 {
     public const API = 'https://open.tiktokapis.com/v2';
 
-    public const SCOPES = ['user.info.basic', 'video.publish', 'video.upload'];
+    public const SCOPES = ['user.info.basic', 'video.publish', 'video.upload', 'video.list']; // video.list: insight (FR-80)
 
     public const PRIVACY_LABELS = [
         'PUBLIC_TO_EVERYONE' => 'Publik',
@@ -153,6 +153,17 @@ class TikTokContentClient
     public function status(string $token, string $publishId): array
     {
         return $this->decode(Http::withToken($token)->asJson()->post(self::API.'/post/publish/status/fetch/', ['publish_id' => $publishId]));
+    }
+
+    /** Statistik video publik milik akun (scope video.list). @return array<string,array> keyed video id */
+    public function videoStats(string $token, array $videoIds): array
+    {
+        $videos = $this->decode(Http::withToken($token)->asJson()->post(
+            self::API.'/video/query/?fields=id,view_count,like_count,comment_count,share_count',
+            ['filters' => ['video_ids' => array_values($videoIds)]],
+        ))['videos'] ?? [];
+
+        return collect($videos)->keyBy(fn ($v) => (string) $v['id'])->all();
     }
 
     private function token(array $params): array

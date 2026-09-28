@@ -18,9 +18,10 @@ class MetaClient
     public const FB_SCOPES = [
         'pages_show_list', 'pages_read_engagement', 'pages_manage_posts',
         'instagram_basic', 'instagram_content_publish', 'business_management',
+        'read_insights', 'instagram_manage_insights', // Fase 3 — insight (FR-80)
     ];
 
-    public const THREADS_SCOPES = ['threads_basic', 'threads_content_publish'];
+    public const THREADS_SCOPES = ['threads_basic', 'threads_content_publish', 'threads_manage_insights'];
 
     public function __construct()
     {

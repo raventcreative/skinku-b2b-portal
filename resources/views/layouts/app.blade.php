@@ -356,6 +356,7 @@
                     {{-- Keputusan HQ 2026-09-26: Review Konten & Akun Sosial Media dikerjakan kreator; disembunyikan dari menu super admin (akses URL tetap). --}}
                     @if($u->canDo('content.review') && $u->role !== \App\Models\User::ROLE_SUPER_ADMIN)
                         {!! navItem('content-review.index', 'Review Konten', 'content-review.*', [], null, 'audit-logs.index') !!}
+                        {!! navItem('content-insights.index', 'Insight Konten', 'content-insights.*', [], null, 'kol-dashboard.index') !!}
                     @endif
                     @if($u->canDo('social.connect') && $u->role !== \App\Models\User::ROLE_SUPER_ADMIN)
                         {!! navItem('social.index', 'Akun Sosial Media', 'social.*', [], null, 'grp-integrasi') !!}

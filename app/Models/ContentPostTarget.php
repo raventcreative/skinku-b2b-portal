@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /** Satu platform tujuan dari sebuah ContentPost — status, ID eksternal & retry sendiri-sendiri. */
 class ContentPostTarget extends Model
@@ -48,6 +50,16 @@ class ContentPostTarget extends Model
     public function post(): BelongsTo
     {
         return $this->belongsTo(ContentPost::class, 'content_post_id');
+    }
+
+    public function snapshots(): HasMany
+    {
+        return $this->hasMany(ContentPostSnapshot::class);
+    }
+
+    public function latestSnapshot(): HasOne
+    {
+        return $this->hasOne(ContentPostSnapshot::class)->latestOfMany('captured_on');
     }
 
     public function caption(): string
