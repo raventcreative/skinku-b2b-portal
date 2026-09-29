@@ -5,11 +5,13 @@ namespace Tests\Feature\MarketplaceMaster;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Models\User;
+use App\Services\ImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CreateEditMasterTest extends TestCase
@@ -30,6 +32,95 @@ class CreateEditMasterTest extends TestCase
     {
         $this->actingAs($this->admin())->get(route('marketplace-stock.create'))
             ->assertOk()->assertSee('Master SKU')->assertSee('Nama Produk');
+    }
+
+    public function test_form_render_field_lengkap(): void
+    {
+        $this->actingAs($this->admin())->get(route('marketplace-stock.create'))
+            ->assertOk()
+            ->assertSee('Kategori')->assertSee('Deskripsi')->assertSee('Berat')
+            ->assertSee('Barcode')->assertSee('foto[]', false);
+    }
+
+    public function test_form_tambah_tanpa_galeri_tapi_upload_multi(): void
+    {
+        $html = $this->actingAs($this->admin())->get(route('marketplace-stock.create'))
+            ->assertOk()
+            ->assertDontSee('Foto Produk')      // kartu galeri cuma ada di Ubah (master sudah ada)
+            ->assertDontSee('Jadikan Utama')
+            ->assertSee('enctype="multipart/form-data"', false)
+            ->getContent();
+
+        // input upload foto: name="foto[]" + multiple (urutan atribut bebas)
+        $this->assertMatchesRegularExpression('/<input[^>]*name="foto\[\]"[^>]*\bmultiple\b[^>]*>/', $html);
+    }
+
+    public function test_form_edit_tampilkan_galeri_dan_field_terisi(): void
+    {
+        Storage::fake('public');
+        $m = MarketplaceMaster::create(['master_sku' => 'X-1', 'name' => 'X', 'name_key' => 'x', 'category' => 'Body Care', 'weight_g' => 50]);
+        // 2 foto: yang ke-2 (non-utama) memunculkan tombol "Jadikan Utama"; foto pertama = utama (tanpa tombol itu).
+        $utama = app(ImageService::class)->attach($m, UploadedFile::fake()->image('a.jpg'), MarketplaceMaster::MASTER_IMAGE);
+        $kedua = app(ImageService::class)->attach($m, UploadedFile::fake()->image('b.jpg'), MarketplaceMaster::MASTER_IMAGE);
+
+        $this->actingAs($this->admin())->get(route('marketplace-stock.edit', $m))
+            ->assertOk()
+            ->assertSee('Body Care')          // kategori terisi
+            ->assertSee('value="50"', false)  // berat terisi
+            ->assertSee('Foto Produk')
+            ->assertSee('Jadikan Utama')      // aksi galeri (foto ke-2)
+            // form per-foto menunjuk ke route Task 2 yang benar
+            ->assertSee(route('marketplace-stock.master.foto.hapus', [$m, $utama->id]), false)
+            ->assertSee(route('marketplace-stock.master.foto.hapus', [$m, $kedua->id]), false)
+            ->assertSee(route('marketplace-stock.master.foto.utama', [$m, $kedua->id]), false)
+            // foto utama tak punya tombol "Jadikan Utama"
+            ->assertDontSee(route('marketplace-stock.master.foto.utama', [$m, $utama->id]), false);
+    }
+
+    public function test_form_edit_tanpa_foto_tampilkan_placeholder(): void
+    {
+        $m = MarketplaceMaster::create(['master_sku' => 'E-1', 'name' => 'E', 'name_key' => 'e']);
+
+        $this->actingAs($this->admin())->get(route('marketplace-stock.edit', $m))
+            ->assertOk()
+            ->assertSee('Foto Produk')
+            ->assertSee('Belum ada foto')
+            ->assertDontSee('Jadikan Utama');
+    }
+
+    public function test_form_edit_tak_ada_form_bersarang(): void
+    {
+        Storage::fake('public');
+        $m = MarketplaceMaster::create(['master_sku' => 'N-1', 'name' => 'N', 'name_key' => 'n']);
+        app(ImageService::class)->attach($m, UploadedFile::fake()->image('a.jpg'), MarketplaceMaster::MASTER_IMAGE);
+        app(ImageService::class)->attach($m, UploadedFile::fake()->image('b.jpg'), MarketplaceMaster::MASTER_IMAGE);
+
+        $html = $this->actingAs($this->admin())->get(route('marketplace-stock.edit', $m))->assertOk()->getContent();
+
+        // Tombol Hapus/Jadikan Utama tiap foto = <form> sendiri. HTML melarang <form> bersarang, jadi
+        // semuanya WAJIB di luar <form> update utama: kedalaman <form> di area konten maks 1.
+        preg_match_all('#<(/?)form\b#i', Str::between($html, '<main', '</main>'), $tags);
+        $depth = 0;
+        $maxDepth = 0;
+        foreach ($tags[1] as $closing) {
+            $depth += $closing === '/' ? -1 : 1;
+            $maxDepth = max($maxDepth, $depth);
+        }
+
+        $this->assertSame(0, $depth, '<form> tak seimbang (ada yang tak tertutup).');
+        $this->assertSame(1, $maxDepth, 'Ada <form> bersarang di halaman Ubah Produk Master.');
+    }
+
+    public function test_form_edit_flash_status_tampil_sekali(): void
+    {
+        $m = MarketplaceMaster::create(['master_sku' => 'S-1', 'name' => 'S', 'name_key' => 's']);
+
+        // Layout sudah menampilkan session('status'); view form tak boleh mengulanginya (banner dobel
+        // tiap habis "Hapus foto"/"Jadikan Utama" yang redirect back() dgn flash status).
+        $html = $this->actingAs($this->admin())->withSession(['status' => 'Foto dihapus.'])
+            ->get(route('marketplace-stock.edit', $m))->assertOk()->getContent();
+
+        $this->assertSame(1, substr_count($html, 'Foto dihapus.'));
     }
 
     public function test_store_buat_master_manual(): void
@@ -64,10 +155,66 @@ class CreateEditMasterTest extends TestCase
     {
         Storage::fake('public');
         $this->actingAs($this->admin())->post(route('marketplace-stock.store'), [
-            'name' => 'Body Wash', 'master_sku' => 'BW-1', 'foto' => UploadedFile::fake()->image('bw.jpg'),
+            'name' => 'Body Wash', 'master_sku' => 'BW-1', 'foto' => [UploadedFile::fake()->image('bw.jpg')],
         ])->assertRedirect();
         $m = MarketplaceMaster::where('master_sku', 'BW-1')->first();
         $this->assertNotNull($m->imageUrl());
+    }
+
+    public function test_store_simpan_field_lengkap(): void
+    {
+        $this->actingAs($this->admin())->post(route('marketplace-stock.store'), [
+            'name' => 'Day Cream 10gr', 'master_sku' => 'DC-1',
+            'category' => 'Perawatan Wajah / BB Cream',
+            'description' => 'Day cream BB SPF 30 ...',
+            'weight_g' => 10, 'length_cm' => 5, 'width_cm' => 5, 'height_cm' => 5,
+            'barcode' => '8991234567890',
+        ])->assertRedirect(route('marketplace-stock.index'));
+
+        $m = MarketplaceMaster::where('master_sku', 'DC-1')->firstOrFail();
+        $this->assertSame('Perawatan Wajah / BB Cream', $m->category);
+        $this->assertSame('Day cream BB SPF 30 ...', $m->description);
+        $this->assertSame(10, $m->weight_g);
+        $this->assertSame(5, $m->length_cm);
+        $this->assertSame('8991234567890', $m->barcode);
+    }
+
+    public function test_update_simpan_field_lengkap(): void
+    {
+        $m = MarketplaceMaster::create(['master_sku' => 'X-1', 'name' => 'X', 'name_key' => 'x']);
+        $this->actingAs($this->admin())->put(route('marketplace-stock.update', $m), [
+            'name' => 'X', 'master_sku' => 'X-1', 'category' => 'Body Care', 'weight_g' => 100,
+        ])->assertRedirect();
+        $m->refresh();
+        $this->assertSame('Body Care', $m->category);
+        $this->assertSame(100, $m->weight_g);
+    }
+
+    public function test_store_foto_banyak(): void
+    {
+        Storage::fake('public');
+        $this->actingAs($this->admin())->post(route('marketplace-stock.store'), [
+            'name' => 'Multi Foto', 'master_sku' => 'MF-1',
+            'foto' => [UploadedFile::fake()->image('a.jpg'), UploadedFile::fake()->image('b.jpg'), UploadedFile::fake()->image('c.jpg')],
+        ])->assertRedirect();
+        $m = MarketplaceMaster::where('master_sku', 'MF-1')->firstOrFail();
+        $this->assertSame(3, $m->filesIn(MarketplaceMaster::MASTER_IMAGE)->count());
+    }
+
+    public function test_foto_dibatasi_maks_9(): void
+    {
+        Storage::fake('public');
+        $m = MarketplaceMaster::create(['master_sku' => 'C-1', 'name' => 'C', 'name_key' => 'c']);
+        // sudah ada 8
+        for ($i = 0; $i < 8; $i++) {
+            app(ImageService::class)->attach($m, UploadedFile::fake()->image("x{$i}.jpg"), MarketplaceMaster::MASTER_IMAGE);
+        }
+        // kirim 3 lagi → cuma 1 yang masuk (total mentok 9)
+        $this->actingAs($this->admin())->put(route('marketplace-stock.update', $m), [
+            'name' => 'C', 'master_sku' => 'C-1',
+            'foto' => [UploadedFile::fake()->image('a.jpg'), UploadedFile::fake()->image('b.jpg'), UploadedFile::fake()->image('c.jpg')],
+        ])->assertRedirect();
+        $this->assertSame(9, $m->filesIn(MarketplaceMaster::MASTER_IMAGE)->count());
     }
 
     public function test_store_validasi_wajib(): void
@@ -120,5 +267,19 @@ class CreateEditMasterTest extends TestCase
         $r = $this->reseller();
         $this->actingAs($r)->get(route('marketplace-stock.create'))->assertForbidden();
         $this->actingAs($r)->post(route('marketplace-stock.store'), ['name' => 'x', 'master_sku' => 'x'])->assertForbidden();
+    }
+
+    /** Angka raksasa (> batas kolom) ditolak 422, bukan 500 di MySQL strict. */
+    public function test_field_angka_raksasa_ditolak(): void
+    {
+        $this->actingAs($this->admin())->post(route('marketplace-stock.store'), [
+            'name' => 'Big', 'master_sku' => 'BIG-1', 'weight_g' => '99999999999', // > unsignedInt 4294967295
+        ])->assertSessionHasErrors('weight_g');
+
+        $this->actingAs($this->admin())->post(route('marketplace-stock.store'), [
+            'name' => 'Big2', 'master_sku' => 'BIG-2', 'stock' => '9999999999', // > signed int 2147483647
+        ])->assertSessionHasErrors('stock');
+
+        $this->assertSame(0, MarketplaceMaster::whereIn('master_sku', ['BIG-1', 'BIG-2'])->count());
     }
 }

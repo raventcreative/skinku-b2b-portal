@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\File;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Models\ShopeeConnection;
@@ -55,12 +56,7 @@ class MarketplaceStockController extends Controller
     public function store(Request $r, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
     {
         $this->validateMaster($r);
-        $master = MarketplaceMaster::create([
-            'master_sku' => $r->master_sku,
-            'name' => $r->name,
-            'name_key' => MarketplaceMaster::normalizeName($r->name),
-            'is_bundle' => $r->boolean('is_bundle'),
-        ]);
+        $master = MarketplaceMaster::create($this->masterAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
 
         return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" dibuat.");
@@ -74,12 +70,7 @@ class MarketplaceStockController extends Controller
     public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
     {
         $this->validateMaster($r);
-        $master->update([
-            'master_sku' => $r->master_sku,
-            'name' => $r->name,
-            'name_key' => MarketplaceMaster::normalizeName($r->name),
-            'is_bundle' => $r->boolean('is_bundle'),
-        ]);
+        $master->update($this->masterAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
         $svc->pushMaster($master);
 
@@ -98,14 +89,40 @@ class MarketplaceStockController extends Controller
         $r->validate([
             'name' => ['required', 'string', 'max:255'],
             'master_sku' => ['required', 'string', 'max:255'],
-            'price' => ['nullable', 'numeric', 'min:0'],
-            'stock' => ['nullable', 'integer', 'min:0'],
+            'price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'stock' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'is_bundle' => ['nullable', 'boolean'],
-            'foto' => ['nullable', 'image', 'max:5120'],
+            'category' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:8000'],
+            'weight_g' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'length_cm' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'width_cm' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'height_cm' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'barcode' => ['nullable', 'string', 'max:255'],
+            'foto' => ['nullable', 'array', 'max:9'],
+            'foto.*' => ['image', 'max:5120'],
         ]);
     }
 
-    /** Set harga/stok (via setter supaya seeded_at ke-set) + attach foto bila di-upload. */
+    /** Atribut master dari request (dipakai store & update). */
+    private function masterAttributes(Request $r): array
+    {
+        return [
+            'master_sku' => $r->master_sku,
+            'name' => $r->name,
+            'name_key' => MarketplaceMaster::normalizeName($r->name),
+            'is_bundle' => $r->boolean('is_bundle'),
+            'category' => $r->input('category'),
+            'description' => $r->input('description'),
+            'weight_g' => $r->filled('weight_g') ? (int) $r->weight_g : null,
+            'length_cm' => $r->filled('length_cm') ? (int) $r->length_cm : null,
+            'width_cm' => $r->filled('width_cm') ? (int) $r->width_cm : null,
+            'height_cm' => $r->filled('height_cm') ? (int) $r->height_cm : null,
+            'barcode' => $r->input('barcode'),
+        ];
+    }
+
+    /** Set harga/stok (via setter supaya seeded_at ke-set) + attach foto (banyak, total maks 9) bila di-upload. */
     private function applyMasterInputs(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): void
     {
         if ($r->filled('price')) {
@@ -114,9 +131,47 @@ class MarketplaceStockController extends Controller
         if ($r->filled('stock')) {
             $svc->setMasterStock($master, (int) $r->stock);
         }
-        if ($r->hasFile('foto')) {
-            $img->attach($master, $r->file('foto'), MarketplaceMaster::MASTER_IMAGE);
+        $existing = $master->files()->where('collection', MarketplaceMaster::MASTER_IMAGE)->count();
+        foreach ((array) $r->file('foto', []) as $file) {
+            if (! $file || $existing >= 9) {
+                continue;
+            }
+            $img->attach($master, $file, MarketplaceMaster::MASTER_IMAGE);
+            $existing++;
         }
+    }
+
+    public function deleteFoto(MarketplaceMaster $master, File $file): RedirectResponse
+    {
+        $this->assertFotoMilikMaster($master, $file);
+        $file->delete(); // model File hapus file fisik via deleting-hook
+
+        return back()->with('status', 'Foto dihapus.');
+    }
+
+    public function setFotoUtama(MarketplaceMaster $master, File $file): RedirectResponse
+    {
+        $this->assertFotoMilikMaster($master, $file);
+        // Foto utama = sort_order paling kecil. Set file ini 0, sisanya digeser >=1.
+        $file->update(['sort_order' => 0]);
+        $others = $master->filesIn(MarketplaceMaster::MASTER_IMAGE)->where('id', '!=', $file->id)->get();
+        $i = 1;
+        foreach ($others as $o) {
+            $o->update(['sort_order' => $i++]);
+        }
+
+        return back()->with('status', 'Foto utama diperbarui.');
+    }
+
+    /** Guard IDOR: file harus milik master ini DAN ada di koleksi master_image, kalau tidak 404. */
+    private function assertFotoMilikMaster(MarketplaceMaster $master, File $file): void
+    {
+        abort_unless(
+            $file->fileable_type === MarketplaceMaster::class
+                && (int) $file->fileable_id === (int) $master->id
+                && $file->collection === MarketplaceMaster::MASTER_IMAGE,
+            404,
+        );
     }
 
     public function channel(string $channel, MarketplaceMasterService $svc): View
@@ -148,7 +203,7 @@ class MarketplaceStockController extends Controller
 
     public function setMasterStock(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
-        $r->validate(['quantity' => ['required', 'integer', 'min:0']]);
+        $r->validate(['quantity' => ['required', 'integer', 'min:0', 'max:2147483647']]);
         $svc->setMasterStock($master, (int) $r->quantity);
 
         return $this->pushFlash(back(), $svc->pushMaster($master), "Stok master \"{$master->name}\" disetel.");
@@ -156,7 +211,7 @@ class MarketplaceStockController extends Controller
 
     public function setMasterPrice(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
-        $r->validate(['price' => ['required', 'numeric', 'min:0']]);
+        $r->validate(['price' => ['required', 'numeric', 'min:0', 'max:9999999999.99']]);
         $svc->setMasterPrice($master, (float) $r->price);
 
         return $this->pushFlash(back(), $svc->pushMaster($master), "Harga master \"{$master->name}\" disetel.");
@@ -165,7 +220,7 @@ class MarketplaceStockController extends Controller
     public function setChannelStock(Request $r, string $channel, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
         abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
-        $r->validate(['quantity' => ['required', 'integer', 'min:0']]);
+        $r->validate(['quantity' => ['required', 'integer', 'min:0', 'max:2147483647']]);
         $svc->setChannelStock($master, $channel, (int) $r->quantity);
         $svc->pushMaster($master);
 
@@ -175,7 +230,7 @@ class MarketplaceStockController extends Controller
     public function setChannelPrice(Request $r, string $channel, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
         abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
-        $r->validate(['price' => ['required', 'numeric', 'min:0']]);
+        $r->validate(['price' => ['required', 'numeric', 'min:0', 'max:9999999999.99']]);
         $svc->setChannelPrice($master, $channel, (float) $r->price);
         $svc->pushMaster($master);
 
