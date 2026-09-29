@@ -55,12 +55,7 @@ class MarketplaceStockController extends Controller
     public function store(Request $r, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
     {
         $this->validateMaster($r);
-        $master = MarketplaceMaster::create([
-            'master_sku' => $r->master_sku,
-            'name' => $r->name,
-            'name_key' => MarketplaceMaster::normalizeName($r->name),
-            'is_bundle' => $r->boolean('is_bundle'),
-        ]);
+        $master = MarketplaceMaster::create($this->masterAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
 
         return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" dibuat.");
@@ -74,12 +69,7 @@ class MarketplaceStockController extends Controller
     public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
     {
         $this->validateMaster($r);
-        $master->update([
-            'master_sku' => $r->master_sku,
-            'name' => $r->name,
-            'name_key' => MarketplaceMaster::normalizeName($r->name),
-            'is_bundle' => $r->boolean('is_bundle'),
-        ]);
+        $master->update($this->masterAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
         $svc->pushMaster($master);
 
@@ -101,11 +91,37 @@ class MarketplaceStockController extends Controller
             'price' => ['nullable', 'numeric', 'min:0'],
             'stock' => ['nullable', 'integer', 'min:0'],
             'is_bundle' => ['nullable', 'boolean'],
-            'foto' => ['nullable', 'image', 'max:5120'],
+            'category' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:8000'],
+            'weight_g' => ['nullable', 'integer', 'min:0'],
+            'length_cm' => ['nullable', 'integer', 'min:0'],
+            'width_cm' => ['nullable', 'integer', 'min:0'],
+            'height_cm' => ['nullable', 'integer', 'min:0'],
+            'barcode' => ['nullable', 'string', 'max:255'],
+            'foto' => ['nullable', 'array', 'max:9'],
+            'foto.*' => ['image', 'max:5120'],
         ]);
     }
 
-    /** Set harga/stok (via setter supaya seeded_at ke-set) + attach foto bila di-upload. */
+    /** Atribut master dari request (dipakai store & update). */
+    private function masterAttributes(Request $r): array
+    {
+        return [
+            'master_sku' => $r->master_sku,
+            'name' => $r->name,
+            'name_key' => MarketplaceMaster::normalizeName($r->name),
+            'is_bundle' => $r->boolean('is_bundle'),
+            'category' => $r->input('category'),
+            'description' => $r->input('description'),
+            'weight_g' => $r->filled('weight_g') ? (int) $r->weight_g : null,
+            'length_cm' => $r->filled('length_cm') ? (int) $r->length_cm : null,
+            'width_cm' => $r->filled('width_cm') ? (int) $r->width_cm : null,
+            'height_cm' => $r->filled('height_cm') ? (int) $r->height_cm : null,
+            'barcode' => $r->input('barcode'),
+        ];
+    }
+
+    /** Set harga/stok (via setter supaya seeded_at ke-set) + attach foto (banyak, total maks 9) bila di-upload. */
     private function applyMasterInputs(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): void
     {
         if ($r->filled('price')) {
@@ -114,8 +130,13 @@ class MarketplaceStockController extends Controller
         if ($r->filled('stock')) {
             $svc->setMasterStock($master, (int) $r->stock);
         }
-        if ($r->hasFile('foto')) {
-            $img->attach($master, $r->file('foto'), MarketplaceMaster::MASTER_IMAGE);
+        $existing = $master->files()->where('collection', MarketplaceMaster::MASTER_IMAGE)->count();
+        foreach ((array) $r->file('foto', []) as $file) {
+            if (! $file || $existing >= 9) {
+                continue;
+            }
+            $img->attach($master, $file, MarketplaceMaster::MASTER_IMAGE);
+            $existing++;
         }
     }
 

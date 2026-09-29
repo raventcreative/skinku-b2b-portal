@@ -15,7 +15,7 @@ class MarketplaceMaster extends Model
     /** File collection name for the manually-uploaded master photo. */
     public const MASTER_IMAGE = 'master_image';
 
-    protected $fillable = ['master_sku', 'name', 'name_key', 'is_bundle', 'image_url', 'product_id', 'base_stock', 'base_price', 'seeded_at'];
+    protected $fillable = ['master_sku', 'name', 'name_key', 'is_bundle', 'image_url', 'product_id', 'base_stock', 'base_price', 'seeded_at', 'category', 'description', 'weight_g', 'length_cm', 'width_cm', 'height_cm', 'barcode'];
 
     protected function casts(): array
     {
