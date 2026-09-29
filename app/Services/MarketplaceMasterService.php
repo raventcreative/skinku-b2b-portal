@@ -370,10 +370,10 @@ class MarketplaceMasterService
             return ['found' => 0];
         }
         $tok = $this->tiktokToken($c);
-        // Gudang SALES diutamakan sbg default warehouse_id listing; kalau tak ada
-        // yang bertipe itu (atau field/enum-nya beda dari dugaan), JATUH BALIK ke
-        // gudang pertama drpd membiarkan warehouse_id null utk SEMUA listing —
-        // spt MarketplaceStockService::resolveTiktok() (proven) yg pakai warehouses.0.id.
+        // Gudang default toko = FALLBACK saja (dipakai kalau SKU tak bawa
+        // inventory.warehouse_id sendiri). Per-SKU pakai warehouse ASLI-nya (lihat
+        // loop di bawah) supaya update stok tak ditolak TikTok (error 12052533).
+        // SALES diutamakan; kalau tak ada, gudang pertama drpd null utk semua.
         $warehouses = data_get($this->tiktok->getWarehouses($tok, $c->shop_cipher), 'warehouses', []);
         $warehouseId = null;
         foreach ($warehouses as $w) {
@@ -398,7 +398,13 @@ class MarketplaceMasterService
                     if ($sellerSku === '') {
                         continue;
                     }
-                    $this->upsertListing('tiktok', $sellerSku, $pid, (string) data_get($sku, 'id', ''), $warehouseId, $title !== null ? (string) $title : null);
+                    // Pakai warehouse ASLI milik SKU (dari inventory-nya). TikTok TOLAK
+                    // update stok kalau warehouse_id beda dari gudang asal SKU (error
+                    // 12052533 "warehouse changes are not permitted"). Gudang default toko
+                    // ($warehouseId) cuma FALLBACK bila SKU tak bawa info inventory.
+                    $skuWarehouse = data_get($sku, 'inventory.0.warehouse_id');
+                    $skuWarehouse = $skuWarehouse !== null && $skuWarehouse !== '' ? (string) $skuWarehouse : $warehouseId;
+                    $this->upsertListing('tiktok', $sellerSku, $pid, (string) data_get($sku, 'id', ''), $skuWarehouse, $title !== null ? (string) $title : null);
                     $found++;
                 }
             }
