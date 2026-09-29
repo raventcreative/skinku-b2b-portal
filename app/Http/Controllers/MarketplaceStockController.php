@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\File;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Models\ShopeeConnection;
@@ -138,6 +139,39 @@ class MarketplaceStockController extends Controller
             $img->attach($master, $file, MarketplaceMaster::MASTER_IMAGE);
             $existing++;
         }
+    }
+
+    public function deleteFoto(MarketplaceMaster $master, File $file): RedirectResponse
+    {
+        $this->assertFotoMilikMaster($master, $file);
+        $file->delete(); // model File hapus file fisik via deleting-hook
+
+        return back()->with('status', 'Foto dihapus.');
+    }
+
+    public function setFotoUtama(MarketplaceMaster $master, File $file): RedirectResponse
+    {
+        $this->assertFotoMilikMaster($master, $file);
+        // Foto utama = sort_order paling kecil. Set file ini 0, sisanya digeser >=1.
+        $file->update(['sort_order' => 0]);
+        $others = $master->filesIn(MarketplaceMaster::MASTER_IMAGE)->where('id', '!=', $file->id)->get();
+        $i = 1;
+        foreach ($others as $o) {
+            $o->update(['sort_order' => $i++]);
+        }
+
+        return back()->with('status', 'Foto utama diperbarui.');
+    }
+
+    /** Guard IDOR: file harus milik master ini DAN ada di koleksi master_image, kalau tidak 404. */
+    private function assertFotoMilikMaster(MarketplaceMaster $master, File $file): void
+    {
+        abort_unless(
+            $file->fileable_type === MarketplaceMaster::class
+                && (int) $file->fileable_id === (int) $master->id
+                && $file->collection === MarketplaceMaster::MASTER_IMAGE,
+            404,
+        );
     }
 
     public function channel(string $channel, MarketplaceMasterService $svc): View
