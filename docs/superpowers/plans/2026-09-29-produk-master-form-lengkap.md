@@ -374,7 +374,9 @@ feat(marketplace-master): kelola foto master — hapus per-foto + jadikan foto u
     {
         \Illuminate\Support\Facades\Storage::fake('public');
         $m = \App\Models\MarketplaceMaster::create(['master_sku' => 'X-1', 'name' => 'X', 'name_key' => 'x', 'category' => 'Body Care', 'weight_g' => 50]);
+        // 2 foto: yang ke-2 (non-utama) memunculkan tombol "Jadikan Utama".
         app(\App\Services\ImageService::class)->attach($m, \Illuminate\Http\UploadedFile::fake()->image('a.jpg'), \App\Models\MarketplaceMaster::MASTER_IMAGE);
+        app(\App\Services\ImageService::class)->attach($m, \Illuminate\Http\UploadedFile::fake()->image('b.jpg'), \App\Models\MarketplaceMaster::MASTER_IMAGE);
 
         $this->actingAs($this->admin())->get(route('marketplace-stock.edit', $m))
             ->assertOk()
@@ -392,9 +394,34 @@ feat(marketplace-master): kelola foto master — hapus per-foto + jadikan foto u
 @section('heading', $master->exists ? 'Ubah Produk Master' : 'Tambah Produk Baru')
 @section('content')
 @php $gallery = $master->exists ? $master->fileGallery('master_image') : []; @endphp
-<div class="max-w-3xl">
+<div class="max-w-3xl space-y-4">
     @if($errors->any())<div class="mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">Periksa input.</div>@endif
     @if(session('status'))<div class="mb-4 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>@endif
+
+    {{-- Galeri foto existing — WAJIB DI LUAR form utama (HTML tak boleh <form> nested; tiap tombol hapus/utama adalah form sendiri). --}}
+    @if($master->exists)
+        <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-3">
+            <h3 class="font-semibold text-stone-800">Foto Produk <span class="text-xs font-normal text-stone-400">(maks 9)</span></h3>
+            @if($gallery)
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    @foreach($gallery as $i => $g)
+                        <div class="relative border border-stone-200 rounded-lg p-1">
+                            <img src="{{ $g['url'] }}" alt="" class="w-full h-20 object-cover rounded">
+                            @if($i === 0)<span class="absolute top-1 left-1 text-[9px] bg-indigo-600 text-white px-1 rounded">Utama</span>@endif
+                            <div class="flex gap-2 mt-1 justify-center">
+                                @if($i !== 0)
+                                    <form method="POST" action="{{ route('marketplace-stock.master.foto.utama', [$master, $g['id']]) }}">@csrf<button class="text-[10px] text-indigo-600 hover:underline">Jadikan Utama</button></form>
+                                @endif
+                                <form method="POST" action="{{ route('marketplace-stock.master.foto.hapus', [$master, $g['id']]) }}" onsubmit="return confirm('Hapus foto ini?')">@csrf @method('DELETE')<button class="text-[10px] text-rose-600 hover:underline">Hapus</button></form>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <p class="text-xs text-stone-400">Belum ada foto. Tambah lewat form di bawah.</p>
+            @endif
+        </div>
+    @endif
 
     <form method="POST" action="{{ $master->exists ? route('marketplace-stock.update', $master) : route('marketplace-stock.store') }}" enctype="multipart/form-data" class="space-y-4">
         @csrf
@@ -448,29 +475,11 @@ feat(marketplace-master): kelola foto master — hapus per-foto + jadikan foto u
             <p class="text-[11px] text-stone-400">Harga & stok akan disinkron ke TikTok/Shopee. Field lain disimpan di SKINKU.</p>
         </div>
 
-        {{-- Foto Produk --}}
+        {{-- Tambah Foto (upload baru; kelola foto lama ada di galeri ATAS, di luar form ini) --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-3">
-            <h3 class="font-semibold text-stone-800">Foto Produk <span class="text-xs font-normal text-stone-400">(maks 9)</span></h3>
-            @if($gallery)
-                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                    @foreach($gallery as $i => $g)
-                        <div class="relative border border-stone-200 rounded-lg p-1">
-                            <img src="{{ $g['url'] }}" alt="" class="w-full h-20 object-cover rounded">
-                            @if($i === 0)<span class="absolute top-1 left-1 text-[9px] bg-indigo-600 text-white px-1 rounded">Utama</span>@endif
-                            <div class="flex gap-2 mt-1 justify-center">
-                                @if($i !== 0)
-                                    <form method="POST" action="{{ route('marketplace-stock.master.foto.utama', [$master, $g['id']]) }}">@csrf<button class="text-[10px] text-indigo-600 hover:underline">Jadikan Utama</button></form>
-                                @endif
-                                <form method="POST" action="{{ route('marketplace-stock.master.foto.hapus', [$master, $g['id']]) }}" onsubmit="return confirm('Hapus foto ini?')">@csrf @method('DELETE')<button class="text-[10px] text-rose-600 hover:underline">Hapus</button></form>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
-            <div>
-                <input type="file" name="foto[]" accept="image/*" multiple class="block text-sm">
-                <p class="text-xs text-stone-400 mt-1">JPG/PNG, tiap file maks 5MB. Bisa pilih beberapa sekaligus. Total maks 9.</p>
-            </div>
+            <h3 class="font-semibold text-stone-800">Tambah Foto</h3>
+            <input type="file" name="foto[]" accept="image/*" multiple class="block text-sm">
+            <p class="text-xs text-stone-400 mt-1">JPG/PNG, tiap file maks 5MB. Bisa pilih beberapa sekaligus. Total maks 9.</p>
         </div>
 
         {{-- Pengiriman --}}
