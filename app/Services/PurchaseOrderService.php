@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\PurgeBlockedException;
 use App\Models\AppSetting;
 use App\Models\Inventory;
+use App\Models\PoPayment;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
@@ -618,6 +619,34 @@ class PurchaseOrderService
             );
 
             return $po->fresh();
+        });
+    }
+
+    /**
+     * Hapus satu cicilan (mis. salah input) lalu hitung ulang status bayar:
+     * kalau setelah dihapus ternyata belum lunas padahal tadinya PAID, status
+     * dikembalikan ke UNPAID + paid_at dikosongkan. Transaksional + lock.
+     */
+    public function deletePayment(PurchaseOrder $po, PoPayment $payment): PurchaseOrder
+    {
+        return DB::transaction(function () use ($po, $payment) {
+            $locked = PurchaseOrder::lockForUpdate()->findOrFail($po->id);
+            $amount = (float) $payment->amount;
+            $payment->delete();
+
+            $fresh = $locked->fresh();
+            if ($fresh->payment_status === PurchaseOrder::PAYMENT_PAID && $fresh->remaining() > 0.01) {
+                $fresh->update(['payment_status' => PurchaseOrder::PAYMENT_UNPAID, 'paid_at' => null]);
+            }
+
+            AuditService::log(
+                action: 'delete_po_payment',
+                targetType: 'purchase_order',
+                targetId: $po->id,
+                after: ['po' => $po->po_number, 'jumlah_dihapus' => $amount, 'sisa' => $fresh->fresh()->remaining()],
+            );
+
+            return $fresh->fresh();
         });
     }
 

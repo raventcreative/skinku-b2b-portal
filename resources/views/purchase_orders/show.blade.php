@@ -201,13 +201,20 @@
                     @if($po->payments->count())
                         <table class="w-full text-[11px] mt-2">
                             <thead><tr class="text-stone-400 uppercase text-[9px]">
-                                <th class="text-left">Tanggal</th><th class="text-right">Jumlah</th><th class="text-left pl-2">Catatan</th></tr></thead>
+                                <th class="text-left">Tanggal</th><th class="text-right">Jumlah</th><th class="text-left pl-2">Catatan</th>@if($u->canDo('update_po_status'))<th class="text-right pr-1">Aksi</th>@endif</tr></thead>
                             <tbody>
                                 @foreach($po->payments as $pay)
                                     <tr class="border-t border-stone-100">
                                         <td class="py-1 text-stone-600">{{ $pay->paid_at->format('d M Y') }}</td>
                                         <td class="text-right font-semibold text-stone-800">Rp {{ number_format($pay->amount, 0, ',', '.') }}</td>
                                         <td class="pl-2 text-stone-500">{{ $pay->notes ?: '—' }}</td>
+                                        @if($u->canDo('update_po_status'))
+                                            <td class="text-right pr-1">
+                                                <form method="POST" action="{{ route('purchase-orders.payments.delete', [$po, $pay]) }}" onsubmit="return confirm('Hapus cicilan Rp {{ number_format($pay->amount, 0, ',', '.') }} ({{ $pay->paid_at->format('d M Y') }})? Sisa tagihan dihitung ulang.')">@csrf @method('DELETE')
+                                                    <button type="submit" class="text-rose-500 hover:text-rose-700" title="Hapus cicilan">🗑</button>
+                                                </form>
+                                            </td>
+                                        @endif
                                     </tr>
                                 @endforeach
                             </tbody>

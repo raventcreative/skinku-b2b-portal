@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
+use App\Models\PoPayment;
 use App\Models\PoReturnItem;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
@@ -560,5 +561,14 @@ class PurchaseOrderController extends Controller
         return back()->with('status', $po->isPaid()
             ? '✓ Cicilan dicatat — PO kini LUNAS.'
             : 'Cicilan dicatat. Sisa tagihan: Rp '.number_format($po->remaining(), 0, ',', '.'));
+    }
+
+    /** Hapus satu cicilan yang salah input; sisa & status lunas dihitung ulang. */
+    public function deletePayment(PurchaseOrder $purchaseOrder, PoPayment $payment): RedirectResponse
+    {
+        abort_unless($payment->purchase_order_id === $purchaseOrder->id, 404);
+        $this->service->deletePayment($purchaseOrder, $payment);
+
+        return back()->with('status', 'Cicilan dihapus. Sisa tagihan & status pembayaran dihitung ulang.');
     }
 }

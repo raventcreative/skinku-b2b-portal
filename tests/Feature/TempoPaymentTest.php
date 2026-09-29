@@ -254,4 +254,65 @@ class TempoPaymentTest extends TestCase
         $this->assertSame(PurchaseOrder::PAYMENT_UNPAID, $tempo->fresh()->payment_status);    // tempo aman
         $this->assertSame(PurchaseOrder::PAYMENT_UNPAID, $normalBelum->fresh()->payment_status); // normal aman
     }
+
+    /** Hapus cicilan salah input → sisa dihitung ulang & status LUNAS dicabut kalau jadi belum lunas. */
+    public function test_hapus_cicilan_hitung_ulang_sisa_dan_cabut_lunas(): void
+    {
+        $svc = app(PurchaseOrderService::class);
+        $admin = $this->admin();
+        $po = $this->po(1_000_000);
+        $svc->setTempo($po, true, null, null);
+        $svc->recordPayment($po->fresh(), 600_000, '2026-07-21', 'cicilan 1', $admin->id);
+        $svc->recordPayment($po->fresh(), 400_000, '2026-07-22', 'pelunasan', $admin->id);
+        $this->assertSame(PurchaseOrder::PAYMENT_PAID, $po->fresh()->payment_status);
+
+        $pelunasan = $po->payments()->where('notes', 'pelunasan')->firstOrFail(); // cicilan 400rb yang menutup
+
+        $this->actingAs($admin)
+            ->delete(route('purchase-orders.payments.delete', [$po, $pelunasan]))
+            ->assertRedirect()->assertSessionHas('status');
+
+        $po->refresh();
+        $this->assertSame(1, $po->payments()->count());                        // 1 cicilan tersisa
+        $this->assertEqualsWithDelta(400_000, $po->remaining(), 0.01);         // sisa dihitung ulang
+        $this->assertSame(PurchaseOrder::PAYMENT_UNPAID, $po->payment_status); // status LUNAS dicabut
+        $this->assertNotNull(AuditLog::where('action', 'delete_po_payment')->first());
+    }
+
+    /** Cicilan milik PO lain TAK bisa dihapus lewat PO ini (IDOR guard). */
+    public function test_hapus_cicilan_bukan_milik_po_ditolak(): void
+    {
+        $svc = app(PurchaseOrderService::class);
+        $admin = $this->admin();
+        $poA = $this->po(1_000_000);
+        $svc->setTempo($poA, true, null, null);
+        $svc->recordPayment($poA->fresh(), 500_000, '2026-07-21', null, $admin->id);
+        $payA = $poA->payments()->latest('id')->first();
+        $poB = $this->po(500_000);
+        $svc->setTempo($poB, true, null, null);
+
+        $this->actingAs($admin)
+            ->delete(route('purchase-orders.payments.delete', [$poB, $payA]))
+            ->assertNotFound();
+        $this->assertSame(1, $poA->payments()->count()); // cicilan A tetap ada
+    }
+
+    public function test_mitra_tak_bisa_hapus_cicilan(): void
+    {
+        $svc = app(PurchaseOrderService::class);
+        $admin = $this->admin();
+        $po = $this->po(1_000_000);
+        $svc->setTempo($po, true, null, null);
+        $svc->recordPayment($po->fresh(), 500_000, '2026-07-21', null, $admin->id);
+        $pay = $po->payments()->latest('id')->first();
+
+        $mitra = User::create([
+            'name' => 'M', 'fullname' => 'Mitra', 'username' => 'tpmitradel', 'email' => 'tpmdel@skinku.test',
+            'password' => Hash::make('secret123'), 'role' => User::ROLE_DISTRIBUTOR, 'status' => User::STATUS_ACTIVE,
+        ]);
+        $this->actingAs($mitra)
+            ->delete(route('purchase-orders.payments.delete', [$po, $pay]))
+            ->assertForbidden();
+        $this->assertSame(1, $po->payments()->count());
+    }
 }
