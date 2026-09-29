@@ -89,15 +89,15 @@ class MarketplaceStockController extends Controller
         $r->validate([
             'name' => ['required', 'string', 'max:255'],
             'master_sku' => ['required', 'string', 'max:255'],
-            'price' => ['nullable', 'numeric', 'min:0'],
-            'stock' => ['nullable', 'integer', 'min:0'],
+            'price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'stock' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'is_bundle' => ['nullable', 'boolean'],
             'category' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:8000'],
-            'weight_g' => ['nullable', 'integer', 'min:0'],
-            'length_cm' => ['nullable', 'integer', 'min:0'],
-            'width_cm' => ['nullable', 'integer', 'min:0'],
-            'height_cm' => ['nullable', 'integer', 'min:0'],
+            'weight_g' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'length_cm' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'width_cm' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'height_cm' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
             'barcode' => ['nullable', 'string', 'max:255'],
             'foto' => ['nullable', 'array', 'max:9'],
             'foto.*' => ['image', 'max:5120'],
@@ -203,7 +203,7 @@ class MarketplaceStockController extends Controller
 
     public function setMasterStock(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
-        $r->validate(['quantity' => ['required', 'integer', 'min:0']]);
+        $r->validate(['quantity' => ['required', 'integer', 'min:0', 'max:2147483647']]);
         $svc->setMasterStock($master, (int) $r->quantity);
 
         return $this->pushFlash(back(), $svc->pushMaster($master), "Stok master \"{$master->name}\" disetel.");
@@ -211,7 +211,7 @@ class MarketplaceStockController extends Controller
 
     public function setMasterPrice(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
-        $r->validate(['price' => ['required', 'numeric', 'min:0']]);
+        $r->validate(['price' => ['required', 'numeric', 'min:0', 'max:9999999999.99']]);
         $svc->setMasterPrice($master, (float) $r->price);
 
         return $this->pushFlash(back(), $svc->pushMaster($master), "Harga master \"{$master->name}\" disetel.");
@@ -220,7 +220,7 @@ class MarketplaceStockController extends Controller
     public function setChannelStock(Request $r, string $channel, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
         abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
-        $r->validate(['quantity' => ['required', 'integer', 'min:0']]);
+        $r->validate(['quantity' => ['required', 'integer', 'min:0', 'max:2147483647']]);
         $svc->setChannelStock($master, $channel, (int) $r->quantity);
         $svc->pushMaster($master);
 
@@ -230,7 +230,7 @@ class MarketplaceStockController extends Controller
     public function setChannelPrice(Request $r, string $channel, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
         abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
-        $r->validate(['price' => ['required', 'numeric', 'min:0']]);
+        $r->validate(['price' => ['required', 'numeric', 'min:0', 'max:9999999999.99']]);
         $svc->setChannelPrice($master, $channel, (float) $r->price);
         $svc->pushMaster($master);
 

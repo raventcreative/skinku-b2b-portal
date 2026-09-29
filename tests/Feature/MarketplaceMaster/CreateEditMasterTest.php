@@ -268,4 +268,18 @@ class CreateEditMasterTest extends TestCase
         $this->actingAs($r)->get(route('marketplace-stock.create'))->assertForbidden();
         $this->actingAs($r)->post(route('marketplace-stock.store'), ['name' => 'x', 'master_sku' => 'x'])->assertForbidden();
     }
+
+    /** Angka raksasa (> batas kolom) ditolak 422, bukan 500 di MySQL strict. */
+    public function test_field_angka_raksasa_ditolak(): void
+    {
+        $this->actingAs($this->admin())->post(route('marketplace-stock.store'), [
+            'name' => 'Big', 'master_sku' => 'BIG-1', 'weight_g' => '99999999999', // > unsignedInt 4294967295
+        ])->assertSessionHasErrors('weight_g');
+
+        $this->actingAs($this->admin())->post(route('marketplace-stock.store'), [
+            'name' => 'Big2', 'master_sku' => 'BIG-2', 'stock' => '9999999999', // > signed int 2147483647
+        ])->assertSessionHasErrors('stock');
+
+        $this->assertSame(0, MarketplaceMaster::whereIn('master_sku', ['BIG-1', 'BIG-2'])->count());
+    }
 }
