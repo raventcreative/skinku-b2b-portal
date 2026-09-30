@@ -142,6 +142,19 @@ class PhotoUploadClientTest extends TestCase
 
     // ---- Shopee ----
 
+    public function test_shopee_upload_image_respons_format_batch_image_info_list_tetap_terbaca(): void
+    {
+        // Shopee (media_space) bisa membalas sukses dalam format batch: image_info_list[i].image_info.
+        $this->configureShopee();
+        Http::preventStrayRequests();
+        Http::fake(['*/api/v2/media_space/upload_image*' => Http::response([
+            'error' => '', 'message' => '',
+            'response' => ['image_info_list' => [['id' => 0, 'error' => '', 'message' => '', 'image_info' => ['image_id' => 's0list', 'image_url_list' => []]]]],
+        ])]);
+
+        $this->assertSame('s0list', app(ShopeeClient::class)->uploadImage('tok', 'SHOP1', 'BYTES', 'a.jpg'));
+    }
+
     public function test_shopee_upload_image_mengirim_multipart_ke_endpoint_dan_mengembalikan_image_id(): void
     {
         $this->configureShopee();

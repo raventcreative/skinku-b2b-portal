@@ -272,7 +272,10 @@ class ShopeeClient
 
         // Kontrak return `string`: tanpa image_id = galat terbaca, bukan TypeError "null returned".
         // Shopee menaruh galat PER-GAMBAR di image_info_list[0] — `error` top-level bisa tetap kosong.
-        $imageId = data_get($json, 'response.image_info.image_id');
+        // Dua bentuk respons sukses: `image_info` tunggal, atau format batch
+        // `image_info_list[i].image_info` (dipakai shopee-sdk) — baca keduanya agar tak gagal di prod.
+        $imageId = data_get($json, 'response.image_info.image_id')
+            ?? data_get($json, 'response.image_info_list.0.image_info.image_id');
         if (! is_string($imageId) || $imageId === '') {
             $detail = trim(implode(' ', array_filter([
                 data_get($json, 'response.image_info_list.0.error'),
