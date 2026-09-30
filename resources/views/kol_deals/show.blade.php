@@ -18,7 +18,7 @@
 <div class="w-full space-y-4">
     <div class="flex flex-wrap items-center gap-3">
         <a href="{{ route('kol-deals.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Daftar Deal</a>
-        <a href="{{ route('kol-deals.edit', $deal) }}" class="ml-auto px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">Edit deal</a>
+        <a href="{{ route('kol-deals.edit', $deal) }}" class="ml-auto inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.5 5.5 3 3M4 20l4.5-.9L19.3 8.3a2.1 2.1 0 0 0-3-3L5.5 16.1 4 20Z"/></svg>Edit deal</a>
     </div>
 
     {{-- Ringkasan --}}
@@ -27,7 +27,7 @@
             <div>
                 <p class="text-lg font-bold text-stone-800">{{ $deal->kode }}</p>
                 <a href="{{ route('kols.show', $deal->kol_id) }}" class="text-red-700 hover:underline font-semibold">{{ '@'.($deal->kol->tiktok_username ?? '?') }}</a>
-                @if($deal->campaign)<span class="ml-2 text-[11px] text-indigo-500">📣 {{ $deal->campaign->name }}</span>@endif
+                @if($deal->campaign)<span class="ml-2 text-[11px] text-indigo-600">Campaign · {{ $deal->campaign->name }}</span>@endif
             </div>
             <span class="px-2.5 py-1 rounded-full text-[11px] font-bold {{ $statusBadge[$deal->status] ?? 'bg-stone-100 text-stone-600' }}">{{ ucfirst($deal->status) }}</span>
         </div>
@@ -108,7 +108,7 @@
             <div class="flex items-center gap-2">
                 <p class="text-[11px] font-bold uppercase tracking-wide text-stone-400">Konten Tertaut</p>
                 @if(auth()->user()->canDo('kol.content.manage'))
-                    <a href="{{ route('kol-konten.create', ['deal' => $deal->id]) }}" class="text-[11px] text-red-600 hover:underline">+ tambah</a>
+                    <a href="{{ route('kol-konten.create', ['deal' => $deal->id]) }}" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-[11px] font-semibold text-red-700 hover:bg-red-100"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>Tambah konten</a>
                 @endif
             </div>
             <div class="flex items-center gap-4 text-xs">

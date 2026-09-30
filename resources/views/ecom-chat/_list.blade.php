@@ -3,7 +3,7 @@
     $badgeFor = function ($status, $via) {
         if ($status === 'replied') {
             return $via === 'ai'
-                ? ['🤖 Dibalas AI', 'bg-violet-100 text-violet-800']
+                ? ['Dibalas AI', 'bg-violet-100 text-violet-800']
                 : ['Dibalas staf', 'bg-emerald-100 text-emerald-800'];
         }
 
@@ -16,14 +16,14 @@
     $tabs = [
         'perlu' => ['Perlu dibalas', $perluCount],
         'belum_dibaca' => ['Belum dibaca', $unreadCount],
-        'ditandai' => ['⭐ Ditandai', $flaggedCount],
+        'ditandai' => ['Ditandai', $flaggedCount],
         'terbalas' => ['Terbalas', null],
         'ditutup' => ['Ditutup', null],
         'semua' => ['Semua', null],
     ];
     $chanTabs = [
-        'tiktok' => ['🎵 TikTok', $tiktokPerlu],
-        'shopee' => ['🛍️ Shopee', $shopeePerlu],
+        'tiktok' => ['TikTok', $tiktokPerlu],
+        'shopee' => ['Shopee', $shopeePerlu],
     ];
 @endphp
 
@@ -34,7 +34,7 @@
         <form method="POST" action="{{ route('ecom-chat.sync') }}" class="flex-1" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Menarik…';">
             @csrf
             <input type="hidden" name="channel" value="{{ $channel }}">
-            <button class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-stone-800 text-white hover:bg-stone-900"> Tarik chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}</button>
+            <button class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-stone-800 text-white hover:bg-stone-900 inline-flex items-center justify-center gap-1.5"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" class="w-4 h-4"><path d="M16.5 9a6.5 6.5 0 0 0-11.8-3L3 8m0 0V4m0 4h4m-3.5 3a6.5 6.5 0 0 0 11.8 3L17 12m0 0v4m0-4h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Tarik chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}</button>
         </form>
         <form method="POST" action="{{ route('ecom-chat.autosend') }}">
             @csrf
@@ -90,11 +90,11 @@
     @empty
         <p class="p-6 text-sm text-stone-400 text-center">
             @if($tab === 'perlu')
-                Tak ada chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }} yang perlu dibalas 🎉 <a href="{{ route('ecom-chat.index', ['tab' => 'semua', 'channel' => $channel]) }}" data-tab="semua" class="text-red-600 underline">Lihat semua</a>
+                Tak ada chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }} yang perlu dibalas. <a href="{{ route('ecom-chat.index', ['tab' => 'semua', 'channel' => $channel]) }}" data-tab="semua" class="text-red-600 underline">Lihat semua</a>
             @elseif($tab === 'ditandai')
-                Belum ada chat yang ditandai. Buka chat lalu klik <b>☆ Tandai</b>.
+                Belum ada chat yang ditandai. Buka chat lalu pilih <b>Tandai</b>.
             @else
-                Belum ada percakapan {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}. Klik <b>🔄 Tarik chat</b> di atas.
+                Belum ada percakapan {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}. Klik <b>Tarik chat</b> di atas.
             @endif
         </p>
     @endforelse

@@ -66,7 +66,7 @@ class Permissions
         'manage_marketplace_stock' => 'Kontrol Stok Marketplace',
         'manage_roi_calculator' => 'Kalkulator ROI',
         'content.create' => 'Buat & Kelola Konten Sendiri (Content Creator)',
-        'content.review' => 'Persetujuan Konten Creator — Setujui/Tolak',
+        'content.manage' => 'Lihat dan kelola pipeline semua creator',
         'content.publish.manage' => 'Kelola Publikasi Konten (retry, tandai terbit manual)',
         'social.connect' => 'Hubungkan Akun Sosial Media Brand (FB/IG/Threads/TikTok)',
     ];
@@ -149,13 +149,12 @@ class Permissions
         'manage_ecommerce_chat' => [User::ROLE_ADMIN],
         'manage_marketplace_stock' => [User::ROLE_ADMIN],
         'manage_roi_calculator' => [User::ROLE_ADMIN],
-        // Portal Content Creator. content_creator = role dinamis (migrasi 000142).
-        // Creator mengelola kontennya; admin/super admin menangani persetujuan dari detail konten.
+        // Content Pipeline. Creator mengelola publikasi sendiri; admin mengelola workspace.
         'content.create' => ['content_creator', User::ROLE_ADMIN],
-        'content.review' => [User::ROLE_ADMIN],
-        'content.publish.manage' => [User::ROLE_ADMIN],
+        'content.manage' => [User::ROLE_ADMIN],
+        'content.publish.manage' => ['content_creator', User::ROLE_ADMIN],
         // Keputusan HQ 2026-09-25: content creator yang menghubungkan akun brand (super_admin selalu lolos).
-        // Posting tetap lewat approval (content.review) — kreator tak bisa terbit sendiri.
+        // Publish tanpa approval; kontrol target dibatasi kepemilikan di controller.
         'social.connect' => ['content_creator'],
     ];
 

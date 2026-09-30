@@ -28,7 +28,7 @@
                             $meta = collect([
                                 \App\Models\Kol::ROLE_LABELS[$k->role] ?? null,
                                 $k->level,
-                                $k->status === \App\Models\Kol::STATUS_BLACKLIST ? '⛔ blacklist' : ($k->status === \App\Models\Kol::STATUS_NON_AKTIF ? 'nonaktif' : null),
+                                $k->status === \App\Models\Kol::STATUS_BLACKLIST ? 'blacklist' : ($k->status === \App\Models\Kol::STATUS_NON_AKTIF ? 'nonaktif' : null),
                             ])->filter()->implode(' · ');
                         @endphp
                         <option value="{{ '@'.$k->tiktok_username }}"@if($meta) label="{{ $meta }}"@endif>
@@ -234,7 +234,8 @@
             </div>
         @endif
 
-        <button class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">
+        <button class="inline-flex items-center gap-2 px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $deal->exists ? 'M4 20h4l10.8-10.8a2.1 2.1 0 0 0-3-3L5 17v3Z' : 'M12 5v14m-7-7h14' }}"/></svg>
             {{ $deal->exists ? 'Simpan Perubahan' : 'Buat Deal' }}
         </button>
     </form>
@@ -279,7 +280,7 @@
                                 </form>
                                 <form method="POST" action="{{ route('kol-samples.destroy', $s) }}" onsubmit="return confirm('Hapus sampel ini?')">
                                     @csrf @method('DELETE')
-                                    <button class="text-[11px] text-rose-400 hover:text-rose-600">hapus</button>
+                                    <button aria-label="Hapus sampel {{ $s->product }}" title="Hapus sampel" class="inline-flex items-center justify-center w-8 h-8 text-rose-600 border border-rose-100 rounded-lg hover:bg-rose-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
                                 </form>
                             </div>
                         </div>
@@ -320,7 +321,7 @@
                         </label>
                     @endif
                     <div class="sm:col-span-2">
-                        <button class="px-4 py-2 text-sm bg-stone-700 text-white rounded-lg hover:bg-stone-800 font-semibold">Simpan sampel</button>
+                        <button class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg>Simpan sampel</button>
                     </div>
                 </form>
             </details>

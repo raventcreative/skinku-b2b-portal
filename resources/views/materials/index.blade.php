@@ -6,8 +6,14 @@
 <div class="flex justify-between items-center mb-5 gap-3 flex-wrap">
     <p class="text-xs text-stone-500 max-w-xl">Master bahan baku beserta stok dan HPP rata-ratanya. "Beli Bahan" menambah stok bahan dan memperbarui HPP bahan (rata-rata bergerak).</p>
     <div class="flex gap-2 flex-wrap">
-        <button onclick="toggleModal('buyModal')" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Beli Bahan</button>
-        <button onclick="openMaterial()" class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">+ Bahan Baku</button>
+        <button onclick="toggleModal('buyModal')" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l2.2 11.2a2 2 0 0 0 2 1.6h8.9a2 2 0 0 0 1.9-1.4L22 8H6M10 21h.01M18 21h.01M9 8v5m4-5v5m4-5v5"/></svg>
+            Beli Bahan
+        </button>
+        <button onclick="openMaterial()" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-stone-900 text-white rounded-lg hover:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-500 focus:ring-offset-2">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>
+            Tambah Bahan Baku
+        </button>
     </div>
 </div>
 
@@ -36,11 +42,14 @@
                     <td class="text-right text-stone-500">Rp {{ number_format($m->stock * $m->avg_cost, 0, ',', '.') }}</td>
                     <td>@if($m->status==='active')<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">Aktif</span>@else<span class="px-2 py-0.5 rounded-full bg-stone-200 text-stone-600 text-[10px] font-bold">Nonaktif</span>@endif</td>
                     <td class="pr-4 text-right whitespace-nowrap">
-                        <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                            onclick='openMaterial({{ json_encode($m->only(["id","name","unit","status","notes","stock"])) }})'>Edit</button>
-                        <form method="POST" action="{{ route('materials.destroy', $m) }}" class="inline ml-2" onsubmit="return confirm('Hapus bahan baku ini? Riwayat produksi/pembelian yang sudah pakai bahan ini tetap aman.')">
+                        <button type="button" aria-label="Edit {{ $m->name }}" title="Edit bahan" class="inline-flex items-center justify-center w-9 h-9 text-stone-600 bg-white border border-stone-200 rounded-lg hover:text-red-700 hover:border-red-200 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500" onclick='openMaterial({{ json_encode($m->only(["id","name","unit","status","notes","stock"])) }})'>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.5 5.5 3 3M4 20l4.5-.9L19.3 8.3a2.1 2.1 0 0 0-3-3L5.5 16.1 4 20Z"/></svg>
+                        </button>
+                        <form method="POST" action="{{ route('materials.destroy', $m) }}" class="inline ml-1" onsubmit="return confirm('Hapus bahan baku ini? Riwayat produksi/pembelian yang sudah pakai bahan ini tetap aman.')">
                             @csrf @method('DELETE')
-                            <button class="text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                            <button type="submit" aria-label="Hapus {{ $m->name }}" title="Hapus bahan" class="inline-flex items-center justify-center w-9 h-9 text-rose-600 bg-white border border-stone-200 rounded-lg hover:border-rose-200 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500">
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
+                            </button>
                         </form>
                     </td>
                 </tr>

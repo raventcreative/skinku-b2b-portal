@@ -3,7 +3,7 @@
 @section('heading', 'Isi Views Massal')
 
 @section('content')
-<div class="w-full space-y-4">
+<div class="mx-auto max-w-[1440px] space-y-5 px-1 sm:px-2">
 
     <a href="{{ route('kol-konten.index', ['bulan' => $month]) }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Konten &amp; Views</a>
 
@@ -67,7 +67,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <button class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Simpan snapshot hari ini</button>
+        <button class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg>Simpan snapshot hari ini</button>
             </div>
         </form>
     @endif

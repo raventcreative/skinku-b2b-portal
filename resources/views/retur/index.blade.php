@@ -8,7 +8,7 @@
 @endphp
 <div class="w-full">
     <div class="bg-white rounded-2xl border border-stone-200 overflow-x-auto">
-        <table class="w-full text-xs whitespace-nowrap">
+        <table class="w-full text-xs whitespace-nowrap retur-table">
             <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
                 <tr>
                     <th class="text-left px-4 py-2">PO</th>
@@ -33,7 +33,9 @@
                             @endforelse
                         </td>
                         <td class="px-4 py-2">
-                            {{ $r->kondisi === 'rusak' ? '🔴 Rusak' : '✅ Normal' }}
+                            <span class="inline-flex min-h-6 items-center rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $r->kondisi === 'rusak' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800' }}">
+                                {{ $r->kondisi === 'rusak' ? 'Rusak' : 'Normal' }}
+                            </span>
                             @if($r->from_customer)<span class="block text-[9px] text-indigo-600 font-semibold mt-0.5">dari pelanggan · stok mitra tak dikurangi</span>@endif
                         </td>
                         <td class="px-4 py-2 text-stone-500">{{ $r->reason ?: '—' }}</td>
@@ -45,19 +47,21 @@
                                 $showVoid = $r->status === 'applied' && $isSuper;
                                 $showDelete = $isSuper && $r->status !== 'applied';
                             @endphp
+                            <div>
                             @if($showApproveReject)
-                                <form method="POST" action="{{ route('retur.approve', $r) }}" class="inline" onsubmit="return confirm('Setujui & berlakukan retur ini?')">@csrf<button class="text-[11px] text-emerald-600 hover:text-emerald-800 font-semibold">setujui</button></form>
-                                <form method="POST" action="{{ route('retur.reject', $r) }}" class="inline ml-2" onsubmit="return confirm('Tolak pengajuan retur ini?')">@csrf<button class="text-[11px] text-rose-500 hover:text-rose-700">tolak</button></form>
+                                <form method="POST" action="{{ route('retur.approve', $r) }}" class="inline" onsubmit="return confirm('Setujui & berlakukan retur ini?')">@csrf<button class="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>Setujui</button></form>
+                                <form method="POST" action="{{ route('retur.reject', $r) }}" class="inline" onsubmit="return confirm('Tolak pengajuan retur ini?')">@csrf<button class="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></svg>Tolak</button></form>
                             @endif
                             @if($showVoid)
-                                <form method="POST" action="{{ route('retur.void', $r) }}" class="inline" onsubmit="return confirm('Batalkan retur ini? Semua efek (stok & komisi) dikembalikan.')">@csrf<button class="text-[11px] text-stone-500 hover:text-rose-600">batalkan</button></form>
+                                <form method="POST" action="{{ route('retur.void', $r) }}" class="inline" onsubmit="return confirm('Batalkan retur ini? Semua efek (stok & komisi) dikembalikan.')">@csrf<button class="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-2.5 text-[11px] font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-500"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v6h6M5.6 5.6A9 9 0 1 1 3 13"/></svg>Batalkan</button></form>
                             @endif
                             @if($showDelete)
-                                <form method="POST" action="{{ route('retur.force-destroy', $r) }}" class="inline ml-2" onsubmit="return confirm('Hapus PERMANEN retur ini? Tidak bisa dikembalikan. Untuk membersihkan data test / pengajuan batal.')">@csrf @method('DELETE')<button class="text-[11px] text-rose-600 hover:text-rose-800 font-semibold">hapus</button></form>
+                                <form method="POST" action="{{ route('retur.force-destroy', $r) }}" class="inline" onsubmit="return confirm('Hapus PERMANEN retur ini? Tidak bisa dikembalikan. Untuk membersihkan data test / pengajuan batal.')">@csrf @method('DELETE')<button class="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg>Hapus</button></form>
                             @endif
                             @unless($showApproveReject || $showVoid || $showDelete)
                                 <span class="text-stone-300">—</span>
                             @endunless
+                            </div>
                         </td>
                     </tr>
                 @empty

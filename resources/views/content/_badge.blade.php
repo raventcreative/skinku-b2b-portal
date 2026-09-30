@@ -2,10 +2,10 @@
 @php
     $cls = match ($status) {
         'draft', 'pending' => 'bg-stone-100 text-stone-600',
-        'in_review', 'manual_pending' => 'bg-amber-100 text-amber-800',
-        'rejected', 'failed' => 'bg-rose-100 text-rose-700',
-        'scheduled', 'queued' => 'bg-blue-100 text-blue-700',
-        'publishing', 'partial' => 'bg-indigo-100 text-indigo-700',
+        'manual_pending' => 'bg-amber-100 text-amber-800',
+        'failed' => 'bg-rose-100 text-rose-700',
+        'scheduled', 'queued' => 'bg-red-50 text-red-800',
+        'publishing', 'partial' => 'bg-blue-100 text-blue-800',
         'done', 'published' => 'bg-emerald-100 text-emerald-700',
         default => 'bg-stone-100 text-stone-600',
     };

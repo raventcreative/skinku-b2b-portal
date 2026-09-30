@@ -9,31 +9,41 @@
 <span data-thread-status="{{ $conversation->status }}" data-thread-via="{{ $conversation->last_reply_via }}" data-thread-flagged="{{ $conversation->flagged ? '1' : '0' }}" hidden></span>
 <div class="flex flex-col h-full min-h-0">
     {{-- header --}}
-    <div class="px-4 py-3 border-b border-stone-200 flex items-center justify-between gap-3 shrink-0">
+    <div class="px-4 py-3 border-b border-stone-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
         <div class="flex items-center gap-2 min-w-0">
             <span class="shrink-0 w-8 h-8 rounded-full bg-linear-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($buyerName, 0, 1) }}</span>
             <span class="font-bold text-stone-800 truncate">{{ $buyerName }}</span>
         </div>
-        <div class="flex items-center gap-3 shrink-0">
+        <div class="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
             <form method="POST" action="{{ route('ecom-chat.flag', $conversation) }}" data-flag>
                 @csrf
-                <button type="submit" class="text-xs font-semibold whitespace-nowrap {{ $conversation->flagged ? 'text-amber-500' : 'text-stone-400 hover:text-amber-500' }}" title="Tandai untuk prioritas">
-                    {{ $conversation->flagged ? ' Ditandai' : ' Tandai' }}
+                <button type="submit" class="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 {{ $conversation->flagged ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100' : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50' }}" title="Tandai untuk prioritas">
+                    <svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="{{ $conversation->flagged ? 'currentColor' : 'none' }}"><path d="m10 2.5 2.2 4.45 4.9.71-3.55 3.46.84 4.88L10 13.7l-4.39 2.3.84-4.88L2.9 7.66l4.9-.71L10 2.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                    {{ $conversation->flagged ? 'Ditandai' : 'Tandai' }}
                 </button>
             </form>
             <form method="POST" action="{{ route('ecom-chat.redraft', $conversation) }}" data-redraft>
                 @csrf
-                <button type="submit" class="text-xs text-stone-500 hover:text-stone-800 whitespace-nowrap"> Buat ulang draft AI</button>
+                <button type="submit" class="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-2.5 text-[11px] font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-500 whitespace-nowrap" title="Buat ulang draft AI">
+                    <svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 9a6.5 6.5 0 0 0-11.8-3L3 8m0 0V4m0 4h4m-3.5 3a6.5 6.5 0 0 0 11.8 3L17 12m0 0v4m0-4h-4"/></svg>
+                    Buat ulang draft AI
+                </button>
             </form>
             @if($isClosed)
                 <form method="POST" action="{{ route('ecom-chat.reopen', $conversation) }}" data-close>
                     @csrf
-                    <button type="submit" class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 whitespace-nowrap"> Buka lagi</button>
+                    <button type="submit" class="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 whitespace-nowrap" title="Buka lagi">
+                        <svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7V3m0 4h4m-4 0a6.5 6.5 0 1 1-.2 6"/></svg>
+                        Buka lagi
+                    </button>
                 </form>
             @else
                 <form method="POST" action="{{ route('ecom-chat.close', $conversation) }}" data-close>
                     @csrf
-                    <button type="submit" class="text-xs font-semibold text-stone-500 hover:text-rose-600 whitespace-nowrap"> Tutup chat</button>
+                    <button type="submit" class="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-2.5 text-[11px] font-semibold text-stone-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700 whitespace-nowrap" title="Tutup chat">
+                        <svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" d="m5 5 10 10M15 5 5 15"/></svg>
+                        Tutup chat
+                    </button>
                 </form>
             @endif
         </div>
@@ -65,7 +75,7 @@
                         @php($oid = $m->meta['order_id'] ?? null)
                         @php($ord = $oid ? ($orders[$oid] ?? null) : null)
                         <div class="px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm w-64 max-w-full">
-                            <p class="font-semibold text-stone-700">{{ $m->type === 'logistics_card' ? '🚚 Info Pengiriman' : '🧾 Pesanan' }}</p>
+                            <p class="font-semibold text-stone-700">{{ $m->type === 'logistics_card' ? 'Info Pengiriman' : 'Pesanan' }}</p>
                             @if($ord)
                                 <div class="mt-1 space-y-0.5">
                                     @foreach(($ord->line_items ?? []) as $li)
@@ -97,7 +107,7 @@
                                 <img src="{{ $prod->image_url }}" alt="" class="w-full h-32 object-cover" loading="lazy" onerror="this.remove()">
                             @endif
                             <div class="px-3 py-2">
-                                <p class="text-[10px] text-stone-400">🛍️ Produk ditanya pembeli</p>
+                                <p class="text-[10px] text-stone-400">Produk ditanya pembeli</p>
                                 @if($prod && $prod->title)
                                     <p class="font-semibold text-stone-800 leading-snug">{{ $prod->title }}</p>
                                     @if($prod->price)<p class="font-bold text-stone-800 mt-0.5">Rp{{ number_format($prod->price, 0, ',', '.') }}</p>@endif
@@ -119,7 +129,7 @@
                         <div class="px-3 py-2 rounded-2xl text-sm whitespace-pre-line wrap-break-word {{ $mine ? 'bg-red-600 text-white' : 'bg-white border border-stone-200 text-stone-800' }}">{{ $m->text }}</div>
                     @endif
                     <div class="text-[9px] text-stone-400 mt-0.5 {{ $mine ? 'text-right' : '' }}">
-                        {{ $mine ? ($m->via === 'ai' ? '🤖 AI SKINKU' : 'Toko') : $buyerName }} · {{ optional($m->sent_at)->format('d M H:i') }}
+                        {{ $mine ? ($m->via === 'ai' ? 'AI SKINKU' : 'Toko') : $buyerName }} · {{ optional($m->sent_at)->format('d M H:i') }}
                     </div>
                 </div>
             </div>

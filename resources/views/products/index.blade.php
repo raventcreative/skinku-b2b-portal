@@ -3,35 +3,40 @@
 @section('heading', 'Manajemen Produk')
 
 @section('content')
-<div class="flex justify-between items-center mb-4">
+<div class="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
     <form method="GET" class="flex flex-wrap gap-2">
-        <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari nama/SKU…" class="px-3 py-2 text-sm border border-stone-300 rounded-lg w-56">
+        <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari nama/SKU…" class="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg sm:w-56">
         <select name="status" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
             <option value="">Semua Status</option>
             @foreach(['active','inactive','deleted'] as $s)<option value="{{ $s }}" @selected(($filters['status'] ?? '')===$s)>{{ $s }}</option>@endforeach
         </select>
-        <button class="px-4 py-2 text-sm bg-stone-200 rounded-lg hover:bg-stone-300">Filter</button>
+        <button class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h14l-5.5 6.2v4.3l-3 1.5v-5.8L3 4Z"/></svg>Filter</button>
     </form>
-    <button onclick="openProduct()" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah Produk</button>
+    <button type="button" onclick="openProduct()" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20"><path stroke-linecap="round" d="M10 4v12M4 10h12"/></svg>Tambah Produk</button>
 </div>
 
-<div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+<div class="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
     <div class="overflow-x-auto">
-    <table class="w-full text-xs whitespace-nowrap">
-        <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
-            <tr>
-                <th class="text-left px-4 py-3">Produk</th>
-                <th class="text-left">SKU</th>
-                <th class="text-left">Kategori</th>
-                <th class="text-right">Grand</th>
-                <th class="text-right">Distributor</th>
-                <th class="text-right">Reseller</th>
-                <th class="text-right">Retail</th>
-                <th class="text-right">HPP</th>
-                <th class="text-right">Berat</th>
-                <th class="text-right">Stok Pusat</th>
-                <th class="text-left">Status</th>
-                <th class="text-right px-4">Aksi</th>
+    <table class="ui-table ui-table--actions min-w-[1120px] w-full text-xs whitespace-nowrap">
+        <thead class="ui-table-groups text-stone-600">
+            <tr class="ui-table-groups__row">
+                <th scope="colgroup" colspan="3" class="text-left">Katalog</th>
+                <th scope="colgroup" colspan="4" class="text-center">Harga jual <span>(Rp)</span></th>
+                <th scope="colgroup" colspan="3" class="text-center">Biaya &amp; logistik</th>
+                <th scope="col" rowspan="2" class="text-left">Status</th>
+                <th scope="col" rowspan="2" class="ui-table-actions-head text-right">Aksi</th>
+            </tr>
+            <tr class="ui-table-columns">
+                <th scope="col" class="text-left">Produk</th>
+                <th scope="col" class="text-left">SKU</th>
+                <th scope="col" class="text-left">Kategori</th>
+                <th scope="col" class="text-right">Grand</th>
+                <th scope="col" class="text-right">Distributor</th>
+                <th scope="col" class="text-right">Reseller</th>
+                <th scope="col" class="text-right">Retail</th>
+                <th scope="col" class="text-right">HPP</th>
+                <th scope="col" class="text-right">Berat</th>
+                <th scope="col" class="text-right">Stok Pusat</th>
             </tr>
         </thead>
         <tbody>
@@ -39,50 +44,53 @@
                 <tr class="border-t border-stone-100 hover:bg-stone-50">
                     @php $urls = $p->imageUrls(); @endphp
                     <td class="px-4 py-3 font-semibold text-stone-800">
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-3">
                             @if(count($urls))
                                 <a href="{{ $urls[0] }}" class="glightbox shrink-0" data-gallery="prod-{{ $p->id }}" title="Klik untuk lihat foto">
-                                    <img src="{{ $urls[0] }}" class="w-10 h-10 rounded-sm object-cover border border-stone-200 hover:opacity-80 transition">
+                                    <img src="{{ $urls[0] }}" alt="{{ $p->name }}" class="w-10 h-10 rounded-lg object-cover border border-stone-200 hover:opacity-80 transition">
                                 </a>
                                 @foreach(array_slice($urls, 1) as $u)
                                     <a href="{{ $u }}" class="glightbox" data-gallery="prod-{{ $p->id }}" style="display:none"></a>
                                 @endforeach
                             @else
-                                <span class="w-10 h-10 rounded-sm bg-stone-100 flex items-center justify-center shrink-0">{{ $p->image ?: '🧴' }}</span>
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-stone-50 text-stone-400"><svg aria-hidden="true" focusable="false" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6m-5 0v5l-4 4v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-8l-4-4V3M7 13h10"/></svg></span>
                             @endif
-                            <span>{{ $p->name }}</span>
-                            @if(count($urls) > 1)<span class="text-[9px] text-stone-400">({{ count($urls) }} foto)</span>@endif
+                            <span class="min-w-0">
+                                <span class="block max-w-[15rem] truncate text-[13px] font-semibold text-stone-900">{{ $p->name }}</span>
+                                @if(count($urls) > 1)<span class="mt-1 block text-[10px] font-medium text-stone-400">{{ count($urls) }} foto produk</span>@endif
+                            </span>
                         </div>
                     </td>
-                    <td class="text-stone-600">{{ $p->sku }}</td>
-                    <td class="text-stone-600">{{ $p->category ?? '-' }}</td>
-                    <td class="text-right">{{ $p->price_grand !== null ? 'Rp '.number_format($p->price_grand, 0, ',', '.') : '—' }}</td>
-                    <td class="text-right">Rp {{ number_format($p->price_distributor, 0, ',', '.') }}</td>
-                    <td class="text-right">Rp {{ number_format($p->price_reseller, 0, ',', '.') }}</td>
-                    <td class="text-right">Rp {{ number_format($p->price_retail, 0, ',', '.') }}</td>
+                    <td class="font-mono text-[11px] font-medium text-stone-500">{{ $p->sku }}</td>
+                    <td><span class="inline-flex rounded-md bg-stone-100 px-2 py-1 text-[10px] font-medium text-stone-600">{{ $p->category ?? 'Tanpa kategori' }}</span></td>
+                    <td class="text-right tabular-nums">{{ $p->price_grand !== null ? 'Rp '.number_format($p->price_grand, 0, ',', '.') : '—' }}</td>
+                    <td class="text-right tabular-nums">Rp {{ number_format($p->price_distributor, 0, ',', '.') }}</td>
+                    <td class="text-right tabular-nums">Rp {{ number_format($p->price_reseller, 0, ',', '.') }}</td>
+                    <td class="text-right tabular-nums">Rp {{ number_format($p->price_retail, 0, ',', '.') }}</td>
                     <td class="text-right text-stone-500">
                         @if(auth()->user()->canDo('manage_production'))
-                            <a href="{{ route('products.hpp-history', $p) }}" class="hover:text-red-600 hover:underline" title="Lihat riwayat HPP">Rp {{ number_format($p->cogs, 0, ',', '.') }}</a>
+                            <a href="{{ route('products.hpp-history', $p) }}" class="font-medium text-stone-600 underline decoration-stone-300 underline-offset-2 hover:text-red-700 hover:decoration-red-600" title="Buka riwayat HPP">Rp {{ number_format($p->cogs, 0, ',', '.') }}</a>
                         @else
                             Rp {{ number_format($p->cogs, 0, ',', '.') }}
                         @endif
                     </td>
                     <td class="text-right {{ (int) $p->weight_grams <= 0 ? 'text-amber-600 font-semibold' : 'text-stone-600' }}">{{ (int) $p->weight_grams > 0 ? number_format($p->weight_grams, 0, ',', '.').' g' : 'belum diisi' }}</td>
-                    <td class="text-right font-bold {{ $p->hq_stock <= 0 ? 'text-rose-600' : 'text-stone-800' }}">{{ $p->hq_stock }}</td>
-                    <td><span class="px-2 py-0.5 rounded-full text-[10px] {{ $p->status==='active' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-600' }}">{{ $p->status }}</span></td>
-                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                    <td class="text-right tabular-nums"><span class="inline-flex min-w-10 justify-center rounded-md px-2 py-1 font-semibold {{ $p->hq_stock <= 0 ? 'bg-rose-50 text-rose-700' : 'bg-stone-100 text-stone-800' }}">{{ $p->hq_stock }}</span></td>
+                    <td><span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $p->status==='active' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-stone-200 bg-stone-100 text-stone-600' }}"><span class="h-1.5 w-1.5 rounded-full {{ $p->status==='active' ? 'bg-emerald-600' : 'bg-stone-400' }}"></span>{{ $p->status }}</span></td>
+                    <td class="whitespace-nowrap text-right">
+                        <div class="inline-flex items-center justify-end gap-1">
                         @if(auth()->user()->canDo('manage_production'))
-                            <a href="{{ route('products.hpp-history', $p) }}" class="text-emerald-700 hover:text-emerald-900 font-semibold mr-2">Riwayat HPP</a>
+                            <a href="{{ route('products.hpp-history', $p) }}" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2.5 text-[11px] font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" title="Riwayat HPP"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5 text-emerald-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15.5 7 11l3 2 6-7m0 0v4m0-4h-4"/></svg><span>Riwayat HPP</span></a>
                         @endif
                         @if($p->status !== 'deleted')
                             @php $gallery = $p->fileGallery(\App\Models\Product::GALLERY); @endphp
-                            <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                                onclick='openProduct({{ json_encode($p->only(["id","name","sku","category","description","price_grand","price_distributor","price_reseller","price_retail","cogs","weight_grams","hq_stock","status"]) + ["gallery" => $gallery]) }})'>Edit</button>
+                            <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2.5 text-[11px] font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" aria-label="Edit {{ $p->name }}" title="Edit produk" onclick='openProduct({{ json_encode($p->only(["id","name","sku","category","description","price_grand","price_distributor","price_reseller","price_retail","cogs","weight_grams","hq_stock","status"]) + ["gallery" => $gallery]) }})'><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="m12.5 3.5 4 4M4 16l1-4 8.5-8.5a1.4 1.4 0 0 1 2 2L7 14l-3 2Z"/></svg>Edit</button>
                             <form method="POST" action="{{ route('products.destroy', $p) }}" class="inline" onsubmit="return confirm('Hapus produk ini (soft delete)?')">
                                 @csrf @method('DELETE')
-                                <button class="ml-2 text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                                <button type="submit" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-rose-200 bg-white px-2.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700" aria-label="Hapus {{ $p->name }}" title="Hapus produk"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h14M8 5V3h4v2m-7 0 1 12h8l1-12m-6 3v6m4-6v6"/></svg>Hapus</button>
                             </form>
                         @else <span class="text-stone-400">—</span> @endif
+                        </div>
                     </td>
                 </tr>
             @empty
@@ -99,7 +107,7 @@
     <div class="bg-white rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h3 id="productModalTitle" class="text-sm font-bold text-stone-900">Tambah Produk</h3>
-            <button onclick="toggleModal('productModal')" class="text-stone-400 hover:text-stone-700"> Tutup </button>
+            <button type="button" onclick="toggleModal('productModal')" aria-label="Tutup formulir produk" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-stone-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" d="m5 5 10 10M15 5 5 15"/></svg></button>
         </div>
         <form method="POST" id="productForm" enctype="multipart/form-data" action="{{ route('products.store') }}" class="grid grid-cols-2 gap-3 text-sm">
             @csrf
@@ -125,8 +133,8 @@
                 <p class="text-[10px] text-stone-400 mt-1">Bisa pilih beberapa foto sekaligus. Foto besar otomatis dikecilkan agar hemat penyimpanan. Saat edit, centang "hapus" untuk membuang foto lama.</p>
             </div>
             <div class="col-span-2 flex justify-end gap-2 mt-2">
-                <button type="button" onclick="toggleModal('productModal')" class="px-4 py-2 text-stone-600 rounded-lg">Batal</button>
-                <button class="px-5 py-2 bg-red-600 text-white rounded-lg">Simpan</button>
+                <button type="button" onclick="toggleModal('productModal')" class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-200 px-4 text-sm font-medium text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" d="m5 5 10 10M15 5 5 15"/></svg>Batal</button>
+                <button class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-red-700 px-5 text-sm font-semibold text-white hover:bg-red-800"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M4 3h10l3 3v11H4zM7 3v5h7V3M7 17v-6h7v6"/></svg>Simpan Produk</button>
             </div>
         </form>
     </div>

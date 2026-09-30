@@ -211,7 +211,7 @@
                                         @if($u->canDo('update_po_status'))
                                             <td class="text-right pr-1">
                                                 <form method="POST" action="{{ route('purchase-orders.payments.delete', [$po, $pay]) }}" onsubmit="return confirm('Hapus cicilan Rp {{ number_format($pay->amount, 0, ',', '.') }} ({{ $pay->paid_at->format('d M Y') }})? Sisa tagihan dihitung ulang.')">@csrf @method('DELETE')
-                                                    <button type="submit" class="text-rose-500 hover:text-rose-700" title="Hapus cicilan">🗑</button>
+                                                    <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700" title="Hapus cicilan" aria-label="Hapus cicilan"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg></button>
                                                 </form>
                                             </td>
                                         @endif

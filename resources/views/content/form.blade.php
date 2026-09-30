@@ -1,125 +1,183 @@
 @extends('layouts.app')
-@section('title', $post->exists ? 'Edit Konten' : 'Konten Baru')
-@section('heading', $post->exists ? 'Edit Konten' : 'Konten Baru')
+@section('title', $post->exists ? 'Edit Konten' : 'Buat Konten')
+@section('heading', $post->exists ? 'Edit Konten' : 'Buat Konten')
 
 @section('content')
 @php
     $platforms = config('content.platforms');
     $media = $post->exists ? $post->filesIn(\App\Models\ContentPost::MEDIA)->get() : collect();
     $selected = old('platforms', $selected);
+    $tiktokConnection = $connections['tiktok'] ?? null;
+    $tiktokApi = ($platforms['tiktok']['mode'] ?? null) === 'auto' && $tiktokConnection?->isActive();
+    $privacyOptions = $tiktokInfo['privacy_level_options'] ?? array_keys(\App\Services\Social\TikTokContentClient::PRIVACY_LABELS);
 @endphp
 
-@if($post->exists && $post->status === 'rejected' && $post->review_note)
-    <div class="mb-4 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 text-sm text-rose-800">
-        <b>Catatan admin:</b> {{ $post->review_note }} — perbaiki lalu ajukan ulang.
+<div class="mx-auto max-w-6xl space-y-5">
+    <div class="flex items-center justify-between gap-3 border-b border-stone-200 pb-4">
+        <div>
+            <p class="text-[10px] font-bold uppercase tracking-[.18em] text-red-700">Studio Konten SKINKU</p>
+            <p class="mt-1 text-sm text-stone-600">Unggah materi sekali, lalu sesuaikan caption dan waktu terbit per kanal.</p>
+        </div>
+        <a href="{{ route('content.index') }}" class="inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-stone-600 hover:bg-stone-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">
+            <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="m12.5 4.5-5 5.5 5 5.5"/></svg>Kembali ke pipeline
+        </a>
     </div>
-@endif
 
-<form method="POST" enctype="multipart/form-data"
-      action="{{ $post->exists ? route('content.update', $post) : route('content.store') }}"
-      class="grid lg:grid-cols-3 gap-5">
-    @csrf
-    @if($post->exists) @method('PUT') @endif
+    @if($errors->any())
+        <div role="alert" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            <p class="font-semibold">Periksa kembali konten sebelum menyimpan.</p>
+            <ul class="mt-1 list-inside list-disc text-xs">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+        </div>
+    @endif
 
-    <div class="lg:col-span-2 space-y-5">
-        <div class="bg-white rounded-2xl border border-stone-200 p-5 space-y-4">
-            <label class="block">
-                <span class="text-xs font-semibold text-stone-600">Judul internal *</span>
-                <input name="title" required maxlength="150" value="{{ old('title', $post->title) }}" placeholder="mis. Reels Body Serum — before/after"
-                       class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
-            </label>
+    <form method="POST" enctype="multipart/form-data" action="{{ $post->exists ? route('content.update', $post) : route('content.store') }}" class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
+        @csrf
+        @if($post->exists) @method('PUT') @endif
 
-            <fieldset>
-                <legend class="text-xs font-semibold text-stone-600">Tipe konten *</legend>
-                <div class="mt-1 flex flex-wrap gap-2">
-                    @foreach(\App\Models\ContentPost::TYPES as $key => $label)
-                        <label class="flex items-center gap-2 px-3 py-2 border border-stone-300 rounded-lg text-sm cursor-pointer has-[:checked]:border-red-600 has-[:checked]:bg-red-50">
-                            <input type="radio" name="type" value="{{ $key }}" @checked(old('type', $post->type) === $key)> {{ $label }}
+        <div class="space-y-5">
+            <section class="rounded-2xl border border-stone-200 bg-white p-4 sm:p-6">
+                <div class="mb-5 flex items-center gap-3 border-b border-stone-100 pb-4">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-700"><svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14M3 9.5h9M3 14.5h6"/></svg></span>
+                    <div><h2 class="text-sm font-bold text-stone-900">Materi konten</h2><p class="mt-0.5 text-[11px] text-stone-500">Tentukan identitas konten dan unggah media.</p></div>
+                </div>
+                <div class="space-y-4">
+                    <label class="block">
+                        <span class="text-xs font-semibold text-stone-700">Judul internal <span class="text-red-700">*</span></span>
+                        <input name="title" required maxlength="150" value="{{ old('title', $post->title) }}" placeholder="mis. Reels Body Serum — before/after" class="mt-1.5 block min-h-11 w-full px-3 text-sm">
+                    </label>
+
+                    <fieldset>
+                        <legend class="text-xs font-semibold text-stone-700">Format media <span class="text-red-700">*</span></legend>
+                        <div class="mt-2 grid grid-cols-3 gap-2">
+                            @foreach(\App\Models\ContentPost::TYPES as $key => $label)
+                                <label class="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-stone-200 px-2 text-xs font-semibold text-stone-700 transition has-[:checked]:border-red-600 has-[:checked]:bg-red-50 has-[:checked]:text-red-800">
+                                    <input type="radio" name="type" value="{{ $key }}" @checked(old('type', $post->type) === $key) class="accent-red-700">{{ $label }}
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="mt-1.5 text-[11px] text-stone-500">Foto: 1 gambar · Video: 1 MP4/MOV · Carousel: {{ config('content.carousel_min') }}–{{ config('content.carousel_max') }} gambar.</p>
+                    </fieldset>
+
+                    <div>
+                        <label for="contentMedia" class="text-xs font-semibold text-stone-700">{{ $post->exists ? 'Ganti media (opsional)' : 'File media' }} <span class="text-red-700">*</span></label>
+                        <input id="contentMedia" type="file" name="media[]" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" class="mt-1.5 block min-h-12 w-full rounded-lg border border-dashed border-stone-300 bg-stone-50 p-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-stone-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white">
+                        <p class="mt-1.5 text-[11px] text-stone-500">JPG/PNG/WEBP maks {{ intdiv(config('content.image_max_kb'), 1024) }} MB · video maks {{ intdiv(config('content.video_max_kb'), 1024) }} MB. Upload baru mengganti media lama.</p>
+                        @if($media->isNotEmpty())
+                            <div class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                                @foreach($media as $file)
+                                    @if($file->isImage())<img src="{{ $file->url() }}" alt="Media tersimpan" class="aspect-square w-full rounded-lg border border-stone-200 object-cover">@else
+                                        <video src="{{ $file->url() }}" controls class="aspect-square w-full rounded-lg border border-stone-200 bg-black object-cover"></video>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    <label class="block">
+                        <span class="flex items-center justify-between gap-2 text-xs font-semibold text-stone-700"><span>Caption utama</span><span class="text-[10px] font-normal text-stone-400"><span id="captionCount">{{ mb_strlen(old('caption', $post->caption ?? '')) }}</span> karakter</span></span>
+                        <textarea name="caption" rows="6" id="mainCaption" class="mt-1.5 block w-full px-3 py-2.5 text-sm" placeholder="Tulis pesan utama untuk konten ini">{{ old('caption', $post->caption) }}</textarea>
+                        <span class="mt-1 block text-[11px] text-stone-500">Batas caption berbeda per platform. Anda dapat membuat versi khusus setelah memilih kanal.</span>
+                    </label>
+                </div>
+            </section>
+
+            <section class="rounded-2xl border border-stone-200 bg-white p-4 sm:p-6">
+                <div class="mb-4 flex items-center justify-between gap-3 border-b border-stone-100 pb-4">
+                    <div><h2 class="text-sm font-bold text-stone-900">Tujuan publikasi</h2><p class="mt-0.5 text-[11px] text-stone-500">Pilih semua kanal yang akan menerima konten ini.</p></div>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-2">
+                    @foreach($platforms as $key => $platform)
+                        @php $connection = $connections[$key] ?? null; $manual = $platform['mode'] === 'manual' || ($platform['mode'] === 'auto' && ! $connection?->isActive()); @endphp
+                        <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-stone-200 p-3 transition hover:border-stone-300 has-[:checked]:border-red-300 has-[:checked]:bg-red-50/50">
+                            <input type="checkbox" name="platforms[]" value="{{ $key }}" @checked(in_array($key, $selected, true)) class="mt-0.5 h-4 w-4 rounded border-stone-300 accent-red-700">
+                            <span class="min-w-0 flex-1">
+                                <span class="flex items-center justify-between gap-2"><span class="text-sm font-semibold text-stone-800">{{ $platform['label'] }}</span><span class="rounded-md px-1.5 py-0.5 text-[9px] font-semibold {{ $manual ? 'bg-amber-50 text-amber-800' : ($connection?->isActive() ? 'bg-emerald-50 text-emerald-800' : 'bg-stone-100 text-stone-600') }}">{{ $manual ? 'Manual' : ($connection?->isActive() ? 'Terhubung' : 'API') }}</span></span>
+                                <span class="mt-1 block text-[10px] leading-4 text-stone-500">{{ $manual ? 'Posting dilakukan manual, lalu catat tautannya.' : ($connection?->isActive() ? 'Konten masuk antrean publikasi otomatis.' : 'Perlu akun terhubung untuk publikasi otomatis.') }}</span>
+                                @if($key === 'tiktok' && $tiktokApi)
+                                    <span class="mt-2 block text-[10px] font-medium text-stone-600">{{ ! empty($tiktokInfo['creator_nickname']) ? 'Akun: '.$tiktokInfo['creator_nickname'] : 'Direct Post aktif' }}</span>
+                                @endif
+                            </span>
                         </label>
                     @endforeach
                 </div>
-                <p class="mt-1 text-[11px] text-stone-500">Foto = 1 gambar · Video = 1 video MP4/MOV · Carousel = {{ config('content.carousel_min') }}–{{ config('content.carousel_max') }} gambar.</p>
-            </fieldset>
 
-            <div>
-                <span class="text-xs font-semibold text-stone-600">Media {{ $post->exists ? '(upload baru = mengganti semua media lama)' : '*' }}</span>
-                <input type="file" name="media[]" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
-                       class="mt-1 block w-full text-sm file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-stone-800 file:text-white">
-                <p class="mt-1 text-[11px] text-stone-500">Gambar JPG/PNG/WEBP maks {{ intdiv(config('content.image_max_kb'), 1024) }} MB · video maks {{ intdiv(config('content.video_max_kb'), 1024) }} MB.</p>
-                @if($media->isNotEmpty())
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        @foreach($media as $f)
-                            @if($f->isImage())
-                                <img src="{{ $f->url() }}" alt="" class="w-20 h-20 object-cover rounded-lg border border-stone-200">
-                            @else
-                                <video src="{{ $f->url() }}" class="w-20 h-20 object-cover rounded-lg border border-stone-200" muted></video>
-                            @endif
-                        @endforeach
+                @if($tiktokApi)
+                    <div class="mt-4 rounded-xl border border-stone-200 bg-stone-50/70 p-4">
+                        <h3 class="text-xs font-bold text-stone-800">Setelan TikTok Direct Post</h3>
+                        @if(! empty($tiktokInfo['error']))<p role="alert" class="mt-2 text-[11px] text-rose-700">Info akun belum dapat dibaca: {{ $tiktokInfo['error'] }}</p>@endif
+                        <label class="mt-3 block">
+                            <span class="text-[11px] font-semibold text-stone-700">Privasi publikasi</span>
+                            <select name="tiktok[privacy_level]" class="mt-1 block min-h-10 w-full px-3 text-sm">
+                                <option value="">Pilih privasi</option>
+                                @foreach($privacyOptions as $option)<option value="{{ $option }}" @selected(old('tiktok.privacy_level', $post->targets->firstWhere('platform', 'tiktok')?->options['privacy_level'] ?? '') === $option)>{{ \App\Services\Social\TikTokContentClient::PRIVACY_LABELS[$option] ?? $option }}</option>@endforeach
+                            </select>
+                        </label>
+                        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-stone-700">
+                            <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[allow_comment]" value="1" @checked(old('tiktok.allow_comment')) @disabled(! empty($tiktokInfo['comment_disabled'])) class="accent-red-700">Izinkan komentar</label>
+                            <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[allow_duet]" value="1" @checked(old('tiktok.allow_duet')) @disabled(! empty($tiktokInfo['duet_disabled'])) class="accent-red-700">Izinkan duet</label>
+                            <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[allow_stitch]" value="1" @checked(old('tiktok.allow_stitch')) @disabled(! empty($tiktokInfo['stitch_disabled'])) class="accent-red-700">Izinkan stitch</label>
+                            <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[brand_organic]" value="1" @checked(old('tiktok.brand_organic')) class="accent-red-700">Promosi brand sendiri</label>
+                        </div>
+                        <label class="mt-3 flex items-start gap-2 text-[11px] leading-5 text-stone-600"><input type="checkbox" name="tiktok[consent]" value="1" @checked(old('tiktok.consent')) class="mt-1 accent-red-700"><span>Saya menyetujui <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Music Usage Confirmation</a> TikTok untuk konten ini.</span></label>
                     </div>
                 @endif
-            </div>
 
-            <label class="block">
-                <span class="text-xs font-semibold text-stone-600">Caption utama</span>
-                <textarea name="caption" rows="6" id="mainCaption" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm"
-                          placeholder="Caption yang dipakai semua platform (bisa di-override per platform di kanan).">{{ old('caption', $post->caption) }}</textarea>
-                <span class="text-[11px] text-stone-500"><span id="captionCount">0</span> karakter · batas: Threads 500, Instagram &amp; TikTok 2.200.</span>
-            </label>
-        </div>
-    </div>
-
-    <div class="space-y-5">
-        <div class="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-            <p class="text-xs font-semibold text-stone-600">Terbit ke akun SKINKU *</p>
-            @foreach($platforms as $key => $cfg)
-                <div class="border border-stone-200 rounded-xl p-3">
-                    <label class="flex items-center gap-2 text-sm font-semibold text-stone-800">
-                        <input type="checkbox" name="platforms[]" value="{{ $key }}" @checked(in_array($key, $selected, true))>
-                        {{ $cfg['label'] }}
-                        @if($cfg['mode'] === 'manual')<span class="text-[10px] font-normal px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">diposting manual oleh admin</span>
-                        @elseif($cfg['mode'] === 'auto')<span class="text-[10px] font-normal px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-800">otomatis bila akun terhubung, selain itu manual</span>@endif
+                <div class="mt-4 border-t border-stone-100 pt-4">
+                    <label class="block">
+                        <span class="text-xs font-semibold text-stone-700">Catatan untuk tim <span class="font-normal text-stone-400">(opsional)</span></span>
+                        <textarea name="creator_note" rows="2" maxlength="2000" class="mt-1.5 block w-full px-3 py-2 text-sm" placeholder="Catatan produksi atau konteks internal">{{ old('creator_note', $post->creator_note) }}</textarea>
                     </label>
-                    <details class="mt-2" @if(old("captions.$key", $captions[$key] ?? null)) open @endif>
-                        <summary class="text-[11px] text-stone-500 cursor-pointer">Caption khusus {{ $cfg['label'] }} (maks {{ number_format($cfg['caption_max'], 0, ',', '.') }})</summary>
-                        <textarea name="captions[{{ $key }}]" rows="3" maxlength="{{ $cfg['caption_max'] }}" class="mt-1 block w-full px-2 py-1.5 border border-stone-300 rounded-lg text-xs"
-                                  placeholder="Kosong = pakai caption utama">{{ old("captions.$key", $captions[$key] ?? '') }}</textarea>
-                    </details>
                 </div>
-            @endforeach
+            </section>
         </div>
 
-        <div class="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
-            <label class="block">
-                <span class="text-xs font-semibold text-stone-600">Usulan jadwal terbit</span>
-                <input type="datetime-local" name="scheduled_at" value="{{ old('scheduled_at', $post->scheduled_at?->format('Y-m-d\TH:i')) }}"
-                       class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
-                <span class="text-[11px] text-stone-500">Kosong = secepatnya setelah disetujui.</span>
-            </label>
-            <label class="block">
-                <span class="text-xs font-semibold text-stone-600">Catatan untuk admin</span>
-                <textarea name="creator_note" rows="3" maxlength="2000" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ old('creator_note', $post->creator_note) }}</textarea>
-            </label>
-        </div>
+        <aside class="space-y-4">
+            <section class="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+                <div class="mb-4 flex items-center gap-3 border-b border-stone-100 pb-4">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-700"><svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+                    <div><h2 class="text-sm font-bold text-stone-900">Waktu terbit</h2><p class="mt-0.5 text-[11px] text-stone-500">Pilih sekarang atau atur kalender.</p></div>
+                </div>
+                <label class="block">
+                    <span class="text-xs font-semibold text-stone-700">Tanggal dan waktu</span>
+                    <input id="scheduledAt" type="datetime-local" name="scheduled_at" value="{{ old('scheduled_at', $post->scheduled_at?->format('Y-m-d\TH:i')) }}" class="mt-1.5 block min-h-11 w-full px-3 text-sm">
+                    <span class="mt-1.5 block text-[11px] leading-4 text-stone-500">Kosongkan untuk memasukkan konten ke antrean sekarang. Waktu masa depan akan mengikuti kalender.</span>
+                </label>
+            </section>
 
-        <div class="flex flex-col gap-2">
-            <button name="submit" value="1" class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold shadow-sm">Simpan &amp; Ajukan Persetujuan</button>
-            <button name="submit" value="0" class="px-5 py-2.5 text-sm bg-white border border-stone-300 text-stone-700 rounded-xl hover:bg-stone-50 font-semibold">Simpan Draft</button>
-        </div>
-    </div>
-</form>
+            <section class="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 sm:p-5">
+                <h2 class="text-xs font-bold uppercase tracking-[.12em] text-stone-600">Sesudah disimpan</h2>
+                <p class="mt-2 text-xs leading-5 text-stone-600">Draft tetap di pipeline. Terbitkan/jadwalkan akan memasukkan target ke antrean sesuai waktu pilihan, tanpa menunggu persetujuan.</p>
+            </section>
 
-@if($post->exists)
-    <form method="POST" action="{{ route('content.destroy', $post) }}" class="mt-4" onsubmit="return confirm('Hapus konten ini beserta medianya?')">
-        @csrf @method('DELETE')
-        <button class="text-xs text-rose-700 hover:underline">Hapus konten</button>
+            <div class="sticky bottom-3 flex flex-col gap-2 rounded-xl border border-stone-200 bg-white/95 p-3 shadow-sm backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+                <button type="submit" name="intent" value="publish" id="publishButton" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-bold text-white shadow-sm hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                    <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10 17 3l-4 14-3.5-5.5L3 10Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m9.5 11.5 4-4"/></svg><span id="publishLabel">{{ old('scheduled_at', $post->scheduled_at) ? 'Jadwalkan publikasi' : 'Terbitkan sekarang' }}</span>
+                </button>
+                <button type="submit" name="intent" value="draft" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                    <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M4 3h10l3 3v11H4zM7 3v5h7V3M7 17v-6h7v6"/></svg>Simpan draft
+                </button>
+            </div>
+        </aside>
     </form>
-@endif
+
+    @if($post->exists && $post->status === 'draft')
+        <form method="POST" action="{{ route('content.destroy', $post) }}" onsubmit="return confirm('Hapus draft konten ini beserta media?')" class="border-t border-stone-200 pt-4">
+            @csrf @method('DELETE')
+            <button class="inline-flex min-h-9 items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700">
+                <svg aria-hidden="true" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h14M8 5V3h4v2m-7 0 1 12h8l1-12m-6 3v6m4-6v6"/></svg>Hapus draft
+            </button>
+        </form>
+    @endif
+</div>
 
 <script>
     (function () {
-        var c = document.getElementById('mainCaption'), n = document.getElementById('captionCount');
-        var update = function () { n.textContent = c.value.length; };
-        c.addEventListener('input', update); update();
+        var caption = document.getElementById('mainCaption');
+        var count = document.getElementById('captionCount');
+        var schedule = document.getElementById('scheduledAt');
+        var label = document.getElementById('publishLabel');
+        if (caption && count) caption.addEventListener('input', function () { count.textContent = caption.value.length; });
+        if (schedule && label) schedule.addEventListener('input', function () { label.textContent = schedule.value ? 'Jadwalkan publikasi' : 'Terbitkan sekarang'; });
     })();
 </script>
 @endsection

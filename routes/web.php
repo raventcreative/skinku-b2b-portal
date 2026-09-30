@@ -12,7 +12,6 @@ use App\Http\Controllers\BackdatedSaleController;
 use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\ContentInsightController;
 use App\Http\Controllers\ContentPostController;
-use App\Http\Controllers\ContentReviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DownlineOrderController;
 use App\Http\Controllers\EcomChatController;
@@ -675,28 +674,23 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::delete('/kalkulator-roi/items/{item}', [RoiCalculatorController::class, 'deleteItem'])->name('roi-calculator.items.destroy');
     });
 
-    /* ---------------- Portal Content Creator (spec 2026-09-25) ---------------- */
+    /* ---------------- Content Pipeline ---------------- */
     Route::middleware('permission:content.create')->group(function () {
         Route::get('/creator', [ContentPostController::class, 'dashboard'])->name('creator.dashboard');
         Route::get('/content', [ContentPostController::class, 'index'])->name('content.index');
+        Route::get('/content/calendar', [ContentPostController::class, 'calendar'])->name('content.calendar');
         Route::get('/content/create', [ContentPostController::class, 'create'])->name('content.create');
         Route::post('/content', [ContentPostController::class, 'store'])->name('content.store');
         Route::get('/content/{post}/edit', [ContentPostController::class, 'edit'])->name('content.edit');
         Route::put('/content/{post}', [ContentPostController::class, 'update'])->name('content.update');
         Route::delete('/content/{post}', [ContentPostController::class, 'destroy'])->name('content.destroy');
-        Route::post('/content/{post}/submit', [ContentPostController::class, 'submit'])->name('content.submit');
-        Route::post('/content/{post}/withdraw', [ContentPostController::class, 'withdraw'])->name('content.withdraw');
+        Route::post('/content-targets/{target}/retry', [ContentPostController::class, 'retry'])->name('content-targets.retry');
+        Route::post('/content-targets/{target}/mark-published', [ContentPostController::class, 'markPublished'])->name('content-targets.mark-published');
     });
-    // Detail: pemilik (content.create) ATAU reviewer (content.review) — dicek di controller.
+    // Detail dapat dilihat pemilik atau pengelola konten lintas creator.
     Route::get('/content/{post}', [ContentPostController::class, 'show'])->name('content.show');
-    Route::middleware('permission:content.review')->group(function () {
+    Route::middleware('permission:content.manage')->group(function () {
         Route::get('/content-insights', [ContentInsightController::class, 'index'])->name('content-insights.index');
-        Route::post('/content/{post}/approve', [ContentReviewController::class, 'approve'])->name('content.approve');
-        Route::post('/content/{post}/reject', [ContentReviewController::class, 'reject'])->name('content.reject');
-    });
-    Route::middleware('permission:content.publish.manage')->group(function () {
-        Route::post('/content-targets/{target}/retry', [ContentReviewController::class, 'retry'])->name('content-targets.retry');
-        Route::post('/content-targets/{target}/mark-published', [ContentReviewController::class, 'markPublished'])->name('content-targets.mark-published');
     });
     Route::middleware('permission:social.connect')->group(function () {
         Route::get('/social-connections', [SocialConnectionController::class, 'index'])->name('social.index');

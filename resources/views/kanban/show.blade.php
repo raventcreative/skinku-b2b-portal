@@ -97,7 +97,7 @@
                     </div>
 
                     {{-- Modal detail kartu (native <dialog> — tanpa library). --}}
-                    <dialog id="cardModal-{{ $card->id }}" class="rounded-2xl p-0 w-[92vw] max-w-lg backdrop:bg-black/40 border border-stone-200">
+                    <dialog id="cardModal-{{ $card->id }}" class="fixed top-1/2 left-1/2 m-0 -translate-x-1/2 -translate-y-1/2 rounded-2xl p-0 w-[min(92vw,32rem)] max-h-[90vh] max-h-[90dvh] overflow-y-auto overscroll-contain backdrop:bg-black/40 border border-stone-200">
                         <div class="p-5">
                             <div class="flex items-start justify-between gap-3 mb-3">
                                 <p class="text-[10px] uppercase tracking-wide text-stone-400 font-semibold">Kolom: {{ $column->name }}</p>

@@ -8,10 +8,10 @@
     <a href="{{ route('productions.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 shrink-0">+ Produksi</a>
 </div>
 
-<div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+<div class="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
     <div class="overflow-x-auto">
-    <table class="w-full text-xs whitespace-nowrap">
-        <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
+    <table class="ui-table min-w-[760px] w-full text-xs whitespace-nowrap">
+        <thead class="bg-stone-50/90 text-stone-600 uppercase text-[10px]">
             <tr>
                 <th class="text-left px-4 py-3">No. Produksi</th>
                 <th class="text-left">Tanggal</th>
@@ -33,7 +33,7 @@
                     <td class="font-semibold text-stone-800">
                         @if($p->product && auth()->user()->canDo('manage_production'))
                             <a href="{{ route('products.hpp-history', $p->product) }}"
-                                class="hover:text-red-600 hover:underline" title="Lihat riwayat HPP {{ $p->product_name }}">{{ $p->product_name }}</a>
+                                class="font-semibold text-stone-800 underline decoration-stone-300 underline-offset-2 hover:text-red-700 hover:decoration-red-600" title="Lihat riwayat HPP {{ $p->product_name }}">{{ $p->product_name }}</a>
                         @else
                             {{ $p->product_name }}
                         @endif

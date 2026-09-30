@@ -23,8 +23,9 @@
 - **Navigation:** fixed `red-800` rail on desktop; off-canvas drawer on mobile; current page uses `red-700` with a visible left marker. Keep group state and permission checks in Blade.
 - **Header:** compact white sticky bar with page name and existing actions.
 - **Buttons:** preserve existing Tailwind intent colors. Primary actions use brand red; secondary actions use a neutral outline. All controls need hover, focus-visible, and disabled states.
+- **Action buttons:** use shadcn/ui-inspired outline/secondary/destructive treatments with inline SVG icons, visible Indonesian labels, consistent 32–40px hit areas, and wrapped groups on narrow screens. Implement in Blade + Tailwind; do not add shadcn/React dependencies.
 - **Inputs:** white surface, warm neutral border, rounded 10px corners, red focus ring. Keep native input types and labels.
-- **Tables:** semantic table markup, readable headers, aligned numeric data, subtle row separators/hover, and horizontal overflow on narrow screens. Do not turn tables into cards unless labels remain accessible.
+- **Tables:** semantic table markup, muted high-contrast headers, readable row spacing, aligned tabular numbers, subtle separators/hover, rounded bordered shells, and horizontal overflow on narrow screens. Keep row actions grouped as labelled outline/destructive buttons with matching SVG icons. Statuses use named text badges. Do not turn tables into cards unless labels remain accessible.
 - **Containers:** use whitespace first; reserve bordered white surfaces for distinct tasks, forms, charts, and data groups.
 
 ## 5. Layout and spacing
