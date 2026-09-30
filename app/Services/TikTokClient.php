@@ -308,6 +308,42 @@ class TikTokClient
         return $this->request('POST', "/product/202309/products/{$productId}/partial_edit", $accessToken, $shopCipher, [], $fields);
     }
 
+    /**
+     * Upload satu gambar produk (Upload Product Image 202309) → `uri` yang dipakai di main_images.
+     * Request MULTIPART (file di field `data`, `use_case` ikut sbg field form), jadi TAK lewat
+     * request() yang memaksa body JSON. Tanda tangan TikTok MENGECUALIKAN body multipart →
+     * sign() dipanggil dgn body string kosong (query/path tetap ikut).
+     *
+     * @return string uri gambar di TikTok
+     */
+    public function uploadImage(string $accessToken, ?string $shopCipher, string $bytes, string $filename, string $useCase = 'MAIN_IMAGE'): string
+    {
+        $path = '/product/202309/images/upload';
+        $query = array_merge([
+            'app_key' => $this->appKey,
+            'timestamp' => (string) time(),
+        ], $shopCipher ? ['shop_cipher' => $shopCipher] : []);
+        $query['sign'] = $this->sign($path, $query, '');
+
+        $url = rtrim(config("services.{$this->configKey}.api_base"), '/').$path;
+        $res = Http::withHeaders(['x-tts-access-token' => $accessToken])->acceptJson()
+            ->attach('data', $bytes, $filename)
+            ->post($url.'?'.http_build_query($query), ['use_case' => $useCase]);
+
+        $json = $res->json() ?? [];
+        if (($json['code'] ?? -1) !== 0) {
+            throw new RuntimeException('TikTok API error ('.($json['code'] ?? '?').'): '.($json['message'] ?? $res->body()));
+        }
+
+        // Kontrak return `string`: sukses tanpa uri = galat terbaca, bukan TypeError "null returned".
+        $uri = data_get($json, 'data.uri');
+        if (! is_string($uri) || $uri === '') {
+            throw new RuntimeException('TikTok upload gambar: respons sukses tetapi tanpa uri.');
+        }
+
+        return $uri;
+    }
+
     /** Cari produk aktif toko — dipakai memetakan produk lokal ↔ product/SKU TikTok. */
     public function searchProducts(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
     {

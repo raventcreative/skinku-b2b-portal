@@ -247,6 +247,44 @@ class ShopeeClient
         return $this->shopCall('POST', '/api/v2/product/update_item', $accessToken, $shopId, array_merge(['item_id' => $itemId], $fields));
     }
 
+    /**
+     * Upload satu gambar ke media space Shopee → `image_id` yang dipakai di image.image_id_list item.
+     * Request MULTIPART (file di field `image`), jadi TAK lewat shopCall() yang mengirim body JSON.
+     * Tanda tangan Shopee tak menyertakan body → query auth sama persis dgn shopCall().
+     *
+     * @return string image_id di Shopee
+     */
+    public function uploadImage(string $accessToken, string $shopId, string $bytes, string $filename): string
+    {
+        $path = '/api/v2/media_space/upload_image';
+        $ts = time();
+        $auth = [
+            'partner_id' => $this->partnerId,
+            'timestamp' => $ts,
+            'access_token' => $accessToken,
+            'shop_id' => $shopId,
+            'sign' => $this->sign($path, $ts, $accessToken, $shopId),
+        ];
+
+        $res = $this->client()->attach('image', $bytes, $filename)
+            ->post($this->base().$path.'?'.http_build_query($auth));
+        $json = $this->handle($res, $path);
+
+        // Kontrak return `string`: tanpa image_id = galat terbaca, bukan TypeError "null returned".
+        // Shopee menaruh galat PER-GAMBAR di image_info_list[0] — `error` top-level bisa tetap kosong.
+        $imageId = data_get($json, 'response.image_info.image_id');
+        if (! is_string($imageId) || $imageId === '') {
+            $detail = trim(implode(' ', array_filter([
+                data_get($json, 'response.image_info_list.0.error'),
+                data_get($json, 'response.image_info_list.0.message'),
+            ], 'is_string')));
+
+            throw new RuntimeException("Shopee upload gambar pada {$path}: respons tanpa image_id".($detail === '' ? '.' : " ({$detail})."));
+        }
+
+        return $imageId;
+    }
+
     /** Daftar item toko (status NORMAL) — dipakai memetakan produk lokal ↔ item Shopee. */
     public function getItemList(string $accessToken, string $shopId, int $offset = 0, int $pageSize = 50): array
     {
