@@ -141,6 +141,19 @@
             <a href="{{ route('marketplace-stock.index') }}" class="px-5 py-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200">Batal</a>
         </div>
     </form>
+
+    @if($master->exists)
+        {{-- DORONG KONTEN — <form> SENDIRI, WAJIB DI LUAR form Simpan di atas (HTML larang <form> nested; dijaga tes kedalaman-form).
+             Mengirim data yang SUDAH TERSIMPAN (bukan isian form yang belum di-Simpan). Nama produk & foto tak ikut. --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-3">
+            <h3 class="font-semibold text-stone-800">Dorong Konten ke Marketplace</h3>
+            <p class="text-xs text-stone-500 leading-relaxed">Kirim <b>deskripsi, berat, dan dimensi</b> produk ini ke listing TikTok &amp; Shopee yang tertaut — isi di marketplace akan <b>ditimpa</b> (field yang kosong dilewati). Nama produk tidak ikut, foto belum. Yang dikirim = data yang sudah <b>tersimpan</b>: klik <b>Simpan</b> dulu bila baru mengubahnya. Konten berlaku untuk seluruh produk di marketplace (tingkat produk, bukan per varian).</p>
+            <form method="POST" action="{{ route('marketplace-stock.master.konten', $master) }}" onsubmit="return confirm('Kirim &amp; timpa deskripsi/berat/dimensi produk ini di TikTok &amp; Shopee? (field kosong dilewati, foto belum termasuk)')">
+                @csrf
+                <button type="submit" class="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Dorong Konten ke Marketplace</button>
+            </form>
+        </div>
+    @endif
 </div>
 @endsection
 
