@@ -22,7 +22,7 @@ class MarketplaceStockController extends Controller
     /** Petunjuk flash `error` saat push GAGAL — dipilih pemanggil pushFlash. Default = jalur stok/harga. */
     private const FAIL_HINT_STOK_HARGA = 'stok/harga belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing (sering: scope Product app belum di-otorisasi ulang).';
 
-    private const FAIL_HINT_KONTEN = 'konten belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing.';
+    private const FAIL_HINT_KONTEN = 'konten/foto belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing.';
 
     public function index(Request $request): View
     {
@@ -298,14 +298,21 @@ class MarketplaceStockController extends Controller
      */
     public function pushContent(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
+        // Push pertama bisa upload s.d. 9 foto per channel secara berurutan — beri waktu lebih bila server
+        // mengizinkan. function_exists: di PHP 8 fungsi yang dinonaktifkan hosting MELEMPAR Error (@ tak cukup).
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(180);
+        }
+
         $r = $svc->pushMasterContent($master);
         $listings = $r['pushed'] + $r['skipped'] + $r['failed'];
 
         // Jujur: kalau tak ada yang benar-benar dikirim, bilang kenapa (bukan status kosong/"berhasil").
+        // Foto selalu lewat diff-guard → "semua dilewati" = teks kosong DAN foto tak ada/tak berubah.
         $prefix = match (true) {
-            $listings === 0 => "Konten \"{$master->name}\" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat \"Tambah ke Marketplace\")",
-            $r['skipped'] === $listings => "Konten \"{$master->name}\" belum dikirim — deskripsi, berat, dan dimensi produk ini masih kosong",
-            default => "Dorong konten \"{$master->name}\"",
+            $listings === 0 => "Konten & foto \"{$master->name}\" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat \"Tambah ke Marketplace\")",
+            $r['skipped'] === $listings => "Tak ada yang dikirim untuk \"{$master->name}\" — deskripsi, berat, dan dimensi masih kosong, dan foto belum ada atau tak berubah sejak dorong terakhir",
+            default => "Dorong konten & foto \"{$master->name}\"",
         };
 
         return $this->pushFlash(back(), $r, $prefix, self::FAIL_HINT_KONTEN);

@@ -144,13 +144,14 @@
 
     @if($master->exists)
         {{-- DORONG KONTEN — <form> SENDIRI, WAJIB DI LUAR form Simpan di atas (HTML larang <form> nested; dijaga tes kedalaman-form).
-             Mengirim data yang SUDAH TERSIMPAN (bukan isian form yang belum di-Simpan). Nama produk & foto tak ikut. --}}
+             Mengirim data yang SUDAH TERSIMPAN (bukan isian form yang belum di-Simpan). Nama produk tak ikut;
+             foto ikut tapi hanya bila set foto master berubah sejak dorong terakhir (diff-guard photo_hash). --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-3">
-            <h3 class="font-semibold text-stone-800">Dorong Konten ke Marketplace</h3>
-            <p class="text-xs text-stone-500 leading-relaxed">Kirim <b>deskripsi, berat, dan dimensi</b> produk ini ke listing TikTok &amp; Shopee yang tertaut — isi di marketplace akan <b>ditimpa</b> (field yang kosong dilewati). Nama produk tidak ikut, foto belum. Yang dikirim = data yang sudah <b>tersimpan</b>: klik <b>Simpan</b> dulu bila baru mengubahnya. Konten berlaku untuk seluruh produk di marketplace (tingkat produk, bukan per varian).</p>
-            <form method="POST" action="{{ route('marketplace-stock.master.konten', $master) }}" onsubmit="return confirm('Kirim &amp; timpa deskripsi/berat/dimensi produk ini di TikTok &amp; Shopee? (field kosong dilewati, foto belum termasuk)')">
+            <h3 class="font-semibold text-stone-800">Dorong Konten &amp; Foto ke Marketplace</h3>
+            <p class="text-xs text-stone-500 leading-relaxed">Kirim <b>deskripsi, berat, dimensi, dan foto</b> produk ini ke listing TikTok &amp; Shopee yang tertaut — isi di marketplace akan <b>ditimpa</b> (field yang kosong dilewati). <b>Foto:</b> SEMUA foto listing diganti dengan foto master (urutan sama, foto pertama = utama), tapi <b>hanya bila foto master berubah</b> sejak dorong terakhir; kalau master belum punya foto, foto listing tidak disentuh. Nama produk tidak ikut. Yang dikirim = data yang sudah <b>tersimpan</b>: klik <b>Simpan</b> dulu bila baru mengubahnya. Berlaku untuk seluruh produk di marketplace (tingkat produk, bukan per varian).</p>
+            <form method="POST" action="{{ route('marketplace-stock.master.konten', $master) }}" onsubmit="return confirm('Kirim &amp; timpa deskripsi/berat/dimensi dan ganti SEMUA foto listing di TikTok &amp; Shopee? (field kosong dilewati; foto hanya diganti bila berubah)')">
                 @csrf
-                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-6-6 6 6-6 6M5 5v14"/></svg>Dorong konten ke marketplace</button>
+                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-6-6 6 6-6 6M5 5v14"/></svg>Dorong konten &amp; foto ke marketplace</button>
             </form>
         </div>
     @endif
