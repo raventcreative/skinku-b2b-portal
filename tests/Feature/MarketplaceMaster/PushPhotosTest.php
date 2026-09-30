@@ -951,4 +951,24 @@ class PushPhotosTest extends TestCase
         $this->actingAs($admin)->post(route('marketplace-stock.master.konten', $m))
             ->assertSessionHas('status', 'Dorong konten & foto "Serum X" (1 sinkron OK)');
     }
+
+    public function test_mask_secrets_menyamarkan_kredensial_tanpa_mengubah_teks_lain(): void
+    {
+        $teks = 'timed out for https://h/api?partner_id=1&access_token=AAA&shop_id=9&sign=BBB&shop_cipher=CCC design=ok resign=ok';
+
+        $this->assertSame(
+            'timed out for https://h/api?partner_id=1&access_token=***&shop_id=9&sign=***&shop_cipher=*** design=ok resign=ok',
+            MarketplaceMasterService::maskSecrets($teks)
+        );
+    }
+
+    public function test_flash_refresh_listing_menyamarkan_token_saat_error(): void
+    {
+        $this->mock(MarketplaceMasterService::class, fn ($mock) => $mock->shouldReceive('resolveListings')
+            ->andThrow(new \RuntimeException('cURL error 28: timed out for https://partner.shopeemobile.com/api/v2/product/get_item_list?access_token=RAHASIA123&shop_id=1&sign=abcdef')));
+
+        $this->actingAs($this->admin())->post(route('marketplace-stock.resolve'))
+            ->assertSessionHas('error', fn (string $e) => str_contains($e, 'access_token=***') && str_contains($e, 'sign=***')
+                && ! str_contains($e, 'RAHASIA123') && ! str_contains($e, 'abcdef'));
+    }
 }

@@ -377,9 +377,13 @@ class MarketplaceMasterService
      */
     private function errorText(\Throwable $e): string
     {
-        $msg = preg_replace('/\b(access_token|refresh_token|sign|partner_key|app_secret|shop_cipher)=[^&\s"\'<>]+/i', '$1=***', $e->getMessage());
+        return mb_substr(self::maskSecrets($e->getMessage()), 0, 500);
+    }
 
-        return mb_substr((string) $msg, 0, 500);
+    /** Samarkan nilai kredensial di teks (URL/query) sebelum disimpan atau ditampilkan ke admin. */
+    public static function maskSecrets(string $msg): string
+    {
+        return (string) preg_replace('/\b(access_token|refresh_token|sign|partner_key|app_secret|shop_cipher)=[^&\s"\'<>]+/i', '$1=***', $msg);
     }
 
     /**

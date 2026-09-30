@@ -362,7 +362,8 @@ class MarketplaceStockController extends Controller
                 $r = $svc->resolveListings($channel);
                 $notes[] = ucfirst($channel).": {$r['found']} listing";
             } catch (\Throwable $e) {
-                $errors[] = ucfirst($channel).' gagal: '.$e->getMessage();
+                // Timeout Guzzle menempel URL berisi access_token/sign — samarkan sebelum tampil di flash.
+                $errors[] = ucfirst($channel).' gagal: '.MarketplaceMasterService::maskSecrets($e->getMessage());
             }
         }
         $redirect = back();
