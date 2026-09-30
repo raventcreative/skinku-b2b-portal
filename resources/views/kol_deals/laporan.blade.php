@@ -3,6 +3,7 @@
 @section('heading', 'Ringkasan Hasil Endorse KOL')
 
 @section('content')
+@php $plainVerdict = fn ($v) => preg_replace('/^[^\\pL\\pN]+/u', '', (string) $v); @endphp
 @php
     $u = auth()->user();
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
@@ -59,7 +60,7 @@
                         <td class="text-right text-stone-600">{{ $d->hasil_cpm !== null ? $rp($d->hasil_cpm) : '—' }}</td>
                         <td class="text-right px-2 text-stone-700 font-semibold">{{ $d->hasil_romi !== null ? $d->hasil_romi.'×' : '—' }}</td>
                     @endif
-                    <td class="px-3 font-semibold">{{ $d->hasil_verdict }}</td>
+                    <td class="px-3 font-semibold">{{ $plainVerdict($d->hasil_verdict) }}</td>
                 </tr>
             @empty
                 <tr><td colspan="{{ $canFinance ? 11 : 7 }}" class="px-4 py-8 text-center text-stone-400">Belum ada deal yang laporannya diisi. Isi lewat Edit deal → Laporan Hasil Endorse.</td></tr>

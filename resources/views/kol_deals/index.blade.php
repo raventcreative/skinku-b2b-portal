@@ -8,6 +8,7 @@
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $canFinance = $u->canDo('kol.deal.finance');
     $canApprove = $u->canDo('kol.deal.approve');   // Acc/Tolak — penyetuju saja
+    $plainVerdict = fn ($v) => preg_replace('/^[^\\pL\\pN]+/u', '', (string) $v);
     $statusBadge = [
         'draft' => 'bg-stone-100 text-stone-600',
         'berjalan' => 'bg-blue-100 text-blue-700',
@@ -208,7 +209,7 @@
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
                             <span class="px-1.5 py-0.5 rounded-sm text-[10px] font-semibold {{ $levelBadge[$d->kol?->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $d->kol?->level ?? '—' }}</span>
                             @if($sc)
-                                <span class="text-[10px] text-stone-500">{{ $sc->verdict_median }}</span>
+                                <span class="text-[10px] text-stone-500">{{ $plainVerdict($sc->verdict_median) }}</span>
                                 @if($sc->cpv_median !== null)<span class="text-[10px] text-stone-400">CPV {{ number_format($sc->cpv_median, 0, ',', '.') }}</span>@endif
                             @else
                                 <span class="text-[10px] text-stone-300">belum screening</span>
@@ -227,7 +228,7 @@
                     <td>
                         <button type="button" class="hasilBtn inline-flex items-center gap-1.5 text-[10px] font-semibold rounded-lg px-2 py-1.5 border border-stone-200 hover:border-red-200 hover:bg-red-50 @if(! $d->hasil_terisi) text-stone-500 @else text-red-700 @endif"
                             data-hasil="{{ json_encode(['id' => $d->id, 'kode' => $d->kode, 'tujuan' => $d->hasil_tujuan, 'video_upload' => $d->hasil_video_upload, 'video_fyp' => $d->hasil_video_fyp, 'views' => $d->hasil_views, 'revenue' => $d->hasil_revenue, 'catatan' => $d->hasil_catatan]) }}"
-                            onclick="openHasil(this)" title="Isi atau lihat laporan hasil"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5m0 14h16M7 15l4-4 3 2 6-7"/></svg>{{ $d->hasil_terisi ? $d->hasil_verdict : 'Isi laporan' }}</button>
+                            onclick="openHasil(this)" title="Isi atau lihat laporan hasil"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5m0 14h16M7 15l4-4 3 2 6-7"/></svg>{{ $d->hasil_terisi ? $plainVerdict($d->hasil_verdict) : 'Isi laporan' }}</button>
                     </td>
                     <td class="text-right px-4">
                         @if($canApprove && $d->status !== 'berjalan')<button type="button" aria-label="Acc deal {{ $d->kode }}" onclick="submitBulk('berjalan', {{ $d->id }})" class="inline-flex items-center justify-center w-8 h-8 text-blue-700 border border-blue-100 rounded-lg hover:bg-blue-50" title="Acc dan jalankan"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg></button>@endif
@@ -354,7 +355,7 @@
         }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
           .then(function (data) {
               if (hasilTarget) {
-                  hasilTarget.textContent = data.verdict;
+                  hasilTarget.textContent = data.verdict.replace(/^[^\\p{L}\\p{N}]+/u, '');
                   hasilTarget.classList.remove('text-stone-400');
               }
               document.getElementById('hm_status').classList.remove('hidden');

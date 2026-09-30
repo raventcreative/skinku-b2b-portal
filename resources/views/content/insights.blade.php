@@ -46,8 +46,14 @@
 
     @if($stats['targets'] > 0 && $stats['synced'] === 0)
         <div class="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800">
-            Belum ada data insight. Metrik tersedia H+1 setelah terbit — bila tetap kosong, hubungkan ulang akun di
+            {{ $stats['targets'] }} postingan terbit belum memiliki data insight. Metrik biasanya tersedia H+1 setelah terbit. Pastikan akun tersambung dan izinnya aktif di
             <a href="{{ route('social.index') }}" class="font-semibold underline">Akun Sosial Media</a> supaya izin insight diberikan.
+        </div>
+    @elseif($stats['targets'] === 0)
+        <div class="rounded-2xl border border-stone-200 bg-white px-5 py-6 text-center">
+            <p class="text-sm font-semibold text-stone-800">Belum ada postingan terbit dalam {{ $days }} hari terakhir.</p>
+            <p class="mt-1 text-xs text-stone-500">Insight akan muncul setelah konten dipublikasikan dan metriknya tersinkron.</p>
+            <a href="{{ route('content.index') }}" class="mt-3 inline-flex min-h-9 items-center rounded-lg bg-stone-800 px-4 text-xs font-semibold text-white hover:bg-stone-900">Buka Kalender Konten</a>
         </div>
     @endif
 

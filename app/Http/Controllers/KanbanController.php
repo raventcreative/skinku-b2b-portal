@@ -8,12 +8,15 @@ use App\Models\BoardCardComment;
 use App\Models\BoardColumn;
 use App\Models\File;
 use App\Models\User;
+use App\Services\Ai\AiException;
 use App\Services\AuditService;
 use App\Services\ImageService;
 use App\Services\KanbanKpiService;
+use App\Services\KanbanTaskDraftService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -70,14 +73,7 @@ class KanbanController extends Controller
     public function show(Board $board)
     {
         $board->load(['columns.cards.assignee', 'columns.cards.creator', 'columns.cards.comments.author', 'columns.cards.files']);
-
-        // Kandidat penanggung jawab: pengguna internal aktif — mitra tak ikut
-        // (mereka tak punya akses kanban sama sekali).
-        $assignees = User::query()
-            ->where('status', User::STATUS_ACTIVE)
-            ->whereNotIn('role', [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER])
-            ->orderBy('fullname')
-            ->get(['id', 'fullname']);
+        $assignees = $this->activeAssignees();
 
         // KPI per anggota (pakai data papan yang sudah di-load).
         $kpi = (new KanbanKpiService)->forBoard($board);
@@ -89,6 +85,17 @@ class KanbanController extends Controller
         ];
 
         return view('kanban.show', compact('board', 'assignees', 'kpi', 'kpiChart'));
+    }
+
+    public function draftCard(Request $request, BoardColumn $column, KanbanTaskDraftService $drafts): JsonResponse
+    {
+        $data = $request->validate(['prompt' => ['required', 'string', 'max:2000']]);
+
+        try {
+            return response()->json(['draft' => $drafts->draft($column, $data['prompt'], $this->activeAssignees())]);
+        } catch (AiException $e) {
+            return response()->json(['message' => $e->getMessage()], 503);
+        }
     }
 
     public function update(Request $request, Board $board): RedirectResponse
@@ -171,18 +178,39 @@ class KanbanController extends Controller
 
     public function storeCard(Request $request, BoardColumn $column): RedirectResponse
     {
-        $data = $request->validate(['title' => ['required', 'string', 'max:255']]);
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'assignee_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where(fn ($q) => $q->where('status', User::STATUS_ACTIVE)->whereNotIn('role', [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER]))],
+            'due_date' => ['nullable', 'date_format:Y-m-d'],
+            'priority' => ['nullable', Rule::in(array_keys(BoardCard::PRIORITIES))],
+            'ai_draft' => ['nullable', 'boolean'],
+        ]);
 
         $column->cards()->create([
             'title' => $data['title'],
+            'description' => $data['description'] ?? null,
+            'assignee_user_id' => $data['assignee_user_id'] ?? null,
+            'due_date' => $data['due_date'] ?? null,
+            'priority' => $data['priority'] ?? 'normal',
             'position' => ((int) $column->cards()->max('position')) + 1,
             'created_by' => $request->user()->id,
+            'created_via' => ! empty($data['ai_draft']) ? 'ai' : null,
         ]);
 
         AuditService::log(action: 'create_board_card', targetType: 'board_card',
-            after: ['judul' => $data['title'], 'papan' => $column->board->name, 'kolom' => $column->name]);
+            after: ['judul' => $data['title'], 'papan' => $column->board->name, 'kolom' => $column->name, 'via' => ! empty($data['ai_draft']) ? 'ai' : 'manual']);
 
         return back()->with('status', 'Kartu ditambahkan.');
+    }
+
+    private function activeAssignees(): Collection
+    {
+        return User::query()
+            ->where('status', User::STATUS_ACTIVE)
+            ->whereNotIn('role', [User::ROLE_DISTRIBUTOR, User::ROLE_RESELLER])
+            ->orderBy('fullname')
+            ->get(['id', 'fullname']);
     }
 
     public function updateCard(Request $request, BoardCard $card): RedirectResponse

@@ -24,7 +24,7 @@
             $finished = !$cycle->isDraft() && $total > 0 && $done === $total;
         @endphp
         <div class="relative">
-            <a href="{{ route('okr.show', $cycle) }}" class="block bg-white rounded-2xl border border-stone-200 p-5 pr-12 hover:border-red-300 transition">
+            <a href="{{ route('okr.show', $cycle) }}" class="block bg-white rounded-2xl border border-stone-200 p-5 pb-14 hover:border-red-300 transition">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <p class="font-bold text-stone-900">{{ $cycle->name }}</p>
@@ -57,7 +57,7 @@
                 </div>
             </a>
             @if($u->canDo('okr.manage'))
-                <form method="POST" action="{{ route('okr.destroy', $cycle) }}" class="absolute top-3 right-3 z-10" onsubmit="return confirm('{{ $cycle->isDraft() ? 'Hapus draf OKR ini?' : 'Hapus OKR ini beserta SEMUA kartu Kanban dari tugasnya? Tidak bisa dibatalkan.' }}')">
+                <form method="POST" action="{{ route('okr.destroy', $cycle) }}" class="absolute bottom-3 right-3 z-10" onsubmit="return confirm('{{ $cycle->isDraft() ? 'Hapus draf OKR ini?' : 'Hapus OKR ini beserta SEMUA kartu Kanban dari tugasnya? Tidak bisa dibatalkan.' }}')">
                     @csrf @method('DELETE')
                     <button class="px-2 py-1 rounded-lg bg-white/90 border border-stone-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold" title="Hapus OKR">Hapus</button>
                 </form>
