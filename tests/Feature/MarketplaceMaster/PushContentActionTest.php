@@ -295,7 +295,7 @@ class PushContentActionTest extends TestCase
 
         $html = $this->actingAs($this->admin())->get(route('marketplace-stock.index'))
             ->assertOk()
-            ->assertSee('Dorong Konten')
+            ->assertSee('Dorong konten')
             ->assertSee(route('marketplace-stock.master.konten', $a), false)
             ->assertSee(route('marketplace-stock.master.konten', $b), false)
             ->assertSee(self::KONFIRMASI, false)

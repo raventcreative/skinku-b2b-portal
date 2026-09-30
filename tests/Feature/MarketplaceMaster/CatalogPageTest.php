@@ -45,7 +45,7 @@ class CatalogPageTest extends TestCase
     {
         MarketplaceMaster::create(['master_sku' => 'X-1', 'name' => 'X', 'name_key' => 'x']);
         $res = $this->actingAs($this->admin())->get(route('marketplace-stock.index'))->assertOk();
-        foreach (['Ubah', 'Duplikat Produk', 'Tambah ke Marketplace', 'Jadikan Bundle', 'Hapus'] as $act) {
+        foreach (['Ubah', 'Duplikat produk', 'Tambah ke marketplace', 'Jadikan bundle', 'Hapus'] as $act) {
             $res->assertSee($act);
         }
     }
