@@ -3,6 +3,7 @@
 @section('heading', $deal->exists ? 'Edit Deal — '.$deal->kode : 'Deal / Kerjasama Baru')
 
 @section('content')
+@php $plainVerdict = fn ($v) => preg_replace('/^[^\\pL\\pN]+/u', '', (string) $v); @endphp
 @php
     $canFinance = auth()->user()->canDo('kol.deal.finance');
     $canApprove = auth()->user()->canDo('kol.deal.approve');   // boleh set berjalan/batal
@@ -223,7 +224,7 @@
                 </div>
                 @if($deal->hasil_terisi)
                     <div class="mt-3 flex flex-wrap items-center gap-4 text-xs bg-stone-50 rounded-xl p-3">
-                        <span class="font-bold">Verdict: {{ $deal->hasil_verdict }}</span>
+                        <span class="font-bold">Verdict: {{ $plainVerdict($deal->hasil_verdict) }}</span>
                         <span class="text-stone-500">Rata-rata views/video: <b>{{ $deal->hasil_avg_views !== null ? number_format($deal->hasil_avg_views, 0, ',', '.') : '—' }}</b></span>
                         @if($canFinance)
                             <span class="text-stone-500">CPM: <b>{{ $deal->hasil_cpm !== null ? 'Rp '.number_format($deal->hasil_cpm, 0, ',', '.') : '—' }}</b></span>

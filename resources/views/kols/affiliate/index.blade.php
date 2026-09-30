@@ -19,9 +19,9 @@
 
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2 text-sm">
-            <a href="{{ route('kol-affiliate.index', ['bulan' => $prevMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">←</a>
-            <span class="font-semibold text-stone-700">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}</span>
-            <a href="{{ route('kol-affiliate.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
+            <a href="{{ route('kol-affiliate.index', ['bulan' => $prevMonth]) }}" aria-label="Bulan sebelumnya" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-300 bg-white text-stone-600 hover:bg-stone-50">←</a>
+            <span class="min-w-32 text-center font-semibold text-stone-800">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}</span>
+            <a href="{{ route('kol-affiliate.index', ['bulan' => $nextMonth]) }}" aria-label="Bulan berikutnya" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-300 bg-white text-stone-600 hover:bg-stone-50">→</a>
         </div>
         <div class="flex items-center gap-2">
             <a href="{{ route('kol-affiliate.transactions', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl"> Semua transaksi</a>
@@ -48,11 +48,11 @@
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
             <p class="text-sm font-semibold text-stone-700">Target GMV bulan ini</p>
             @if($canManage)
-                <form method="POST" action="{{ route('kol-affiliate.gmv-target') }}" class="flex items-center gap-1 text-xs">
+                <form method="POST" action="{{ route('kol-affiliate.gmv-target') }}" class="flex flex-wrap items-center justify-end gap-2 text-xs">
                     @csrf
-                    <span class="text-stone-400">target</span>
-                    <input type="number" name="gmv_target" min="0" value="{{ $gmvTarget }}" class="w-32 px-2 py-1 border border-stone-300 rounded-sm text-right">
-                    <button class="text-indigo-600 hover:underline">simpan</button>
+                    <label for="gmvTarget" class="text-stone-500">Target bulanan</label>
+                    <input id="gmvTarget" type="number" name="gmv_target" min="0" value="{{ $gmvTarget }}" class="w-36 rounded-lg border border-stone-300 px-3 py-2 text-right text-sm">
+                    <button class="inline-flex min-h-9 items-center justify-center rounded-lg bg-red-700 px-3 py-2 text-xs font-semibold text-white hover:bg-red-800">Simpan target</button>
                 </form>
             @endif
         </div>
@@ -105,14 +105,14 @@
                                             <option value="{{ $k->id }}">{{ '@'.$k->tiktok_username }}</option>
                                         @endforeach
                                     </select>
-                                    <button class="px-2 py-1 bg-stone-700 hover:bg-stone-800 text-white text-xs rounded-sm">Tautkan</button>
+                                    <button class="inline-flex min-h-9 items-center rounded-lg bg-stone-800 px-3 text-xs font-semibold text-white hover:bg-stone-900">Tautkan KOL</button>
                                 </form>
                                 <span class="text-[10px] text-stone-400">atau</span>
                                 <form method="POST" action="{{ route('kol-affiliate.promote') }}"
                                     onsubmit="return confirm('Tambahkan @{{ $row->raw_username }} ke Database KOL sebagai affiliate baru? Semua ordernya ikut tertaut.')">
                                     @csrf
                                     <input type="hidden" name="raw_username" value="{{ $row->raw_username }}">
-                                    <button class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-sm font-semibold">+ Jadikan KOL</button>
+                                    <button class="inline-flex min-h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-700">Jadikan KOL</button>
                                 </form>
                             </div>
                         @endif
@@ -145,7 +145,7 @@
                             <td class="px-4 py-2.5 text-stone-400">{{ $i + 1 }}</td>
                             <td class="px-4 py-2.5">
                                 <a href="{{ route('kols.show', $r->kol_id) }}" class="text-indigo-600 hover:underline">{{ '@'.$r->kol->tiktok_username }}</a>
-                                <a href="{{ route('kol-gapok.contents', ['kol' => $r->kol_id, 'bulan' => $month]) }}" class="ml-1 text-[11px] text-stone-400 hover:text-red-600" title="Lihat daftar video &amp; LIVE"></a>
+                                <a href="{{ route('kol-gapok.contents', ['kol' => $r->kol_id, 'bulan' => $month]) }}" class="ml-2 inline-flex min-h-7 items-center rounded-md border border-stone-200 px-2 text-[10px] font-semibold text-stone-500 hover:border-red-200 hover:bg-red-50 hover:text-red-700" title="Lihat daftar video dan LIVE">Konten</a>
                             </td>
                             <td class="px-4 py-2.5 text-right font-medium text-stone-800">{{ $rp($r->gmv) }}</td>
                             <td class="px-4 py-2.5 text-right text-stone-600">{{ number_format((int) $r->orders, 0, ',', '.') }}</td>
@@ -193,7 +193,7 @@
                 <input type="number" name="commission" min="0" placeholder="Komisi" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
                 <input type="number" name="content_count" min="0" placeholder="Konten" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
                 <input type="number" name="views" min="0" placeholder="Views" class="px-2 py-1.5 border border-stone-300 rounded-lg text-xs">
-                <div class="col-span-2 sm:col-span-7"><button class="px-4 py-1.5 bg-stone-700 text-white rounded-lg text-xs hover:bg-stone-800">Simpan minggu</button> <span class="text-[10px] text-stone-400 ml-2">minggu sama = perbarui</span></div>
+                <div class="col-span-2 sm:col-span-7 flex flex-wrap items-center gap-3"><button class="inline-flex min-h-9 items-center rounded-lg bg-stone-800 px-4 py-2 text-xs font-semibold text-white hover:bg-stone-900">Simpan data mingguan</button><span class="text-[10px] text-stone-400">Minggu yang sama akan diperbarui.</span></div>
             </form>
             @if($weeklyStats->isNotEmpty())
                 <div class="overflow-x-auto">
@@ -213,7 +213,7 @@
                                     <td class="px-3 py-2 text-right text-stone-600">{{ $rp($ws->commission) }}</td>
                                     <td class="px-3 py-2 text-right text-stone-600">{{ $ws->content_count }}</td>
                                     <td class="px-3 py-2 text-right text-stone-600">{{ number_format($ws->views, 0, ',', '.') }}</td>
-                                    <td class="px-3 py-2 text-right"><form method="POST" action="{{ route('kol-affiliate.weekly.destroy', $ws) }}" onsubmit="return confirm('Hapus?')">@csrf @method('DELETE')<button class="text-[11px] text-rose-400 hover:text-rose-600">hapus</button></form></td>
+                                    <td class="px-3 py-2 text-right"><form method="POST" action="{{ route('kol-affiliate.weekly.destroy', $ws) }}" onsubmit="return confirm('Hapus?')">@csrf @method('DELETE')<button class="inline-flex min-h-8 items-center rounded-lg border border-rose-200 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50">Hapus</button></form></td>
                                 </tr>
                             @endforeach
                         </tbody>

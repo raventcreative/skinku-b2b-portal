@@ -20,13 +20,13 @@ class ImageService
      * Store an uploaded file against a model's polymorphic file collection.
      * Images are resized; other file types are stored as-is. Returns the File row.
      */
-    public function attach(Model $model, UploadedFile $file, string $collection, int $maxDim = 1280): File
+    public function attach(Model $model, UploadedFile $file, string $collection, int $maxDim = 1280, int $quality = 80): File
     {
         $isImage = str_starts_with((string) $file->getClientMimeType(), 'image/')
             && @getimagesize($file->getRealPath()) !== false;
 
         $path = $isImage
-            ? $this->storeResized($file, $collection, $maxDim)
+            ? $this->storeResized($file, $collection, $maxDim, $quality)
             : $file->store($collection, 'public');
 
         $nextSort = (int) ($model->files()->where('collection', $collection)->max('sort_order'));

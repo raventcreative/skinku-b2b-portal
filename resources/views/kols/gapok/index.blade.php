@@ -28,24 +28,24 @@
     <div class="bg-white rounded-2xl border border-stone-200 p-3 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex flex-wrap items-center gap-1.5">
-                <a href="{{ route('kol-gapok.index', ['bulan' => $prevMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">←</a>
+                <a href="{{ route('kol-gapok.index', ['bulan' => $prevMonth]) }}" aria-label="Bulan sebelumnya" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-300 bg-white text-stone-600 hover:bg-stone-50">←</a>
                 <a href="{{ route('kol-gapok.index', ['bulan' => \Illuminate\Support\Carbon::parse($from)->format('Y-m')]) }}"
                    class="px-3 py-1 text-sm rounded-lg border font-semibold {{ $mode === 'month' ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-300 text-stone-600 hover:bg-stone-50' }}">{{ \Illuminate\Support\Carbon::parse($from)->translatedFormat('M Y') }}</a>
-                <a href="{{ route('kol-gapok.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
+                <a href="{{ route('kol-gapok.index', ['bulan' => $nextMonth]) }}" aria-label="Bulan berikutnya" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-300 bg-white text-stone-600 hover:bg-stone-50">→</a>
                 <span class="mx-1 text-stone-300">|</span>
                 @foreach(['today' => 'Hari ini', '7d' => '7 hari', '30d' => '30 hari'] as $key => $lbl)
                     <a href="{{ route('kol-gapok.index', ['preset' => $key]) }}"
                        class="px-3 py-1 text-sm rounded-lg border {{ $mode === $key ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-300 text-stone-600 hover:bg-stone-50' }}">{{ $lbl }}</a>
                 @endforeach
             </div>
-            <a href="{{ route('kol-affiliate.index', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl"> Semua affiliate</a>
+            <a href="{{ route('kol-affiliate.index', ['bulan' => $month]) }}" class="inline-flex min-h-10 items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Semua affiliate</a>
         </div>
         <form method="GET" action="{{ route('kol-gapok.index') }}" class="flex flex-wrap items-center gap-2 text-sm">
             <span class="text-stone-400 text-xs">Rentang custom:</span>
             <input type="date" name="dari" value="{{ $mode === 'custom' ? $from : '' }}" class="px-2 py-1 border border-stone-300 rounded-lg text-sm">
             <span class="text-stone-400">–</span>
             <input type="date" name="sampai" value="{{ $mode === 'custom' ? $to : '' }}" class="px-2 py-1 border border-stone-300 rounded-lg text-sm">
-            <button class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg">Terapkan</button>
+            <button class="inline-flex min-h-9 items-center justify-center rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800">Terapkan rentang</button>
         </form>
     </div>
 
@@ -101,7 +101,7 @@
                             <td class="px-4 py-3 text-right">
                                 <p class="font-semibold text-stone-800">{{ $rp($r['gmv']) }}</p>
                                 @if($r['gmv_live'] || $r['gmv_video'])
-                                    <p class="text-[10px] text-stone-400">🔴 LIVE {{ $rc($r['gmv_live']) }} · 🎬 Video {{ $rc($r['gmv_video']) }}</p>
+                                    <p class="text-[10px] text-stone-400">LIVE {{ $rc($r['gmv_live']) }} · Video {{ $rc($r['gmv_video']) }}</p>
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-right text-stone-700">{{ number_format($r['orders'], 0, ',', '.') }}</td>
@@ -152,7 +152,7 @@
                                         <div class="flex items-center justify-end gap-1 text-[10px] text-stone-500" data-pay-id="{{ $p->id }}">
                                             <span>{{ $p->paid_at->translatedFormat('d M') }}: {{ $rp($p->amount) }}</span>
                                             @if($canManage)
-                                                <button type="button" data-pay-del="{{ $p->id }}" class="text-stone-300 hover:text-rose-600" title="Hapus pembayaran"></button>
+                                                <button type="button" data-pay-del="{{ $p->id }}" class="inline-flex min-h-7 items-center rounded-md border border-rose-100 px-2 text-[10px] font-semibold text-rose-600 hover:bg-rose-50" aria-label="Hapus pembayaran" title="Hapus pembayaran">Hapus</button>
                                             @endif
                                         </div>
                                     @endforeach
@@ -161,7 +161,7 @@
                                     <form data-pay-form class="flex items-center justify-end gap-1 mt-1">
                                         <input type="text" inputmode="numeric" data-pay-amount placeholder="Rp" class="w-20 px-1.5 py-0.5 border border-stone-300 rounded-sm text-right text-[11px] focus:outline-hidden focus:ring-1 focus:ring-red-500">
                                         <input type="date" data-pay-date value="{{ now()->toDateString() }}" class="px-1 py-0.5 border border-stone-300 rounded-sm text-[11px]">
-                                        <button type="submit" class="text-[11px] text-red-600 hover:underline whitespace-nowrap">+ bayar</button>
+                                        <button type="submit" class="inline-flex min-h-8 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-700 whitespace-nowrap">Tambah bayar</button>
                                     </form>
                                 @endif
                             </td>
@@ -220,7 +220,7 @@
                 </div>
                 <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Tambahkan</button>
             </form>
-            <p class="text-xs text-stone-400">Kalau username-nya belum ada di Database KOL, <strong>otomatis dibuatin</strong> (peran affiliate). Angkanya keisi sendiri begitu dia mulai jualan &amp; ke-sync — pas buat gapok baru yang masih 0. 👍</p>
+            <p class="text-xs text-stone-500">Username yang belum ada di Database KOL akan dibuat otomatis sebagai affiliate. GMV dan order akan terisi setelah data penjualan tersinkron.</p>
 
             @if($nonGapok->isNotEmpty())
                 <div class="pt-2 border-t border-stone-100">
@@ -245,7 +245,7 @@
         Angka performa (GMV/order/komisi) diambil dari data affiliate yang sama dengan halaman <strong>Affiliate &amp; GMV</strong> —
         otomatis dari TikTok API setelah tersambung, atau dari import manual. <strong>Video &amp; LIVE</strong> = jumlah konten
         per kreator dari TikTok Analytics (sync harian, per bulan). <strong>Gaji &amp; ROI</strong> khusus Tim Gapok.
-        ROI = GMV ÷ gaji (🟢 ≥3× sehat · 🟡 1–3× · 🔴 &lt;1× gaji lebih besar dari hasil).
+        ROI = GMV ÷ gaji (≥3× sehat · 1–3× cukup · &lt;1× gaji lebih besar dari hasil).
     </p>
 </div>
 
@@ -384,7 +384,7 @@
                 row.className = 'flex items-center justify-end gap-1 text-[10px] text-stone-500';
                 row.setAttribute('data-pay-id', d.payment.id);
                 row.innerHTML = '<span>' + dayMon(d.payment.paid_at) + ': ' + rp(d.payment.amount) + '</span>' +
-                    '<button type="button" data-pay-del="' + d.payment.id + '" class="text-stone-300 hover:text-rose-600" title="Hapus pembayaran"> Hapus </button>';
+                    '<button type="button" data-pay-del="' + d.payment.id + '" class="inline-flex min-h-7 items-center rounded-md border border-rose-100 px-2 text-[10px] font-semibold text-rose-600 hover:bg-rose-50" aria-label="Hapus pembayaran" title="Hapus pembayaran">Hapus</button>';
                 listEl.appendChild(row);
                 amount.value = '';
                 refreshPayCell(cell);

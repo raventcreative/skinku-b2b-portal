@@ -3,6 +3,7 @@
 @section('heading', 'Deal — '.$deal->kode)
 
 @section('content')
+@php $plainVerdict = fn ($v) => preg_replace('/^[^\\pL\\pN]+/u', '', (string) $v); @endphp
 @php
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $statusBadge = [
@@ -150,7 +151,7 @@
         <div class="bg-white rounded-2xl border border-stone-200 p-5">
             <p class="text-[11px] font-bold uppercase tracking-wide text-stone-400 mb-3">Laporan Hasil Endorse</p>
             <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                <span class="font-bold">Verdict: {{ $deal->hasil_verdict }}</span>
+                <span class="font-bold">Verdict: {{ $plainVerdict($deal->hasil_verdict) }}</span>
                 <span class="text-stone-500">Views: <b class="text-stone-700 tabular-nums">{{ number_format((int) $deal->hasil_views, 0, ',', '.') }}</b></span>
                 <span class="text-stone-500">Rata2 views/video: <b class="text-stone-700 tabular-nums">{{ $deal->hasil_avg_views !== null ? number_format($deal->hasil_avg_views, 0, ',', '.') : '—' }}</b></span>
                 @if($canFinance)

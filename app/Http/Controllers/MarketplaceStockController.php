@@ -141,7 +141,10 @@ class MarketplaceStockController extends Controller
             if (! $file || $existing >= 9) {
                 continue;
             }
-            $img->attach($master, $file, MarketplaceMaster::MASTER_IMAGE);
+            // Foto master ditujukan utk marketplace → simpan lebih besar & tajam (1600px, q85)
+            // ketimbang default 1280/q80. Browser sudah mengecilkan sebelum upload (lihat form),
+            // jadi ini praktis tanpa re-shrink berarti; JS-off tetap aman (server yang mengecilkan).
+            $img->attach($master, $file, MarketplaceMaster::MASTER_IMAGE, 1600, 85);
             $existing++;
         }
     }

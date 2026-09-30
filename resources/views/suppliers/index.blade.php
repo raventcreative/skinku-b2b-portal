@@ -3,36 +3,42 @@
 @section('heading', 'Master Supplier')
 
 @section('content')
-<div class="flex justify-between items-center mb-5 gap-3 flex-wrap">
-    <p class="text-xs text-stone-500 max-w-xl">Daftar supplier untuk pembelian bahan baku. Dipakai di form "Beli Bahan".</p>
-    <button onclick="openSupplier()" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Supplier</button>
+<div class="mb-5 flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-5">
+    <div>
+        <p class="text-[10px] font-bold uppercase tracking-[.14em] text-red-700">Pembelian bahan</p>
+        <p class="mt-1 max-w-xl text-sm text-stone-600">Kelola kontak vendor yang digunakan pada pencatatan pembelian bahan baku.</p>
+        <p class="mt-2 text-xs font-medium text-stone-400">{{ $suppliers->count() }} supplier <span class="mx-1">·</span> {{ $suppliers->where('status', 'active')->count() }} aktif</p>
+    </div>
+    <button type="button" onclick="openSupplier()" class="inline-flex min-h-10 items-center justify-center rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800">Tambah supplier</button>
 </div>
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
     <div class="overflow-x-auto">
-    <table class="w-full text-xs whitespace-nowrap">
+    <table class="ui-table min-w-[760px] w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
-                <th class="text-left px-4 py-3">Nama Supplier</th>
-                <th class="text-left">Telepon</th>
-                <th class="text-left">Alamat</th>
-                <th class="text-left">Status</th>
-                <th class="pr-4"></th>
+                <th scope="col" class="text-left px-4 py-3">Nama Supplier</th>
+                <th scope="col" class="text-left">Telepon</th>
+                <th scope="col" class="text-left">Alamat</th>
+                <th scope="col" class="text-left">Status</th>
+                <th scope="col" class="pr-4 text-right">Aksi</th>
             </tr>
         </thead>
         <tbody>
             @forelse($suppliers as $s)
-                <tr class="border-t border-stone-100 hover:bg-stone-50">
+                <tr>
                     <td class="px-4 py-2.5 font-semibold text-stone-800">{{ $s->name }}</td>
                     <td class="text-stone-600">{{ $s->phone ?: '—' }}</td>
                     <td class="text-stone-500">{{ $s->address ?: '—' }}</td>
                     <td>@if($s->status==='active')<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">Aktif</span>@else<span class="px-2 py-0.5 rounded-full bg-stone-200 text-stone-600 text-[10px] font-bold">Nonaktif</span>@endif</td>
                     <td class="pr-4 text-right whitespace-nowrap">
-                        <button class="text-stone-500 hover:text-stone-900 font-semibold" onclick='openSupplier({{ json_encode($s->only(["id","name","phone","address","notes","status"])) }})'>Edit</button>
-                        <form method="POST" action="{{ route('suppliers.destroy', $s) }}" class="inline ml-2" onsubmit="return confirm('Hapus supplier ini?')">
+                        <div class="flex justify-end gap-2">
+                        <button type="button" class="inline-flex min-h-8 items-center rounded-lg border border-stone-200 px-3 font-semibold text-stone-600 hover:bg-stone-50" onclick='openSupplier({{ json_encode($s->only(["id","name","phone","address","notes","status"])) }})'>Edit</button>
+                        <form method="POST" action="{{ route('suppliers.destroy', $s) }}" onsubmit="return confirm('Hapus supplier ini?')">
                             @csrf @method('DELETE')
-                            <button class="text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                            <button class="inline-flex min-h-8 items-center rounded-lg border border-rose-200 px-3 font-semibold text-rose-700 hover:bg-rose-50">Hapus</button>
                         </form>
+                        </div>
                     </td>
                 </tr>
             @empty
