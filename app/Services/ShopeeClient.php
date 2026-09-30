@@ -238,6 +238,15 @@ class ShopeeClient
         ]);
     }
 
+    /**
+     * Perbarui sebagian data item (product/update_item) — hanya field di $fields yang berubah
+     * (mis. description, weight). item_id ikut dikirim di body JSON; tanpa multipart.
+     */
+    public function updateItem(string $accessToken, string $shopId, int $itemId, array $fields): array
+    {
+        return $this->shopCall('POST', '/api/v2/product/update_item', $accessToken, $shopId, array_merge(['item_id' => $itemId], $fields));
+    }
+
     /** Daftar item toko (status NORMAL) — dipakai memetakan produk lokal ↔ item Shopee. */
     public function getItemList(string $accessToken, string $shopId, int $offset = 0, int $pageSize = 50): array
     {
