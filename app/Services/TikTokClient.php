@@ -299,6 +299,15 @@ class TikTokClient
         ]);
     }
 
+    /**
+     * Edit sebagian produk (Partial Edit Product 202309) — hanya field di $fields yang berubah
+     * (mis. description). Body JSON biasa, tanpa multipart.
+     */
+    public function partialEditProduct(string $accessToken, ?string $shopCipher, string $productId, array $fields): array
+    {
+        return $this->request('POST', "/product/202309/products/{$productId}/partial_edit", $accessToken, $shopCipher, [], $fields);
+    }
+
     /** Cari produk aktif toko — dipakai memetakan produk lokal ↔ product/SKU TikTok. */
     public function searchProducts(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
     {

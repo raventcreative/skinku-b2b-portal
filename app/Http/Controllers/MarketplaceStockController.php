@@ -19,6 +19,11 @@ use Illuminate\View\View;
  */
 class MarketplaceStockController extends Controller
 {
+    /** Petunjuk flash `error` saat push GAGAL — dipilih pemanggil pushFlash. Default = jalur stok/harga. */
+    private const FAIL_HINT_STOK_HARGA = 'stok/harga belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing (sering: scope Product app belum di-otorisasi ulang).';
+
+    private const FAIL_HINT_KONTEN = 'konten belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing.';
+
     public function index(Request $request): View
     {
         $tab = in_array($request->query('tab'), ['satuan', 'bundle'], true) ? $request->query('tab') : 'semua';
@@ -283,13 +288,35 @@ class MarketplaceStockController extends Controller
     }
 
     /**
+     * Dorong KONTEN master (deskripsi/berat/dimensi) ke listing marketplace-nya yang sudah ber-item_id.
+     * MANUAL (tombol + konfirmasi) — tak ikut cron/"Sinkron semua"; nama & foto tak didorong, field kosong
+     * dilewati. Selalu kirim (force) karena tombolnya memang "kirim & timpa". Konten level-produk di
+     * marketplace, jadi berlaku ke seluruh produk listing-nya, bukan per varian.
+     */
+    public function pushContent(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $r = $svc->pushMasterContent($master);
+        $listings = $r['pushed'] + $r['skipped'] + $r['failed'];
+
+        // Jujur: kalau tak ada yang benar-benar dikirim, bilang kenapa (bukan status kosong/"berhasil").
+        $prefix = match (true) {
+            $listings === 0 => "Konten \"{$master->name}\" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat \"Tambah ke Marketplace\")",
+            $r['skipped'] === $listings => "Konten \"{$master->name}\" belum dikirim — deskripsi, berat, dan dimensi produk ini masih kosong",
+            default => "Dorong konten \"{$master->name}\"",
+        };
+
+        return $this->pushFlash(back(), $r, $prefix, self::FAIL_HINT_KONTEN);
+    }
+
+    /**
      * Flash hasil push JUJUR: `status` berisi hitungan OK/dilewati/gagal (bukan
      * asal "disinkron"); kalau ADA yang gagal → flash `error` + arahkan ke halaman
      * Stok TikTok/Shopee untuk baca pesan error tiap listing.
      *
      * @param  array{pushed:int,skipped:int,failed:int}  $r
+     * @param  string  $failHint  kelanjutan teks flash `error` ("N push ke marketplace GAGAL — …"); default = stok/harga
      */
-    private function pushFlash(RedirectResponse $back, array $r, string $prefix): RedirectResponse
+    private function pushFlash(RedirectResponse $back, array $r, string $prefix, string $failHint = self::FAIL_HINT_STOK_HARGA): RedirectResponse
     {
         $counts = [];
         if (($r['pushed'] ?? 0) > 0) {
@@ -303,7 +330,7 @@ class MarketplaceStockController extends Controller
         }
         $back->with('status', trim($prefix.($counts !== [] ? ' ('.implode(', ', $counts).')' : '')));
         if (($r['failed'] ?? 0) > 0) {
-            $back->with('error', "{$r['failed']} push ke marketplace GAGAL — stok/harga belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing (sering: scope Product app belum di-otorisasi ulang).");
+            $back->with('error', "{$r['failed']} push ke marketplace GAGAL — {$failHint}");
         }
 
         return $back;

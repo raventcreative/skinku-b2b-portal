@@ -653,6 +653,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/marketplace-stock/{channel}', [MarketplaceStockController::class, 'channel'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel');
         Route::post('/marketplace-stock/master/{master}/stok', [MarketplaceStockController::class, 'setMasterStock'])->name('marketplace-stock.master.stok');
         Route::post('/marketplace-stock/master/{master}/harga', [MarketplaceStockController::class, 'setMasterPrice'])->name('marketplace-stock.master.harga');
+        Route::post('/marketplace-stock/master/{master}/konten', [MarketplaceStockController::class, 'pushContent'])->name('marketplace-stock.master.konten');
         Route::post('/marketplace-stock/{channel}/master/{master}/stok', [MarketplaceStockController::class, 'setChannelStock'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel.stok');
         Route::post('/marketplace-stock/{channel}/master/{master}/harga', [MarketplaceStockController::class, 'setChannelPrice'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel.harga');
         Route::post('/marketplace-stock/{channel}/master/{master}/ikut-master', [MarketplaceStockController::class, 'ikutMaster'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.ikut-master');
