@@ -21,7 +21,7 @@
 - **Permission gate:** route dalam grup `permission:manage_marketplace_stock`; controller boleh andalkan gate route.
 - **MySQL strict:** kolom string default, tak ada angka overflow di fitur ini (payload dikirim ke API, bukan disimpan angka besar).
 - **Runner:** `C:/php83/php.exe artisan test`. Format: `C:/php83/php.exe vendor/bin/pint --dirty`.
-- **Commit attribution:** akhiri commit dengan `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
+- **Commit attribution:** TANPA trailer AI apa pun (`Co-Authored-By: Claude…` / "Generated with Claude Code") — dilarang CLAUDE.md:10 & AGENTS.md:72. Author = user.
 
 ---
 
