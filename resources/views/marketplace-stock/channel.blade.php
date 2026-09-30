@@ -50,13 +50,15 @@
                             @endif
                         </td>
                         <td class="py-2.5 pr-4 text-[11px]">
-                            @php $lst = $row['listing']; $sFail = $lst?->last_status === 'failed'; $pFail = $lst?->last_price_status === 'failed'; $cFail = $lst?->last_content_status === 'failed'; @endphp
+                            @php $lst = $row['listing']; $sFail = $lst?->last_status === 'failed'; $pFail = $lst?->last_price_status === 'failed'; $cFail = $lst?->last_content_status === 'failed'; $fFail = $lst?->last_photo_status === 'failed'; @endphp
                             <span class="{{ ($sFail || $pFail) ? 'text-rose-600 font-semibold' : 'text-stone-500' }}">{{ $lst?->last_status ?? '—' }}/{{ $lst?->last_price_status ?? '—' }}</span>
                             @if($lst?->last_error)<div class="text-rose-500 mt-0.5 max-w-[240px] break-words" title="{{ $lst->last_error }}">stok: {{ \Illuminate\Support\Str::limit($lst->last_error, 80) }}</div>@endif
                             @if($lst?->last_price_error)<div class="text-rose-500 mt-0.5 max-w-[240px] break-words" title="{{ $lst->last_price_error }}">harga: {{ \Illuminate\Support\Str::limit($lst->last_price_error, 80) }}</div>@endif
                             {{-- Status dorong KONTEN (manual, dari tombol "Dorong Konten") — baris sendiri, tak ikut span stok/harga di atas. Kosong = belum pernah dorong. --}}
                             @if($lst?->last_content_status)<div class="mt-0.5 {{ $cFail ? 'text-rose-600 font-semibold' : 'text-stone-500' }}">Konten: {{ $cFail ? 'gagal' : $lst->last_content_status }}</div>@endif
                             @if($lst?->last_content_error)<div class="text-rose-500 mt-0.5 max-w-[240px] break-words" title="{{ $lst->last_content_error }}">konten: {{ \Illuminate\Support\Str::limit($lst->last_content_error, 80) }}</div>@endif
+                            @if($lst?->last_photo_status)<div class="mt-0.5 {{ $fFail ? 'text-rose-600 font-semibold' : 'text-stone-500' }}">Foto: {{ $fFail ? 'gagal' : $lst->last_photo_status }}</div>@endif
+                            @if($lst?->last_photo_error)<div class="text-rose-500 mt-0.5 max-w-[240px] break-words" title="{{ $lst->last_photo_error }}">foto: {{ \Illuminate\Support\Str::limit($lst->last_photo_error, 80) }}</div>@endif
                         </td>
                     </tr>
                 @endforeach

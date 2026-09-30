@@ -30,7 +30,7 @@ class PushContentActionTest extends TestCase
     use RefreshDatabase;
 
     /** Teks konfirmasi tombol — sama persis di halaman Ubah & menu Atur (& di-escape jadi &amp; di atribut HTML). */
-    private const KONFIRMASI = 'Kirim &amp; timpa deskripsi/berat/dimensi produk ini di TikTok &amp; Shopee? (field kosong dilewati, foto belum termasuk)';
+    private const KONFIRMASI = 'Kirim &amp; timpa deskripsi/berat/dimensi di TikTok &amp; Shopee. FOTO: dorong pertama ke tiap listing MENGGANTI SEMUA fotonya dengan foto master (setelah itu hanya bila foto master berubah). Lanjut?';
 
     // ---- helper ----
 
@@ -127,7 +127,7 @@ class PushContentActionTest extends TestCase
         $this->actingAs($this->admin())->from(route('marketplace-stock.edit', $m))
             ->post(route('marketplace-stock.master.konten', $m))
             ->assertRedirect(route('marketplace-stock.edit', $m)) // back(): kembali ke halaman asal
-            ->assertSessionHas('status', 'Dorong konten "Serum X" (2 sinkron OK)')
+            ->assertSessionHas('status', 'Dorong konten & foto "Serum X" (2 sinkron OK)')
             ->assertSessionMissing('error');
 
         // Service benar-benar jalan: 1 request per listing (TikTok partial_edit + Shopee update_item), jejak tercatat.
@@ -151,9 +151,9 @@ class PushContentActionTest extends TestCase
         $admin = $this->admin();
 
         $this->actingAs($admin)->post(route('marketplace-stock.master.konten', $m))
-            ->assertSessionHas('status', 'Dorong konten "Serum X" (1 sinkron OK)');
+            ->assertSessionHas('status', 'Dorong konten & foto "Serum X" (1 sinkron OK)');
         $this->actingAs($admin)->post(route('marketplace-stock.master.konten', $m))
-            ->assertSessionHas('status', 'Dorong konten "Serum X" (1 sinkron OK)');
+            ->assertSessionHas('status', 'Dorong konten & foto "Serum X" (1 sinkron OK)');
 
         Http::assertSentCount(2);
     }
@@ -168,9 +168,9 @@ class PushContentActionTest extends TestCase
 
         $this->actingAs($this->admin())->post(route('marketplace-stock.master.konten', $m))
             ->assertRedirect()
-            ->assertSessionHas('status', 'Dorong konten "Serum X" (1 sinkron OK, 1 GAGAL)')
+            ->assertSessionHas('status', 'Dorong konten & foto "Serum X" (1 sinkron OK, 1 GAGAL)')
             // Teks GAGAL harus bicara KONTEN — bukan "stok/harga belum masuk" (menyesatkan utk jalur ini).
-            ->assertSessionHas('error', '1 push ke marketplace GAGAL — konten belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing.');
+            ->assertSessionHas('error', '1 push ke marketplace GAGAL — konten/foto belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing.');
 
         $this->assertSame('failed', $shopee->fresh()->last_content_status);
     }
@@ -184,7 +184,7 @@ class PushContentActionTest extends TestCase
         $this->actingAs($this->admin())->post(route('marketplace-stock.master.konten', $m))
             ->assertRedirect()
             // Jujur: tak ada yang dikirim — bukan status kosong/"berhasil".
-            ->assertSessionHas('status', 'Konten "Serum X" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat "Tambah ke Marketplace")')
+            ->assertSessionHas('status', 'Konten & foto "Serum X" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat "Tambah ke Marketplace")')
             ->assertSessionMissing('error');
 
         Http::assertNothingSent();
@@ -197,7 +197,7 @@ class PushContentActionTest extends TestCase
 
         $this->actingAs($this->admin())->post(route('marketplace-stock.master.konten', $m))
             ->assertRedirect()
-            ->assertSessionHas('status', 'Konten "Serum X" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat "Tambah ke Marketplace")')
+            ->assertSessionHas('status', 'Konten & foto "Serum X" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat "Tambah ke Marketplace")')
             ->assertSessionMissing('error');
 
         Http::assertNothingSent();
@@ -212,7 +212,7 @@ class PushContentActionTest extends TestCase
 
         $this->actingAs($this->admin())->post(route('marketplace-stock.master.konten', $m))
             ->assertRedirect()
-            ->assertSessionHas('status', 'Konten "Kosong" belum dikirim — deskripsi, berat, dan dimensi produk ini masih kosong (1 dilewati)')
+            ->assertSessionHas('status', 'Tak ada yang dikirim untuk "Kosong" — deskripsi, berat, dan dimensi masih kosong, dan foto belum ada atau tak berubah sejak dorong terakhir (1 dilewati)')
             ->assertSessionMissing('error');
 
         Http::assertNothingSent();
@@ -262,7 +262,7 @@ class PushContentActionTest extends TestCase
 
         $html = $this->actingAs($this->admin())->get(route('marketplace-stock.edit', $m))
             ->assertOk()
-            ->assertSee('Dorong Konten ke Marketplace')
+            ->assertSee('Dorong Konten & Foto ke Marketplace')
             ->assertSee($aksi, false)
             ->assertSee(self::KONFIRMASI, false)
             ->getContent();
@@ -295,7 +295,7 @@ class PushContentActionTest extends TestCase
 
         $html = $this->actingAs($this->admin())->get(route('marketplace-stock.index'))
             ->assertOk()
-            ->assertSee('Dorong konten')
+            ->assertSee('Dorong konten & foto')
             ->assertSee(route('marketplace-stock.master.konten', $a), false)
             ->assertSee(route('marketplace-stock.master.konten', $b), false)
             ->assertSee(self::KONFIRMASI, false)

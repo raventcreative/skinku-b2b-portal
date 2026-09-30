@@ -22,7 +22,7 @@ class MarketplaceStockController extends Controller
     /** Petunjuk flash `error` saat push GAGAL — dipilih pemanggil pushFlash. Default = jalur stok/harga. */
     private const FAIL_HINT_STOK_HARGA = 'stok/harga belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing (sering: scope Product app belum di-otorisasi ulang).';
 
-    private const FAIL_HINT_KONTEN = 'konten belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing.';
+    private const FAIL_HINT_KONTEN = 'konten/foto belum masuk. Buka Stok TikTok / Stok Shopee untuk lihat pesan error tiap listing.';
 
     public function index(Request $request): View
     {
@@ -291,21 +291,35 @@ class MarketplaceStockController extends Controller
     }
 
     /**
-     * Dorong KONTEN master (deskripsi/berat/dimensi) ke listing marketplace-nya yang sudah ber-item_id.
-     * MANUAL (tombol + konfirmasi) — tak ikut cron/"Sinkron semua"; nama & foto tak didorong, field kosong
-     * dilewati. Selalu kirim (force) karena tombolnya memang "kirim & timpa". Konten level-produk di
-     * marketplace, jadi berlaku ke seluruh produk listing-nya, bukan per varian.
+     * Dorong KONTEN (deskripsi/berat/dimensi) + FOTO master ke listing marketplace-nya yang sudah ber-item_id.
+     * MANUAL (tombol + konfirmasi) — tak ikut cron/"Sinkron semua"; nama tak didorong, field kosong dilewati.
+     * Konten selalu dikirim (force, tombolnya "kirim & timpa"); foto lewat diff-guard — dorong PERTAMA ke tiap
+     * listing mengganti SEMUA fotonya, setelah itu hanya bila set foto master berubah. Konten & foto level-produk
+     * di marketplace, jadi berlaku ke seluruh produk listing-nya, bukan per varian.
      */
     public function pushContent(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
+        // Push pertama bisa upload s.d. 9 foto per channel secara berurutan — beri waktu lebih bila server
+        // mengizinkan. function_exists: di PHP 8 fungsi yang dinonaktifkan hosting MELEMPAR Error (@ tak cukup).
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(180);
+        }
+
+        $sebelum = $master->listings()->pluck('last_photo_pushed_at', 'id')->all();
         $r = $svc->pushMasterContent($master);
         $listings = $r['pushed'] + $r['skipped'] + $r['failed'];
+        // Transparan soal foto: berapa listing yang fotonya BENAR-BENAR diganti di klik ini = waktu sukses foto
+        // BERUBAH dibanding sebelum klik (foto yg dilewati krn tak berubah tak menyentuhnya; aman thd klik ganda
+        // dalam detik yang sama). Bentuk array hasil pushMasterContent tetap.
+        $fotoDiganti = $master->listings()->where('last_photo_status', 'ok')->get(['id', 'last_photo_pushed_at'])
+            ->filter(fn ($l) => (string) $l->last_photo_pushed_at !== (string) ($sebelum[$l->id] ?? ''))->count();
 
         // Jujur: kalau tak ada yang benar-benar dikirim, bilang kenapa (bukan status kosong/"berhasil").
+        // Foto selalu lewat diff-guard → "semua dilewati" = teks kosong DAN foto tak ada/tak berubah.
         $prefix = match (true) {
-            $listings === 0 => "Konten \"{$master->name}\" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat \"Tambah ke Marketplace\")",
-            $r['skipped'] === $listings => "Konten \"{$master->name}\" belum dikirim — deskripsi, berat, dan dimensi produk ini masih kosong",
-            default => "Dorong konten \"{$master->name}\"",
+            $listings === 0 => "Konten & foto \"{$master->name}\" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat \"Tambah ke Marketplace\")",
+            $r['skipped'] === $listings => "Tak ada yang dikirim untuk \"{$master->name}\" — deskripsi, berat, dan dimensi masih kosong, dan foto belum ada atau tak berubah sejak dorong terakhir",
+            default => "Dorong konten & foto \"{$master->name}\"".($fotoDiganti > 0 ? " — foto diganti di {$fotoDiganti} listing" : ''),
         };
 
         return $this->pushFlash(back(), $r, $prefix, self::FAIL_HINT_KONTEN);
@@ -348,7 +362,8 @@ class MarketplaceStockController extends Controller
                 $r = $svc->resolveListings($channel);
                 $notes[] = ucfirst($channel).": {$r['found']} listing";
             } catch (\Throwable $e) {
-                $errors[] = ucfirst($channel).' gagal: '.$e->getMessage();
+                // Timeout Guzzle menempel URL berisi access_token/sign — samarkan sebelum tampil di flash.
+                $errors[] = ucfirst($channel).' gagal: '.MarketplaceMasterService::maskSecrets($e->getMessage());
             }
         }
         $redirect = back();
