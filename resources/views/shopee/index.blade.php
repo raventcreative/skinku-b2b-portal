@@ -63,10 +63,10 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
                 <form method="POST" action="{{ route('shopee.sync-orders') }}">@csrf
                     <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900"> Tarik Order</button>
                 </form>
-                <a href="{{ route('shopee.orders') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800"> Pesanan Shopee →</a>
-                <a href="{{ route('shopee.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700"> Retur Shopee →</a>
-                <a href="{{ route('shopee.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Pencairan →</a>
-                <a href="{{ route('shopee.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800"> Konversi Stok →</a>
+                <a href="{{ route('shopee.orders') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800"> Pesanan Shopee</a>
+                <a href="{{ route('shopee.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700"> Retur Shopee</a>
+                <a href="{{ route('shopee.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Pencairan</a>
+                <a href="{{ route('shopee.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800"> Konversi Stok</a>
                 <a href="{{ route('shopee.connect') }}" class="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700" onclick="return confirm('Hubungkan ulang ke Shopee? Ini me-refresh izin/token. Koneksi & sync tetap jalan.')"> Hubungkan Ulang</a>
             </div>
         @else

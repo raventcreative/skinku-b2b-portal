@@ -352,7 +352,7 @@
                 <div id="grpKonten" class="{{ $kontenGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
                     @if($u->canDo('content.create'))
                         {!! navItem('creator.dashboard', 'Dashboard Konten', 'creator.dashboard', [], null, 'dashboard') !!}
-                        {!! navItem('content.index', $u->isSuperAdmin() ? 'Semua Konten' : 'Konten Saya', 'content.index', [], request()->routeIs('content.index', 'content.create', 'content.edit'), 'kol-konten.index') !!}
+                        {!! navItem('content.index', ($u->isSuperAdmin() || $u->canDo('content.review')) ? 'Semua Konten' : 'Konten Saya', 'content.index', [], request()->routeIs('content.index', 'content.create', 'content.edit'), 'kol-konten.index') !!}
                     @endif
                     @if($u->canDo('content.review'))
                         {!! navItem('content-insights.index', 'Insight Konten', 'content-insights.*', [], null, 'kol-dashboard.index') !!}

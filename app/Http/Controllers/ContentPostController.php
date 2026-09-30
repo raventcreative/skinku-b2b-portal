@@ -63,21 +63,22 @@ class ContentPostController extends Controller
     {
         $user = $request->user();
         $isSuperAdmin = $user->isSuperAdmin();
+        $canReview = $isSuperAdmin || $user->canDo('content.review');
         $posts = ContentPost::query()
-            ->when(! $isSuperAdmin, fn ($q) => $q->where('user_id', $user->id))
+            ->when(! $canReview, fn ($q) => $q->where('user_id', $user->id))
             ->when($request->query('status') && $request->query('status') !== 'all' ? $request->query('status') : null, fn ($q, $s) => $q->where('status', $s))
-            ->when($isSuperAdmin ? $request->query('creator') : null, fn ($q, $id) => $q->where('user_id', $id))
-            ->when($isSuperAdmin ? $request->query('platform') : null, fn ($q, $platform) => $q->whereHas('targets', fn ($t) => $t->where('platform', $platform)))
-            ->when($isSuperAdmin ? $request->query('dari') : null, fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
-            ->when($isSuperAdmin ? $request->query('sampai') : null, fn ($q, $date) => $q->whereDate('created_at', '<=', $date))
-            ->with($isSuperAdmin ? ['targets', 'user'] : ['targets'])->latest('id')->paginate(20)->withQueryString();
+            ->when($canReview ? $request->query('creator') : null, fn ($q, $id) => $q->where('user_id', $id))
+            ->when($canReview ? $request->query('platform') : null, fn ($q, $platform) => $q->whereHas('targets', fn ($t) => $t->where('platform', $platform)))
+            ->when($canReview ? $request->query('dari') : null, fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+            ->when($canReview ? $request->query('sampai') : null, fn ($q, $date) => $q->whereDate('created_at', '<=', $date))
+            ->with($canReview ? ['targets', 'user'] : ['targets'])->latest('id')->paginate(20)->withQueryString();
 
         return view('content.index', [
             'posts' => $posts,
-            'mine' => ! $isSuperAdmin,
-            'creators' => $isSuperAdmin ? User::whereIn('id', ContentPost::select('user_id'))->orderBy('fullname')->get(['id', 'fullname', 'username']) : collect(),
-            'manualCount' => $isSuperAdmin ? ContentPostTarget::where('status', ContentPostTarget::MANUAL_PENDING)->count() : 0,
-            'failedCount' => $isSuperAdmin ? ContentPostTarget::where('status', ContentPostTarget::FAILED)->count() : 0,
+            'mine' => ! $canReview,
+            'creators' => $canReview ? User::whereIn('id', ContentPost::select('user_id'))->orderBy('fullname')->get(['id', 'fullname', 'username']) : collect(),
+            'manualCount' => $canReview ? ContentPostTarget::where('status', ContentPostTarget::MANUAL_PENDING)->count() : 0,
+            'failedCount' => $canReview ? ContentPostTarget::where('status', ContentPostTarget::FAILED)->count() : 0,
             'status' => $request->query('status', 'all'),
         ]);
     }
