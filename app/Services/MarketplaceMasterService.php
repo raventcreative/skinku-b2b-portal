@@ -2,13 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\File;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Models\MarketplaceMasterChannel;
 use App\Models\ShopeeConnection;
 use App\Models\TiktokConnection;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Engine "Produk Master E-commerce" (ala Desty): tiap unit jualan (satuan/varian/
@@ -316,10 +319,10 @@ class MarketplaceMasterService
         }
     }
 
-    // ---- Dorong KONTEN produk (deskripsi/berat/dimensi) — jalur TERPISAH dari stok/harga ----
+    // ---- Dorong KONTEN produk (deskripsi/berat/dimensi + foto) — jalur TERPISAH dari stok/harga ----
     //
-    // Sengaja TIDAK lewat pushListing/pushDirty/pushEach: konten dikirim manual (tombol +
-    // konfirmasi), bukan oleh cron 5-menit. Nama/judul & foto TIDAK ikut didorong.
+    // Sengaja TIDAK lewat pushListing/pushDirty/pushEach: konten & foto dikirim manual (tombol +
+    // konfirmasi), bukan oleh cron 5-menit. Nama/judul TIDAK ikut didorong.
 
     /**
      * Payload konten partial per-channel — HANYA field yang terisi (skip-empty), supaya master
@@ -401,17 +404,112 @@ class MarketplaceMasterService
     }
 
     /**
-     * Dorong konten master ke SEMUA listing-nya yang sudah punya item_id. Tally per LISTING
-     * (1 listing = 1 unit) — beda dgn pushMaster yg menghitung stok & harga sbg dua unit.
+     * Sidik jari SET foto master (koleksi master_image, urut: pertama = cover) — kunci diff-guard foto.
+     * Berubah bila foto ditambah/dihapus/diurut-ulang (isi file tak pernah diganti di tempat: upload =
+     * baris File baru). '' bila master tanpa foto.
+     */
+    public function photoHash(MarketplaceMaster $m): string
+    {
+        return $this->photoSetHash($m->filesIn(MarketplaceMaster::MASTER_IMAGE)->get());
+    }
+
+    /** Cast int: tipe angka dari driver DB (MySQL prod vs SQLite tes) tak boleh mengubah hash. */
+    private function photoSetHash(Collection $files): string
+    {
+        if ($files->isEmpty()) {
+            return '';
+        }
+
+        return md5(json_encode($files->map(fn (File $f) => [(int) $f->id, (int) $f->sort_order])->values()->all()));
+    }
+
+    /**
+     * Dorong FOTO master ke SATU listing: upload semua foto (urut; pertama = cover) lalu GANTI SELURUH set
+     * foto listing (TikTok main_images / Shopee image.image_id_list — marketplace tak bisa tambah satu-satu).
+     * 'skip' bila master tanpa foto (set foto listing TAK dikosongkan; tanpa koneksi/HTTP apa pun) atau —
+     * kecuali $force — set foto sama dgn push sukses terakhir (photo_hash). Satu foto gagal upload = set TAK
+     * dikirim (tak ada ganti-parsial). Jejak di last_photo_* + photo_hash; gagal → pesan asli marketplace,
+     * hash & waktu sukses terakhir dipertahankan (pola sama pushContent).
+     *
+     * $uploaded = cache upload SATU run (diisi pushMasterContent): ref urut (uri TikTok / image_id Shopee) per
+     * channel + hash set foto. Listing berikutnya di channel yg sama tinggal di-set tanpa upload ulang (upload
+     * sekuensial dalam 1 request web rawan timeout). Kunci ikut hash → ref tak mungkin nyasar ke set foto lain.
+     */
+    public function pushPhotos(MarketplaceListing $l, MarketplaceMaster $m, bool $force, array &$uploaded = []): string
+    {
+        $files = $m->filesIn(MarketplaceMaster::MASTER_IMAGE)->get();
+        if ($files->isEmpty()) {
+            return 'skip';
+        }
+        $hash = $this->photoSetHash($files);
+        if (! $force && $l->photo_hash === $hash) {
+            return 'skip';
+        }
+        $cacheKey = $l->channel.':'.$hash;
+        try {
+            // `??=` baru mengisi cache setelah SEMUA foto ter-upload: upload yg melempar exception tak
+            // meninggalkan ref setengah jadi, jadi listing berikutnya upload ulang dari awal.
+            if ($l->channel === 'tiktok') {
+                $c = $this->tiktokConn() ?? throw new \RuntimeException('TikTok belum terhubung');
+                $token = $this->tiktokToken($c);
+                $uris = $uploaded[$cacheKey] ??= $this->uploadPhotos($files, fn (string $bytes, string $name) => $this->tiktok->uploadImage($token, $c->shop_cipher, $bytes, $name));
+                $this->tiktok->partialEditProduct($token, $c->shop_cipher, $l->item_id, ['main_images' => array_map(fn (string $uri) => ['uri' => $uri], $uris)]);
+            } else {
+                $c = $this->shopeeConn() ?? throw new \RuntimeException('Shopee belum terhubung');
+                $token = $this->shopeeToken($c);
+                $ids = $uploaded[$cacheKey] ??= $this->uploadPhotos($files, fn (string $bytes, string $name) => $this->shopee->uploadImage($token, $c->shop_id, $bytes, $name));
+                $this->shopee->updateItem($token, $c->shop_id, (int) $l->item_id, ['image' => ['image_id_list' => $ids]]);
+            }
+            $l->update(['last_photo_status' => 'ok', 'last_photo_error' => null, 'last_photo_pushed_at' => now(), 'photo_hash' => $hash]);
+
+            return 'ok';
+        } catch (\Throwable $e) {
+            $l->update(['last_photo_status' => 'failed', 'last_photo_error' => mb_substr($e->getMessage(), 0, 500)]);
+
+            return 'failed';
+        }
+    }
+
+    /**
+     * Upload tiap foto (urut) lewat $upload(bytes, namaFile) → daftar ref urut. Nama file dibuat sendiri
+     * (`foto-{id}.{ext}`), BUKAN original_name: tanda kutip di nama asli merusak header multipart. Ekstensi
+     * ikut file tersimpan krn Content-Type bagian multipart diturunkan darinya.
+     *
+     * @param  callable(string, string): string  $upload
+     * @return list<string>
+     */
+    private function uploadPhotos(Collection $files, callable $upload): array
+    {
+        $refs = [];
+        foreach ($files as $f) {
+            $bytes = Storage::disk($f->disk ?: 'public')->get($f->path)
+                ?? throw new \RuntimeException("File foto #{$f->id} tak ditemukan di server — hapus lalu upload ulang foto itu di Produk Master.");
+            $ext = preg_replace('/[^a-z0-9]/', '', strtolower(pathinfo((string) $f->path, PATHINFO_EXTENSION))) ?: 'jpg';
+            $refs[] = $upload($bytes, "foto-{$f->id}.{$ext}");
+        }
+
+        return $refs;
+    }
+
+    /**
+     * Dorong konten + FOTO master ke SEMUA listing-nya yang sudah punya item_id. Tally per LISTING
+     * (1 listing = 1 unit) — beda dgn pushMaster yg menghitung stok & harga sbg dua unit. Status listing =
+     * gabungan konten & foto: failed bila salah satu gagal; pushed bila salah satu terkirim; else skipped.
+     *
+     * $force HANYA utk konten. Foto SELALU lewat diff-guard (force=false): user dijanjikan foto listing cuma
+     * diganti bila set foto master berubah — klik berulang utk update teks tak boleh terus meng-upload &
+     * mengganti foto (sekaligus mencegah upload ulang tiap klik yang rawan timeout).
      */
     public function pushMasterContent(MarketplaceMaster $m, bool $force = true): array
     {
         $out = ['pushed' => 0, 'skipped' => 0, 'failed' => 0];
+        $uploaded = []; // cache upload foto run ini — lihat pushPhotos()
         foreach ($m->listings()->whereNotNull('item_id')->get() as $l) {
-            // tallyPush() khusus hasil ganda stok+harga (array); konten = SATU hasil string per listing.
-            match ($this->pushContent($l, $m, $force)) {
-                'ok' => $out['pushed']++,
-                'failed' => $out['failed']++,
+            $hasil = [$this->pushContent($l, $m, $force), $this->pushPhotos($l, $m, false, $uploaded)];
+            // tallyPush() menghitung stok+harga sbg DUA unit; di sini konten+foto = SATU unit per listing.
+            match (true) {
+                in_array('failed', $hasil, true) => $out['failed']++,
+                in_array('ok', $hasil, true) => $out['pushed']++,
                 default => $out['skipped']++,
             };
         }
