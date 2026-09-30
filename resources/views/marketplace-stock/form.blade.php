@@ -1,40 +1,69 @@
 @extends('layouts.app')
 @section('title', $master->exists ? 'Ubah Produk Master' : 'Tambah Produk Master')
 @section('heading', $master->exists ? 'Ubah Produk Master' : 'Tambah Produk Baru')
+
+@push('head')
+<style>
+/* Galeri foto ala Desty — plain CSS (tak bergantung kelas Tailwind terkompilasi). */
+.mps-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem}
+@media(min-width:640px){.mps-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.mps-tile{position:relative;border:1px solid #e7e5e4;border-radius:.6rem;overflow:hidden;aspect-ratio:1/1;background:#fafaf9}
+.mps-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.mps-badge{position:absolute;top:.25rem;left:.25rem;font-size:9px;line-height:1;padding:.15rem .3rem;border-radius:.25rem;color:#fff;font-weight:600}
+.mps-badge-utama{background:#4f46e5}
+.mps-badge-baru{background:#059669}
+.mps-actions{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:.55rem;padding:.28rem;background:rgba(0,0,0,.55);opacity:0;transition:opacity .15s}
+.mps-tile:hover .mps-actions,.mps-tile:focus-within .mps-actions{opacity:1}
+.mps-actions form{margin:0}
+.mps-actions button{color:#fff;font-size:10px;cursor:pointer;background:none;border:0;padding:0}
+.mps-actions button:hover{text-decoration:underline}
+.mps-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25rem;aspect-ratio:1/1;border:2px dashed #d6d3d1;border-radius:.6rem;color:#a8a29e;cursor:pointer;transition:border-color .15s,color .15s,background .15s;background:#fafaf9;text-align:center}
+.mps-add:hover{border-color:#6366f1;color:#4f46e5;background:#eef2ff}
+.mps-add .plus{font-size:1.9rem;line-height:1;font-weight:300}
+.mps-add .txt{font-size:11px;font-weight:600}
+</style>
+@endpush
+
 @section('content')
 @php $gallery = $master->exists ? $master->fileGallery(\App\Models\MarketplaceMaster::MASTER_IMAGE) : []; @endphp
 <div class="max-w-3xl space-y-4">
     {{-- Flash session('status') sudah ditampilkan layouts.app — jangan diulang di sini (banner dobel habis Hapus/Jadikan Utama). --}}
     @if($errors->any())<div class="mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">Periksa input.</div>@endif
 
-    {{-- Galeri foto existing — WAJIB DI LUAR form utama (HTML tak boleh <form> nested; tiap tombol hapus/utama adalah form sendiri). --}}
-    @if($master->exists)
-        <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-3">
-            <h3 class="font-semibold text-stone-800">Foto Produk <span class="text-xs font-normal text-stone-400">(maks 9)</span></h3>
-            @if($gallery)
-                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                    @foreach($gallery as $i => $g)
-                        <div class="relative border border-stone-200 rounded-lg p-1">
-                            <img src="{{ $g['url'] }}" alt="" class="w-full h-20 object-cover rounded">
-                            @if($i === 0)<span class="absolute top-1 left-1 text-[9px] bg-indigo-600 text-white px-1 rounded">Utama</span>@endif
-                            <div class="flex gap-2 mt-1 justify-center">
-                                @if($i !== 0)
-                                    <form method="POST" action="{{ route('marketplace-stock.master.foto.utama', [$master, $g['id']]) }}">@csrf<button class="text-[10px] text-indigo-600 hover:underline">Jadikan Utama</button></form>
-                                @endif
-                                <form method="POST" action="{{ route('marketplace-stock.master.foto.hapus', [$master, $g['id']]) }}" onsubmit="return confirm('Hapus foto ini?')">@csrf @method('DELETE')<button class="text-[10px] text-rose-600 hover:underline">Hapus</button></form>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @else
-                <p class="text-xs text-stone-400">Belum ada foto. Tambah lewat form di bawah.</p>
-            @endif
+    {{-- FOTO PRODUK — kartu WAJIB DI LUAR form utama (tiap tombol Hapus/Jadikan Utama = form sendiri; HTML larang <form> nested).
+         Kotak "+" adalah <label for="fotoUpload"> yang memicu input file DI DALAM form utama (label for= tembus batas form). --}}
+    <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-3">
+        <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-stone-800">Foto Produk</h3>
+            <span class="text-xs text-stone-400">Maks 9 · foto pertama = utama</span>
         </div>
-    @endif
+        <div class="mps-grid" id="fotoGrid">
+            @foreach($gallery as $i => $g)
+                <div class="mps-tile">
+                    <img src="{{ $g['url'] }}" alt="Foto {{ $i + 1 }}">
+                    @if($i === 0)<span class="mps-badge mps-badge-utama">Utama</span>@endif
+                    <div class="mps-actions">
+                        @if($i !== 0)
+                            <form method="POST" action="{{ route('marketplace-stock.master.foto.utama', [$master, $g['id']]) }}">@csrf<button type="submit" title="Jadikan foto utama">Jadikan Utama</button></form>
+                        @endif
+                        <form method="POST" action="{{ route('marketplace-stock.master.foto.hapus', [$master, $g['id']]) }}" onsubmit="return confirm('Hapus foto ini?')">@csrf @method('DELETE')<button type="submit" title="Hapus foto">Hapus</button></form>
+                    </div>
+                </div>
+            @endforeach
+            {{-- Tombol "+" tambah foto (jelas untuk orang awam) --}}
+            <label class="mps-add" id="fotoAddTile" for="fotoUpload" role="button" aria-label="Tambah foto">
+                <span class="plus" aria-hidden="true">+</span>
+                <span class="txt">Tambah Foto</span>
+            </label>
+        </div>
+        <p class="text-[11px] text-stone-400 leading-relaxed">Klik kotak <b>“+ Tambah Foto”</b> untuk memilih gambar dari komputer/HP (JPG/PNG, maks 5MB per foto). Bisa pilih beberapa sekaligus. Foto yang baru dipilih bertanda <span class="text-emerald-600 font-semibold">Baru</span> dan tersimpan saat kamu klik <b>Simpan</b>.</p>
+    </div>
 
     <form method="POST" action="{{ $master->exists ? route('marketplace-stock.update', $master) : route('marketplace-stock.store') }}" enctype="multipart/form-data" class="space-y-4">
         @csrf
         @if($master->exists)@method('PUT')@endif
+        {{-- Input file tersembunyi — dipicu tombol "+" di atas (label for="fotoUpload"). Tetap di DALAM form agar ikut ter-submit. --}}
+        <input type="file" name="foto[]" id="fotoUpload" accept="image/*" multiple class="hidden">
 
         {{-- Informasi Produk --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
@@ -84,13 +113,6 @@
             <p class="text-[11px] text-stone-400">Harga & stok akan disinkron ke TikTok/Shopee. Field lain disimpan di SKINKU.</p>
         </div>
 
-        {{-- Tambah Foto (upload baru; kelola foto lama ada di galeri ATAS, di luar form ini) --}}
-        <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-3">
-            <h3 class="font-semibold text-stone-800">Tambah Foto</h3>
-            <input type="file" name="foto[]" accept="image/*" multiple class="block text-sm">
-            <p class="text-xs text-stone-400 mt-1">JPG/PNG, tiap file maks 5MB. Bisa pilih beberapa sekaligus. Total maks 9.</p>
-        </div>
-
         {{-- Pengiriman --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
             <h3 class="font-semibold text-stone-800">Pengiriman</h3>
@@ -121,3 +143,35 @@
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function(){
+    var input = document.getElementById('fotoUpload');
+    var grid = document.getElementById('fotoGrid');
+    var addTile = document.getElementById('fotoAddTile');
+    if (!input || !grid || !addTile) return;
+    var previews = [];
+    input.addEventListener('change', function(){
+        previews.forEach(function(el){ if (el.parentNode) el.parentNode.removeChild(el); });
+        previews = [];
+        var files = Array.prototype.slice.call(input.files || []);
+        files.forEach(function(f){
+            if (f.type.indexOf('image/') !== 0) return;
+            var tile = document.createElement('div');
+            tile.className = 'mps-tile';
+            var img = document.createElement('img');
+            img.src = URL.createObjectURL(f);
+            img.onload = function(){ URL.revokeObjectURL(img.src); };
+            var badge = document.createElement('span');
+            badge.className = 'mps-badge mps-badge-baru';
+            badge.textContent = 'Baru';
+            tile.appendChild(img);
+            tile.appendChild(badge);
+            grid.insertBefore(tile, addTile);
+            previews.push(tile);
+        });
+    });
+})();
+</script>
+@endpush
