@@ -13,13 +13,13 @@
         'Middle' => 'bg-indigo-100 text-indigo-700', 'Makro' => 'bg-violet-100 text-violet-700',
         'Mega' => 'bg-amber-100 text-amber-700', 'Super Mega' => 'bg-rose-100 text-rose-700',
     ];
-    // Warna verdict ikut emoji tingkatannya (median 3 tingkat & mean 5 tingkat).
+    $plainVerdict = fn ($v) => preg_replace('/^[^\\pL\\pN]+/u', '', (string) $v);
     $vColor = fn (string $v) => match (true) {
-        str_starts_with($v, '🟢') => 'text-emerald-700',
-        str_starts_with($v, '🟡') => 'text-amber-600',
-        str_starts_with($v, '🟠') => 'text-orange-600',
-        str_starts_with($v, '🔴') => 'text-rose-700',
-        str_starts_with($v, '⚪') => 'text-stone-400',
+        str_contains($v, 'Worth It') => 'text-emerald-700',
+        str_contains($v, 'Masih Oke') => 'text-amber-600',
+        str_contains($v, 'Cukup') => 'text-orange-600',
+        str_contains($v, 'Kemahalan') => 'text-rose-700',
+        str_contains($v, 'Belum Ada Ratecard') => 'text-stone-400',
         default => 'text-stone-800',
     };
 @endphp
@@ -28,7 +28,7 @@
 <div class="bg-white rounded-2xl border border-stone-200 p-4 mb-4 max-w-md">
     <label class="block">
         <span class="text-xs font-semibold text-stone-600">Cari KOL</span>
-        @include('kols._kol-combo', ['kols' => $allKols, 'name' => 'cari_kol_id', 'id' => 'cariKolCombo', 'atPrefix' => false, 'placeholder' => '🔎 ketik username / pilih → buka detail…'])
+        @include('kols._kol-combo', ['kols' => $allKols, 'name' => 'cari_kol_id', 'id' => 'cariKolCombo', 'atPrefix' => false, 'placeholder' => 'Ketik username atau pilih KOL…'])
     </label>
 </div>
 
@@ -59,16 +59,16 @@
         {{-- Filter hasil kurasi: langsung saring yang layak / kemahalan. --}}
         <select name="verdict" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
             <option value="">Semua verdict</option>
-            <option value="worth" @selected(($filters['verdict'] ?? '') === 'worth')>🟢 Worth It</option>
-            <option value="masih" @selected(($filters['verdict'] ?? '') === 'masih')>🟡 Masih Oke</option>
-            <option value="mahal" @selected(($filters['verdict'] ?? '') === 'mahal')>🔴 Kemahalan</option>
-            <option value="tanpa_harga" @selected(($filters['verdict'] ?? '') === 'tanpa_harga')>⚪ Belum ada ratecard</option>
+            <option value="worth" @selected(($filters['verdict'] ?? '') === 'worth')>Worth It</option>
+            <option value="masih" @selected(($filters['verdict'] ?? '') === 'masih')>Masih Oke</option>
+            <option value="mahal" @selected(($filters['verdict'] ?? '') === 'mahal')>Kemahalan</option>
+            <option value="tanpa_harga" @selected(($filters['verdict'] ?? '') === 'tanpa_harga')>Belum ada ratecard</option>
             <option value="belum" @selected(($filters['verdict'] ?? '') === 'belum')>Belum discreening</option>
         </select>
         {{-- Filter Tim Gapok: tampilkan cuma anggota gajian. --}}
         <select name="gapok" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
             <option value="">Semua anggota</option>
-            <option value="1" @selected(($filters['gapok'] ?? '') === '1')>💰 Gapok saja</option>
+            <option value="1" @selected(($filters['gapok'] ?? '') === '1')>Gapok saja</option>
         </select>
         {{-- Sort aktif ikut dipertahankan saat ganti filter. --}}
         <input type="hidden" name="sort" value="{{ $sort }}">
@@ -123,10 +123,10 @@
 @endif
 
 <p class="text-[11px] text-stone-500 mb-2 leading-relaxed">
-    💡 Ada dua kolom penilaian layak/tidaknya harga KOL:
-    <b class="text-emerald-700">Penilaian Median ⭐</b> = dari views tengah, <b>acuan utama</b> (tak mempan diakali 1 video viral) ·
+    Ada dua kolom penilaian layak/tidaknya harga KOL:
+    <b class="text-emerald-700">Penilaian Median</b> = dari views tengah, <b>acuan utama</b> (tak mempan diakali 1 video viral) ·
     <b class="text-stone-600">Penilaian Rata-rata</b> = pembanding, bisa terangkat 1 video viral.
-    Kalau keduanya beda jauh, artinya ada video yang meledak sendiri — percayai yang <b>Median ⭐</b>.
+    Kalau keduanya beda jauh, artinya ada video yang meledak sendiri — percayai yang <b>Median</b>.
 </p>
 
 <style>
@@ -179,7 +179,7 @@
                 <th rowspan="2" class="text-right align-bottom px-2" title="Biaya per satu view">{!! $sortLink('cpv', 'CPV') !!}</th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="Peringkat termurah (dari CPM median) di seluruh screening">{!! $sortLink('rank', 'Rank') !!}</th>
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari RATA-RATA views — bisa terangkat 1 video viral, jadi pembanding saja">{!! $sortLink('verdict_mean', 'Penilaian Rata-rata') !!}</th>
-                <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari views MEDIAN (tengah) — ACUAN UTAMA, tahan dari 1 video viral">{!! $sortLink('verdict', 'Penilaian Median ⭐') !!}</th>
+                <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari views MEDIAN (tengah) — ACUAN UTAMA, tahan dari 1 video viral">{!! $sortLink('verdict', 'Penilaian Median') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV = median views × 1,2% konversi × Rp38rb order rata-rata — hitungan sistem, BUKAN data asli">{!! $sortLink('gmv', 'GMV Estimasi · Viral · Fake') !!}</th>
                 <th rowspan="2" class="text-right align-bottom" title="GMV asli dari data KOL — diisi manual saat screening (— bila belum diisi)">GMV Asli</th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="GMV affiliate REAL bulan ini — penjualan SKINKU dari kreator ini (sama sumber dgn Affiliate & GMV). Bukan estimasi.">{!! $sortLink('gmv_real', 'GMV Bln') !!}</th>
@@ -200,11 +200,11 @@
                             class="font-bold text-red-700 hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
                         <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $kol->platformLabel() }}</span>
                         @if($kol->role !== 'kol')<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-sky-100 text-sky-700">{{ $roleLabels[$kol->role] ?? $kol->role }}</span>@endif
-                        @if($kol->is_gapok)<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-amber-100 text-amber-700 font-semibold" title="Anggota Tim Affiliate Gapok">💰 GAPOK</span>@endif
+                        @if($kol->is_gapok)<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-amber-100 text-amber-700 font-semibold" title="Anggota Tim Affiliate Gapok">GAPOK</span>@endif
                         @if($kol->isBlacklisted())<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-rose-100 text-rose-700">BLACKLIST</span>@endif
                         @if($kol->name)<span class="block text-[10px] text-stone-500">{{ $kol->name }}</span>@endif
                         @if($kol->phone)
-                            <span class="block text-[10px] text-stone-400">📱 <a href="{{ $kol->whatsappUrl() }}" target="_blank" rel="noopener" class="hover:text-emerald-600">{{ $kol->phone }}</a></span>
+                            <span class="block text-[10px] text-stone-400"><a href="{{ $kol->whatsappUrl() }}" target="_blank" rel="noopener" class="hover:text-emerald-600">{{ $kol->phone }}</a></span>
                         @endif
                     </td>
                     <td class="text-right text-stone-700">{{ number_format($kol->followers, 0, ',', '.') }}</td>
@@ -246,12 +246,12 @@
                         <td class="text-right px-2 font-bold text-stone-700">{{ isset($ranks[$ls->id]) ? '#'.$ranks[$ls->id] : '—' }}</td>
                         {{-- Dua indikator seperti Excel: mean (5 tingkat) & median (3 tingkat). --}}
                         <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($ls->verdict_rata) }} @if($canDeal) cursor-pointer hover:underline @endif"
-                            @if($canDeal) onclick="openDeal({{ $kol->id }}, @js('@'.$kol->tiktok_username), {{ (int) ($ls->ratecard ?? 0) }})" title="Klik = buat deal cepat" @endif>{{ $ls->verdict_rata }}</td>
+                            @if($canDeal) onclick="openDeal({{ $kol->id }}, @js('@'.$kol->tiktok_username), {{ (int) ($ls->ratecard ?? 0) }})" title="Klik = buat deal cepat" @endif>{{ $plainVerdict($ls->verdict_rata) }}</td>
                         <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($ls->verdict_median) }} @if($canDeal) cursor-pointer hover:underline @endif"
-                            @if($canDeal) onclick="openDeal({{ $kol->id }}, @js('@'.$kol->tiktok_username), {{ (int) ($ls->ratecard ?? 0) }})" title="Klik = buat deal cepat" @endif>{{ $ls->verdict_median }}</td>
+                            @if($canDeal) onclick="openDeal({{ $kol->id }}, @js('@'.$kol->tiktok_username), {{ (int) ($ls->ratecard ?? 0) }})" title="Klik = buat deal cepat" @endif>{{ $plainVerdict($ls->verdict_median) }}</td>
                         <td class="whitespace-nowrap">
-                            <span class="font-semibold text-stone-800">🪙 {{ $rp($ls->gmv_estimate) }}</span>
-                            <span class="block text-[10px] text-stone-500">🚀 {{ $ls->viral_label }} · 👤 {{ $ls->fake_label ?? '—' }}</span>
+                            <span class="font-semibold text-stone-800">{{ $rp($ls->gmv_estimate) }}</span>
+                            <span class="block text-[10px] text-stone-500">Viral {{ $ls->viral_label }} · Fake {{ $ls->fake_label ?? '—' }}</span>
                         </td>
                         <td class="text-right whitespace-nowrap">
                             @if($ls->gmv)<span class="font-semibold text-emerald-700">{{ $rp($ls->gmv) }}</span>@else<span class="text-stone-300" title="Belum diisi — isi lewat + Screening / detail">—</span>@endif

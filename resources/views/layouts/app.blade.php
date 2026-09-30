@@ -353,7 +353,7 @@
                 <div id="grpKonten" class="{{ $kontenGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
                     @if($u->canDo('content.create'))
                         {!! navItem('content.index', 'Pipeline Konten', 'content.index', [], request()->routeIs('content.index', 'content.create', 'content.edit', 'content.show'), 'kol-konten.index') !!}
-                        {!! navItem('content.calendar', 'Kalender Konten', 'content.calendar', [], request()->routeIs('content.calendar'), 'calendar') !!}
+                        {!! navItem('content.calendar', 'Kalender Konten', 'content.calendar', [], request()->routeIs('content.calendar'), 'content.calendar') !!}
                     @endif
                     @if($u->canDo('content.manage'))
                         {!! navItem('content-insights.index', 'Insight Konten', 'content-insights.*', [], null, 'kol-dashboard.index') !!}
@@ -581,7 +581,7 @@
         </main>
 
         <footer class="py-4 border-t border-stone-200 bg-white/50 px-4 sm:px-8 text-[11px] text-stone-400 flex flex-col sm:flex-row gap-1 sm:justify-between">
-            <span>&copy; {{ date('Y') }} SKINKU B2B Portal. Powered by SQL + Laravel.</span>
+            <span>&copy; {{ date('Y') }} SKINKU B2B Portal.</span>
             <span>HQ Jakarta, Indonesia</span>
         </footer>
     </div>

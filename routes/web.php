@@ -520,6 +520,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/kanban/{board}/columns/reorder', [KanbanController::class, 'reorderColumns'])->name('kanban.columns.reorder');
         Route::put('/kanban-columns/{column}', [KanbanController::class, 'updateColumn'])->name('kanban.columns.update');
         Route::delete('/kanban-columns/{column}', [KanbanController::class, 'destroyColumn'])->name('kanban.columns.destroy');
+        Route::post('/kanban-columns/{column}/cards/draft', [KanbanController::class, 'draftCard'])->name('kanban.cards.draft');
         Route::post('/kanban-columns/{column}/cards', [KanbanController::class, 'storeCard'])->name('kanban.cards.store');
         Route::put('/kanban-cards/{card}', [KanbanController::class, 'updateCard'])->name('kanban.cards.update');
         Route::delete('/kanban-cards/{card}', [KanbanController::class, 'destroyCard'])->name('kanban.cards.destroy');

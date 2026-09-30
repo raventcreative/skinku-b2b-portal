@@ -26,10 +26,12 @@
                 <p class="text-[11px] text-stone-400 mt-2">dibuat {{ $board->creator->fullname ?? '—' }} · {{ $board->created_at->format('d M Y') }}</p>
             </a>
             @if($u->isSuperAdmin() || $board->created_by === $u->id)
-                <form method="POST" action="{{ route('kanban.destroy', $board) }}" class="mt-3 text-right"
+                <form method="POST" action="{{ route('kanban.destroy', $board) }}" class="mt-3 flex justify-end"
                     onsubmit="return confirm('Hapus papan {{ $board->name }} beserta seluruh kolom & kartunya?')">
                     @csrf @method('DELETE')
-                    <button class="text-[11px] text-rose-500 hover:text-rose-700">hapus papan</button>
+                    <button type="submit" aria-label="Hapus papan {{ $board->name }}" title="Hapus papan" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-stone-500 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
+                        @include('kanban._icon', ['n' => 'trash', 'c' => 'w-4 h-4'])
+                    </button>
                 </form>
             @endif
         </div>

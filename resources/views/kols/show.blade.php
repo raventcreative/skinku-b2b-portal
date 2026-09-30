@@ -7,12 +7,13 @@
     $u = auth()->user();
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $canFinance = $u->canDo('kol.deal.finance');
+    $plainVerdict = fn ($v) => preg_replace('/^[^\\pL\\pN]+/u', '', (string) $v);
     $vColor = fn (string $v) => match (true) {
-        str_starts_with($v, '🟢') => 'text-emerald-700',
-        str_starts_with($v, '🟡') => 'text-amber-600',
-        str_starts_with($v, '🟠') => 'text-orange-600',
-        str_starts_with($v, '🔴') => 'text-rose-700',
-        str_starts_with($v, '⚪') => 'text-stone-400',
+        str_contains($v, 'Worth It') => 'text-emerald-700',
+        str_contains($v, 'Masih Oke') => 'text-amber-600',
+        str_contains($v, 'Cukup') => 'text-orange-600',
+        str_contains($v, 'Kemahalan') => 'text-rose-700',
+        str_contains($v, 'Belum Ada Ratecard') => 'text-stone-400',
         default => 'text-stone-800',
     };
 @endphp
@@ -25,7 +26,7 @@
 
 @if($kol->isBlacklisted())
     <div class="mt-3 px-4 py-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
-        <b>⛔ KOL ini di-BLACKLIST.</b>{{ $kol->blacklist_reason ? ' Alasan: '.$kol->blacklist_reason : '' }} — jangan dimasukkan ke deal/pipeline baru.
+        <b>KOL ini di-BLACKLIST.</b>{{ $kol->blacklist_reason ? ' Alasan: '.$kol->blacklist_reason : '' }} — jangan dimasukkan ke deal/pipeline baru.
     </div>
 @endif
 
@@ -48,17 +49,17 @@
                 · {{ $kol->kategori ?: 'tanpa kategori' }} · {{ $kol->provinsi ?: '—' }} · {{ $kol->agency ?: 'Non-Agency' }} · status <b>{{ $kol->status }}</b>
             </p>
             @if($kol->phone)
-                <p class="text-xs text-stone-500 mt-1">📱 <a href="{{ $kol->whatsappUrl() }}" target="_blank" rel="noopener" class="text-emerald-700 hover:underline font-semibold">{{ $kol->phone }}</a> <span class="text-stone-400">— chat WhatsApp</span></p>
+                <p class="text-xs text-stone-500 mt-1"><a href="{{ $kol->whatsappUrl() }}" target="_blank" rel="noopener" class="text-emerald-700 hover:underline font-semibold">{{ $kol->phone }}</a> <span class="text-stone-400">— chat WhatsApp</span></p>
             @endif
             @if($kol->manager_name || $kol->manager_contact)
-                <p class="text-xs text-stone-500 mt-1">👔 Manager: <b>{{ $kol->manager_name ?: '—' }}</b>{{ $kol->manager_contact ? ' · '.$kol->manager_contact : '' }}</p>
+                <p class="text-xs text-stone-500 mt-1">Manager: <b>{{ $kol->manager_name ?: '—' }}</b>{{ $kol->manager_contact ? ' · '.$kol->manager_contact : '' }}</p>
             @endif
             {{-- Flag komersial + voucher + tracking-link --}}
             @php $flags = collect(['barter_ok' => 'Bersedia barter', 'tiktok_shop_active' => 'TikTok Shop aktif', 'shopee_affiliate_active' => 'Shopee Affiliate aktif'])->filter(fn ($l, $k) => $kol->$k); @endphp
             @if($flags->isNotEmpty() || $kol->voucher_code || $kol->tracking_link)
                 <div class="flex flex-wrap items-center gap-1.5 mt-2">
                     @foreach($flags as $lbl)<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓ {{ $lbl }}</span>@endforeach
-                    @if($kol->voucher_code)<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">🎟 {{ $kol->voucher_code }}</span>@endif
+                    @if($kol->voucher_code)<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Kode promo {{ $kol->voucher_code }}</span>@endif
                     @if($kol->tracking_link)<a href="{{ $kol->tracking_link }}" target="_blank" rel="noopener" class="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200"> tracking link</a>@endif
                 </div>
             @endif
@@ -129,7 +130,7 @@
     @php $tp = $kol->tiktokProfile; $genderLabel = ['FEMALE' => 'Perempuan', 'MALE' => 'Laki-laki']; @endphp
     <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-5">
         <div class="flex items-center justify-between gap-2 mb-3">
-            <p class="text-sm font-bold text-stone-800">📊 Performa TikTok <span class="text-xs font-normal text-stone-400">(Creator Marketplace)</span></p>
+            <p class="text-sm font-bold text-stone-800">Performa TikTok <span class="text-xs font-normal text-stone-400">(Creator Marketplace)</span></p>
             <a href="{{ route('kol-cek-tiktok.index', ['q' => $kol->tiktok_username]) }}" class="text-[11px] text-red-600 hover:underline whitespace-nowrap">Perbarui →</a>
         </div>
         <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -142,8 +143,8 @@
                 </p>
                 @if($tp->video_gmv_idr !== null || $tp->live_gmv_idr !== null)
                     <p class="text-[11px] text-stone-500 mt-1">
-                        @if($tp->video_gmv_idr !== null)🎬 {{ $rp($tp->video_gmv_idr) }}@endif
-                        @if($tp->live_gmv_idr !== null) · 🔴 {{ $rp($tp->live_gmv_idr) }}@endif
+                        @if($tp->video_gmv_idr !== null)Video {{ $rp($tp->video_gmv_idr) }}@endif
+                        @if($tp->live_gmv_idr !== null) · LIVE {{ $rp($tp->live_gmv_idr) }}@endif
                     </p>
                 @endif
             </div>
@@ -322,7 +323,7 @@
                 <th rowspan="2" class="text-right align-bottom">Total</th>
                 <th rowspan="2" class="text-right align-bottom">Median</th><th rowspan="2" class="text-right align-bottom">Rata</th>
                 <th rowspan="2" class="text-right align-bottom">Ratio</th>
-                <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian dari views MEDIAN (tengah) — acuan utama, tahan dari 1 video viral">Penilaian Median ⭐</th>
+                <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian dari views MEDIAN (tengah) — acuan utama, tahan dari 1 video viral">Penilaian Median</th>
                 <th rowspan="2" class="text-left px-4 align-bottom" title="Penilaian dari RATA-RATA views — pembanding, bisa terangkat 1 video viral">Penilaian Rata-rata</th>
                 <th rowspan="2" class="text-left px-4 align-bottom" title="Estimasi GMV + deteksi viral & followers palsu">GMV · Viral · Fake</th></tr>
             <tr>
@@ -352,7 +353,7 @@
                         @else
                             —
                         @endif
-                        @if($s->benefit)<span class="block text-[10px] text-stone-500 text-left mt-1 whitespace-normal">🎁 {{ $s->benefit }}</span>@endif
+                        @if($s->benefit)<span class="block text-[10px] text-stone-500 text-left mt-1 whitespace-normal">Benefit: {{ $s->benefit }}</span>@endif
                     </td>
                     {{-- Satu kolom per video — angka mentahnya, bukan deret bertitik. --}}
                     @foreach($s->views() as $v)
@@ -363,17 +364,17 @@
                     <td class="text-right text-stone-600">{{ number_format($s->rata_views, 1, ',', '.') }}</td>
                     <td class="text-right text-stone-600">{{ $s->ratio !== null ? number_format($s->ratio, 2, ',', '.').'%' : '—' }}</td>
                     <td class="px-3 font-semibold whitespace-nowrap {{ $vColor($s->verdict_median) }}">
-                        {{ $s->verdict_median }}
+                        {{ $plainVerdict($s->verdict_median) }}
                         <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_median !== null ? $rp($s->cpm_median) : '—' }} · CPV {{ $s->cpv_median !== null ? 'Rp '.number_format($s->cpv_median, $s->cpv_median < 100 ? 1 : 0, ',', '.') : '—' }}</span>
                     </td>
                     <td class="px-4 font-semibold whitespace-nowrap {{ $vColor($s->verdict_rata) }}">
-                        {{ $s->verdict_rata }}
+                        {{ $plainVerdict($s->verdict_rata) }}
                         <span class="block text-[10px] font-normal text-stone-400">CPM {{ $s->cpm_rata !== null ? $rp($s->cpm_rata) : '—' }} · CPV {{ $s->cpv_rata !== null ? 'Rp '.number_format($s->cpv_rata, $s->cpv_rata < 100 ? 1 : 0, ',', '.') : '—' }}</span>
                     </td>
                     <td class="px-4 whitespace-nowrap">
-                        <span class="font-semibold text-stone-800">🪙 {{ $rp($s->gmv_estimate) }}</span>
+                        <span class="font-semibold text-stone-800">{{ $rp($s->gmv_estimate) }}</span>
                         @if($s->gmv)<span class="block text-[10px] text-emerald-700 font-semibold">GMV aktual: {{ $rp($s->gmv) }}</span>@endif
-                        <span class="block text-[10px] text-stone-500">🚀 Viral: {{ $s->viral_label }} · 👤 Fake: {{ $s->fake_label ?? '—' }}</span>
+                        <span class="block text-[10px] text-stone-500">Viral: {{ $s->viral_label }} · Fake: {{ $s->fake_label ?? '—' }}</span>
                     </td>
                 </tr>
             @empty

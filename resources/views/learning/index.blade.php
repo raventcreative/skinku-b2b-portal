@@ -3,12 +3,16 @@
 @section('heading', 'SKINKU Academy')
 
 @section('content')
-<div class="flex justify-between items-center mb-5">
-    <p class="text-xs text-stone-500">Materi video pelatihan SKINKU, tersusun per modul. Klik untuk menonton.</p>
+<div class="mb-5 flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-5">
+    <div>
+        <p class="text-[10px] font-bold uppercase tracking-[.14em] text-red-700">Pusat belajar</p>
+        <p class="mt-1 text-sm text-stone-600">Materi pelatihan SKINKU tersusun per modul. Pilih materi untuk membuka video atau dokumen.</p>
+        <p class="mt-2 text-xs font-medium text-stone-400">{{ $modules->count() }} modul <span class="mx-1">·</span> {{ $lessons->count() }} materi</p>
+    </div>
     @if($canManage)
-        <div class="flex gap-2">
-            <button onclick="openModule()" class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">+ Modul</button>
-            <button onclick="openLesson()" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Materi</button>
+        <div class="flex flex-wrap gap-2">
+            <button onclick="openModule()" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Tambah modul</button>
+            <button onclick="openLesson()" class="inline-flex min-h-10 items-center justify-center rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800">Tambah materi</button>
         </div>
     @endif
 </div>
@@ -16,34 +20,36 @@
 @php $ungrouped = $lessons->filter(fn ($l) => ! $l->module_id); @endphp
 
 @if($modules->isEmpty() && $lessons->isEmpty())
-    <div class="bg-white rounded-2xl border border-stone-200 p-10 text-center text-stone-400 text-sm">
-        Belum ada modul/materi.@if($canManage) Mulai dengan "+ Modul", lalu tambah "+ Materi".@endif
+    <div class="rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-12 text-center">
+        <h2 class="text-base font-bold text-stone-800">Belum ada materi belajar</h2>
+        <p class="mx-auto mt-2 max-w-md text-sm text-stone-500">Materi yang dipublikasikan akan muncul di sini dan dikelompokkan berdasarkan modul.</p>
+        @if($canManage)<button onclick="openModule()" class="mt-4 inline-flex min-h-10 items-center rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800">Buat modul pertama</button>@endif
     </div>
 @endif
 
 @foreach($modules as $module)
     @php $mLessons = $lessons->where('module_id', $module->id); @endphp
     <section class="mb-8">
-        <div class="flex justify-between items-start mb-3">
+        <div class="mb-3 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
             <div>
-                <h3 class="text-base font-bold text-stone-900">{{ $module->title }}
+                <h3 class="text-base font-bold text-stone-900">{{ $module->title }} <span class="ml-1 text-xs font-medium text-stone-400">{{ $mLessons->count() }} materi</span>
                     @unless($module->is_published)<span class="ml-2 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold align-middle">DRAFT</span>@endunless
                 </h3>
                 @if($module->description)<p class="text-xs text-stone-500 mt-0.5 max-w-2xl">{{ $module->description }}</p>@endif
             </div>
             @if($canManage)
-                <div class="flex items-center gap-3 text-xs shrink-0">
-                    <button class="text-stone-500 hover:text-stone-900 font-semibold"
+                <div class="flex flex-wrap items-center gap-2 text-xs shrink-0">
+                    <button class="inline-flex min-h-8 items-center rounded-lg border border-stone-200 px-3 font-semibold text-stone-600 hover:bg-stone-50"
                         onclick='openModule({{ json_encode($module->only(["id","title","description","sort_order","is_published"])) }})'>Edit Modul</button>
                     <form method="POST" action="{{ route('learning.modules.destroy', $module) }}" onsubmit="return confirm('Hapus modul ini? Materinya tidak ikut terhapus (jadi Tanpa Modul).')">
                         @csrf @method('DELETE')
-                        <button class="text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                        <button class="inline-flex min-h-8 items-center rounded-lg border border-rose-200 px-3 font-semibold text-rose-700 hover:bg-rose-50">Hapus modul</button>
                     </form>
                 </div>
             @endif
         </div>
         @if($mLessons->isEmpty())
-            <p class="text-xs text-stone-400 italic">Belum ada materi di modul ini.</p>
+            <p class="rounded-xl border border-dashed border-stone-300 bg-white px-4 py-5 text-center text-xs text-stone-500">Belum ada materi di modul ini.</p>
         @else
             <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 @foreach($mLessons as $lesson)
