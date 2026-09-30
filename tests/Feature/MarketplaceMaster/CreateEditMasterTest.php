@@ -46,8 +46,8 @@ class CreateEditMasterTest extends TestCase
     {
         $html = $this->actingAs($this->admin())->get(route('marketplace-stock.create'))
             ->assertOk()
-            ->assertDontSee('Foto Produk')      // kartu galeri cuma ada di Ubah (master sudah ada)
-            ->assertDontSee('Jadikan Utama')
+            ->assertSee('Foto Produk')          // kartu foto + tombol "+" kini tampil juga di Tambah (bisa upload saat buat)
+            ->assertDontSee('Jadikan Utama')    // tapi tanpa thumbnail existing (master belum ada)
             ->assertSee('enctype="multipart/form-data"', false)
             ->getContent();
 
@@ -77,15 +77,32 @@ class CreateEditMasterTest extends TestCase
             ->assertDontSee(route('marketplace-stock.master.foto.utama', [$m, $utama->id]), false);
     }
 
-    public function test_form_edit_tanpa_foto_tampilkan_placeholder(): void
+    public function test_form_edit_tanpa_foto_tampilkan_kotak_tambah(): void
     {
         $m = MarketplaceMaster::create(['master_sku' => 'E-1', 'name' => 'E', 'name_key' => 'e']);
 
+        // Tanpa foto: kotak "+ Tambah Foto" jadi empty-state (bukan lagi teks "Belum ada foto").
         $this->actingAs($this->admin())->get(route('marketplace-stock.edit', $m))
             ->assertOk()
             ->assertSee('Foto Produk')
-            ->assertSee('Belum ada foto')
+            ->assertSee('Tambah Foto')
             ->assertDontSee('Jadikan Utama');
+    }
+
+    public function test_tombol_tambah_foto_terhubung_ke_input_file(): void
+    {
+        // Orang awam cukup klik kotak "+ Tambah Foto" (label) yang memicu input file tersembunyi —
+        // bukan input "Choose File" mentah. Buktikan label for= dan input id= nyambung ke foto[].
+        $html = $this->actingAs($this->admin())->get(route('marketplace-stock.create'))
+            ->assertOk()
+            ->assertSee('Tambah Foto')
+            ->getContent();
+
+        $this->assertMatchesRegularExpression('/<label[^>]*\bfor="fotoUpload"[^>]*>/', $html, 'Tombol "+" (label for="fotoUpload") tak ada.');
+        preg_match('/<input\b[^>]*\bid="fotoUpload"[^>]*>/', $html, $m);
+        $this->assertNotEmpty($m, 'Input file id="fotoUpload" tak ada.');
+        $this->assertStringContainsString('type="file"', $m[0]);
+        $this->assertStringContainsString('name="foto[]"', $m[0]);
     }
 
     public function test_form_edit_tak_ada_form_bersarang(): void
