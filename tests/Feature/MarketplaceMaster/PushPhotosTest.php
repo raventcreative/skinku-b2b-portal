@@ -857,4 +857,98 @@ class PushPhotosTest extends TestCase
             $this->assertNull($l->last_price_status);
         }
     }
+
+    // ---- Perbaikan review akhir ----
+
+    public function test_varian_beda_master_satu_produk_klik_terakhir_menang_foto_dikirim_ulang(): void
+    {
+        // Foto milik PRODUK (item_id); tiap varian (SKU) = listing sendiri, bisa ditautkan ke master berbeda.
+        $this->tiktokConn();
+        $this->fakeMarketplace();
+        $a = $this->masterBerfoto(1, ['master_sku' => 'A-30', 'name' => 'Serum 30ml']);
+        $b = $this->masterBerfoto(1, ['master_sku' => 'B-50', 'name' => 'Serum 50ml']);
+        $la = $this->tiktokListing($a, ['seller_sku' => 'A-30', 'variation_id' => 'SKU30']);
+        $this->tiktokListing($b, ['seller_sku' => 'B-50', 'variation_id' => 'SKU50']);
+
+        $this->svc()->pushMasterContent($a); // PID1 := foto A
+        $this->svc()->pushMasterContent($b); // PID1 := foto B → hash listing A basi → dikosongkan
+        $this->assertNull($la->fresh()->photo_hash);
+
+        $r = $this->svc()->pushMasterContent($a); // ingin foto A lagi → HARUS dikirim ulang, bukan skip
+
+        $this->assertSame(['pushed' => 1, 'skipped' => 0, 'failed' => 0], $r);
+        $this->assertCount(3, array_filter($this->jejak(), fn ($j) => $j === 'tt-set-foto'));
+        $this->assertSame($this->svc()->photoHash($a), $la->fresh()->photo_hash);
+    }
+
+    public function test_sibling_master_sama_tak_saling_mereset_klik_ulang_tetap_skip(): void
+    {
+        // Dua varian produk yang sama ditautkan ke master yang SAMA → hash sama → tak saling mereset.
+        $this->tiktokConn();
+        $this->fakeMarketplace();
+        $m = $this->masterBerfoto(1);
+        $l1 = $this->tiktokListing($m, ['seller_sku' => 'SX-30', 'variation_id' => 'SKU30']);
+        $l2 = $this->tiktokListing($m, ['seller_sku' => 'SX-50', 'variation_id' => 'SKU50']);
+
+        $this->svc()->pushMasterContent($m);
+        $hash = $this->svc()->photoHash($m);
+        $this->assertSame($hash, $l1->fresh()->photo_hash);
+        $this->assertSame($hash, $l2->fresh()->photo_hash);
+
+        $sebelum = count($this->jejak());
+        $r = $this->svc()->pushMasterContent($m);
+
+        $this->assertSame(['pushed' => 0, 'skipped' => 2, 'failed' => 0], $r);
+        $this->assertCount($sebelum, $this->jejak()); // tanpa HTTP baru
+    }
+
+    public function test_shopee_502_html_dari_gateway_tercatat_gagal_dan_bisa_dicoba_ulang(): void
+    {
+        $this->shopeeConn();
+        $this->fakeMarketplace([self::SP_UPDATE => Http::response('<html><body>502 Bad Gateway</body></html>', 502)]);
+        $m = $this->masterBerfoto(1);
+        $l = $this->shopeeListing($m);
+
+        $this->assertSame('failed', $this->svc()->pushPhotos($l, $m, false));
+
+        $l->refresh();
+        $this->assertSame('failed', $l->last_photo_status);
+        $this->assertStringContainsString('HTTP 502', (string) $l->last_photo_error);
+        $this->assertNull($l->photo_hash); // tak terkunci → klik berikutnya mencoba lagi, bukan skip
+        $this->assertSame('failed', $this->svc()->pushPhotos($l, $m, false));
+    }
+
+    public function test_token_dan_sign_di_pesan_error_disamarkan(): void
+    {
+        $this->shopeeConn();
+        $url = 'https://partner.shopeemobile.com/api/v2/media_space/upload_image?partner_id=1&timestamp=1&access_token=RAHASIA123&shop_id=123&sign=abcdef0123';
+        $this->fakeMarketplace([self::SP_UPLOAD => fn () => throw new ConnectionException("cURL error 28: Operation timed out for {$url}")]);
+        $m = $this->masterBerfoto(1);
+        $l = $this->shopeeListing($m);
+
+        $this->svc()->pushPhotos($l, $m, true);
+
+        $err = (string) $l->fresh()->last_photo_error;
+        $this->assertStringContainsString('timed out', $err);
+        $this->assertStringContainsString('access_token=***', $err);
+        $this->assertStringContainsString('sign=***', $err);
+        $this->assertStringNotContainsString('RAHASIA123', $err);
+        $this->assertStringNotContainsString('abcdef0123', $err);
+    }
+
+    public function test_flash_menyebut_listing_yang_fotonya_diganti_dan_klik_ganda_tak_salah_hitung(): void
+    {
+        $this->tiktokConn();
+        $this->fakeMarketplace();
+        $m = $this->masterBerfoto(1, ['description' => 'Serum wajah']);
+        $this->tiktokListing($m);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post(route('marketplace-stock.master.konten', $m))
+            ->assertSessionHas('status', 'Dorong konten & foto "Serum X" — foto diganti di 1 listing (1 sinkron OK)');
+
+        // Klik ulang (detik yang sama pun): konten dikirim lagi, foto tak berubah → tak disebut "diganti".
+        $this->actingAs($admin)->post(route('marketplace-stock.master.konten', $m))
+            ->assertSessionHas('status', 'Dorong konten & foto "Serum X" (1 sinkron OK)');
+    }
 }

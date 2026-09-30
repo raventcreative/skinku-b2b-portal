@@ -29,7 +29,7 @@ Alur 2 langkah tiap platform: **upload multipart → dapat id/uri → set daftar
 - TikTok: sign dengan **body kosong** (multipart dikecualikan dari signature TikTok) + `Http::attach('data', $bytes, $name)` + query app_key/timestamp/sign/shop_cipher + header `x-tts-access-token`.
 - Shopee: sign normal (body tak ikut ditandatangani) + `Http::attach('image', $bytes, $name)` + query auth.
 
-**Sumber byte foto:** `$master->filesIn('master_image')->get()` → tiap `File` → `Storage::disk($f->disk ?: 'public')->get($f->path)` (byte) + `$f->mime_type`/`original_name`. Foto sudah di-resize ImageService (≤1280px, masuk rentang TikTok 300–4000px).
+**Sumber byte foto:** `$master->filesIn('master_image')->get()` → tiap `File` → `Storage::disk($f->disk ?: 'public')->get($f->path)` (byte) + `$f->mime_type`/`original_name`. Foto master disimpan ImageService ≤1600px q85 (sejak fix upload anti-timeout; masuk rentang TikTok 300–4000px).
 
 ## 4. Data model
 

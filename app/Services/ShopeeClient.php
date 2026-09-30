@@ -378,6 +378,11 @@ class ShopeeClient
         if (! empty($json['error'])) {
             throw new RuntimeException("Shopee API error pada {$path} ({$json['error']}): ".($json['message'] ?? $res->body()));
         }
+        // Non-2xx TANPA field `error` (mis. 502 halaman HTML dari gateway) = GAGAL, bukan sukses kosong —
+        // kalau tidak, push tercatat "ok" padahal Shopee tak menerima apa pun.
+        if ($res->failed()) {
+            throw new RuntimeException("Shopee HTTP {$res->status()} pada {$path}: ".mb_substr(trim(strip_tags((string) $res->body())), 0, 200));
+        }
 
         return $json;
     }

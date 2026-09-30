@@ -30,7 +30,7 @@ class PushContentActionTest extends TestCase
     use RefreshDatabase;
 
     /** Teks konfirmasi tombol — sama persis di halaman Ubah & menu Atur (& di-escape jadi &amp; di atribut HTML). */
-    private const KONFIRMASI = 'Kirim &amp; timpa deskripsi/berat/dimensi dan ganti SEMUA foto listing di TikTok &amp; Shopee? (field kosong dilewati; foto hanya diganti bila berubah)';
+    private const KONFIRMASI = 'Kirim &amp; timpa deskripsi/berat/dimensi di TikTok &amp; Shopee. FOTO: dorong pertama ke tiap listing MENGGANTI SEMUA fotonya dengan foto master (setelah itu hanya bila foto master berubah). Lanjut?';
 
     // ---- helper ----
 

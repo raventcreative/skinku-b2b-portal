@@ -245,7 +245,7 @@ class MarketplaceMasterService
 
             return 'ok';
         } catch (\Throwable $e) {
-            $l->update(['last_status' => 'failed', 'last_error' => mb_substr($e->getMessage(), 0, 500)]);
+            $l->update(['last_status' => 'failed', 'last_error' => $this->errorText($e)]);
 
             return 'failed';
         }
@@ -271,7 +271,7 @@ class MarketplaceMasterService
 
             return 'ok';
         } catch (\Throwable $e) {
-            $l->update(['last_price_status' => 'failed', 'last_price_error' => mb_substr($e->getMessage(), 0, 500)]);
+            $l->update(['last_price_status' => 'failed', 'last_price_error' => $this->errorText($e)]);
 
             return 'failed';
         }
@@ -371,6 +371,18 @@ class MarketplaceMasterService
     }
 
     /**
+     * Pesan error yang AMAN disimpan & ditampilkan (tooltip halaman channel): saat timeout Guzzle ikut
+     * menempelkan URL lengkap berikut query string — Shopee menaruh access_token & sign di query — jadi
+     * kredensial disamarkan dulu, lalu dipotong 500 karakter.
+     */
+    private function errorText(\Throwable $e): string
+    {
+        $msg = preg_replace('/\b(access_token|refresh_token|sign|partner_key|app_secret|shop_cipher)=[^&\s"\'<>]+/i', '$1=***', $e->getMessage());
+
+        return mb_substr((string) $msg, 0, 500);
+    }
+
+    /**
      * Dorong konten master ke SATU listing. 'skip' bila payload kosong (tanpa panggilan API)
      * atau — kecuali $force — hash payload sama dgn push sukses terakhir; 'ok'|'failed' sisanya.
      * Pola sama persis pushStock/pushPrice; jejak di kolom last_content_* + content_hash.
@@ -397,7 +409,7 @@ class MarketplaceMasterService
 
             return 'ok';
         } catch (\Throwable $e) {
-            $l->update(['last_content_status' => 'failed', 'last_content_error' => mb_substr($e->getMessage(), 0, 500)]);
+            $l->update(['last_content_status' => 'failed', 'last_content_error' => $this->errorText($e)]);
 
             return 'failed';
         }
@@ -462,9 +474,16 @@ class MarketplaceMasterService
             }
             $l->update(['last_photo_status' => 'ok', 'last_photo_error' => null, 'last_photo_pushed_at' => now(), 'photo_hash' => $hash]);
 
+            // Foto milik PRODUK (item_id), listing per SKU: varian lain dari produk yang sama (mis. ditautkan
+            // ke master lain) kini fotonya ikut tertimpa → hash-nya basi. Kosongkan hash sibling yang BERBEDA
+            // supaya dorong berikutnya dari master itu mengirim ulang (klik terakhir yang menang, sama seperti
+            // konten). Sibling ber-hash sama (master yang sama) dibiarkan agar diff-guard & cache tetap jalan.
+            MarketplaceListing::where('channel', $l->channel)->where('item_id', $l->item_id)
+                ->whereKeyNot($l->id)->where('photo_hash', '!=', $hash)->update(['photo_hash' => null]);
+
             return 'ok';
         } catch (\Throwable $e) {
-            $l->update(['last_photo_status' => 'failed', 'last_photo_error' => mb_substr($e->getMessage(), 0, 500)]);
+            $l->update(['last_photo_status' => 'failed', 'last_photo_error' => $this->errorText($e)]);
 
             return 'failed';
         }
