@@ -305,7 +305,7 @@
 
 @if($kol->pipelineCard)
     <a href="{{ route('kol-pipeline.show', $kol->pipelineCard) }}" class="block bg-white rounded-2xl border border-stone-200 px-4 py-3 mb-5 text-sm hover:bg-stone-50">
-         Di pipeline: tahap <b>{{ \App\Models\KolPipelineCard::STAGE_LABELS[$kol->pipelineCard->stage] ?? $kol->pipelineCard->stage }}</b>{{ $kol->pipelineCard->next_action ? ' · next: '.$kol->pipelineCard->next_action : '' }} <span class="text-indigo-600">→ buka kartu</span>
+        Di pipeline: tahap <b>{{ \App\Models\KolPipelineCard::STAGE_LABELS[$kol->pipelineCard->stage] ?? $kol->pipelineCard->stage }}</b>{{ $kol->pipelineCard->next_action ? ' · next: '.$kol->pipelineCard->next_action : '' }} <span class="text-indigo-600">Buka kartu</span>
     </a>
 @endif
 
