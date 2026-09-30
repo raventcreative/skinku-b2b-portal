@@ -41,8 +41,8 @@
         <a href="{{ route('kol-deals.index', ['bulan' => $nextMonth, 'status' => $cur]) }}" class="px-2 py-1.5 border border-stone-300 rounded-lg hover:bg-stone-50" title="Bulan berikutnya">→</a>
         @if($bulan)<a href="{{ route('kol-deals.index', ['status' => $cur]) }}" class="ml-1 text-stone-400 hover:text-stone-700">semua bulan</a>@endif
     </div>
-    <a href="{{ route('kol-campaigns.index') }}" class="ml-auto px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">📣 Campaign</a>
-    <a href="{{ route('kol-deals.laporan') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">📊 Ringkasan Hasil</a>
+    <a href="{{ route('kol-campaigns.index') }}" class="ml-auto px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50"> Campaign</a>
+    <a href="{{ route('kol-deals.laporan') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50"> Ringkasan Hasil</a>
     <a href="{{ route('kol-deals.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Deal Baru</a>
 </div>
 
@@ -176,9 +176,9 @@
 {{-- Bar aksi massal (muncul saat ada centang) --}}
 <div id="bulkBar" class="hidden items-center gap-2 mb-3 p-2 bg-stone-800 text-white rounded-xl text-xs">
     <span id="bulkCount" class="px-2 font-semibold">0 dipilih</span>
-    @if($canApprove)<button type="button" onclick="submitBulk('berjalan')" class="px-3 py-1.5 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold">✓ Acc (jalan)</button>@endif
-    <button type="button" onclick="submitBulk('selesai')" class="px-3 py-1.5 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-semibold">✓ Selesai</button>
-    @if($canApprove)<button type="button" onclick="submitBulk('batal')" class="px-3 py-1.5 bg-rose-600 rounded-lg hover:bg-rose-700 font-semibold">✕ Tolak</button>@endif
+    @if($canApprove)<button type="button" onclick="submitBulk('berjalan')" class="px-3 py-1.5 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold"> Acc (jalan)</button>@endif
+    <button type="button" onclick="submitBulk('selesai')" class="px-3 py-1.5 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-semibold"> Selesai</button>
+    @if($canApprove)<button type="button" onclick="submitBulk('batal')" class="px-3 py-1.5 bg-rose-600 rounded-lg hover:bg-rose-700 font-semibold"> Tolak</button>@endif
     <button type="button" onclick="clearChecks()" class="ml-auto px-2 text-stone-300 hover:text-white">batal pilih</button>
 </div>
 

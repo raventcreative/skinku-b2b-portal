@@ -7,7 +7,7 @@
 
 @php $rp = fn ($n) => 'Rp '.number_format($n, 2, ',', '.'); @endphp
 
-<div class="max-w-3xl mx-auto">
+<div class="w-full">
     <div class="text-center mb-4">
         <h2 class="text-base font-bold text-stone-900">Neraca — per {{ accPeriodLabel($report['as_of']) }}</h2>
         <p class="text-[11px] text-stone-400">SKINKU · Surabaya Timur</p>

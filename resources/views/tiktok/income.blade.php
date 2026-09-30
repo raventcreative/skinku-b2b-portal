@@ -3,7 +3,7 @@
 @section('heading', 'Laporan Income TikTok')
 
 @section('content')
-<div class="max-w-6xl">
+<div class="w-full">
     <a href="{{ route('tiktok.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Integrasi TikTok</a>
 
     <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 my-4">
@@ -53,7 +53,7 @@
         @endif
 
         <div class="flex items-center gap-2 mt-4">
-            <a href="{{ route('tiktok.income.download') }}" class="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold">⬇ Unduh Excel</a>
+            <a href="{{ route('tiktok.income.download') }}" class="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold"> Unduh Excel</a>
             <form method="POST" action="{{ route('tiktok.income.reset') }}" onsubmit="return confirm('Bersihkan laporan ini?')">
                 @csrf
                 <button class="px-3 py-2 text-sm text-stone-500 hover:text-rose-600">Mulai baru</button>

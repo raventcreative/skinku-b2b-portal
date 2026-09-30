@@ -212,7 +212,7 @@
 
     @if($pipeline['terlambat'] > 0 || $pipeline['hariIni'] > 0)
         <a href="{{ route('kol-reminder.index') }}" class="block bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800 hover:bg-amber-100">
-            ⏰ Ada <b>{{ $pipeline['terlambat'] }}</b> terlambat & <b>{{ $pipeline['hariIni'] }}</b> jatuh tempo hari ini di pipeline — buka Reminder →
+            Ada <b>{{ $pipeline['terlambat'] }}</b> terlambat & <b>{{ $pipeline['hariIni'] }}</b> jatuh tempo hari ini di pipeline. Buka Reminder
         </a>
     @endif
 

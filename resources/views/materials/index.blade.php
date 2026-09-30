@@ -92,7 +92,7 @@
     <div class="bg-white rounded-2xl w-full max-w-md p-6">
         <div class="flex justify-between items-center mb-4">
             <h3 id="materialModalTitle" class="text-sm font-bold text-stone-900">Tambah Bahan Baku</h3>
-            <button onclick="toggleModal('materialModal')" class="text-stone-400 hover:text-stone-700">✕</button>
+            <button onclick="toggleModal('materialModal')" class="text-stone-400 hover:text-stone-700"> Tutup </button>
         </div>
         <form method="POST" id="materialForm" action="{{ route('materials.store') }}" class="space-y-3 text-sm">
             @csrf
@@ -132,7 +132,7 @@
     <div class="bg-white rounded-2xl w-full max-w-md p-6">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-sm font-bold text-stone-900">Beli / Tambah Stok Bahan</h3>
-            <button onclick="toggleModal('buyModal')" class="text-stone-400 hover:text-stone-700">✕</button>
+            <button onclick="toggleModal('buyModal')" class="text-stone-400 hover:text-stone-700"> Tutup </button>
         </div>
         <form method="POST" action="{{ route('materials.purchase') }}" class="space-y-3 text-sm">
             @csrf

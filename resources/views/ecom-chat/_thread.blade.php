@@ -18,22 +18,22 @@
             <form method="POST" action="{{ route('ecom-chat.flag', $conversation) }}" data-flag>
                 @csrf
                 <button type="submit" class="text-xs font-semibold whitespace-nowrap {{ $conversation->flagged ? 'text-amber-500' : 'text-stone-400 hover:text-amber-500' }}" title="Tandai untuk prioritas">
-                    {{ $conversation->flagged ? '★ Ditandai' : '☆ Tandai' }}
+                    {{ $conversation->flagged ? ' Ditandai' : ' Tandai' }}
                 </button>
             </form>
             <form method="POST" action="{{ route('ecom-chat.redraft', $conversation) }}" data-redraft>
                 @csrf
-                <button type="submit" class="text-xs text-stone-500 hover:text-stone-800 whitespace-nowrap">↻ Buat ulang draft AI</button>
+                <button type="submit" class="text-xs text-stone-500 hover:text-stone-800 whitespace-nowrap"> Buat ulang draft AI</button>
             </form>
             @if($isClosed)
                 <form method="POST" action="{{ route('ecom-chat.reopen', $conversation) }}" data-close>
                     @csrf
-                    <button type="submit" class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 whitespace-nowrap">↩ Buka lagi</button>
+                    <button type="submit" class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 whitespace-nowrap"> Buka lagi</button>
                 </form>
             @else
                 <form method="POST" action="{{ route('ecom-chat.close', $conversation) }}" data-close>
                     @csrf
-                    <button type="submit" class="text-xs font-semibold text-stone-500 hover:text-rose-600 whitespace-nowrap">✓ Tutup chat</button>
+                    <button type="submit" class="text-xs font-semibold text-stone-500 hover:text-rose-600 whitespace-nowrap"> Tutup chat</button>
                 </form>
             @endif
         </div>
@@ -86,10 +86,10 @@
                             @if($mediaUrl)
                                 <img src="{{ $mediaUrl }}" alt="Foto dari pembeli" class="max-h-48 rounded-xl border border-stone-200 mb-1" loading="lazy" onerror="this.remove()">
                             @endif
-                            <span class="text-[11px] text-sky-600 underline">🖼️ Foto{{ $mediaUrl ? ' — buka' : '' }}</span>
+                            <span class="text-[11px] text-sky-600 underline"> Foto{{ $mediaUrl ? ' — buka' : '' }}</span>
                         </a>
                     @elseif($isVideo)
-                        <a href="{{ $mediaUrl ?: '#' }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">🎬 Video — buka</a>
+                        <a href="{{ $mediaUrl ?: '#' }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline"> Video — buka</a>
                     @elseif($isProduct)
                         @php($prod = $productId ? (($products ?? collect())[$productId] ?? null) : null)
                         <div class="rounded-xl border border-stone-300 bg-white text-sm w-56 max-w-full overflow-hidden">
@@ -109,7 +109,7 @@
                                     ? 'https://shopee.co.id/product/'.$prodShopId.'/'.$productId
                                     : 'https://shop-id.tokopedia.com/view/product/'.$productId)
                                 @if($productId)
-                                    <a href="{{ $prodUrl }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">Buka produk ↗</a>
+                                    <a href="{{ $prodUrl }}" target="_blank" rel="noopener" class="text-[11px] text-sky-600 underline">Buka produk </a>
                                 @endif
                             </div>
                         </div>

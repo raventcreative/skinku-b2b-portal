@@ -7,7 +7,7 @@
 
 @php $rp = fn ($n) => 'Rp '.number_format($n, 2, ',', '.'); @endphp
 
-<div class="max-w-5xl mx-auto space-y-6">
+<div class="w-full space-y-6">
 
     {{-- ===================== LABA RUGI ===================== --}}
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
@@ -15,7 +15,7 @@
             <h2 class="text-base font-bold text-stone-900">Laba Rugi — {{ accPeriodLabel($is['period']) }}</h2>
             <p class="text-[11px] text-stone-400">SKINKU · Surabaya Timur</p>
         </div>
-        <div class="p-6 text-sm max-w-3xl mx-auto">
+        <div class="p-6 text-sm w-full">
             <div class="flex justify-between font-semibold text-stone-800"><span>Penjualan</span><span>{{ $rp($is['penjualan_bruto']) }}</span></div>
             @foreach($is['lines']['penjualan'] as $l)
                 <div class="flex justify-between text-xs text-stone-500 pl-4"><span>{{ $l['code'] }} · {{ $l['name'] }}</span><span>{{ $rp($l['amount']) }}</span></div>
@@ -117,7 +117,7 @@
             'financing' => ['C. Arus Kas dari Aktivitas Pendanaan', 'Kas Bersih dari Pendanaan'],
         ];
     @endphp
-    <div class="bg-white rounded-2xl border border-stone-200 max-w-3xl mx-auto overflow-hidden">
+    <div class="bg-white rounded-2xl border border-stone-200 w-full overflow-hidden">
         <div class="px-6 py-4 border-b border-stone-100 text-center">
             <h2 class="text-base font-bold text-stone-900">Arus Kas (Metode Langsung) — {{ accPeriodLabel($cf['period']) }}</h2>
         </div>

@@ -36,7 +36,7 @@ class ContentPost extends Model
 
     public const STATUS_LABELS = [
         self::DRAFT => 'Draft',
-        self::IN_REVIEW => 'Menunggu Review',
+        self::IN_REVIEW => 'Menunggu Persetujuan',
         self::REJECTED => 'Ditolak',
         self::SCHEDULED => 'Terjadwal',
         self::PUBLISHING => 'Sedang Terbit',

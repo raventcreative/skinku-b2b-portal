@@ -12,7 +12,7 @@
 {{-- Langkah 1: unduh template + unggah --}}
 <div class="bg-white rounded-2xl border border-stone-200 p-5 mt-3 mb-5">
     <div class="flex flex-wrap items-center gap-3">
-        <a href="{{ route('kols.import.template') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Unduh Template</a>
+        <a href="{{ route('kols.import.template') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Unduh Template</a>
         <p class="text-xs text-stone-500 flex-1 min-w-[16rem]">
             Isi mulai <b>baris ke-2</b>. Wajib: <b>username</b>, <b>followers</b>, <b>views_1…views_7</b>.
             Opsional: platform (kosong = tiktok), ratecard, tanggal_listing, agency, kategori. Sheet "Petunjuk" ada di template.
@@ -90,7 +90,7 @@
         <input type="hidden" name="default_date" value="{{ $defaultDate }}">
         <button @disabled($bisa === 0)
             class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
-            ✔ Konfirmasi Impor ({{ $bisa }} baris)
+             Konfirmasi Impor ({{ $bisa }} baris)
         </button>
         <span class="ml-2 text-[11px] text-stone-400">yang "dilewati" tidak ikut disimpan</span>
     </form>

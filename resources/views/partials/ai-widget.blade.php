@@ -32,7 +32,7 @@
     {{-- Nudge kecil (sekali, bisa ditutup) --}}
     <div id="aiNudge" class="hidden items-center gap-2 bg-white rounded-full shadow-lg border border-stone-200 pl-3 pr-1.5 py-1.5">
         <span class="text-xs text-stone-600 whitespace-nowrap">Butuh bantuan? Tanya aku 👋</span>
-        <button id="aiNudgeX" class="w-5 h-5 flex items-center justify-center text-stone-400 hover:text-stone-700 rounded-full" aria-label="Tutup">✕</button>
+        <button id="aiNudgeX" class="w-5 h-5 flex items-center justify-center text-stone-400 hover:text-stone-700 rounded-full" aria-label="Tutup"> Tutup </button>
     </div>
 
     {{-- Launcher bulat --}}

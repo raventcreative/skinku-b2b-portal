@@ -71,7 +71,7 @@
     <div class="bg-white rounded-2xl w-full max-w-md p-6">
         <div class="flex justify-between items-center mb-4">
             <h3 id="moduleModalTitle" class="text-sm font-bold text-stone-900">Tambah Modul</h3>
-            <button onclick="toggleModal('moduleModal')" class="text-stone-400 hover:text-stone-700">✕</button>
+            <button onclick="toggleModal('moduleModal')" class="text-stone-400 hover:text-stone-700"> Tutup </button>
         </div>
         <form method="POST" id="moduleForm" action="{{ route('learning.modules.store') }}" class="space-y-3 text-sm">
             @csrf
@@ -93,7 +93,7 @@
     <div class="bg-white rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h3 id="lessonModalTitle" class="text-sm font-bold text-stone-900">Tambah Materi</h3>
-            <button onclick="toggleModal('lessonModal')" class="text-stone-400 hover:text-stone-700">✕</button>
+            <button onclick="toggleModal('lessonModal')" class="text-stone-400 hover:text-stone-700"> Tutup </button>
         </div>
         <form method="POST" id="lessonForm" action="{{ route('learning.store') }}" enctype="multipart/form-data" class="space-y-3 text-sm">
             @csrf

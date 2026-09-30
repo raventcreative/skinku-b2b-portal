@@ -4,7 +4,7 @@
 
 @section('content')
 
-<div class="max-w-3xl space-y-4">
+<div class="w-full space-y-4">
 
     @unless($configured)
         <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
@@ -61,17 +61,17 @@ SHOPEE_PARTNER_KEY=xxxxx</pre>
             </dl>
             <div class="flex flex-wrap gap-2 mt-4 items-center">
                 <form method="POST" action="{{ route('shopee.sync-orders') }}">@csrf
-                    <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">↻ Tarik Order</button>
+                    <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900"> Tarik Order</button>
                 </form>
-                <a href="{{ route('shopee.orders') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">📦 Pesanan Shopee →</a>
-                <a href="{{ route('shopee.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700">↩ Retur Shopee →</a>
-                <a href="{{ route('shopee.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">💰 Pencairan →</a>
-                <a href="{{ route('shopee.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800">📊 Konversi Stok →</a>
-                <a href="{{ route('shopee.connect') }}" class="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700" onclick="return confirm('Hubungkan ulang ke Shopee? Ini me-refresh izin/token. Koneksi & sync tetap jalan.')">🔄 Hubungkan Ulang</a>
+                <a href="{{ route('shopee.orders') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800"> Pesanan Shopee</a>
+                <a href="{{ route('shopee.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700"> Retur Shopee</a>
+                <a href="{{ route('shopee.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Pencairan</a>
+                <a href="{{ route('shopee.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800"> Konversi Stok</a>
+                <a href="{{ route('shopee.connect') }}" class="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700" onclick="return confirm('Hubungkan ulang ke Shopee? Ini me-refresh izin/token. Koneksi & sync tetap jalan.')"> Hubungkan Ulang</a>
             </div>
         @else
             <p class="text-sm text-stone-500 mb-4">Belum terhubung. Klik tombol di bawah untuk memberi izin toko Shopee kamu ke SKINKU (tarik order + potong stok).</p>
-            <a href="{{ route('shopee.connect') }}" class="inline-block px-5 py-2.5 text-sm bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-semibold {{ $configured ? '' : 'pointer-events-none opacity-50' }}">🔗 Hubungkan Shopee</a>
+            <a href="{{ route('shopee.connect') }}" class="inline-block px-5 py-2.5 text-sm bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-semibold {{ $configured ? '' : 'pointer-events-none opacity-50' }}"> Hubungkan Shopee</a>
         @endif
     </div>
 

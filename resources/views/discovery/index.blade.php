@@ -5,7 +5,7 @@
 @section('content')
 @php $u = auth()->user(); @endphp
 
-<div class="max-w-5xl space-y-4">
+<div class="w-full space-y-4">
 
     <p class="text-sm text-stone-500">
         AI mencari di web (real-time) lalu merangkum: kandidat <b>KOL/influencer</b> baru
@@ -28,16 +28,16 @@
     <div class="flex gap-1 border-b border-stone-200">
         <button type="button" data-tab="kol" onclick="showDiscoveryTab('kol')"
             class="disc-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'kol' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}">
-            🔎 Cari KOL
+             Cari KOL
         </button>
         <button type="button" data-tab="produk" onclick="showDiscoveryTab('produk')"
             class="disc-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'produk' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}">
-            📈 Tren Produk
+             Tren Produk
         </button>
         @if($u->canDo('kol.screening.manage'))
             <button type="button" data-tab="massal" onclick="showDiscoveryTab('massal')"
                 class="disc-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'massal' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}">
-                📋 Tambah Massal
+                 Tambah Massal
             </button>
         @endif
     </div>
@@ -88,7 +88,7 @@
             </div>
             <div class="flex items-center gap-4 pt-4">
                 <button class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl disabled:opacity-60">
-                    🔎 Cari KOL
+                     Cari KOL
                 </button>
                 <span class="text-[11px] text-stone-400">Follower = estimasi AI — <b>verifikasi manual</b> sebelum deal.</span>
             </div>
@@ -129,7 +129,7 @@
                                 <p class="text-xs text-stone-500 leading-relaxed">{{ $c['alasan'] }}</p>
                             @endif
                             <a href="{{ $c['source_url'] }}" target="_blank" rel="noopener noreferrer"
-                                class="text-[10px] text-stone-400 hover:text-indigo-600 hover:underline break-all">↗ sumber temuan</a>
+                                class="text-[10px] text-stone-400 hover:text-indigo-600 hover:underline break-all"> sumber temuan</a>
                             @if($u->canDo('kol.screening.manage'))
                                 <form method="POST" action="{{ route('discovery.kol.add') }}" class="mt-1" onsubmit="discoveryLoading(this)">
                                     @csrf
@@ -162,7 +162,7 @@
             </label>
             <div class="flex items-center gap-4 pt-4">
                 <button class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl disabled:opacity-60">
-                    📈 Cari Tren
+                     Cari Tren
                 </button>
                 <span class="text-[11px] text-stone-400">Read-only — intel pasar buat inspirasi pengembangan produk.</span>
             </div>
@@ -193,7 +193,7 @@
                                     <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
                                         @foreach($p['sumber'] as $s)
                                             <a href="{{ $s }}" target="_blank" rel="noopener noreferrer"
-                                                class="text-[10px] text-indigo-600 hover:underline break-all">↗ sumber</a>
+                                                class="text-[10px] text-indigo-600 hover:underline break-all"> sumber</a>
                                         @endforeach
                                     </div>
                                 @endif

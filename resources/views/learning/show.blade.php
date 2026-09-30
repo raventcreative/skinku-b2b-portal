@@ -40,7 +40,7 @@
                     <a href="{{ $lesson->video_url }}" target="_blank" class="inline-block px-4 py-2 bg-red-600 text-white text-sm rounded-lg">Tonton di YouTube</a>
                 @endif
                 @if($lesson->documentUrl())
-                    <a href="{{ $lesson->documentUrl() }}" target="_blank" download class="inline-block px-4 py-2 bg-red-600 text-white text-sm rounded-lg">⬇ Unduh Dokumen</a>
+                    <a href="{{ $lesson->documentUrl() }}" target="_blank" download class="inline-block px-4 py-2 bg-red-600 text-white text-sm rounded-lg"> Unduh Dokumen</a>
                 @endif
             </div>
         </div>

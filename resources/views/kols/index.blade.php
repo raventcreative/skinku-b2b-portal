@@ -82,9 +82,9 @@
             <a href="{{ route('kol-deals.index') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">Daftar Deal</a>
         @endif
         @if($u->canDo('kol.screening.manage'))
-            <a href="{{ route('kols.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800" title="Isi tabel ini (satu baris per KOL)">⬇ Export Excel</a>
+            <a href="{{ route('kols.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800" title="Isi tabel ini (satu baris per KOL)"> Export Excel</a>
         <a href="{{ route('kol-screenings.create') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">+ Screening</a>
-            <a href="{{ route('kols.import') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50" title="Impor banyak KOL sekaligus dari file">⬆ Impor</a>
+            <a href="{{ route('kols.import') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50" title="Impor banyak KOL sekaligus dari file"> Impor</a>
             <button onclick="document.getElementById('addKol').classList.toggle('hidden')"
                 class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah KOL</button>
         @endif

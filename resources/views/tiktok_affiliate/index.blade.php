@@ -3,7 +3,7 @@
 @section('heading', 'TikTok Affiliate API (Seller Analitik)')
 
 @section('content')
-<div class="space-y-4 max-w-3xl">
+<div class="w-full space-y-4">
     @if(session('status'))
         <div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>
     @endif
@@ -37,19 +37,19 @@ TIKTOK_AFFILIATE_SERVICE_ID=(ID app "Seller Analitik")</pre>
                 <form method="POST" action="{{ route('tiktok-affiliate.sync') }}">
                     @csrf
                     <input type="hidden" name="days" value="7">
-                    <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">⬇ Sync 7 hari</button>
+                    <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl"> Sync 7 hari</button>
                 </form>
                 <form method="POST" action="{{ route('tiktok-affiliate.sync') }}"
-                      onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='⏳ Menarik 30 hari… (sebentar)';">
+                      onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Menarik 30 hari…';">
                     @csrf
                     <input type="hidden" name="days" value="30">
-                    <button class="px-4 py-2 border border-red-300 text-red-700 hover:bg-red-50 text-sm font-semibold rounded-xl">⬇ Sync 30 hari</button>
+                    <button class="px-4 py-2 border border-red-300 text-red-700 hover:bg-red-50 text-sm font-semibold rounded-xl"> Sync 30 hari</button>
                 </form>
                 <form method="POST" action="{{ route('tiktok-affiliate.probe') }}">
                     @csrf
-                    <button class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">🔍 Probe (lihat struktur)</button>
+                    <button class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl"> Probe (lihat struktur)</button>
                 </form>
-                <a href="{{ route('tiktok-affiliate.connect') }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">↻ Re-authorize</a>
+                <a href="{{ route('tiktok-affiliate.connect') }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">Re-authorize</a>
                 <form method="POST" action="{{ route('tiktok-affiliate.disconnect') }}" onsubmit="return confirm('Putuskan koneksi app affiliate?')">
                     @csrf
                     <button class="px-4 py-2 text-stone-400 hover:text-rose-600 text-sm rounded-xl">Putuskan</button>
@@ -57,7 +57,7 @@ TIKTOK_AFFILIATE_SERVICE_ID=(ID app "Seller Analitik")</pre>
             </div>
             <p class="text-xs text-stone-400 mt-2">Sync otomatis tiap 6 jam. Setelah sync, data muncul di <a href="{{ route('kol-gapok.index') }}" class="text-red-600 hover:underline">Tim Gapok</a> (kreator yang cocok ke KOL). Yang belum cocok → tautkan di <a href="{{ route('kol-affiliate.index') }}" class="text-red-600 hover:underline">Affiliate &amp; GMV</a>.</p>
         @else
-            <a href="{{ route('tiktok-affiliate.connect') }}" class="inline-block px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">🔗 Hubungkan toko (authorize)</a>
+            <a href="{{ route('tiktok-affiliate.connect') }}" class="inline-block px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl"> Hubungkan toko (authorize)</a>
             <p class="text-xs text-stone-400 mt-2">Kamu akan diarahkan ke TikTok untuk memberi izin. Setelah itu balik ke sini otomatis.</p>
         @endif
     </div>

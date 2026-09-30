@@ -16,15 +16,16 @@
     <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
     @stack('head')
 </head>
-<body class="h-full bg-stone-100 text-stone-800 antialiased">
+<body class="h-full bg-stone-50 text-stone-800 antialiased portal-body">
+<a href="#content" class="skip-link">Lewati ke konten utama</a>
 
 {{-- Banner samaran: menempel di ATAS segalanya dan sticky, supaya mustahil lupa
      sedang jadi orang lain. Lupa = PO uji coba masuk ke akun mitra sungguhan
      atas nama mereka. --}}
 @isset($impersonator)
 @if($impersonator)
-    <div class="sticky top-0 z-50 bg-amber-400 text-amber-950 px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm font-semibold shadow-sm">
-        <span>⚠ Anda sedang masuk sebagai <b>{{ auth()->user()?->fullname }}</b> ({{ auth()->user()?->role }}) — bukan akun Anda.</span>
+    <div class="sticky top-0 z-50 bg-amber-100 text-amber-950 px-4 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm font-semibold border-b border-amber-300">
+        <span>Anda sedang masuk sebagai <b>{{ auth()->user()?->fullname }}</b> ({{ auth()->user()?->role }}) — bukan akun Anda.</span>
         <form method="POST" action="{{ route('impersonate.stop') }}">
             @csrf
             <button type="submit" class="px-3 py-1 rounded-lg bg-amber-950 text-amber-50 hover:bg-amber-900 text-xs">
@@ -45,9 +46,9 @@
     <div id="sidebarOverlay" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/50 z-30 lg:hidden"></div>
 
     {{-- Sidebar --}}
-    <aside id="sidebar" class="w-64 bg-red-800 text-red-50 flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out">
+    <aside id="sidebar" class="portal-sidebar w-64 bg-red-800 text-red-50 flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out">
         <div class="p-6 border-b border-red-900/50 relative">
-            <button onclick="closeSidebar()" class="lg:hidden absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg text-red-100 hover:bg-red-900/60 text-lg" aria-label="Tutup menu">✕</button>
+            <button onclick="closeSidebar()" class="lg:hidden absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg text-red-100 hover:bg-red-900/60 text-lg" aria-label="Tutup menu"> Tutup </button>
             <h1 class="text-2xl font-bold tracking-tight text-white">SKINKU<span class="text-white text-3xl leading-none">.</span></h1>
             <p class="text-[10px] uppercase tracking-widest text-red-200 font-semibold mt-1">B2B Distributor Portal</p>
         </div>
@@ -68,7 +69,7 @@
             </div>
         </div>
 
-        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto text-xs font-semibold">
+        <nav aria-label="Navigasi utama" class="flex-1 px-3 py-4 space-y-1 overflow-y-auto text-xs font-semibold">
             @php
                 // Icon menu = inline SVG (Heroicons outline, zero-dep). Dipetakan dari NAMA ROUTE
                 // supaya semua pemanggilan navItem tak perlu diubah. currentColor → ikut warna teks menu.
@@ -162,7 +163,7 @@
                     // $iconKey: kunci navIcon() alternatif saat nama rute item tak punya ikon sendiri (reuse ikon).
                     function navItem($route, $label, $active, $params = [], $isActive = null, $iconKey = null) {
                         $is = $isActive ?? request()->routeIs($active);
-                        $cls = $is ? 'bg-red-900 text-white border-l-4 border-white pl-3' : 'text-red-100 hover:text-white hover:bg-red-900/50 pl-4';
+                        $cls = $is ? 'bg-red-700 text-white border-l-2 border-red-200 pl-3.5' : 'text-red-100/80 hover:text-white hover:bg-white/10 pl-4';
                         return '<a href="'.route($route, $params).'" class="flex items-center gap-3 pr-4 py-2.5 rounded-lg '.$cls.'">'.navIcon($iconKey ?? $route).'<span>'.$label.'</span></a>';
                     }
                 }
@@ -339,7 +340,7 @@
             @endif
 
             @php
-                // Grup accordion "Konten" (Portal Content Creator): setor konten → review → terbit ke akun brand.
+                // Grup konten brand: dashboard, daftar konten, insight, dan akun sosial.
                 $kontenGroupOpen = request()->routeIs('creator.*') || request()->routeIs('content*') || request()->routeIs('social.*');
             @endphp
             @if($u->canDo('content.create') || $u->canDo('content.review') || $u->canDo('social.connect'))
@@ -350,15 +351,13 @@
                 </button>
                 <div id="grpKonten" class="{{ $kontenGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
                     @if($u->canDo('content.create'))
-                        {!! navItem('creator.dashboard', 'Dashboard Creator', 'creator.dashboard', [], null, 'dashboard') !!}
-                        {!! navItem('content.index', 'Konten Saya', 'content.index', [], request()->routeIs('content.index', 'content.create', 'content.edit'), 'kol-konten.index') !!}
+                        {!! navItem('creator.dashboard', 'Dashboard Konten', 'creator.dashboard', [], null, 'dashboard') !!}
+                        {!! navItem('content.index', ($u->isSuperAdmin() || $u->canDo('content.review')) ? 'Semua Konten' : 'Konten Saya', 'content.index', [], request()->routeIs('content.index', 'content.create', 'content.edit'), 'kol-konten.index') !!}
                     @endif
-                    {{-- Keputusan HQ 2026-09-26: Review Konten & Akun Sosial Media dikerjakan kreator; disembunyikan dari menu super admin (akses URL tetap). --}}
-                    @if($u->canDo('content.review') && $u->role !== \App\Models\User::ROLE_SUPER_ADMIN)
-                        {!! navItem('content-review.index', 'Review Konten', 'content-review.*', [], null, 'audit-logs.index') !!}
+                    @if($u->canDo('content.review'))
                         {!! navItem('content-insights.index', 'Insight Konten', 'content-insights.*', [], null, 'kol-dashboard.index') !!}
                     @endif
-                    @if($u->canDo('social.connect') && $u->role !== \App\Models\User::ROLE_SUPER_ADMIN)
+                    @if($u->canDo('social.connect'))
                         {!! navItem('social.index', 'Akun Sosial Media', 'social.*', [], null, 'grp-integrasi') !!}
                     @endif
                 </div>
@@ -539,13 +538,13 @@
     </aside>
 
     {{-- Main --}}
-    <div class="flex-1 lg:ml-64 flex flex-col min-h-screen w-full min-w-0">
-        <header class="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-20">
+    <div class="portal-main flex-1 lg:ml-64 flex flex-col min-h-screen w-full min-w-0">
+        <header class="h-[4.5rem] bg-white/95 backdrop-blur border-b border-stone-200 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-20">
             <div class="flex items-center gap-3 min-w-0">
                 <button onclick="openSidebar()" class="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-100 shrink-0" aria-label="Buka menu">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
-                <h2 class="text-sm font-bold text-stone-800 truncate">@yield('heading', 'Dashboard')</h2>
+                <h2 class="text-[15px] font-semibold tracking-tight text-stone-900 truncate">@yield('heading', 'Dashboard')</h2>
             </div>
             <div class="flex items-center gap-3">
                 @if($u->canDo('manage_ecommerce_chat'))
@@ -562,7 +561,7 @@
             </div>
         </header>
 
-        <main class="p-4 sm:p-8 flex-1">
+        <main id="content" tabindex="-1" class="portal-content p-4 sm:px-8 sm:py-7 xl:px-10 flex-1">
             @if(session('status'))
                 <div class="mb-5 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{{ session('status') }}</div>
             @endif

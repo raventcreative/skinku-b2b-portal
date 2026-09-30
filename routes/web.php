@@ -690,7 +690,6 @@ Route::middleware(['auth', 'role'])->group(function () {
     // Detail: pemilik (content.create) ATAU reviewer (content.review) — dicek di controller.
     Route::get('/content/{post}', [ContentPostController::class, 'show'])->name('content.show');
     Route::middleware('permission:content.review')->group(function () {
-        Route::get('/content-review', [ContentReviewController::class, 'index'])->name('content-review.index');
         Route::get('/content-insights', [ContentInsightController::class, 'index'])->name('content-insights.index');
         Route::post('/content/{post}/approve', [ContentReviewController::class, 'approve'])->name('content.approve');
         Route::post('/content/{post}/reject', [ContentReviewController::class, 'reject'])->name('content.reject');

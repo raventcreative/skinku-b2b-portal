@@ -10,7 +10,7 @@
     $latestEr = $history->first()['er'] ?? null;
 @endphp
 
-<div class="max-w-4xl space-y-4">
+<div class="w-full space-y-4">
     <a href="{{ route('kol-konten.index', ['bulan' => $content->posted_at->format('Y-m')]) }}" class="text-xs text-stone-500 hover:text-stone-800">← Konten &amp; Views</a>
 
     {{-- Header konten --}}

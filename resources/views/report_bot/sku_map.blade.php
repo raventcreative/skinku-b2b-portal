@@ -3,7 +3,7 @@
 @section('heading', 'Peta SKU — Parser Report Bot')
 
 @section('content')
-<div class="max-w-4xl space-y-5">
+<div class="w-full space-y-5">
     <a href="{{ route('settings.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Pengaturan</a>
 
     <div class="bg-white rounded-2xl border border-stone-200 p-5">

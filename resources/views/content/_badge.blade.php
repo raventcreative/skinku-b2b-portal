@@ -10,4 +10,4 @@
         default => 'bg-stone-100 text-stone-600',
     };
 @endphp
-<span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap {{ $cls }}">{{ $label }}</span>
+<span class="inline-flex min-h-6 items-center px-2.5 py-1 rounded-full text-xs leading-none font-semibold whitespace-nowrap {{ $cls }}">{{ $label }}</span>

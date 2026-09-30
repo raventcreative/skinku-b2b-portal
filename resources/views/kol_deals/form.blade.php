@@ -47,7 +47,7 @@
                             value="{{ old('kol_phone') }}"
                             class="flex-1 px-3 py-1.5 border border-stone-300 rounded-lg text-sm font-normal">
                         <a id="kolWa" href="#" target="_blank" rel="noopener"
-                            class="hidden text-[11px] text-emerald-700 hover:underline font-normal whitespace-nowrap">📱 WA</a>
+                            class="hidden text-[11px] text-emerald-700 hover:underline font-normal whitespace-nowrap"> WA</a>
                     </div>
                 </div>
             </div>

@@ -3,7 +3,7 @@
 @section('heading', 'Isi Views Massal')
 
 @section('content')
-<div class="max-w-4xl space-y-4">
+<div class="w-full space-y-4">
 
     <a href="{{ route('kol-konten.index', ['bulan' => $month]) }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Konten &amp; Views</a>
 

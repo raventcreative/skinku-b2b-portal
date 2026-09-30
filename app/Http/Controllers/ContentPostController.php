@@ -7,6 +7,7 @@ use App\Models\ContentPost;
 use App\Models\ContentPostSnapshot;
 use App\Models\ContentPostTarget;
 use App\Models\SocialConnection;
+use App\Models\User;
 use App\Services\AuditService;
 use App\Services\ContentPostService;
 use App\Services\Social\MetaClient;
@@ -19,9 +20,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
- * Portal Content Creator — dashboard & konten milik creator (FR-10..FR-27).
- * Creator hanya melihat/mengubah kontennya sendiri; reviewer (content.review)
- * boleh melihat semua lewat halaman detail.
+ * Portal Content Creator — creator mengelola konten sendiri; super admin melihat workspace lintas creator.
  */
 class ContentPostController extends Controller
 {
@@ -29,29 +28,32 @@ class ContentPostController extends Controller
 
     public function dashboard(Request $request): View
     {
-        $own = ContentPost::where('user_id', $request->user()->id);
+        $user = $request->user();
+        $isSuperAdmin = $user->isSuperAdmin();
+        $own = ContentPost::query()->when(! $isSuperAdmin, fn ($q) => $q->where('user_id', $user->id));
 
         $counts = (clone $own)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
         $publishedThisMonth = ContentPostTarget::where('status', ContentPostTarget::PUBLISHED)
             ->where('published_at', '>=', now()->startOfMonth())
-            ->whereHas('post', fn ($q) => $q->where('user_id', $request->user()->id))
+            ->whereHas('post', fn ($q) => $q->when(! $isSuperAdmin, fn ($posts) => $posts->where('user_id', $user->id)))
             ->distinct('content_post_id')->count('content_post_id');
 
         // Views snapshot terbaru dari postingan milik creator yang terbit 30 hari terakhir (FR-83).
         $views30 = (int) ContentPostSnapshot::whereIn('id', ContentPostTarget::where('published_at', '>=', now()->subDays(30))
-            ->whereHas('post', fn ($q) => $q->where('user_id', $request->user()->id))
+            ->whereHas('post', fn ($q) => $q->when(! $isSuperAdmin, fn ($posts) => $posts->where('user_id', $user->id)))
             ->withMax('snapshots', 'id')->pluck('snapshots_max_id')->filter())->sum('views');
 
         return view('content.dashboard', [
             'cards' => [
                 ['Draft', $counts[ContentPost::DRAFT] ?? 0, 'bg-stone-500'],
-                ['Menunggu Review', $counts[ContentPost::IN_REVIEW] ?? 0, 'bg-amber-500'],
+                ['Menunggu Persetujuan', $counts[ContentPost::IN_REVIEW] ?? 0, 'bg-amber-500'],
                 ['Ditolak', $counts[ContentPost::REJECTED] ?? 0, 'bg-rose-500'],
                 ['Terjadwal / Terbit', ($counts[ContentPost::SCHEDULED] ?? 0) + ($counts[ContentPost::PUBLISHING] ?? 0), 'bg-blue-500'],
                 ['Terbit Bulan Ini', $publishedThisMonth, 'bg-emerald-500'],
                 ['Views 30 Hari', $views30, 'bg-red-600'],
             ],
-            'recent' => (clone $own)->with('targets')->latest('id')->limit(10)->get(),
+            'recent' => (clone $own)->with($isSuperAdmin ? ['targets', 'user'] : ['targets'])->latest('id')->limit(10)->get(),
+            'showCreator' => $isSuperAdmin,
             'attention' => (clone $own)->whereIn('status', [ContentPost::REJECTED, ContentPost::FAILED, ContentPost::PARTIAL])
                 ->latest('updated_at')->limit(5)->get(),
         ]);
@@ -59,11 +61,26 @@ class ContentPostController extends Controller
 
     public function index(Request $request): View
     {
-        $posts = ContentPost::where('user_id', $request->user()->id)
-            ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
-            ->with('targets')->latest('id')->paginate(20)->withQueryString();
+        $user = $request->user();
+        $isSuperAdmin = $user->isSuperAdmin();
+        $canReview = $isSuperAdmin || $user->canDo('content.review');
+        $posts = ContentPost::query()
+            ->when(! $canReview, fn ($q) => $q->where('user_id', $user->id))
+            ->when($request->query('status') && $request->query('status') !== 'all' ? $request->query('status') : null, fn ($q, $s) => $q->where('status', $s))
+            ->when($canReview ? $request->query('creator') : null, fn ($q, $id) => $q->where('user_id', $id))
+            ->when($canReview ? $request->query('platform') : null, fn ($q, $platform) => $q->whereHas('targets', fn ($t) => $t->where('platform', $platform)))
+            ->when($canReview ? $request->query('dari') : null, fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+            ->when($canReview ? $request->query('sampai') : null, fn ($q, $date) => $q->whereDate('created_at', '<=', $date))
+            ->with($canReview ? ['targets', 'user'] : ['targets'])->latest('id')->paginate(20)->withQueryString();
 
-        return view('content.index', ['posts' => $posts, 'mine' => true]);
+        return view('content.index', [
+            'posts' => $posts,
+            'mine' => ! $canReview,
+            'creators' => $canReview ? User::whereIn('id', ContentPost::select('user_id'))->orderBy('fullname')->get(['id', 'fullname', 'username']) : collect(),
+            'manualCount' => $canReview ? ContentPostTarget::where('status', ContentPostTarget::MANUAL_PENDING)->count() : 0,
+            'failedCount' => $canReview ? ContentPostTarget::where('status', ContentPostTarget::FAILED)->count() : 0,
+            'status' => $request->query('status', 'all'),
+        ]);
     }
 
     public function create(): View

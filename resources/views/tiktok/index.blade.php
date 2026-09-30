@@ -5,7 +5,7 @@
 @section('content')
 @php $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.'); @endphp
 
-<div class="max-w-3xl space-y-4">
+<div class="w-full space-y-4">
 
     @unless($configured)
         <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
@@ -64,21 +64,21 @@ TIKTOK_SERVICE_ID=7659787806251779858</pre>
             </dl>
             <div class="flex gap-2 mt-4 items-center">
                 <form method="POST" action="{{ route('tiktok.sync-orders') }}">@csrf
-                    <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">↻ Tarik &amp; Simpan Order</button>
+                    <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900"> Tarik &amp; Simpan Order</button>
                 </form>
-                <a href="{{ route('tiktok.orders') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">📦 Pesanan TikTok →</a>
-                <a href="{{ route('tiktok.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700">↩ Retur TikTok →</a>
-                <a href="{{ route('tiktok.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800">📊 Konversi Stok →</a>
-                <a href="{{ route('tiktok.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">💰 Dana Cair →</a>
-                <a href="{{ route('tiktok.income') }}" class="px-4 py-2 text-sm bg-violet-700 text-white rounded-lg hover:bg-violet-800">🧾 Laporan Income →</a>
-                <a href="{{ route('tiktok.connect') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="return confirm('Hubungkan ulang ke TikTok? Ini me-refresh izin/token (mis. setelah nambah scope Customer Service). Koneksi & sync order tetap jalan.')">🔄 Hubungkan Ulang</a>
+                <a href="{{ route('tiktok.orders') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800"> Pesanan TikTok</a>
+                <a href="{{ route('tiktok.returns') }}" class="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700"> Retur TikTok</a>
+                <a href="{{ route('tiktok.stock') }}" class="px-4 py-2 text-sm bg-teal-700 text-white rounded-lg hover:bg-teal-800"> Konversi Stok</a>
+                <a href="{{ route('tiktok.settlements') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Dana Cair</a>
+                <a href="{{ route('tiktok.income') }}" class="px-4 py-2 text-sm bg-violet-700 text-white rounded-lg hover:bg-violet-800"> Laporan Income</a>
+                <a href="{{ route('tiktok.connect') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="return confirm('Hubungkan ulang ke TikTok? Ini me-refresh izin/token (mis. setelah nambah scope Customer Service). Koneksi & sync order tetap jalan.')"> Hubungkan Ulang</a>
                 <form method="POST" action="{{ route('tiktok.disconnect') }}" onsubmit="return confirm('Putuskan koneksi TikTok?')">@csrf @method('DELETE')
                     <button class="px-4 py-2 text-sm text-rose-600 hover:text-rose-800">Putuskan</button>
                 </form>
             </div>
         @else
             <p class="text-sm text-stone-500 mb-4">Belum terhubung. Klik tombol di bawah untuk memberi izin toko TikTok kamu ke SKINKU (read-only dulu: tarik order).</p>
-            <a href="{{ route('tiktok.connect') }}" class="inline-block px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold {{ $configured ? '' : 'pointer-events-none opacity-50' }}">🔗 Hubungkan TikTok Shop</a>
+            <a href="{{ route('tiktok.connect') }}" class="inline-block px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold {{ $configured ? '' : 'pointer-events-none opacity-50' }}"> Hubungkan TikTok Shop</a>
         @endif
     </div>
 

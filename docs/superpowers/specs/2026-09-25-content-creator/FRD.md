@@ -15,19 +15,19 @@ Prioritas: **M** = Must (Fase 1), **S** = Should (Fase 1 bila sempat), **F2/F3**
 | FR-02 | Super admin/admin dapat membuat, mengedit, menonaktifkan user `content_creator` melalui menu Kelola Anggota yang sudah ada. | M |
 | FR-03 | Tersedia 1 akun demo `creator_demo` (hanya lewat seeder dev, tidak jalan di production). | M |
 | FR-04 | `content_creator` **bukan** partner & **bukan** staff: tidak dapat mengakses PO, inventory, harga, komisi, KOL, keuangan, laporan penjualan (HTTP 403 / menu tidak tampil). | M |
-| FR-05 | Permission baru di matriks permission (default role dalam kurung):<br>• `content.create` — buat & kelola konten sendiri (content_creator, admin)<br>• `content.review` — lihat semua konten & setujui/tolak (content_creator, admin — revisi 2026-09-26: kreator saling review; konten sendiri tidak bisa disetujui/ditolak pembuatnya; menu Review Konten & Akun Sosial Media disembunyikan dari super admin)<br>• `content.publish.manage` — retry, tandai terbit manual, lihat log publish (admin)<br>• `social.connect` — hubungkan/putus akun brand (content_creator; super_admin selalu lolos — revisi 2026-09-25 atas keputusan HQ) | M |
-| FR-06 | Sidebar untuk `content_creator` hanya menampilkan: Dashboard Creator, Konten Saya, Kalender, Ganti Password. | M |
+| FR-05 | Permission baru di matriks permission (default role dalam kurung):<br>• `content.create` — buat & kelola konten sendiri (content_creator, admin; super_admin selalu lolos)<br>• `content.review` — lihat semua konten & setujui/tolak melalui detail (admin; super_admin selalu lolos). Halaman Review Konten terpisah dihapus; super_admin mengelola daftar seluruh creator dari Semua Konten.<br>• `content.publish.manage` — retry, tandai terbit manual, lihat log publish (admin; super_admin selalu lolos)<br>• `social.connect` — hubungkan/putus akun brand (content_creator; super_admin selalu lolos) | M |
+| FR-06 | Sidebar `content_creator` menampilkan Dashboard Creator, Konten Saya, Akun Sosial Media, dan Ganti Password. Super admin juga mendapat dashboard creator agregat, Semua Konten, Insight Konten, dan Akun Sosial Media di grup Konten. | M |
 
 ## 2. Dashboard Creator
 
 | ID | Requirement | Prio |
 |----|-------------|------|
-| FR-10 | Setelah login, `content_creator` yang membuka `/dashboard` diarahkan ke dashboard creator. | M |
-| FR-11 | Kartu ringkasan (konten milik sendiri): Draft, Menunggu Review, Ditolak, Terjadwal, Terbit bulan ini. | M |
+| FR-10 | Setelah login, `content_creator` yang membuka `/dashboard` diarahkan ke dashboard creator. Super admin dapat membuka dashboard yang sama untuk ringkasan agregat seluruh creator. | M |
+| FR-11 | Kartu ringkasan: Draft, Menunggu Persetujuan, Ditolak, Terjadwal/Terbit, Terbit Bulan Ini, dan Views 30 Hari. Creator melihat data sendiri; super admin melihat agregat seluruh creator. | M |
 | FR-12 | Tabel 10 konten terbaru: thumbnail, judul, platform (ikon), status per platform, jadwal, link terbit. | M |
 | FR-13 | Tombol utama "+ Konten Baru". | M |
 | FR-14 | Banner info bila ada konten ditolak (dengan alasan) atau gagal terbit. | S |
-| FR-15 | Admin/reviewer melihat widget "Antrean Review" (jumlah + 5 teratas) dan "Gagal Terbit" di dashboard staff. | S |
+| FR-15 | Admin dan super admin memeriksa antrean persetujuan dari daftar Semua Konten serta dashboard creator; tidak ada halaman Review Konten terpisah. | S |
 
 ## 3. Konten & Media
 

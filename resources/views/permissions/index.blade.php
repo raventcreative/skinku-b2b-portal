@@ -19,7 +19,7 @@
                         @else
                             <form method="POST" action="{{ route('roles.destroy', $role) }}" class="inline" onsubmit="return confirm('Hapus role {{ $role->label }}?')">
                                 @csrf @method('DELETE')
-                                <button class="text-rose-500 hover:text-rose-700 font-bold leading-none" title="Hapus role">✕</button>
+                                <button class="text-rose-500 hover:text-rose-700 font-bold leading-none" title="Hapus role"> Hapus </button>
                             </form>
                         @endif
                     </span>

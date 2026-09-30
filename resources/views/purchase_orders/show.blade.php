@@ -326,7 +326,7 @@
                     <form method="POST" action="{{ route('purchase-orders.verify-payment', $po) }}" class="space-y-2">
                         @csrf
                         <input type="hidden" name="decision" value="approve">
-                        <button class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl" onclick="return confirm('Tandai pembayaran LUNAS?')">✓ Verifikasi Lunas</button>
+                        <button class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl" onclick="return confirm('Tandai pembayaran LUNAS?')"> Verifikasi Lunas</button>
                     </form>
                     <form method="POST" action="{{ route('purchase-orders.verify-payment', $po) }}" class="space-y-2">
                         @csrf

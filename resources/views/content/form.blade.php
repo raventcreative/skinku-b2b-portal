@@ -11,7 +11,7 @@
 
 @if($post->exists && $post->status === 'rejected' && $post->review_note)
     <div class="mb-4 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 text-sm text-rose-800">
-        <b>Ditolak reviewer:</b> {{ $post->review_note }} — perbaiki lalu ajukan ulang.
+        <b>Catatan admin:</b> {{ $post->review_note }} — perbaiki lalu ajukan ulang.
     </div>
 @endif
 
@@ -96,13 +96,13 @@
                 <span class="text-[11px] text-stone-500">Kosong = secepatnya setelah disetujui.</span>
             </label>
             <label class="block">
-                <span class="text-xs font-semibold text-stone-600">Catatan untuk reviewer</span>
+                <span class="text-xs font-semibold text-stone-600">Catatan untuk admin</span>
                 <textarea name="creator_note" rows="3" maxlength="2000" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">{{ old('creator_note', $post->creator_note) }}</textarea>
             </label>
         </div>
 
         <div class="flex flex-col gap-2">
-            <button name="submit" value="1" class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold shadow-sm">Simpan &amp; Ajukan Review</button>
+            <button name="submit" value="1" class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold shadow-sm">Simpan &amp; Ajukan Persetujuan</button>
             <button name="submit" value="0" class="px-5 py-2.5 text-sm bg-white border border-stone-300 text-stone-700 rounded-xl hover:bg-stone-50 font-semibold">Simpan Draft</button>
         </div>
     </div>

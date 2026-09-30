@@ -15,7 +15,7 @@
     $soonPost = $deadline && ! $overduePost && $deadline->lte(now()->addDay());
 @endphp
 
-<div class="max-w-3xl space-y-4">
+<div class="w-full space-y-4">
     <div class="flex flex-wrap items-center gap-3">
         <a href="{{ route('kol-deals.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Daftar Deal</a>
         <a href="{{ route('kol-deals.edit', $deal) }}" class="ml-auto px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">Edit deal</a>

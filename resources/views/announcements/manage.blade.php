@@ -3,7 +3,7 @@
 @section('heading', 'Pengumuman Dashboard')
 
 @section('content')
-<div class="max-w-4xl">
+<div class="w-full">
     @if($errors->any())
         <p class="mb-4 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">{{ $errors->first() }}</p>
     @endif

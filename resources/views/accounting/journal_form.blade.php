@@ -105,7 +105,7 @@
             <td class="px-2"><input name="lines[${i}][memo]" class="w-40 px-2 py-1.5 border border-stone-300 rounded-lg" placeholder="opsional"></td>
             <td class="text-right"><input type="number" step="0.01" min="0" name="lines[${i}][debit]" oninput="recalc()" class="w-32 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="text-right"><input type="number" step="0.01" min="0" name="lines[${i}][credit]" oninput="recalc()" class="w-32 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
-            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
+            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>`;
         document.getElementById('rows').appendChild(tr);
         return tr;
     }

@@ -4,7 +4,7 @@
 
 @section('content')
 @php $rp = fn ($v) => 'Rp '.number_format((float) $v, 0, ',', '.'); @endphp
-<div class="max-w-4xl">
+<div class="w-full">
     <p class="text-sm text-stone-500 mb-4">Mitra yang kamu rekrut + income dari mereka (bonus join saat gabung + RO cashback tiap Grand-mu restock ke HQ). Tarik dana lewat <a href="{{ route('commissions.index') }}" class="text-indigo-600 hover:underline">Saldo Komisi</a>.</p>
 
     <div class="grid sm:grid-cols-3 gap-3 mb-5">

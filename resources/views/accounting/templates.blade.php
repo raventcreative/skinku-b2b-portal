@@ -55,7 +55,7 @@
     <div class="bg-white rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h3 id="tplModalTitle" class="text-sm font-bold text-stone-900">Tambah Template</h3>
-            <button onclick="toggleModal('tplModal')" class="text-stone-400 hover:text-stone-700">✕</button>
+            <button onclick="toggleModal('tplModal')" class="text-stone-400 hover:text-stone-700"> Tutup </button>
         </div>
         <form method="POST" id="tplForm" action="{{ route('accounting.templates.store') }}" class="space-y-3 text-sm">
             @csrf
@@ -105,7 +105,7 @@
         tr.innerHTML = `
             <td class="px-3 py-1.5"><select name="lines[${i}][account_id]" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg">${tplAccOptions(accountId)}</select></td>
             <td class="px-1"><select name="lines[${i}][side]" class="w-full px-2 py-1.5 border border-stone-300 rounded-lg"><option value="debit" ${side==='debit'?'selected':''}>Debit</option><option value="credit" ${side==='credit'?'selected':''}>Kredit</option></select></td>
-            <td class="text-right pr-2"><button type="button" onclick="this.closest('tr').remove()" class="text-rose-600 font-bold">✕</button></td>`;
+            <td class="text-right pr-2"><button type="button" onclick="this.closest('tr').remove()" class="text-rose-600 font-bold"> Hapus </button></td>`;
         document.getElementById('tplLines').appendChild(tr);
     }
 

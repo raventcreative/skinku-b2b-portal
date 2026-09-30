@@ -97,7 +97,7 @@
             <td class="text-right"><input type="number" min="0" step="0.01" name="items[${i}][unit_cost]" oninput="recalc(${i})" class="w-28 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="text-right font-semibold text-stone-700" data-subtotal>Rp 0</td>
             <td class="text-right text-emerald-700 font-semibold" data-newcogs>—</td>
-            <td class="pr-4 text-right"><button type="button" onclick="removeRow(${i})" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
+            <td class="pr-4 text-right"><button type="button" onclick="removeRow(${i})" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>`;
         document.getElementById('rows').appendChild(tr);
     }
 

@@ -5,7 +5,7 @@
 @php $rp = fn ($n) => 'Rp ' . number_format((int) $n, 0, ',', '.'); @endphp
 
 @section('content')
-<div class="max-w-4xl space-y-6">
+<div class="w-full space-y-6">
     <p class="text-sm text-stone-500">
         Semua angka acuan modul KOL di satu tempat. Nilai ini dipakai sebagai default;
         override per-bulan (di bawah) menimpanya hanya untuk bulan yang bersangkutan.

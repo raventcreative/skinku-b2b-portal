@@ -99,7 +99,7 @@
     <div class="bg-white rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h3 id="productModalTitle" class="text-sm font-bold text-stone-900">Tambah Produk</h3>
-            <button onclick="toggleModal('productModal')" class="text-stone-400 hover:text-stone-700">✕</button>
+            <button onclick="toggleModal('productModal')" class="text-stone-400 hover:text-stone-700"> Tutup </button>
         </div>
         <form method="POST" id="productForm" enctype="multipart/form-data" action="{{ route('products.store') }}" class="grid grid-cols-2 gap-3 text-sm">
             @csrf

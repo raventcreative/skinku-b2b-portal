@@ -160,7 +160,7 @@
                                     @if(! $terminal)
                                         <form method="POST" action="{{ route('kol-pipeline.follow-up', $c) }}" class="shrink-0">
                                             @csrf
-                                            <button class="px-2 py-1.5 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 text-xs font-semibold rounded-lg whitespace-nowrap" title="Catat follow-up + jadwalkan +{{ \App\Models\KolPipelineCard::FOLLOW_UP_SLA_DAYS }} hari">✓ Follow-up</button>
+                                            <button class="px-2 py-1.5 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 text-xs font-semibold rounded-lg whitespace-nowrap" title="Catat follow-up + jadwalkan +{{ \App\Models\KolPipelineCard::FOLLOW_UP_SLA_DAYS }} hari"> Follow-up</button>
                                         </form>
                                     @endif
                                 </div>

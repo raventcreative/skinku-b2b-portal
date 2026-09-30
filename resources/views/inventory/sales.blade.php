@@ -5,7 +5,7 @@
 @section('content')
 @php $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.'); @endphp
 
-<div class="max-w-4xl">
+<div class="w-full">
     <a href="{{ route('inventory.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Stok Saya</a>
 
     <form method="POST" action="{{ route('partner-sales.store') }}" class="bg-white rounded-2xl border border-stone-200 p-5 mt-3">@csrf
@@ -73,7 +73,7 @@
                 @endif
             </form>
             <a href="{{ route('partner-sales.export', array_filter(['bulan' => $bulan?->format('Y-m')])) }}"
-                class="px-3 py-1.5 text-xs bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Excel</a>
+                class="px-3 py-1.5 text-xs bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Excel</a>
         </div>
 
         <div class="px-4 py-2.5 bg-stone-50 border-b border-stone-100 flex flex-wrap items-baseline gap-2 text-xs">
@@ -169,7 +169,7 @@ function addRow() {
         <input type="number" name="items[${i}][price]" data-price min="0" step="1" placeholder="harga"
             class="w-32 px-2 py-2 border border-stone-300 rounded-lg text-sm text-right">
         <span data-sub class="w-32 px-2 py-2 text-sm text-right text-stone-700 font-semibold">·</span>
-        <button type="button" data-del class="w-6 text-stone-300 hover:text-rose-600 text-lg leading-none">×</button>`;
+        <button type="button" data-del class="w-6 text-stone-300 hover:text-rose-600 text-lg leading-none"> Hapus </button>`;
     document.getElementById('rows').appendChild(row);
 
     const inp = row.querySelector('[data-search]');

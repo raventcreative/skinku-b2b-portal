@@ -11,8 +11,8 @@
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <p class="text-xs text-stone-500 mb-3">Efektif = override {{ ucfirst($channel) }} kalau ada, kalau tidak ikut Master. "Ikut Master" mengembalikannya.</p>
         <div class="flex flex-wrap gap-2">
-            <form method="POST" action="{{ route('marketplace-stock.resolve') }}">@csrf<button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">↻ Refresh listing</button></form>
-            <form method="POST" action="{{ route('marketplace-stock.push-all') }}">@csrf<button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⇪ Sinkron semua</button></form>
+            <form method="POST" action="{{ route('marketplace-stock.resolve') }}">@csrf<button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900"> Refresh listing</button></form>
+            <form method="POST" action="{{ route('marketplace-stock.push-all') }}">@csrf<button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Sinkron semua</button></form>
             <a href="{{ route('marketplace-stock.index') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">← Produk Master</a>
         </div>
     </div>

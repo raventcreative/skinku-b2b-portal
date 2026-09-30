@@ -9,7 +9,7 @@
 
 <div class="mt-3 flex flex-wrap items-center gap-3">
     <form method="POST" action="{{ route('shopee.settlements.sync') }}">@csrf
-        <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">↻ Tarik Pencairan</button>
+        <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900"> Tarik Pencairan</button>
     </form>
     <span class="text-[11px] text-stone-500">Dana cair (escrow) per-order dari Shopee — omzet dikurangi komisi, layanan, campaign, biaya transaksi, ongkir &amp; pajak.</span>
 </div>
@@ -36,13 +36,13 @@
         @if($journalOn)
             <form method="POST" action="{{ route('shopee.post-journals') }}"
                 onsubmit="return confirm('Buat jurnal untuk semua yang belum: barang keluar, order sampai (omzet+HPP), pencairan (escrow), dan transaksi wallet?')">@csrf
-                <button class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 font-semibold">📒 Posting Jurnal</button>
+                <button class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 font-semibold"> Posting Jurnal</button>
             </form>
         @endif
         {{-- Selalu tersedia: dipakai untuk membersihkan jurnal yang terlanjur diposting. --}}
         <form method="POST" action="{{ route('shopee.unpost-journals') }}"
             onsubmit="return confirm('CABUT semua jurnal Shopee? Jurnal bersumber Shopee akan dihapus dan buku kembali seperti sebelum pembukuan dinyalakan. Jurnal lain (impor Excel, manual, PO, TikTok) TIDAK tersentuh.')">@csrf
-            <button class="px-3 py-2 text-xs text-rose-600 hover:text-rose-800 underline">↩ Cabut semua jurnal Shopee</button>
+            <button class="px-3 py-2 text-xs text-rose-600 hover:text-rose-800 underline"> Cabut semua jurnal Shopee</button>
         </form>
     </div>
 

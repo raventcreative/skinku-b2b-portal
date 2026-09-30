@@ -23,7 +23,7 @@
         <input type="date" name="dari" value="{{ $filters['dari'] ?? '' }}" class="px-3 py-2 text-sm border border-stone-300 rounded-lg" title="Tanggal PO dari">
         <input type="date" name="sampai" value="{{ $filters['sampai'] ?? '' }}" class="px-3 py-2 text-sm border border-stone-300 rounded-lg" title="Tanggal PO sampai">
         <button class="px-4 py-2 text-sm bg-stone-200 rounded-lg hover:bg-stone-300">Filter</button>
-        <a href="{{ route('purchase-orders.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Export Excel</a>
+        <a href="{{ route('purchase-orders.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Export Excel</a>
     </form>
     @if(!is_null($piutang ?? null))
         {{-- Total piutang sesungguhnya: tagihan − cicilan masuk. Super admin
@@ -83,7 +83,7 @@
                     <td class="text-stone-600">{{ $po->company_name ?? ($po->user->fullname ?? '-') }}</td>
                     <td class="text-stone-500">{{ $po->created_at?->format('d M Y H:i') }}</td>
                     <td class="text-right">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</td>
-                    <td><span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $po->statusColor() }}">{{ $po->status }}</span></td>
+                    <td><span class="inline-flex min-h-6 items-center px-2.5 py-1 rounded-full text-xs leading-none font-semibold {{ $po->statusColor() }}">{{ $po->status }}</span></td>
                     <td class="whitespace-nowrap">
                         @php
                             // Sisa dari withSum (tanpa query per baris) — dikurangi cicilan
@@ -97,16 +97,16 @@
                         @if($batal)
                             <span class="text-stone-300 text-[10px]">—</span>
                         @elseif($lunas)
-                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-semibold">🟢 Lunas</span>
+                            <span class="inline-flex min-h-6 items-center px-2.5 py-1 rounded-full text-xs leading-none bg-emerald-100 text-emerald-800 font-semibold">Lunas</span>
                         @elseif($po->is_tempo)
-                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-violet-100 text-violet-700 font-semibold" title="Tempo/cicilan{{ $po->tempo_due_date ? ' · jatuh tempo '.$po->tempo_due_date->format('d M Y') : '' }}">
-                                🟣 Tempo · sisa Rp {{ number_format($sisa, 0, ',', '.') }}
+                            <span class="inline-flex min-h-6 items-center px-2.5 py-1 rounded-full text-xs leading-none bg-violet-100 text-violet-800 font-semibold" title="Tempo/cicilan{{ $po->tempo_due_date ? ' · jatuh tempo '.$po->tempo_due_date->format('d M Y') : '' }}">
+                                Tempo · sisa Rp {{ number_format($sisa, 0, ',', '.') }}
                             </span>
                             @if($po->tempo_due_date && $po->tempo_due_date->isPast())
                                 <span class="block text-[9px] text-rose-600 font-bold mt-0.5">jatuh tempo lewat!</span>
                             @endif
                         @else
-                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-rose-100 text-rose-700 font-semibold">🔴 Belum Lunas</span>
+                            <span class="inline-flex min-h-6 items-center px-2.5 py-1 rounded-full text-xs leading-none bg-rose-100 text-rose-800 font-semibold">Belum Lunas</span>
                         @endif
                     </td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">

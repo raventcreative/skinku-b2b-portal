@@ -4,7 +4,7 @@
 
 @section('content')
 @php $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.'); @endphp
-<div class="max-w-4xl space-y-4">
+<div class="w-full space-y-4">
 
     <p class="text-sm text-stone-500">Yang mendesak — kerjakan dari atas.</p>
 

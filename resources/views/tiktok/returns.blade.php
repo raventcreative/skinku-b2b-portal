@@ -7,7 +7,7 @@
 
 <div class="mt-3 flex flex-wrap items-center gap-3">
     <form method="POST" action="{{ route('tiktok.returns.sync') }}">@csrf
-        <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900">↻ Tarik Retur dari TikTok</button>
+        <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900"> Tarik Retur dari TikTok</button>
     </form>
     <span class="text-[11px] text-stone-500">Barang retur <b>tidak otomatis masuk stok</b>. Cek dulu: <b>layak jual</b> → Terima (stok +), <b>cacat</b> → Tolak.</span>
 </div>
@@ -55,13 +55,13 @@
                     <div class="flex sm:flex-col gap-1.5 sm:items-end">
                         @if($pv['all_matched'])
                             <form method="POST" action="{{ route('tiktok.returns.restock', $r) }}" onsubmit="return confirm('Barang layak jual — tambah stok?')">@csrf
-                                <button class="px-3 py-1.5 text-[11px] bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold w-full">✓ Terima &amp; Tambah Stok</button>
+                                <button class="px-3 py-1.5 text-[11px] bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold w-full"> Terima &amp; Tambah Stok</button>
                             </form>
                         @else
                             <span class="text-[10px] text-rose-500">petakan SKU dulu (di Pesanan)</span>
                         @endif
                         <form method="POST" action="{{ route('tiktok.returns.reject', $r) }}" onsubmit="return confirm('Tandai cacat / tidak layak jual? Stok tidak ditambah.')">@csrf
-                            <button class="px-3 py-1.5 text-[11px] bg-white border border-rose-300 text-rose-600 rounded-lg hover:bg-rose-50 font-semibold w-full">✗ Tolak (cacat)</button>
+                            <button class="px-3 py-1.5 text-[11px] bg-white border border-rose-300 text-rose-600 rounded-lg hover:bg-rose-50 font-semibold w-full"> Tolak (cacat)</button>
                         </form>
                     </div>
                 @endif
