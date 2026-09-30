@@ -13,6 +13,7 @@ class MarketplaceListing extends Model
         'last_pushed_qty', 'last_status', 'last_error', 'last_pushed_at', 'resolved_at',
         'last_pushed_price', 'last_price_status', 'last_price_error', 'last_price_pushed_at',
         'last_content_status', 'last_content_error', 'last_content_pushed_at', 'content_hash',
+        'last_photo_status', 'last_photo_error', 'last_photo_pushed_at', 'photo_hash',
     ];
 
     protected function casts(): array
