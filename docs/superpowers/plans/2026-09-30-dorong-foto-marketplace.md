@@ -23,9 +23,9 @@
 
 ---
 
-### Task 1: Migrasi 000152 + kolom foto-sync di MarketplaceListing
+### Task 1: Migrasi 000153 + kolom foto-sync di MarketplaceListing
 
-**Files:** Create `database/migrations/2026_01_01_000152_add_photo_sync_to_marketplace_listings.php`; Modify `app/Models/MarketplaceListing.php` ($fillable); Test `tests/Feature/MarketplaceMaster/PhotoSyncMigrationTest.php`.
+**Files:** Create `database/migrations/2026_01_01_000153_add_photo_sync_to_marketplace_listings.php`; Modify `app/Models/MarketplaceListing.php` ($fillable); Test `tests/Feature/MarketplaceMaster/PhotoSyncMigrationTest.php`.
 
 - [ ] **Step 1:** Migrasi `up()`: `Schema::table('marketplace_listings', fn (Blueprint $t) => …)` tambah `last_photo_status` (string 16 nullable, after 'content_hash'), `last_photo_error` (text nullable), `last_photo_pushed_at` (timestamp nullable), `photo_hash` (string nullable). `down()` drop keempat. (Lihat migrasi 000151 utk gaya + anchor `content_hash`.)
 - [ ] **Step 2:** Tambah 4 kolom ke `$fillable` MarketplaceListing.

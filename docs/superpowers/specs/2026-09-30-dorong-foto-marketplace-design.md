@@ -33,7 +33,7 @@ Alur 2 langkah tiap platform: **upload multipart → dapat id/uri → set daftar
 
 ## 4. Data model
 
-Migrasi **`000152`** — tambah ke `marketplace_listings` (mirror jejak konten, nullable):
+Migrasi **`000153`** (000152 sudah dipakai `convert_legacy_content_reviews_to_drafts` sesi lain) — tambah ke `marketplace_listings` (mirror jejak konten, nullable):
 `last_photo_status` (string 16), `last_photo_error` (text), `last_photo_pushed_at` (timestamp), `photo_hash` (string). + `$fillable`.
 
 ## 5. Client (2 method baru, multipart)
@@ -67,6 +67,6 @@ Migrasi **`000152`** — tambah ke `marketplace_listings` (mirror jejak konten, 
 
 ## 9. Deploy & risiko
 
-- Deploy: `git pull` + `migrate --force` (000152) + `optimize:clear`. Cron tak berubah. Scope TikTok `seller.product.write` sudah ada.
+- Deploy: `git pull` + `migrate --force` (000153) + `optimize:clear`. Cron tak berubah. Scope TikTok `seller.product.write` sudah ada.
 - Risiko: (a) ganti-semua foto → dijinakkan skip-empty + diff-guard + confirm; (b) kepatuhan gambar (TikTok min 300px OK; sebagian kategori butuh ≥3 foto / background putih → muncul sbg `failed`, tak merusak); (c) TikTok main_images-via-partial_edit = gerbang verifikasi saat bangun; (d) biaya upload ulang → diff-guard.
 - **SMOKE-TEST saat deploy:** dorong 1 produk berfoto → cek foto TikTok & Shopee berubah + status `ok`; ganti foto master → dorong lagi → berubah; dorong lagi tanpa ubah → foto di-skip (diff-guard).
