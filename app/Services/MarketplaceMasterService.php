@@ -316,6 +316,109 @@ class MarketplaceMasterService
         }
     }
 
+    // ---- Dorong KONTEN produk (deskripsi/berat/dimensi) — jalur TERPISAH dari stok/harga ----
+    //
+    // Sengaja TIDAK lewat pushListing/pushDirty/pushEach: konten dikirim manual (tombol +
+    // konfirmasi), bukan oleh cron 5-menit. Nama/judul & foto TIDAK ikut didorong.
+
+    /**
+     * Payload konten partial per-channel — HANYA field yang terisi (skip-empty), supaya master
+     * yang belum lengkap tak menimpa listing yang sudah bagus dengan kosong. Sudah konversi
+     * satuan (gram → kg). `[]` bila tak ada satu pun yang dikirim.
+     *
+     * TIDAK pernah memuat `item_id` (ShopeeClient::updateItem menambahkannya sendiri lewat
+     * array_merge, jadi key yang sama di sini akan menimpanya) maupun nama/judul.
+     */
+    public function buildContentPayload(MarketplaceMaster $m, string $channel): array
+    {
+        $tiktok = $channel === 'tiktok';
+        $payload = [];
+
+        if (trim((string) $m->description) !== '') {
+            $payload['description'] = (string) $m->description;
+        }
+
+        $weightG = (int) $m->weight_g;
+        if ($weightG > 0) {
+            $kg = round($weightG / 1000, 3);
+            if ($tiktok) {
+                $payload['package_weight'] = ['value' => (string) $kg, 'unit' => 'KILOGRAM'];
+            } else {
+                $payload['weight'] = $kg;
+            }
+        }
+
+        // Dimensi: ketiganya harus terisi — setengah-dimensi tak valid di marketplace, jadi dilewati semua.
+        [$length, $width, $height] = [(int) $m->length_cm, (int) $m->width_cm, (int) $m->height_cm];
+        if ($length > 0 && $width > 0 && $height > 0) {
+            if ($tiktok) {
+                $payload['package_dimensions'] = ['length' => (string) $length, 'width' => (string) $width, 'height' => (string) $height, 'unit' => 'CENTIMETER'];
+            } else {
+                $payload['dimension'] = ['package_length' => $length, 'package_width' => $width, 'package_height' => $height];
+            }
+        }
+
+        return $payload;
+    }
+
+    /** Hash payload terkirim — kunci diff-guard (payload sama persis = tak perlu kirim ulang). */
+    private function contentHash(array $payload): string
+    {
+        return md5(json_encode($payload));
+    }
+
+    /**
+     * Dorong konten master ke SATU listing. 'skip' bila payload kosong (tanpa panggilan API)
+     * atau — kecuali $force — hash payload sama dgn push sukses terakhir; 'ok'|'failed' sisanya.
+     * Pola sama persis pushStock/pushPrice; jejak di kolom last_content_* + content_hash.
+     */
+    public function pushContent(MarketplaceListing $l, MarketplaceMaster $m, bool $force): string
+    {
+        $payload = $this->buildContentPayload($m, $l->channel);
+        if ($payload === []) {
+            return 'skip';
+        }
+        $hash = $this->contentHash($payload);
+        if (! $force && $l->content_hash === $hash) {
+            return 'skip';
+        }
+        try {
+            if ($l->channel === 'tiktok') {
+                $c = $this->tiktokConn() ?? throw new \RuntimeException('TikTok belum terhubung');
+                $this->tiktok->partialEditProduct($this->tiktokToken($c), $c->shop_cipher, $l->item_id, $payload);
+            } else {
+                $c = $this->shopeeConn() ?? throw new \RuntimeException('Shopee belum terhubung');
+                $this->shopee->updateItem($this->shopeeToken($c), $c->shop_id, (int) $l->item_id, $payload);
+            }
+            $l->update(['last_content_status' => 'ok', 'last_content_error' => null, 'last_content_pushed_at' => now(), 'content_hash' => $hash]);
+
+            return 'ok';
+        } catch (\Throwable $e) {
+            $l->update(['last_content_status' => 'failed', 'last_content_error' => mb_substr($e->getMessage(), 0, 500)]);
+
+            return 'failed';
+        }
+    }
+
+    /**
+     * Dorong konten master ke SEMUA listing-nya yang sudah punya item_id. Tally per LISTING
+     * (1 listing = 1 unit) — beda dgn pushMaster yg menghitung stok & harga sbg dua unit.
+     */
+    public function pushMasterContent(MarketplaceMaster $m, bool $force = true): array
+    {
+        $out = ['pushed' => 0, 'skipped' => 0, 'failed' => 0];
+        foreach ($m->listings()->whereNotNull('item_id')->get() as $l) {
+            // tallyPush() khusus hasil ganda stok+harga (array); konten = SATU hasil string per listing.
+            match ($this->pushContent($l, $m, $force)) {
+                'ok' => $out['pushed']++,
+                'failed' => $out['failed']++,
+                default => $out['skipped']++,
+            };
+        }
+
+        return $out;
+    }
+
     // ---- Cermin order (aditif; HQ TAK disentuh) ----
 
     /** Cermin order marketplace → turunkan/kembalikan bucket efektif stok master (HQ TAK disentuh). */
