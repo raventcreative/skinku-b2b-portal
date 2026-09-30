@@ -56,7 +56,7 @@
                 <span class="txt">Tambah Foto</span>
             </label>
         </div>
-        <p class="text-[11px] text-stone-400 leading-relaxed">Klik kotak <b>“+ Tambah Foto”</b> untuk memilih gambar dari komputer/HP (JPG/PNG, maks 5MB per foto). Bisa pilih beberapa sekaligus. Foto yang baru dipilih bertanda <span class="text-emerald-600 font-semibold">Baru</span> dan tersimpan saat kamu klik <b>Simpan</b>.</p>
+        <p class="text-[11px] text-stone-400 leading-relaxed">Klik kotak <b>“+ Tambah Foto”</b> untuk memilih gambar dari komputer/HP (JPG/PNG). Bisa pilih beberapa sekaligus — foto <b>otomatis dikecilkan di perangkatmu</b> (maks 1600px) biar upload cepat &amp; tak timeout, kualitas tetap tajam. Foto baru bertanda <span class="text-emerald-600 font-semibold">Baru</span> dan tersimpan saat kamu klik <b>Simpan</b>.</p>
     </div>
 
     <form method="POST" action="{{ $master->exists ? route('marketplace-stock.update', $master) : route('marketplace-stock.store') }}" enctype="multipart/form-data" class="space-y-4">
@@ -163,27 +163,84 @@
     var input = document.getElementById('fotoUpload');
     var grid = document.getElementById('fotoGrid');
     var addTile = document.getElementById('fotoAddTile');
-    if (!input || !grid || !addTile) return;
+    var form = input ? input.closest('form') : null;
+    if (!input || !grid || !addTile || !form) return;
+
+    var MAX_DIM = 1600, QUALITY = 0.85; // ukuran & kualitas foto ramah-marketplace
     var previews = [];
+    var busy = 0;             // batch kompresi yang sedang berjalan
+    var pendingSubmit = false;
+
+    // Kecilkan+kompres 1 gambar via canvas → File JPEG kecil. Kalau gagal, pakai file asli.
+    function compress(file, cb){
+        if (!file || file.type.indexOf('image/') !== 0) { cb(file); return; }
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function(){
+            try {
+                var w = img.naturalWidth, h = img.naturalHeight;
+                var scale = Math.min(1, MAX_DIM / Math.max(w, h));
+                var nw = Math.max(1, Math.round(w * scale)), nh = Math.max(1, Math.round(h * scale));
+                var canvas = document.createElement('canvas');
+                canvas.width = nw; canvas.height = nh;
+                var ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, nw, nh); // ratakan transparansi (JPEG tanpa alpha)
+                ctx.drawImage(img, 0, 0, nw, nh);
+                URL.revokeObjectURL(url);
+                canvas.toBlob(function(blob){
+                    if (!blob) { cb(file); return; }
+                    var base = (file.name || 'foto').replace(/\.[^.]+$/, '');
+                    try { cb(new File([blob], base + '.jpg', { type: 'image/jpeg', lastModified: Date.now() })); }
+                    catch (e) { cb(file); } // browser lawas tanpa constructor File
+                }, 'image/jpeg', QUALITY);
+            } catch (e) { URL.revokeObjectURL(url); cb(file); }
+        };
+        img.onerror = function(){ URL.revokeObjectURL(url); cb(file); };
+        img.src = url;
+    }
+
+    function renderPreview(file){
+        var tile = document.createElement('div');
+        tile.className = 'mps-tile';
+        var im = document.createElement('img');
+        im.src = URL.createObjectURL(file);
+        im.onload = function(){ URL.revokeObjectURL(im.src); };
+        var badge = document.createElement('span');
+        badge.className = 'mps-badge mps-badge-baru';
+        badge.textContent = 'Baru';
+        tile.appendChild(im); tile.appendChild(badge);
+        grid.insertBefore(tile, addTile);
+        previews.push(tile);
+    }
+
     input.addEventListener('change', function(){
         previews.forEach(function(el){ if (el.parentNode) el.parentNode.removeChild(el); });
         previews = [];
         var files = Array.prototype.slice.call(input.files || []);
-        files.forEach(function(f){
-            if (f.type.indexOf('image/') !== 0) return;
-            var tile = document.createElement('div');
-            tile.className = 'mps-tile';
-            var img = document.createElement('img');
-            img.src = URL.createObjectURL(f);
-            img.onload = function(){ URL.revokeObjectURL(img.src); };
-            var badge = document.createElement('span');
-            badge.className = 'mps-badge mps-badge-baru';
-            badge.textContent = 'Baru';
-            tile.appendChild(img);
-            tile.appendChild(badge);
-            grid.insertBefore(tile, addTile);
-            previews.push(tile);
+        if (!files.length) return;
+
+        var out = new Array(files.length), done = 0;
+        busy += 1;
+        files.forEach(function(f, i){
+            compress(f, function(res){
+                out[i] = res;
+                if (++done === files.length){
+                    try { // ganti isi input dgn hasil kompres supaya form mengirim yang kecil
+                        var dt = new DataTransfer();
+                        out.forEach(function(r){ if (r) dt.items.add(r); });
+                        input.files = dt.files;
+                    } catch (e) { /* tak didukung → biarkan file asli terkirim */ }
+                    out.forEach(function(r){ if (r) renderPreview(r); });
+                    busy -= 1;
+                    if (busy === 0 && pendingSubmit) { pendingSubmit = false; form.submit(); }
+                }
+            });
         });
+    });
+
+    // Tahan submit sampai kompresi selesai (cegah upload file asli yang besar → timeout).
+    form.addEventListener('submit', function(e){
+        if (busy > 0) { e.preventDefault(); pendingSubmit = true; }
     });
 })();
 </script>
