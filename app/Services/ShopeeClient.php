@@ -303,22 +303,29 @@ class ShopeeClient
         return $this->handle($this->client()->post($url, $body), $path);
     }
 
-    /** API toko: access_token & shop_id ikut ditandatangani DAN dikirim di query. */
+    /**
+     * API toko: partner_id/timestamp/access_token/shop_id/sign SELALU di query
+     * (Shopee menandatangani & membaca auth dari query). Parameter bisnis:
+     * - GET  → ikut di query (tak ada body).
+     * - POST → HANYA di body JSON, TIDAK diduplikasi ke query. Shopee tak
+     *   menandatangani body, jadi aman; ini mencegah URL membengkak lewat batas
+     *   ~8KB gateway saat payload besar (mis. deskripsi produk yang panjang).
+     */
     public function shopCall(string $method, string $path, string $accessToken, string $shopId, array $params = []): array
     {
         $ts = time();
-        $query = array_merge([
+        $auth = [
             'partner_id' => $this->partnerId,
             'timestamp' => $ts,
             'access_token' => $accessToken,
             'shop_id' => $shopId,
             'sign' => $this->sign($path, $ts, $accessToken, $shopId),
-        ], $params);
+        ];
 
         $url = $this->base().$path;
         $res = $method === 'GET'
-            ? $this->client()->get($url, $query)
-            : $this->client()->post($url.'?'.http_build_query($query), $params);
+            ? $this->client()->get($url, array_merge($auth, $params))
+            : $this->client()->post($url.'?'.http_build_query($auth), $params);
 
         return $this->handle($res, $path);
     }

@@ -76,4 +76,24 @@ class ContentClientTest extends TestCase
                 && $body['weight'] === 0.25;
         });
     }
+
+    public function test_shopee_update_item_deskripsi_panjang_hanya_di_body_bukan_query(): void
+    {
+        // shopCall POST menaruh parameter bisnis HANYA di body — deskripsi panjang
+        // tak boleh masuk query URL (cegah URL lewat batas ~8KB gateway → gagal di prod).
+        $this->configureShopee();
+        Http::preventStrayRequests();
+        Http::fake(['*/api/v2/product/update_item*' => Http::response(['error' => '', 'message' => '', 'response' => []])]);
+
+        $desc = str_repeat('DeskripsiPanjang ', 400); // ~6.8 KB
+        app(ShopeeClient::class)->updateItem('tok', 'SHOP1', 555, ['description' => $desc]);
+
+        Http::assertSent(function ($req) use ($desc) {
+            $body = json_decode($req->body(), true);
+
+            return str_contains($req->url(), '/api/v2/product/update_item')
+                && ! str_contains($req->url(), 'DeskripsiPanjang')  // TIDAK di query
+                && ($body['description'] ?? null) === $desc;         // ada di body
+        });
+    }
 }
