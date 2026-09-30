@@ -87,7 +87,7 @@ class ContentPublisher
         if (! $publishId) {
             $opt = $target->options ?? [];
             if (empty($opt['privacy_level'])) {
-                throw new RuntimeException('Privacy TikTok belum dipilih reviewer — tolak & ajukan ulang, atau posting manual.');
+                throw new RuntimeException('Privasi TikTok belum dipilih. Lengkapi pengaturan konten atau gunakan posting manual.');
             }
             $caption = $target->caption();
 

@@ -3,7 +3,7 @@
 @section('heading', 'Riwayat HPP Produk')
 
 @section('content')
-<a href="{{ url()->previous() }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali</a>
+<a href="{{ url()->previous() }}" class="mb-1 inline-flex min-h-9 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-xs font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M16 10H4m0 0 5-5m-5 5 5 5"/></svg>Kembali</a>
 
 <div class="bg-white rounded-2xl border border-stone-200 p-5 mt-3 flex flex-wrap justify-between gap-4">
     <div>
@@ -26,10 +26,10 @@
         <canvas id="hppChart" height="90"></canvas>
     </div>
 
-    <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden mt-5">
+    <div class="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm mt-5">
         <div class="overflow-x-auto">
-        <table class="w-full text-xs whitespace-nowrap">
-            <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
+        <table class="ui-table min-w-[740px] w-full text-xs whitespace-nowrap">
+            <thead class="bg-stone-50/90 text-stone-600 uppercase text-[10px]">
                 <tr>
                     <th class="text-left px-4 py-3">Tanggal</th>
                     <th class="text-left">Sumber</th>

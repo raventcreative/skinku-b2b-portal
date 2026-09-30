@@ -22,8 +22,8 @@
         </select>
         <input type="date" name="dari" value="{{ $filters['dari'] ?? '' }}" class="px-3 py-2 text-sm border border-stone-300 rounded-lg" title="Tanggal PO dari">
         <input type="date" name="sampai" value="{{ $filters['sampai'] ?? '' }}" class="px-3 py-2 text-sm border border-stone-300 rounded-lg" title="Tanggal PO sampai">
-        <button class="px-4 py-2 text-sm bg-stone-200 rounded-lg hover:bg-stone-300">Filter</button>
-        <a href="{{ route('purchase-orders.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Export Excel</a>
+        <button class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h14l-5.5 6.2v4.3l-3 1.5v-5.8L3 4Z"/></svg>Filter</button>
+        <a href="{{ route('purchase-orders.export') }}" class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" focusable="false" class="h-4 w-4 text-emerald-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M10 2.5v10m0 0 3.5-3.5M10 12.5 6.5 9M3.5 13v3.5h13V13"/></svg>Export Excel</a>
     </form>
     @if(!is_null($piutang ?? null))
         {{-- Total piutang sesungguhnya: tagihan − cicilan masuk. Super admin
@@ -35,7 +35,7 @@
         </span>
     @endif
     @if($u->isPartner())
-        <a href="{{ route('purchase-orders.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Buat PO</a>
+        <a href="{{ route('purchase-orders.create') }}" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20"><path stroke-linecap="round" d="M10 4v12M4 10h12"/></svg>Buat PO</a>
     @endif
 </div>
 
@@ -60,25 +60,30 @@
     </form>
 @endif
 
-<div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+<div class="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
     <div class="overflow-x-auto">
-    <table class="w-full text-xs whitespace-nowrap">
-        <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
-            <tr>
-                @if($canBulk)<th class="px-4 py-3 w-8"><input type="checkbox" id="poCheckAll" title="Pilih semua"></th>@endif
-                <th class="text-left px-4 py-3">No. PO</th>
-                <th class="text-left">Mitra</th>
-                <th class="text-left">Tanggal</th>
-                <th class="text-right">Total</th>
-                <th class="text-left">Status</th>
-                <th class="text-left">Pembayaran</th>
-                <th class="text-right px-4">Aksi</th>
+    <table class="ui-table ui-table--actions min-w-[900px] w-full text-xs whitespace-nowrap">
+        <thead class="ui-table-groups text-stone-600">
+            <tr class="ui-table-groups__row">
+                @if($canBulk)<th scope="col" rowspan="2" class="w-10"><input type="checkbox" id="poCheckAll" title="Pilih semua" class="h-4 w-4 rounded border-stone-300 accent-red-700"></th>@endif
+                <th scope="colgroup" colspan="3" class="text-left">Pesanan</th>
+                <th scope="colgroup" colspan="1" class="text-right">Nilai</th>
+                <th scope="colgroup" colspan="2" class="text-center">Progres</th>
+                <th scope="col" rowspan="2" class="ui-table-actions-head text-right">Aksi</th>
+            </tr>
+            <tr class="ui-table-columns">
+                <th scope="col" class="text-left">No. PO</th>
+                <th scope="col" class="text-left">Mitra</th>
+                <th scope="col" class="text-left">Tanggal</th>
+                <th scope="col" class="text-right">Total</th>
+                <th scope="col" class="text-left">Status</th>
+                <th scope="col" class="text-left">Pembayaran</th>
             </tr>
         </thead>
         <tbody>
             @forelse($orders as $po)
                 <tr class="border-t border-stone-100 hover:bg-stone-50">
-                    @if($canBulk)<td class="px-4"><input type="checkbox" class="po-check" value="{{ $po->id }}"></td>@endif
+                    @if($canBulk)<td class="px-4"><input type="checkbox" class="po-check h-4 w-4 rounded border-stone-300 accent-red-700" value="{{ $po->id }}"></td>@endif
                     <td class="px-4 py-3 font-semibold text-stone-800">{{ $po->po_number }}</td>
                     <td class="text-stone-600">{{ $po->company_name ?? ($po->user->fullname ?? '-') }}</td>
                     <td class="text-stone-500">{{ $po->created_at?->format('d M Y H:i') }}</td>
@@ -109,15 +114,17 @@
                             <span class="inline-flex min-h-6 items-center px-2.5 py-1 rounded-full text-xs leading-none bg-rose-100 text-rose-800 font-semibold">Belum Lunas</span>
                         @endif
                     </td>
-                    <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <button type="button" onclick="poQuickView({{ $po->id }})" class="text-indigo-600 hover:text-indigo-800 font-semibold">Lihat</button>
-                        <a href="{{ route('purchase-orders.show', $po) }}" class="text-stone-600 hover:text-red-600 font-semibold ml-2">Detail</a>
+                    <td class="whitespace-nowrap text-right">
+                        <div class="inline-flex items-center justify-end gap-1">
+                        <button type="button" onclick="poQuickView({{ $po->id }})" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2.5 text-[11px] font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" aria-label="Lihat ringkasan PO {{ $po->po_number }}" title="Lihat ringkasan"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M1.8 10s2.8-5 8.2-5 8.2 5 8.2 5-2.8 5-8.2 5-8.2-5-8.2-5Z"/><circle cx="10" cy="10" r="2.2"/></svg>Lihat</button>
+                        <a href="{{ route('purchase-orders.show', $po) }}" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2.5 text-[11px] font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" aria-label="Detail PO {{ $po->po_number }}" title="Buka detail PO"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M5 2.8h6l4 4V17H5zM11 3v4h4M8 11h4M8 14h4"/></svg>Detail</a>
                         @if($u->isStaff() && $u->canDo('delete_po'))
-                            <form method="POST" action="{{ route('purchase-orders.force-destroy', $po) }}" class="inline ml-2" onsubmit="return confirm('Hapus PERMANEN PO {{ $po->po_number }}? Tidak bisa dikembalikan. Gunakan untuk membersihkan data test.')">
+                            <form method="POST" action="{{ route('purchase-orders.force-destroy', $po) }}" class="inline" onsubmit="return confirm('Hapus PERMANEN PO {{ $po->po_number }}? Tidak bisa dikembalikan. Gunakan untuk membersihkan data test.')">
                                 @csrf @method('DELETE')
-                                <button class="text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                                <button type="submit" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-rose-200 bg-white px-2.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700" aria-label="Hapus PO {{ $po->po_number }}" title="Hapus PO"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h14M8 5V3h4v2m-7 0 1 12h8l1-12m-6 3v6m4-6v6"/></svg>Hapus</button>
                             </form>
                         @endif
+                        </div>
                     </td>
                 </tr>
             @empty

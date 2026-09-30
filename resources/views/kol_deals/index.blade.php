@@ -41,9 +41,9 @@
         <a href="{{ route('kol-deals.index', ['bulan' => $nextMonth, 'status' => $cur]) }}" class="px-2 py-1.5 border border-stone-300 rounded-lg hover:bg-stone-50" title="Bulan berikutnya">→</a>
         @if($bulan)<a href="{{ route('kol-deals.index', ['status' => $cur]) }}" class="ml-1 text-stone-400 hover:text-stone-700">semua bulan</a>@endif
     </div>
-    <a href="{{ route('kol-campaigns.index') }}" class="ml-auto px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50"> Campaign</a>
-    <a href="{{ route('kol-deals.laporan') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50"> Ringkasan Hasil</a>
-    <a href="{{ route('kol-deals.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Deal Baru</a>
+    <a href="{{ route('kol-campaigns.index') }}" class="ml-auto inline-flex items-center gap-2 px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5m0 14h16M7 15l4-4 3 2 6-7"/></svg>Campaign</a>
+    <a href="{{ route('kol-deals.laporan') }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6"/></svg>Ringkasan Hasil</a>
+    <a href="{{ route('kol-deals.create') }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>Deal Baru</a>
 </div>
 
 @if($budget)
@@ -64,7 +64,7 @@
                 <input type="number" name="budget" min="0" value="{{ $budget['budget'] }}" class="w-28 px-2 py-1 border border-stone-300 rounded-sm text-right">
                 <span class="text-stone-400">CPM anchor</span>
                 <input type="number" name="anchor" min="0" value="{{ $budget['anchor'] }}" class="w-20 px-2 py-1 border border-stone-300 rounded-sm text-right">
-                <button class="text-indigo-600 hover:underline">simpan</button>
+                <button aria-label="Simpan budget dan CPM anchor" title="Simpan budget" class="inline-flex items-center justify-center w-8 h-8 text-indigo-700 border border-indigo-100 rounded-lg hover:bg-indigo-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg></button>
             </form>
         </div>
 
@@ -108,8 +108,8 @@
             </div>
             @if($budget['overConcentration'] || $budget['overAnchor'])
                 <div class="mt-3 flex flex-wrap gap-2">
-                    @if($budget['overConcentration'])<span class="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-700">⚠ 1 KOL menyerap {{ $budget['topSharePct'] }}% budget (batas {{ $budget['shareLimitPct'] }}%)</span>@endif
-                    @if($budget['overAnchor'])<span class="text-[11px] px-2 py-1 rounded-full bg-rose-100 text-rose-700">⚠ CPM paid di atas anchor</span>@endif
+                    @if($budget['overConcentration'])<span class="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3 2.8 20h18.4L12 3Zm0 6v5m0 3h.01"/></svg>1 KOL menyerap {{ $budget['topSharePct'] }}% budget (batas {{ $budget['shareLimitPct'] }}%)</span>@endif
+                    @if($budget['overAnchor'])<span class="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-rose-100 text-rose-700"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3 2.8 20h18.4L12 3Zm0 6v5m0 3h.01"/></svg>CPM paid di atas anchor</span>@endif
                 </div>
             @endif
         </div>
@@ -152,7 +152,7 @@
                                 <span class="text-stone-700 tabular-nums">{{ $rp($tx->amount) }}</span>
                                 <form method="POST" action="{{ route('kol-deals.budget-tx.destroy', $tx) }}" onsubmit="return confirm('Hapus pengeluaran ini?')">
                                     @csrf @method('DELETE')
-                                    <button class="text-rose-400 hover:text-rose-600 text-[11px]">hapus</button>
+                                    <button aria-label="Hapus pengeluaran" title="Hapus pengeluaran" class="inline-flex items-center justify-center w-8 h-8 text-rose-600 border border-rose-100 rounded-lg hover:bg-rose-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
                                 </form>
                             </div>
                         </div>
@@ -167,7 +167,7 @@
                 </select>
                 <input type="number" name="amount" min="1" placeholder="nominal (Rp)" required class="w-32 px-2 py-1.5 border border-stone-300 rounded-lg tabular-nums">
                 <input name="note" maxlength="200" placeholder="catatan (opsional)" class="flex-1 min-w-32 px-2 py-1.5 border border-stone-300 rounded-lg">
-                <button class="px-3 py-1.5 bg-stone-800 text-white rounded-lg hover:bg-stone-900 font-semibold">+ Catat</button>
+                <button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-800 text-white rounded-lg hover:bg-stone-900 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>Catat</button>
             </form>
         </div>
     </div>
@@ -176,15 +176,15 @@
 {{-- Bar aksi massal (muncul saat ada centang) --}}
 <div id="bulkBar" class="hidden items-center gap-2 mb-3 p-2 bg-stone-800 text-white rounded-xl text-xs">
     <span id="bulkCount" class="px-2 font-semibold">0 dipilih</span>
-    @if($canApprove)<button type="button" onclick="submitBulk('berjalan')" class="px-3 py-1.5 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold"> Acc (jalan)</button>@endif
-    <button type="button" onclick="submitBulk('selesai')" class="px-3 py-1.5 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-semibold"> Selesai</button>
-    @if($canApprove)<button type="button" onclick="submitBulk('batal')" class="px-3 py-1.5 bg-rose-600 rounded-lg hover:bg-rose-700 font-semibold"> Tolak</button>@endif
-    <button type="button" onclick="clearChecks()" class="ml-auto px-2 text-stone-300 hover:text-white">batal pilih</button>
+    @if($canApprove)<button type="button" onclick="submitBulk('berjalan')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 rounded-lg hover:bg-blue-700 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>Acc</button>@endif
+    <button type="button" onclick="submitBulk('selesai')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>Selesai</button>
+    @if($canApprove)<button type="button" onclick="submitBulk('batal')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 rounded-lg hover:bg-rose-700 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m7 7 10 10M17 7 7 17"/></svg>Tolak</button>@endif
+    <button type="button" onclick="clearChecks()" class="ml-auto inline-flex items-center gap-1.5 px-2 text-stone-300 hover:text-white"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m7 7 10 10M17 7 7 17"/></svg>Batal pilih</button>
 </div>
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
     <div class="overflow-x-auto">
-    <table class="w-full text-xs whitespace-nowrap">
+    <table class="w-full min-w-[1180px] text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
                 <th class="px-3 py-2"><input type="checkbox" id="checkAll" onclick="toggleAll(this)"></th>
@@ -204,7 +204,7 @@
                     <td class="px-2 py-2.5 font-semibold"><a href="{{ route('kol-deals.show', $d) }}" class="text-stone-700 hover:text-red-700 hover:underline">{{ $d->kode }}</a></td>
                     <td>
                         <a href="{{ route('kols.show', $d->kol_id) }}" class="text-red-700 hover:underline font-semibold">{{ '@'.($d->kol->tiktok_username ?? '?') }}</a>
-                        @if($d->campaign)<span class="block text-[10px] text-indigo-500">📣 {{ $d->campaign->name }}</span>@endif
+                        @if($d->campaign)<span class="block text-[10px] text-indigo-600">Campaign · {{ $d->campaign->name }}</span>@endif
                         <div class="flex flex-wrap items-center gap-1 mt-0.5">
                             <span class="px-1.5 py-0.5 rounded-sm text-[10px] font-semibold {{ $levelBadge[$d->kol?->level] ?? 'bg-stone-100 text-stone-600' }}">{{ $d->kol?->level ?? '—' }}</span>
                             @if($sc)
@@ -225,20 +225,20 @@
                         <td class="px-3 text-stone-600">{{ $d->status_bayar }}</td>
                     @endif
                     <td>
-                        <button type="button" class="hasilBtn text-[10px] hover:underline @if(! $d->hasil_terisi) text-stone-400 @endif"
+                        <button type="button" class="hasilBtn inline-flex items-center gap-1.5 text-[10px] font-semibold rounded-lg px-2 py-1.5 border border-stone-200 hover:border-red-200 hover:bg-red-50 @if(! $d->hasil_terisi) text-stone-500 @else text-red-700 @endif"
                             data-hasil="{{ json_encode(['id' => $d->id, 'kode' => $d->kode, 'tujuan' => $d->hasil_tujuan, 'video_upload' => $d->hasil_video_upload, 'video_fyp' => $d->hasil_video_fyp, 'views' => $d->hasil_views, 'revenue' => $d->hasil_revenue, 'catatan' => $d->hasil_catatan]) }}"
-                            onclick="openHasil(this)" title="Isi/lihat laporan hasil (popup)">{{ $d->hasil_terisi ? $d->hasil_verdict : '+ isi laporan' }}</button>
+                            onclick="openHasil(this)" title="Isi atau lihat laporan hasil"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19V5m0 14h16M7 15l4-4 3 2 6-7"/></svg>{{ $d->hasil_terisi ? $d->hasil_verdict : 'Isi laporan' }}</button>
                     </td>
                     <td class="text-right px-4">
-                        @if($canApprove && $d->status !== 'berjalan')<button type="button" onclick="submitBulk('berjalan', {{ $d->id }})" class="text-blue-600 hover:text-blue-800 font-semibold" title="Acc → jalan">Acc</button>@endif
-                        @if($d->status !== 'selesai')<button type="button" onclick="submitBulk('selesai', {{ $d->id }})" class="ml-1 text-emerald-600 hover:text-emerald-800 font-semibold" title="Tandai selesai">Selesai</button>@endif
-                        @if($canApprove && $d->status !== 'batal')<button type="button" onclick="submitBulk('batal', {{ $d->id }})" class="ml-1 text-rose-500 hover:text-rose-700 font-semibold" title="Tolak">Tolak</button>@endif
-                        <a href="{{ route('kol-deals.show', $d) }}" class="ml-2 text-stone-500 hover:text-stone-900 font-semibold">Detail</a>
-                        <a href="{{ route('kol-deals.edit', $d) }}" class="ml-1 text-stone-500 hover:text-stone-900 font-semibold">Edit</a>
+                        @if($canApprove && $d->status !== 'berjalan')<button type="button" aria-label="Acc deal {{ $d->kode }}" onclick="submitBulk('berjalan', {{ $d->id }})" class="inline-flex items-center justify-center w-8 h-8 text-blue-700 border border-blue-100 rounded-lg hover:bg-blue-50" title="Acc dan jalankan"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg></button>@endif
+                        @if($d->status !== 'selesai')<button type="button" aria-label="Tandai deal {{ $d->kode }} selesai" onclick="submitBulk('selesai', {{ $d->id }})" class="inline-flex items-center justify-center w-8 h-8 ml-1 text-emerald-700 border border-emerald-100 rounded-lg hover:bg-emerald-50" title="Tandai selesai"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg></button>@endif
+                        @if($canApprove && $d->status !== 'batal')<button type="button" aria-label="Tolak deal {{ $d->kode }}" onclick="submitBulk('batal', {{ $d->id }})" class="inline-flex items-center justify-center w-8 h-8 ml-1 text-rose-600 border border-rose-100 rounded-lg hover:bg-rose-50" title="Tolak deal"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m7 7 10 10M17 7 7 17"/></svg></button>@endif
+                        <a aria-label="Detail deal {{ $d->kode }}" title="Detail deal" href="{{ route('kol-deals.show', $d) }}" class="inline-flex items-center justify-center w-8 h-8 ml-1 text-stone-600 border border-stone-200 rounded-lg hover:bg-stone-100"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></a>
+                        <a aria-label="Edit deal {{ $d->kode }}" title="Edit deal" href="{{ route('kol-deals.edit', $d) }}" class="inline-flex items-center justify-center w-8 h-8 ml-1 text-stone-600 border border-stone-200 rounded-lg hover:bg-stone-100"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.5 5.5 3 3M4 20l4.5-.9L19.3 8.3a2.1 2.1 0 0 0-3-3L5.5 16.1 4 20Z"/></svg></a>
                         <form method="POST" action="{{ route('kol-deals.destroy', $d) }}" class="inline"
                             onsubmit="return confirm('Hapus deal {{ $d->kode }}? (soft delete, tercatat di Audit Log)')">
                             @csrf @method('DELETE')
-                            <button class="ml-1 text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                            <button aria-label="Hapus deal {{ $d->kode }}" title="Hapus deal" class="inline-flex items-center justify-center w-8 h-8 ml-1 text-rose-600 border border-rose-100 rounded-lg hover:bg-rose-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
                         </form>
                     </td>
                 </tr>
@@ -323,7 +323,7 @@
         <div class="flex items-center gap-2 mt-4">
             <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Simpan Laporan</button>
             <button type="button" onclick="document.getElementById('hasilModal').close()" class="px-3 py-2 text-sm text-stone-500 hover:text-stone-800">Tutup</button>
-            <span id="hm_status" class="ml-auto text-[11px] text-emerald-600 hidden">tersimpan ✓</span>
+            <span id="hm_status" class="ml-auto inline-flex items-center gap-1 text-[11px] text-emerald-700 hidden"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>Tersimpan</span>
         </div>
     </form>
 </dialog>

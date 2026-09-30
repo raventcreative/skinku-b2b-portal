@@ -10,17 +10,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Alur Portal Content Creator: simpan konten + media, ajukan, tarik, setujui,
- * tolak, retry & tandai terbit manual (FRD §3–§6). Semua transisi status lewat
- * sini supaya aturan (FR-30) & audit log (FR-70) ada di satu tempat.
+ * Alur Content Pipeline: simpan draft, terbitkan/jadwalkan, retry dan catat
+ * posting manual. Semua transisi publikasi dijaga di service ini.
  */
 class ContentPostService
 {
     public function __construct(private ImageService $images) {}
 
     /**
-     * Cek kelengkapan sebelum diajukan/disetujui: media cocok dengan tipe &
-     * platform, caption tak melebihi batas tiap platform (FR-22, FR-23).
+     * Cek kelengkapan sebelum publikasi: media cocok dengan tipe & platform,
+     * caption tak melebihi batas tiap platform.
      *
      * @param  array<int,array{mime:string,size:int}>  $media  size dalam byte
      * @param  array<int,string>  $platforms
@@ -127,6 +126,12 @@ class ContentPostService
 
             $this->syncTargets($post, $data['platforms'] ?? [], $data['captions'] ?? []);
 
+            if ($post->wasRecentlyCreated === false && $data['intent'] === 'draft' && $post->status !== ContentPost::DRAFT) {
+                $post->update(['status' => ContentPost::DRAFT]);
+                $post->targets()->whereIn('status', [ContentPostTarget::QUEUED, ContentPostTarget::MANUAL_PENDING])
+                    ->update(['status' => ContentPostTarget::PENDING, 'next_attempt_at' => null]);
+            }
+
             AuditService::log(action: $action, targetType: 'content_post', targetId: $post->id,
                 after: ['title' => $post->title, 'type' => $post->type, 'platforms' => $data['platforms'] ?? []]);
 
@@ -134,87 +139,51 @@ class ContentPostService
         });
     }
 
-    public function submit(ContentPost $post): void
+    /** Masukkan seluruh target ke antrean publikasi atau jalur posting manual. */
+    public function publish(ContentPost $post, array $tiktok = []): void
     {
-        $this->assertStatus($post, [ContentPost::DRAFT, ContentPost::REJECTED], 'diajukan');
+        $this->assertStatus($post, [ContentPost::DRAFT, ContentPost::SCHEDULED], 'diterbitkan');
+        if ($post->status === ContentPost::SCHEDULED && ! $post->isEditable()) {
+            throw ValidationException::withMessages(['status' => 'Konten yang mulai diproses tidak dapat diterbitkan ulang.']);
+        }
         $this->assertComplete($post);
+        $targets = $post->targets;
+        if ($targets->isEmpty()) {
+            throw ValidationException::withMessages(['platforms' => 'Pilih minimal satu platform.']);
+        }
 
-        $post->update(['status' => ContentPost::IN_REVIEW, 'submitted_at' => now(), 'review_note' => null]);
-        AuditService::log(action: 'content.submit', targetType: 'content_post', targetId: $post->id);
-    }
-
-    public function withdraw(ContentPost $post): void
-    {
-        $this->assertStatus($post, [ContentPost::IN_REVIEW], 'ditarik');
-
-        $post->update(['status' => ContentPost::DRAFT]);
-        AuditService::log(action: 'content.withdraw', targetType: 'content_post', targetId: $post->id);
-    }
-
-    /**
-     * Setujui (FR-31): reviewer boleh mengubah caption, override & jadwal dulu.
-     * Target API → antre publish; target manual (TikTok) → siap posting manual.
-     */
-    public function approve(ContentPost $post, User $reviewer, array $edits = []): void
-    {
-        $this->assertStatus($post, [ContentPost::IN_REVIEW], 'disetujui');
-        $this->assertNotOwnPost($post, $reviewer);
-
-        DB::transaction(function () use ($post, $reviewer, $edits) {
-            $before = ['caption' => $post->caption, 'scheduled_at' => $post->scheduled_at?->toDateTimeString()];
-
-            if (array_key_exists('caption', $edits)) {
-                $post->caption = $edits['caption'];
-            }
-            if (array_key_exists('scheduled_at', $edits)) {
-                $post->scheduled_at = $edits['scheduled_at'];
-            }
-            foreach ($post->targets as $t) {
-                if (array_key_exists($t->platform, $edits['captions'] ?? [])) {
-                    $t->caption_override = ($edits['captions'][$t->platform] ?? '') ?: null;
-                }
-                // TikTok via API: pilihan privacy WAJIB dari reviewer (pedoman UX TikTok — tanpa default).
-                if ($t->platform === 'tiktok' && ! $t->isManual()) {
-                    $opt = $edits['tiktok'] ?? [];
-                    if (empty($opt['privacy_level']) || empty($opt['consent'])) {
-                        throw ValidationException::withMessages(['tiktok' => 'Pilih privacy TikTok dan centang persetujuan Music Usage Confirmation.']);
+        DB::transaction(function () use ($post, $targets, $tiktok) {
+            foreach ($targets as $target) {
+                $manual = $target->isManual();
+                if ($target->platform === 'tiktok' && ! $manual) {
+                    if (empty($tiktok['privacy_level']) || empty($tiktok['consent'])) {
+                        throw ValidationException::withMessages(['tiktok' => 'Pilih pengaturan privasi TikTok dan setujui Music Usage Confirmation.']);
                     }
-                    $t->options = [
-                        'privacy_level' => $opt['privacy_level'],
-                        'allow_comment' => ! empty($opt['allow_comment']),
-                        'allow_duet' => ! empty($opt['allow_duet']),
-                        'allow_stitch' => ! empty($opt['allow_stitch']),
-                        'brand_organic' => ! empty($opt['brand_organic']),
+                    if (! array_key_exists($tiktok['privacy_level'], \App\Services\Social\TikTokContentClient::PRIVACY_LABELS)) {
+                        throw ValidationException::withMessages(['tiktok.privacy_level' => 'Pilihan privasi TikTok tidak valid.']);
+                    }
+                    $target->options = [
+                        'privacy_level' => $tiktok['privacy_level'],
+                        'allow_comment' => ! empty($tiktok['allow_comment']),
+                        'allow_duet' => ! empty($tiktok['allow_duet']),
+                        'allow_stitch' => ! empty($tiktok['allow_stitch']),
+                        'brand_organic' => ! empty($tiktok['brand_organic']),
+                        'music_usage_consent_at' => now()->toIso8601String(),
                     ];
                 }
-            }
-            $this->assertComplete($post, $post->targets->pluck('caption_override', 'platform')->all());
-
-            $post->fill(['reviewed_by' => $reviewer->id, 'reviewed_at' => now(), 'review_note' => null])->save();
-            foreach ($post->targets as $t) {
-                $t->fill([
-                    'status' => $t->isManual() ? ContentPostTarget::MANUAL_PENDING : ContentPostTarget::QUEUED,
+                $target->fill([
+                    'status' => $manual ? ContentPostTarget::MANUAL_PENDING : ContentPostTarget::QUEUED,
                     'attempts' => 0, 'next_attempt_at' => null, 'last_error' => null,
                     'container_id' => null, 'container_polls' => 0,
                 ])->save();
             }
             $post->recomputeStatus();
-
-            AuditService::log(action: 'content.approve', targetType: 'content_post', targetId: $post->id, before: $before,
-                after: ['caption' => $post->caption, 'scheduled_at' => $post->scheduled_at?->toDateTimeString()]);
+            AuditService::log(action: 'content.publish', targetType: 'content_post', targetId: $post->id,
+                after: ['scheduled_at' => $post->scheduled_at?->toDateTimeString(), 'platforms' => $targets->pluck('platform')->all()]);
         });
     }
 
-    public function reject(ContentPost $post, User $reviewer, string $note): void
-    {
-        $this->assertStatus($post, [ContentPost::IN_REVIEW], 'ditolak');
-        $this->assertNotOwnPost($post, $reviewer);
-
-        $post->update(['status' => ContentPost::REJECTED, 'review_note' => $note, 'reviewed_by' => $reviewer->id, 'reviewed_at' => now()]);
-        AuditService::log(action: 'content.reject', targetType: 'content_post', targetId: $post->id, after: ['note' => $note]);
-    }
-
-    /** Retry manual oleh admin untuk target API yang gagal (FR-57). */
+    /** Retry manual untuk target API yang gagal. */
     public function retry(ContentPostTarget $target): void
     {
         if ($target->status !== ContentPostTarget::FAILED || $target->isManual()) {
@@ -226,7 +195,7 @@ class ContentPostService
         AuditService::log(action: 'content.retry', targetType: 'content_post', targetId: $target->content_post_id, after: ['platform' => $target->platform]);
     }
 
-    /** Admin sudah posting sendiri (TikTok Fase 1 / cadangan bila API gagal) → catat link-nya (FR-55). */
+    /** Catat permalink untuk target manual atau target API yang diposting di luar portal. */
     public function markPublished(ContentPostTarget $target, string $url): void
     {
         if (! in_array($target->status, [ContentPostTarget::MANUAL_PENDING, ContentPostTarget::FAILED], true)) {
@@ -252,14 +221,6 @@ class ContentPostService
     {
         if (! in_array($post->status, $allowed, true)) {
             throw ValidationException::withMessages(['status' => "Konten berstatus \"{$post->statusLabel()}\" tidak bisa {$verb}."]);
-        }
-    }
-
-    /** Pembuat ≠ penyetuju: kreator boleh mereview konten kreator lain, bukan kontennya sendiri. */
-    private function assertNotOwnPost(ContentPost $post, User $reviewer): void
-    {
-        if ($post->user_id === $reviewer->id) {
-            throw ValidationException::withMessages(['status' => 'Konten sendiri tidak bisa kamu setujui/tolak — minta kreator lain atau admin mereview.']);
         }
     }
 

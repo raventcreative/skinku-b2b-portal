@@ -23,7 +23,7 @@ class ContentPostTarget extends Model
     public const MANUAL_PENDING = 'manual_pending';
 
     public const STATUS_LABELS = [
-        self::PENDING => 'Menunggu persetujuan',
+        self::PENDING => 'Belum diterbitkan',
         self::QUEUED => 'Antre',
         self::PUBLISHING => 'Sedang terbit',
         self::PUBLISHED => 'Terbit',

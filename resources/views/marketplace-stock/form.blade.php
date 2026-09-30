@@ -26,7 +26,7 @@
 
 @section('content')
 @php $gallery = $master->exists ? $master->fileGallery(\App\Models\MarketplaceMaster::MASTER_IMAGE) : []; @endphp
-<div class="max-w-3xl space-y-4">
+<div class="mx-auto max-w-4xl space-y-5 px-1 sm:px-2">
     {{-- Flash session('status') sudah ditampilkan layouts.app — jangan diulang di sini (banner dobel habis Hapus/Jadikan Utama). --}}
     @if($errors->any())<div class="mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">Periksa input.</div>@endif
 
@@ -85,7 +85,7 @@
         {{-- Informasi Penjualan --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
             <h3 class="font-semibold text-stone-800">Informasi Penjualan</h3>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-stone-700 mb-1">Harga</label>
                     <input type="number" step="0.01" min="0" name="price" value="{{ old('price', $master->base_price) }}" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
@@ -136,9 +136,9 @@
             </div>
         </div>
 
-        <div class="flex gap-2">
-            <button class="px-5 py-2 bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">Simpan</button>
-            <a href="{{ route('marketplace-stock.index') }}" class="px-5 py-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200">Batal</a>
+        <div class="flex flex-wrap gap-2">
+            <button class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-700 text-white rounded-lg hover:bg-red-800 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg>Simpan produk</button>
+            <a href="{{ route('marketplace-stock.index') }}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>Batal</a>
         </div>
     </form>
 
@@ -150,7 +150,7 @@
             <p class="text-xs text-stone-500 leading-relaxed">Kirim <b>deskripsi, berat, dan dimensi</b> produk ini ke listing TikTok &amp; Shopee yang tertaut — isi di marketplace akan <b>ditimpa</b> (field yang kosong dilewati). Nama produk tidak ikut, foto belum. Yang dikirim = data yang sudah <b>tersimpan</b>: klik <b>Simpan</b> dulu bila baru mengubahnya. Konten berlaku untuk seluruh produk di marketplace (tingkat produk, bukan per varian).</p>
             <form method="POST" action="{{ route('marketplace-stock.master.konten', $master) }}" onsubmit="return confirm('Kirim &amp; timpa deskripsi/berat/dimensi produk ini di TikTok &amp; Shopee? (field kosong dilewati, foto belum termasuk)')">
                 @csrf
-                <button type="submit" class="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Dorong Konten ke Marketplace</button>
+                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-6-6 6 6-6 6M5 5v14"/></svg>Dorong konten ke marketplace</button>
             </form>
         </div>
     @endif

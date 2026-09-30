@@ -1,21 +1,21 @@
 {{-- Widget Asisten AI mengambang (pojok kanan-bawah, semua halaman). Chat via
      fetch tanpa reload; aksi tulis tetap lewat konfirmasi. Hanya untuk pemegang
      izin use_ai_assistant. --}}
-<div id="aiWidget" class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 print:hidden">
+<div id="aiWidget" class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 print:hidden {{ request()->routeIs('ecom-chat.*') ? 'ai-widget--ecom-chat' : '' }}">
 
     {{-- Panel chat --}}
-    <div id="aiPanel" class="hidden w-[92vw] max-w-sm h-[70vh] max-h-128 bg-white rounded-2xl shadow-2xl border border-stone-200 flex-col overflow-hidden">
+    <div id="aiPanel" role="dialog" aria-label="Asisten AI" aria-modal="false" class="hidden w-[92vw] max-w-sm h-[70vh] max-h-128 bg-white rounded-2xl shadow-2xl border border-stone-200 flex-col overflow-hidden">
         <div class="px-4 py-3 bg-red-700 text-white flex items-center justify-between shrink-0">
             <div class="min-w-0">
                 <p class="text-sm font-bold leading-tight">Asisten AI</p>
                 <p class="text-[10px] text-red-200">Baca dashboard & bantu tugas Kanban</p>
             </div>
             <div class="flex items-center gap-1 shrink-0">
-                <button id="aiReset" title="Mulai baru" class="p-1.5 hover:bg-red-800 rounded-lg" aria-label="Mulai baru">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M20 9A8 8 0 006.3 5.3M4 15a8 8 0 0013.7 3.7"/></svg>
+                <button type="button" id="aiReset" title="Mulai baru" class="p-1.5 hover:bg-red-800 rounded-lg" aria-label="Mulai baru">
+                    <svg aria-hidden="true" focusable="false" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M20 9A8 8 0 006.3 5.3M4 15a8 8 0 0013.7 3.7"/></svg>
                 </button>
-                <button id="aiClose" title="Tutup" class="p-1.5 hover:bg-red-800 rounded-lg" aria-label="Tutup">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                <button type="button" id="aiClose" title="Tutup" class="p-1.5 hover:bg-red-800 rounded-lg" aria-label="Tutup">
+                    <svg aria-hidden="true" focusable="false" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
         </div>
@@ -24,20 +24,30 @@
             <textarea id="aiInput" rows="1" maxlength="2000" placeholder="Tulis pertanyaan atau perintah…"
                 class="flex-1 px-3 py-2 border border-stone-300 rounded-xl text-sm resize-none focus:outline-hidden focus:ring-2 focus:ring-red-200 max-h-24"></textarea>
             <button type="submit" id="aiSend" class="w-9 h-9 shrink-0 bg-red-600 text-white rounded-xl hover:bg-red-700 flex items-center justify-center disabled:opacity-50" aria-label="Kirim">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7"/></svg>
+                <svg aria-hidden="true" focusable="false" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7"/></svg>
             </button>
         </form>
     </div>
 
     {{-- Nudge kecil (sekali, bisa ditutup) --}}
-    <div id="aiNudge" class="hidden items-center gap-2 bg-white rounded-full shadow-lg border border-stone-200 pl-3 pr-1.5 py-1.5">
-        <span class="text-xs text-stone-600 whitespace-nowrap">Butuh bantuan? Tanya aku 👋</span>
-        <button id="aiNudgeX" class="w-5 h-5 flex items-center justify-center text-stone-400 hover:text-stone-700 rounded-full" aria-label="Tutup"> Tutup </button>
+    <div id="aiNudge" class="hidden w-72 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-2xl border border-stone-200 bg-white p-2.5 shadow-xl">
+        <button type="button" id="aiNudgeOpen" aria-controls="aiPanel" aria-expanded="false" class="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1.5 text-left hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-700">
+                <svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12a8 8 0 01-11.6 7.1L3 21l1.9-6.4A8 8 0 1121 12z"/></svg>
+            </span>
+            <span class="min-w-0">
+                <span class="block text-xs font-semibold text-stone-800">Asisten AI</span>
+                <span class="mt-0.5 block text-[11px] leading-4 text-stone-500">Tanyakan sesuatu atau minta ringkasan.</span>
+            </span>
+        </button>
+        <button type="button" id="aiNudgeX" title="Tutup bantuan" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-stone-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" aria-label="Tutup bantuan">
+            <svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
     </div>
 
     {{-- Launcher bulat --}}
-    <button id="aiLauncher" class="w-14 h-14 rounded-full bg-red-700 hover:bg-red-800 text-white shadow-xl flex items-center justify-center transition" aria-label="Buka Asisten AI">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12a8 8 0 01-11.6 7.1L3 21l1.9-6.4A8 8 0 1121 12z"/></svg>
+    <button type="button" id="aiLauncher" aria-controls="aiPanel" aria-expanded="false" class="w-14 h-14 rounded-full bg-red-700 hover:bg-red-800 text-white shadow-xl flex items-center justify-center transition" aria-label="Buka Asisten AI">
+        <svg aria-hidden="true" focusable="false" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12a8 8 0 01-11.6 7.1L3 21l1.9-6.4A8 8 0 1121 12z"/></svg>
     </button>
 </div>
 
@@ -89,7 +99,7 @@
         if (!state.thread || !state.thread.length) {
             var e = document.createElement('div');
             e.className = 'text-center text-stone-400 text-xs py-8 px-2';
-            e.textContent = 'Halo! 👋 Coba: “ringkas penjualan bulan ini”, atau “buatkan kartu Kanban … di papan … kolom …”.';
+            e.textContent = 'Halo! Coba: “ringkas penjualan bulan ini”, atau “buatkan kartu Kanban … di papan … kolom …”.';
             body.appendChild(e);
         } else {
             state.thread.forEach(function (m) { body.appendChild(bubble(m.role, m.content)); });
@@ -135,7 +145,7 @@
         body.appendChild(bubble('user', msg));    // optimis
         typing(true);
         req(R.send, 'POST', { message: msg }).then(render).catch(function () {
-            body.appendChild(bubble('assistant', '⚠️ Gagal menghubungi server. Coba lagi.'));
+            body.appendChild(bubble('assistant', 'Gagal menghubungi server. Coba lagi.'));
         }).finally(function () { typing(false); });
     });
 
@@ -153,16 +163,21 @@
     function openPanel() {
         panel.classList.remove('hidden'); panel.classList.add('flex');
         launcher.classList.add('hidden'); hideNudge();
+        launcher.setAttribute('aria-expanded', 'true');
+        document.getElementById('aiNudgeOpen').setAttribute('aria-expanded', 'true');
         if (!loaded) { loaded = true; req(R.state, 'GET').then(render).catch(function () { render(); }); }
         setTimeout(function () { input.focus(); }, 50);
     }
     function closePanel() {
         panel.classList.add('hidden'); panel.classList.remove('flex');
         launcher.classList.remove('hidden');
+        launcher.setAttribute('aria-expanded', 'false'); launcher.focus();
+        document.getElementById('aiNudgeOpen').setAttribute('aria-expanded', 'false');
     }
     function hideNudge() { nudge.classList.add('hidden'); nudge.classList.remove('flex'); }
 
     launcher.addEventListener('click', openPanel);
+    document.getElementById('aiNudgeOpen').addEventListener('click', openPanel);
     document.getElementById('aiClose').addEventListener('click', closePanel);
     document.getElementById('aiNudgeX').addEventListener('click', function () {
         hideNudge(); try { localStorage.setItem('ai_nudge_off', '1'); } catch (e) {}

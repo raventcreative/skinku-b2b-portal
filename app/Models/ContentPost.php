@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Konten dari content creator → review admin → terbit ke akun brand per platform
- * (status per platform ada di ContentPostTarget). Alur status: FRD §4.
+ * Konten creator → antre/jadwal → terbit ke akun brand per platform.
+ * Status per platform ada di ContentPostTarget.
  */
 class ContentPost extends Model
 {
@@ -20,8 +20,10 @@ class ContentPost extends Model
 
     public const DRAFT = 'draft';
 
+    /** @deprecated Status lama dimigrasikan ke draft. */
     public const IN_REVIEW = 'in_review';
 
+    /** @deprecated Status lama dimigrasikan ke draft. */
     public const REJECTED = 'rejected';
 
     public const SCHEDULED = 'scheduled';
@@ -36,8 +38,8 @@ class ContentPost extends Model
 
     public const STATUS_LABELS = [
         self::DRAFT => 'Draft',
-        self::IN_REVIEW => 'Menunggu Persetujuan',
-        self::REJECTED => 'Ditolak',
+        self::IN_REVIEW => 'Legacy approval',
+        self::REJECTED => 'Legacy rejection',
         self::SCHEDULED => 'Terjadwal',
         self::PUBLISHING => 'Sedang Terbit',
         self::DONE => 'Terbit',
@@ -76,10 +78,20 @@ class ContentPost extends Model
         return $this->hasMany(ContentPostTarget::class);
     }
 
-    /** Creator hanya boleh mengubah draft / konten yang ditolak (FR-25). */
+    /** Draft dan item antrean yang belum mulai terbit masih dapat diperbaiki. */
     public function isEditable(): bool
     {
-        return in_array($this->status, [self::DRAFT, self::REJECTED], true);
+        if ($this->status === self::DRAFT) {
+            return true;
+        }
+
+        if ($this->status !== self::SCHEDULED) {
+            return false;
+        }
+
+        $targets = $this->relationLoaded('targets') ? $this->targets : $this->targets()->get(['id', 'status']);
+
+        return ! $targets->contains(fn ($target) => in_array($target->status, [ContentPostTarget::PUBLISHING, ContentPostTarget::PUBLISHED], true));
     }
 
     public function statusLabel(): string
@@ -88,8 +100,8 @@ class ContentPost extends Model
     }
 
     /**
-     * Status konten diturunkan dari status target (FR-33). "Menunggu" (queued,
-     * publishing, manual_pending) → masih jalan; semuanya selesai → done/partial/failed.
+     * Status konten diturunkan dari status target. Target yang menunggu (queued,
+     * publishing, manual_pending) membuat item tetap aktif.
      */
     public function recomputeStatus(): void
     {

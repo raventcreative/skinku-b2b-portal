@@ -3,13 +3,14 @@
 @section('heading', 'Import Data Affiliate')
 
 @section('content')
-<a href="{{ route('kol-affiliate.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Affiliate &amp; GMV</a>
+<div class="mx-auto max-w-5xl px-2 sm:px-4 space-y-4">
+<a href="{{ route('kol-affiliate.index') }}" class="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>Kembali ke Affiliate &amp; GMV</a>
 
-<div class="max-w-2xl mt-3 space-y-4">
+<div class="space-y-4">
     {{-- Panduan cara ambil file (collapsible) — hilangkan bingung "file yang mana". --}}
     <details class="bg-stone-50 rounded-2xl border border-stone-200 overflow-hidden group">
         <summary class="cursor-pointer select-none px-5 py-3.5 text-sm font-semibold text-stone-700 flex items-center gap-2 hover:bg-stone-100">
-            <span>📄 Cara ambil file export-nya</span>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 0v5h5M9 13h6m-6 4h6"/></svg><span>Cara mengunduh file export</span>
             <span class="ml-auto text-xs text-stone-400 group-open:hidden">buka ▾</span>
             <span class="ml-auto text-xs text-stone-400 hidden group-open:inline">tutup ▴</span>
         </summary>
@@ -30,7 +31,7 @@
                 </ol>
             </div>
             <p class="text-[12px] text-stone-500 bg-white rounded-lg border border-stone-200 px-3 py-2">
-                💡 Yang penting file punya kolom: <b>username creator</b>, <b>order id</b>, <b>GMV</b> (komisi &amp; tanggal opsional).
+                Yang diperlukan: kolom <b>username creator</b>, <b>order id</b>, dan <b>GMV</b> (komisi dan tanggal opsional).
                 Nama kolom apa pun tak masalah — nanti bisa dipetakan di wizard. Tampilan menu bisa beda sedikit karena marketplace sering update; intinya cari tombol <b>Export/Unduh</b>.
             </p>
         </div>
@@ -57,7 +58,7 @@
                 <span class="text-xs font-semibold text-stone-600">File export (.xlsx / .csv)</span>
                 <label id="dropZone" for="impFile"
                     class="mt-1 flex flex-col items-center justify-center gap-1 px-4 py-8 border-2 border-dashed border-stone-300 rounded-xl bg-stone-50 cursor-pointer text-center transition hover:border-red-400 hover:bg-red-50/40">
-                    <span class="text-2xl">⬆️</span>
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-8 h-8 text-stone-400"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5 5 5M4 16v4h16v-4"/></svg>
                     <span id="dropText" class="text-sm text-stone-500"><b class="text-stone-700">Seret file ke sini</b> atau klik untuk pilih</span>
                     <span class="text-[11px] text-stone-400">.xlsx · .csv · maks 10MB</span>
                 </label>
@@ -75,6 +76,7 @@
             </p>
         </form>
     </div>
+</div>
 </div>
 
 <script>

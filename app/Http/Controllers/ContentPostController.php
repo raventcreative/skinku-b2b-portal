@@ -20,72 +20,102 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
- * Portal Content Creator — creator mengelola konten sendiri; super admin melihat workspace lintas creator.
+ * Content Pipeline — creator mengelola publikasi sendiri; admin melihat workspace lintas creator.
  */
 class ContentPostController extends Controller
 {
     public function __construct(private ContentPostService $service) {}
 
-    public function dashboard(Request $request): View
+    public function dashboard(Request $request): RedirectResponse
     {
-        $user = $request->user();
-        $isSuperAdmin = $user->isSuperAdmin();
-        $own = ContentPost::query()->when(! $isSuperAdmin, fn ($q) => $q->where('user_id', $user->id));
-
-        $counts = (clone $own)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
-        $publishedThisMonth = ContentPostTarget::where('status', ContentPostTarget::PUBLISHED)
-            ->where('published_at', '>=', now()->startOfMonth())
-            ->whereHas('post', fn ($q) => $q->when(! $isSuperAdmin, fn ($posts) => $posts->where('user_id', $user->id)))
-            ->distinct('content_post_id')->count('content_post_id');
-
-        // Views snapshot terbaru dari postingan milik creator yang terbit 30 hari terakhir (FR-83).
-        $views30 = (int) ContentPostSnapshot::whereIn('id', ContentPostTarget::where('published_at', '>=', now()->subDays(30))
-            ->whereHas('post', fn ($q) => $q->when(! $isSuperAdmin, fn ($posts) => $posts->where('user_id', $user->id)))
-            ->withMax('snapshots', 'id')->pluck('snapshots_max_id')->filter())->sum('views');
-
-        return view('content.dashboard', [
-            'cards' => [
-                ['Draft', $counts[ContentPost::DRAFT] ?? 0, 'bg-stone-500'],
-                ['Menunggu Persetujuan', $counts[ContentPost::IN_REVIEW] ?? 0, 'bg-amber-500'],
-                ['Ditolak', $counts[ContentPost::REJECTED] ?? 0, 'bg-rose-500'],
-                ['Terjadwal / Terbit', ($counts[ContentPost::SCHEDULED] ?? 0) + ($counts[ContentPost::PUBLISHING] ?? 0), 'bg-blue-500'],
-                ['Terbit Bulan Ini', $publishedThisMonth, 'bg-emerald-500'],
-                ['Views 30 Hari', $views30, 'bg-red-600'],
-            ],
-            'recent' => (clone $own)->with($isSuperAdmin ? ['targets', 'user'] : ['targets'])->latest('id')->limit(10)->get(),
-            'showCreator' => $isSuperAdmin,
-            'attention' => (clone $own)->whereIn('status', [ContentPost::REJECTED, ContentPost::FAILED, ContentPost::PARTIAL])
-                ->latest('updated_at')->limit(5)->get(),
-        ]);
+        return redirect()->route('content.index');
     }
 
     public function index(Request $request): View
     {
+        $request->validate([
+            'stage' => ['nullable', Rule::in(['all', 'draft', 'scheduled', 'publishing', 'attention', 'published'])],
+            'q' => ['nullable', 'string', 'max:150'],
+            'creator' => ['nullable', 'integer', 'exists:users,id'],
+            'platform' => ['nullable', Rule::in(array_keys(config('content.platforms')))],
+            'dari' => ['nullable', 'date_format:Y-m-d'],
+            'sampai' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:dari'],
+        ]);
         $user = $request->user();
-        $isSuperAdmin = $user->isSuperAdmin();
-        $canReview = $isSuperAdmin || $user->canDo('content.review');
-        $posts = ContentPost::query()
-            ->when(! $canReview, fn ($q) => $q->where('user_id', $user->id))
-            ->when($request->query('status') && $request->query('status') !== 'all' ? $request->query('status') : null, fn ($q, $s) => $q->where('status', $s))
-            ->when($canReview ? $request->query('creator') : null, fn ($q, $id) => $q->where('user_id', $id))
-            ->when($canReview ? $request->query('platform') : null, fn ($q, $platform) => $q->whereHas('targets', fn ($t) => $t->where('platform', $platform)))
-            ->when($canReview ? $request->query('dari') : null, fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
-            ->when($canReview ? $request->query('sampai') : null, fn ($q, $date) => $q->whereDate('created_at', '<=', $date))
-            ->with($canReview ? ['targets', 'user'] : ['targets'])->latest('id')->paginate(20)->withQueryString();
+        $canManage = $this->canManage($user);
+        $base = ContentPost::query()->when(! $canManage, fn ($q) => $q->where('user_id', $user->id));
+        $stage = (string) $request->query('stage', 'all');
+        $stageStatuses = [
+            'draft' => [ContentPost::DRAFT],
+            'scheduled' => [ContentPost::SCHEDULED],
+            'publishing' => [ContentPost::PUBLISHING],
+            'published' => [ContentPost::DONE],
+        ];
+        if ($stage === 'attention') {
+            $base->where(function ($q) {
+                $q->whereIn('status', [ContentPost::PARTIAL, ContentPost::FAILED])
+                    ->orWhereHas('targets', fn ($t) => $t->whereIn('status', [ContentPostTarget::FAILED, ContentPostTarget::MANUAL_PENDING]));
+            });
+        } elseif (isset($stageStatuses[$stage])) {
+            $base->whereIn('status', $stageStatuses[$stage]);
+        }
+
+        $posts = (clone $base)
+            ->when($canManage && $request->filled('creator'), fn ($q) => $q->where('user_id', $request->query('creator')))
+            ->when($request->filled('platform'), fn ($q) => $q->whereHas('targets', fn ($t) => $t->where('platform', $request->query('platform'))))
+            ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->query('q').'%'))
+            ->when($request->filled('dari'), fn ($q) => $q->whereDate('scheduled_at', '>=', $request->query('dari')))
+            ->when($request->filled('sampai'), fn ($q) => $q->whereDate('scheduled_at', '<=', $request->query('sampai')))
+            ->with(['targets', 'files', 'user'])->orderByRaw('scheduled_at is null')->orderBy('scheduled_at')->latest('id')->paginate(20)->withQueryString();
+
+        $scoped = ContentPost::query()->when(! $canManage, fn ($q) => $q->where('user_id', $user->id));
+        $counts = (clone $scoped)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $attentionCount = (clone $scoped)->where(function ($q) {
+            $q->whereIn('status', [ContentPost::PARTIAL, ContentPost::FAILED])
+                ->orWhereHas('targets', fn ($t) => $t->whereIn('status', [ContentPostTarget::FAILED, ContentPostTarget::MANUAL_PENDING]));
+        })->count();
 
         return view('content.index', [
             'posts' => $posts,
-            'mine' => ! $canReview,
-            'creators' => $canReview ? User::whereIn('id', ContentPost::select('user_id'))->orderBy('fullname')->get(['id', 'fullname', 'username']) : collect(),
-            'manualCount' => $canReview ? ContentPostTarget::where('status', ContentPostTarget::MANUAL_PENDING)->count() : 0,
-            'failedCount' => $canReview ? ContentPostTarget::where('status', ContentPostTarget::FAILED)->count() : 0,
-            'status' => $request->query('status', 'all'),
+            'canManage' => $canManage,
+            'creators' => $canManage ? User::whereIn('id', ContentPost::select('user_id'))->orderBy('fullname')->get(['id', 'fullname', 'username']) : collect(),
+            'counts' => $counts,
+            'attentionCount' => $attentionCount,
+            'stage' => $stage,
+            'filters' => $request->only(['q', 'creator', 'platform', 'dari', 'sampai']),
         ]);
     }
 
-    public function create(): View
+    public function calendar(Request $request): View
     {
-        return view('content.form', ['post' => new ContentPost(['type' => 'image']), 'selected' => [], 'captions' => []]);
+        $request->validate(['month' => ['nullable', 'date_format:Y-m'], 'creator' => ['nullable', 'integer', 'exists:users,id']]);
+        $user = $request->user();
+        $canManage = $this->canManage($user);
+        abort_unless($canManage || ! $request->filled('creator'), 403);
+        $month = Carbon::createFromFormat('!Y-m', (string) $request->query('month', now()->format('Y-m')));
+        $start = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
+        $end = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
+        $posts = ContentPost::query()
+            ->when(! $canManage, fn ($q) => $q->where('user_id', $user->id))
+            ->when($canManage && $request->filled('creator'), fn ($q) => $q->where('user_id', $request->query('creator')))
+            ->whereBetween('scheduled_at', [$start, $end])
+            ->with(['targets', 'user'])->orderBy('scheduled_at')->get()
+            ->groupBy(fn ($post) => $post->scheduled_at->toDateString());
+
+        return view('content.calendar', [
+            'month' => $month, 'start' => $start, 'end' => $end, 'postsByDate' => $posts,
+            'canManage' => $canManage,
+            'creators' => $canManage ? User::whereIn('id', ContentPost::select('user_id'))->orderBy('fullname')->get(['id', 'fullname', 'username']) : collect(),
+            'creatorFilter' => $request->query('creator'),
+        ]);
+    }
+
+    public function create(Request $request): View
+    {
+        $request->validate(['scheduled_at' => ['nullable', 'date', 'after:now']]);
+        $post = new ContentPost(['type' => 'image', 'scheduled_at' => $request->query('scheduled_at')]);
+
+        return $this->formView($request, $post, [], []);
     }
 
     public function store(Request $request): RedirectResponse
@@ -99,13 +129,19 @@ class ContentPostController extends Controller
     public function show(Request $request, ContentPost $post): View
     {
         $this->authorizeView($request, $post);
-        $post->load(['targets.snapshots' => fn ($q) => $q->orderBy('captured_on'), 'user', 'reviewer']);
+        $post->load(['targets.snapshots' => fn ($q) => $q->orderBy('captured_on'), 'user']);
 
         $history = AuditLog::where('target_type', 'content_post')->where('target_id', $post->id)
             ->orderBy('id')->get(['action', 'performed_by_email', 'after_data', 'created_at']);
 
-        return view('content.show', ['post' => $post, 'media' => $post->filesIn(ContentPost::MEDIA)->get(), 'history' => $history,
-            'tiktokInfo' => $this->tiktokCreatorInfo($request, $post), 'insightChart' => $this->insightChart($post)]);
+        return view('content.show', [
+            'post' => $post,
+            'media' => $post->filesIn(ContentPost::MEDIA)->get(),
+            'history' => $history,
+            'canManage' => $this->canManage($request->user()),
+            'canPublish' => $request->user()->canDo('content.publish.manage'),
+            'insightChart' => $this->insightChart($post),
+        ]);
     }
 
     /** Grafik views per platform untuk detail konten (FR-82). Null bila belum ada snapshot. */
@@ -126,36 +162,39 @@ class ContentPostController extends Controller
         ];
     }
 
-    /**
-     * Info akun TikTok untuk form approve (pedoman UX TikTok: tampilkan nama akun,
-     * opsi privacy dari API, matikan toggle yang dinonaktifkan kreator). Hanya
-     * saat reviewer membuka konten in_review yang akan terbit ke TikTok via API.
-     */
-    private function tiktokCreatorInfo(Request $request, ContentPost $post): ?array
+    /** Info akun TikTok dipakai di form compose saat Direct Post aktif. */
+    private function tiktokCreatorInfo(): ?array
     {
-        $target = $post->targets->firstWhere('platform', 'tiktok');
-        if (! $target || $post->status !== ContentPost::IN_REVIEW || ! $request->user()->canDo('content.review') || $target->isManual()) {
+        $connection = SocialConnection::for('tiktok');
+        if (! $connection || ! $connection->isActive()) {
             return null;
         }
 
         try {
             $client = app(TikTokContentClient::class);
 
-            return $client->creatorInfo($client->freshToken(SocialConnection::for('tiktok')));
+            return $client->creatorInfo($client->freshToken($connection));
         } catch (\Throwable $e) {
             return ['error' => MetaClient::sanitize($e->getMessage())];
         }
+    }
+
+    private function formView(Request $request, ContentPost $post, array $selected, array $captions): View
+    {
+        return view('content.form', [
+            'post' => $post,
+            'selected' => $selected,
+            'captions' => $captions,
+            'tiktokInfo' => $this->tiktokCreatorInfo(),
+            'connections' => SocialConnection::all()->keyBy('platform'),
+        ]);
     }
 
     public function edit(Request $request, ContentPost $post): View
     {
         $this->authorizeOwnerEdit($request, $post);
 
-        return view('content.form', [
-            'post' => $post,
-            'selected' => $post->targets->pluck('platform')->all(),
-            'captions' => $post->targets->pluck('caption_override', 'platform')->all(),
-        ]);
+        return $this->formView($request, $post, $post->targets->pluck('platform')->all(), $post->targets->pluck('caption_override', 'platform')->all());
     }
 
     public function update(Request $request, ContentPost $post): RedirectResponse
@@ -177,20 +216,24 @@ class ContentPostController extends Controller
         return redirect()->route('content.index')->with('status', 'Konten dihapus.');
     }
 
-    public function submit(Request $request, ContentPost $post): RedirectResponse
+    public function retry(Request $request, ContentPostTarget $target): RedirectResponse
     {
-        $this->authorizeOwner($request, $post);
-        $this->service->submit($post);
+        $this->authorizeTargetManagement($request, $target);
+        $this->service->retry($target);
 
-        return redirect()->route('content.show', $post)->with('status', 'Konten diajukan untuk review.');
+        return back()->with('status', $target->platformLabel().' masuk antrean terbit lagi.');
     }
 
-    public function withdraw(Request $request, ContentPost $post): RedirectResponse
+    public function markPublished(Request $request, ContentPostTarget $target): RedirectResponse
     {
-        $this->authorizeOwner($request, $post);
-        $this->service->withdraw($post);
+        $this->authorizeTargetManagement($request, $target);
+        if ($target->post->scheduled_at?->isFuture()) {
+            throw ValidationException::withMessages(['permalink' => 'Posting manual dapat dicatat setelah waktu jadwal tiba.']);
+        }
+        $url = $request->validate(['permalink' => ['required', 'url:https', 'max:255']])['permalink'];
+        $this->service->markPublished($target, $url);
 
-        return redirect()->route('content.edit', $post)->with('status', 'Konten ditarik kembali ke draft.');
+        return back()->with('status', $target->platformLabel().' ditandai sudah terbit.');
     }
 
     /** @return array{0:array,1:array} data tervalidasi + file upload baru */
@@ -200,6 +243,7 @@ class ContentPostController extends Controller
         $data = $request->validate([
             'title' => ['required', 'string', 'max:150'],
             'type' => ['required', Rule::in(array_keys(ContentPost::TYPES))],
+            'intent' => ['required', Rule::in(['draft', 'publish'])],
             'caption' => ['nullable', 'string', 'max:63206'],
             'platforms' => ['array'],
             'platforms.*' => [Rule::in($platforms)],
@@ -207,6 +251,13 @@ class ContentPostController extends Controller
             'captions.*' => ['nullable', 'string', 'max:63206'],
             'scheduled_at' => ['nullable', 'date', 'after:now'],
             'creator_note' => ['nullable', 'string', 'max:2000'],
+            'tiktok' => ['nullable', 'array'],
+            'tiktok.privacy_level' => ['nullable', Rule::in(array_keys(TikTokContentClient::PRIVACY_LABELS))],
+            'tiktok.consent' => ['nullable', 'accepted'],
+            'tiktok.allow_comment' => ['nullable', 'boolean'],
+            'tiktok.allow_duet' => ['nullable', 'boolean'],
+            'tiktok.allow_stitch' => ['nullable', 'boolean'],
+            'tiktok.brand_organic' => ['nullable', 'boolean'],
             'media' => ['array', 'max:'.config('content.carousel_max')],
             'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,application/mp4', 'max:'.config('content.video_max_kb')],
         ], [
@@ -219,12 +270,16 @@ class ContentPostController extends Controller
         $data['captions'] = array_intersect_key($data['captions'] ?? [], array_flip($data['platforms']));
         $files = $request->file('media', []);
 
-        // "Simpan & Ajukan": cek kelengkapan SEBELUM menyimpan agar error tampil di form (AC-6).
-        if ($request->boolean('submit')) {
+        if ($data['intent'] === 'publish') {
             $media = $files !== [] ? ContentPostService::describeUploads($files) : ($post ? ContentPostService::describeStored($post) : []);
             $errors = ContentPostService::submitErrors($data['type'], $media, $data['caption'] ?? null, $data['platforms'], $data['captions']);
             if ($errors !== []) {
                 throw ValidationException::withMessages(['content' => $errors]);
+            }
+            $tiktok = SocialConnection::for('tiktok');
+            $tiktokApi = in_array('tiktok', $data['platforms'], true) && $tiktok?->isActive() && config('content.platforms.tiktok.mode') === 'auto';
+            if ($tiktokApi && (empty($data['tiktok']['privacy_level']) || empty($data['tiktok']['consent']))) {
+                throw ValidationException::withMessages(['tiktok' => 'Pilih privasi dan setujui ketentuan sebelum menerbitkan ke TikTok.']);
             }
         }
 
@@ -233,10 +288,10 @@ class ContentPostController extends Controller
 
     private function afterSave(Request $request, ContentPost $post): RedirectResponse
     {
-        if ($request->boolean('submit')) {
-            $this->service->submit($post->fresh());
+        if ($request->input('intent') === 'publish') {
+            $this->service->publish($post->fresh(), $request->input('tiktok', []));
 
-            return redirect()->route('content.show', $post)->with('status', 'Konten disimpan & diajukan untuk review.');
+            return redirect()->route('content.show', $post)->with('status', 'Konten masuk pipeline publikasi.');
         }
 
         return redirect()->route('content.edit', $post)->with('status', 'Draft tersimpan.');
@@ -245,7 +300,7 @@ class ContentPostController extends Controller
     private function authorizeView(Request $request, ContentPost $post): void
     {
         $u = $request->user();
-        abort_unless(($post->user_id === $u->id && $u->canDo('content.create')) || $u->canDo('content.review'), 403);
+        abort_unless(($post->user_id === $u->id && $u->canDo('content.create')) || $this->canManage($u), 403);
     }
 
     private function authorizeOwner(Request $request, ContentPost $post): void
@@ -256,6 +311,19 @@ class ContentPostController extends Controller
     private function authorizeOwnerEdit(Request $request, ContentPost $post): void
     {
         $this->authorizeOwner($request, $post);
-        abort_unless($post->isEditable(), 403, 'Konten yang sedang direview / sudah disetujui tidak bisa diubah.');
+        abort_unless($post->isEditable(), 403, 'Konten yang sudah mulai terbit tidak dapat diubah.');
+    }
+
+    private function authorizeTargetManagement(Request $request, ContentPostTarget $target): void
+    {
+        $target->loadMissing('post');
+        $user = $request->user();
+        $owns = $target->post->user_id === $user->id && $user->canDo('content.create');
+        abort_unless(($owns && $user->canDo('content.publish.manage')) || $this->canManage($user), 403);
+    }
+
+    private function canManage(User $user): bool
+    {
+        return $user->isSuperAdmin() || $user->canDo('content.manage');
     }
 }

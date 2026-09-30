@@ -30,13 +30,19 @@
             <option value="">Semua Status</option>
             @foreach(['active','inactive','deleted'] as $s)<option value="{{ $s }}" @selected(($filters['status'] ?? '')===$s)>{{ $s }}</option>@endforeach
         </select>
-        <button class="px-4 py-2 text-sm bg-stone-200 rounded-lg hover:bg-stone-300">Filter</button>
+        <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-400" aria-label="Terapkan filter">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.3-4.3M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0Z"/></svg>Filter
+        </button>
     </form>
     <div class="flex gap-2">
         @if(auth()->user()->canDo('manage_users'))
-            <a href="{{ route('onboarding.create') }}" class="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold">+ Onboarding via Paket Join</a>
+            <a href="{{ route('onboarding.create') }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>Onboarding via Paket Join
+            </a>
         @endif
-        <button onclick="openCreateUser()" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah User</button>
+        <button onclick="openCreateUser()" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m6-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10-3v6m-3-3h6"/></svg>Tambah User
+        </button>
     </div>
 </div>
 
@@ -72,14 +78,14 @@
                     </td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
                         @if($row->status !== 'deleted')
-                            <button class="text-stone-500 hover:text-stone-900 font-semibold"
-                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","city","status","upline_id","member_id"])) }})'>Edit</button>
-                            <form method="POST" action="{{ route('users.toggle-status', $row) }}" class="inline">
+                            <button type="button" aria-label="Edit {{ $row->fullname }}" title="Edit anggota" class="inline-flex items-center justify-center w-9 h-9 text-stone-600 bg-white border border-stone-200 rounded-lg hover:text-red-700 hover:border-red-200 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                onclick='openEditUser({{ json_encode($row->only(["id","fullname","email","username","role","company_name","phone","address","region","city","status","upline_id","member_id"])) }})'><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.5 5.5 3 3M4 20l4.5-.9L19.3 8.3a2.1 2.1 0 0 0-3-3L5.5 16.1 4 20Z"/></svg></button>
+                            <form method="POST" action="{{ route('users.toggle-status', $row) }}" class="inline ml-1">
                                 @csrf
-                                <button class="ml-2 text-amber-600 hover:text-amber-800 font-semibold">{{ $row->status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}</button>
+                                <button aria-label="{{ $row->status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }} {{ $row->fullname }}" title="{{ $row->status === 'active' ? 'Nonaktifkan anggota' : 'Aktifkan anggota' }}" class="inline-flex items-center justify-center w-9 h-9 text-amber-700 bg-white border border-stone-200 rounded-lg hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v9m6.4-6.4a9 9 0 1 1-12.8 0"/></svg></button>
                             </form>
-                            <button class="ml-2 text-blue-600 hover:text-blue-800 font-semibold"
-                                onclick='openResetPw({{ $row->id }}, {{ json_encode($row->fullname) }})'>Reset PW</button>
+                            <button type="button" aria-label="Reset password {{ $row->fullname }}" title="Reset password" class="inline-flex items-center justify-center w-9 h-9 ml-1 text-blue-700 bg-white border border-stone-200 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onclick='openResetPw({{ $row->id }}, {{ json_encode($row->fullname) }})'><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 2.6-6.4L3 8m0-5v5h5m4-1v5l3 2"/></svg></button>
                             {{-- Syaratnya sengaja dicerminkan di ImpersonationService juga:
                                  menyembunyikan tombol bukan pengamanan, rutenya tetap bisa
                                  dipanggil langsung. --}}
@@ -87,20 +93,20 @@
                                 <form method="POST" action="{{ route('users.impersonate', $row) }}" class="inline"
                                     onsubmit="return confirm('Masuk sebagai {{ $row->fullname }}?\n\nSemua tindakan Anda akan tercatat atas nama mereka. Tercatat di Audit Log.')">
                                     @csrf
-                                    <button class="ml-2 text-indigo-600 hover:text-indigo-800 font-semibold">Masuk sebagai</button>
+                                    <button aria-label="Masuk sebagai {{ $row->fullname }}" title="Masuk sebagai anggota" class="inline-flex items-center justify-center w-9 h-9 ml-1 text-indigo-700 bg-white border border-stone-200 rounded-lg hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h6v6m-11 5L21 3M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></svg></button>
                                 </form>
                             @endif
                             @if($isSuper && !$row->isSuperAdmin() && $row->id !== auth()->id())
                                 <form method="POST" action="{{ route('users.destroy', $row) }}" class="inline" onsubmit="return confirm('Hapus user ini (soft delete)?')">
                                     @csrf @method('DELETE')
-                                    <button class="ml-2 text-rose-600 hover:text-rose-800 font-semibold">Hapus</button>
+                                    <button aria-label="Hapus {{ $row->fullname }}" title="Hapus anggota" class="inline-flex items-center justify-center w-9 h-9 ml-1 text-rose-600 bg-white border border-stone-200 rounded-lg hover:border-rose-200 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
                                 </form>
                             @endif
                             @if($row->activeJoinTransaction)
                                 <form method="POST" action="{{ route('join-transactions.cancel', $row->activeJoinTransaction) }}" class="inline"
                                     onsubmit="return confirm('Batalkan join {{ $row->fullname }}?\n\nBonus join ke perekrut akan ditarik & stok paket dikembalikan ke HQ. Tercatat di Audit Log.')">
                                     @csrf
-                                    <button class="ml-2 text-orange-600 hover:text-orange-800 font-semibold">Batal Join</button>
+                                    <button aria-label="Batalkan join {{ $row->fullname }}" title="Batalkan join" class="inline-flex items-center justify-center w-9 h-9 ml-1 text-orange-700 bg-white border border-stone-200 rounded-lg hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m7 7 10 10M17 7 7 17M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></button>
                                 </form>
                             @endif
                         @else
@@ -108,7 +114,7 @@
                                 <form method="POST" action="{{ route('users.restore', $row) }}" class="inline"
                                     onsubmit="return confirm('Pulihkan {{ $row->fullname }}? Akun akan aktif & bisa login lagi.')">
                                     @csrf
-                                    <button class="text-emerald-600 hover:text-emerald-800 font-semibold">Pulihkan</button>
+                                    <button aria-label="Pulihkan {{ $row->fullname }}" title="Pulihkan anggota" class="inline-flex items-center justify-center w-9 h-9 text-emerald-700 bg-white border border-stone-200 rounded-lg hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 2.6-6.4L3 8m0-5v5h5m-1 4a3 3 0 1 0 3-3"/></svg></button>
                                 </form>
                             @else
                                 <span class="text-stone-400">—</span>

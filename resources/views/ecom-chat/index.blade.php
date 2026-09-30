@@ -36,7 +36,7 @@
     var badgeMap = {
         needs_staff: ['Perlu staf', 'bg-amber-100 text-amber-800'],
         open: ['Baru', 'bg-sky-100 text-sky-800'],
-        replied_ai: ['🤖 Dibalas AI', 'bg-violet-100 text-violet-800'],
+        replied_ai: ['Dibalas AI', 'bg-violet-100 text-violet-800'],
         replied_staff: ['Dibalas staf', 'bg-emerald-100 text-emerald-800'],
         closed: ['Selesai', 'bg-stone-100 text-stone-600'],
     };

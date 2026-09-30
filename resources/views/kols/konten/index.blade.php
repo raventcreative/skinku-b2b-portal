@@ -5,7 +5,7 @@
 @section('content')
 @php $u = auth()->user(); $canManage = $u->canDo('kol.content.manage'); @endphp
 
-<div class="space-y-4">
+<div class="mx-auto max-w-[1440px] space-y-5 px-1 sm:px-2">
 
     @if(session('status'))
         <div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>
@@ -16,21 +16,21 @@
 
     {{-- Nav bulan + aksi --}}
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2 text-sm">
-            <a href="{{ route('kol-konten.index', ['bulan' => $prevMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">←</a>
-            <span class="font-semibold text-stone-700">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}</span>
-            <a href="{{ route('kol-konten.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
+        <div class="inline-flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-1.5 text-sm shadow-sm">
+            <a aria-label="Bulan sebelumnya" title="Bulan sebelumnya" href="{{ route('kol-konten.index', ['bulan' => $prevMonth]) }}" class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-stone-600 hover:bg-stone-100"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg></a>
+            <span class="font-semibold text-stone-800 min-w-32 text-center">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}</span>
+            <a aria-label="Bulan berikutnya" title="Bulan berikutnya" href="{{ route('kol-konten.index', ['bulan' => $nextMonth]) }}" class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-stone-600 hover:bg-stone-100"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg></a>
         </div>
         @if($canManage)
             <div class="flex gap-2">
-                <a href="{{ route('kol-konten.grid', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">Isi views massal</a>
-                <a href="{{ route('kol-konten.create') }}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">+ Tambah konten</a>
+                <a href="{{ route('kol-konten.grid', ['bulan' => $month]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16v14H4zM4 10h16M9 5v14m6-14v14"/></svg>Isi views massal</a>
+                <a href="{{ route('kol-konten.create') }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>Tambah konten</a>
             </div>
         @endif
     </div>
 
     {{-- Filter --}}
-    <form method="GET" class="flex flex-wrap items-center gap-2 text-xs">
+    <form method="GET" class="flex flex-wrap items-center gap-2 text-xs rounded-2xl border border-stone-200 bg-white p-3 shadow-sm">
         <input type="hidden" name="bulan" value="{{ $month }}">
         <select name="creator" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg bg-white max-w-[160px]">
             <option value="">Semua creator</option>
@@ -49,17 +49,17 @@
             <option value="">Semua tipe</option>
             @foreach($types as $val => $lbl)<option value="{{ $val }}" @selected(($filters['type'] ?? '') === $val)>{{ $lbl }}</option>@endforeach
         </select>
-        @if(array_filter($filters))<a href="{{ route('kol-konten.index', ['bulan' => $month]) }}" class="text-indigo-600 hover:underline">reset</a>@endif
+        @if(array_filter($filters))<a href="{{ route('kol-konten.index', ['bulan' => $month]) }}" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-red-700 hover:bg-red-50 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M7 7V4h10v3m-9 0 1 13h6l1-13"/></svg>Reset filter</a>@endif
     </form>
 
     {{-- Ringkasan --}}
-    <div class="grid sm:grid-cols-3 gap-3">
-        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+    <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
             <p class="text-xs text-stone-500">Total views bulan ini</p>
             <p class="text-2xl font-bold text-stone-800">{{ number_format($total, 0, ',', '.') }}</p>
             <p class="text-[11px] text-stone-400">{{ $contents->count() }} konten</p>
         </div>
-        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+        <div class="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
             <p class="text-xs text-stone-500">Paid vs Earned</p>
             <p class="text-sm font-semibold text-stone-800 mt-1">
                 <span class="text-indigo-600">{{ number_format($paid, 0, ',', '.') }}</span> paid ·
@@ -67,7 +67,7 @@
             </p>
             <p class="text-[11px] text-stone-400">{{ $total > 0 ? round($paid / $total * 100) : 0 }}% paid</p>
         </div>
-        <div class="bg-white rounded-2xl border border-stone-200 p-4">
+        <div class="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
             <div class="flex items-center justify-between">
                 <p class="text-xs text-stone-500">Target &amp; proyeksi</p>
                 @if($isCurrent)
@@ -82,7 +82,7 @@
                     @csrf
                     <span class="text-[11px] text-stone-400">target</span>
                     <input type="number" name="target" min="0" value="{{ $target }}" class="w-28 px-2 py-1 border border-stone-300 rounded-sm text-xs text-right">
-                    <button class="text-[11px] text-indigo-600 hover:underline">simpan</button>
+                    <button aria-label="Simpan target views" title="Simpan target" class="inline-flex items-center justify-center w-8 h-8 text-indigo-700 border border-indigo-100 rounded-lg hover:bg-indigo-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg></button>
                 </form>
             @else
                 <p class="text-[11px] text-stone-400">target {{ number_format($target, 0, ',', '.') }}</p>
@@ -101,7 +101,11 @@
     </div>
 
     {{-- Tabel konten --}}
-    <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+    <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-stone-100">
+            <div><h2 class="text-sm font-bold text-stone-800">Performa konten</h2><p class="text-xs text-stone-500 mt-0.5">Views terbaru, engagement, dan riwayat setiap posting.</p></div>
+            <span class="text-xs text-stone-500">{{ $contents->count() }} konten</span>
+        </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-stone-50 text-stone-500 text-xs">
@@ -122,7 +126,7 @@
                             <td class="px-4 py-2.5 max-w-xs">
                                 <a href="{{ $c->url }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline truncate block">{{ $c->title ?: $c->url }}</a>
                                 <span class="flex items-center gap-2">
-                                    <a href="{{ route('kol-konten.show', $c) }}" class="text-[10px] text-stone-500 hover:text-stone-800"> riwayat &amp; grafik</a>
+                                    <a href="{{ route('kol-konten.show', $c) }}" class="inline-flex items-center gap-1 text-[10px] font-semibold text-stone-600 hover:text-red-700"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 14l4-4 3 3 6-7"/></svg>Riwayat &amp; grafik</a>
                                     @if($c->deal)<span class="text-[10px] text-stone-400">· deal {{ $c->deal->kode }}</span>@endif
                                 </span>
                             </td>
@@ -141,10 +145,10 @@
                             <td class="px-4 py-2.5 text-stone-500">{{ $c->posted_at->format('d M Y') }}</td>
                             @if($canManage)
                                 <td class="px-4 py-2.5 text-right whitespace-nowrap">
-                                    <a href="{{ route('kol-konten.edit', $c) }}" class="text-xs text-indigo-600 hover:underline">edit</a>
-                                    <form method="POST" action="{{ route('kol-konten.destroy', $c) }}" class="inline ml-2" onsubmit="return confirm('Hapus konten ini?')">
+                                    <a href="{{ route('kol-konten.edit', $c) }}" aria-label="Edit konten {{ $c->title ?: $c->url }}" title="Edit konten" class="inline-flex items-center justify-center w-8 h-8 text-stone-600 border border-stone-200 rounded-lg hover:bg-stone-100"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.5 5.5 3 3M4 20l4.5-.9L19.3 8.3a2.1 2.1 0 0 0-3-3L5.5 16.1 4 20Z"/></svg></a>
+                                    <form method="POST" action="{{ route('kol-konten.destroy', $c) }}" class="inline ml-1" onsubmit="return confirm('Hapus konten ini?')">
                                         @csrf @method('DELETE')
-                                        <button class="text-xs text-rose-500 hover:underline">hapus</button>
+                                        <button aria-label="Hapus konten {{ $c->title ?: $c->url }}" title="Hapus konten" class="inline-flex items-center justify-center w-8 h-8 text-rose-600 border border-rose-100 rounded-lg hover:bg-rose-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
                                     </form>
                                 </td>
                             @endif

@@ -5,19 +5,23 @@
 @php
     $tabUrl = fn ($t) => route('marketplace-stock.index', array_filter(['tab' => $t === 'semua' ? null : $t]));
 @endphp
-<div class="space-y-4">
+<div class="mx-auto max-w-[1440px] space-y-5 px-1 sm:px-2">
     @if(session('status'))<div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>@endif
     @if(session('error'))<div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ session('error') }}</div>@endif
     @if($errors->any())<div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">Periksa input.</div>@endif
 
-    <div class="bg-white rounded-2xl border border-stone-200 p-5">
+    <div class="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div><h2 class="text-sm font-bold text-stone-800">Master produk</h2><p class="mt-1 text-xs text-stone-500">Kelola stok, harga dasar, dan tautan listing marketplace.</p></div>
+            <span class="px-3 py-1.5 rounded-full bg-stone-100 text-stone-600 text-xs font-semibold">{{ $counts['semua'] }} produk</span>
+        </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('marketplace-stock.create') }}" class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800">+ Tambah Produk Baru</a>
-            <form method="POST" action="{{ route('marketplace-stock.push-all') }}">@csrf<button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Sinkron semua</button></form>
-            <form method="POST" action="{{ route('marketplace-stock.resolve') }}">@csrf<button class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200"> Refresh Listing</button></form>
-            <form method="POST" action="{{ route('marketplace-stock.kosongkan') }}" onsubmit="return confirm('Kosongkan SEMUA produk master? Semua master + tautannya dihapus permanen (stok HQ TIDAK terpengaruh). Tidak bisa dibatalkan.')">@csrf<button class="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700"> Kosongkan Semua Master</button></form>
-            <a href="{{ route('marketplace-stock.channel', 'tiktok') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok & Harga TikTok →</a>
-            <a href="{{ route('marketplace-stock.channel', 'shopee') }}" class="px-4 py-2 text-sm bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok & Harga Shopee →</a>
+            <a href="{{ route('marketplace-stock.create') }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-red-700 text-white rounded-lg hover:bg-red-800"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>Tambah produk</a>
+            <form method="POST" action="{{ route('marketplace-stock.push-all') }}">@csrf<button class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7v5h-5M4 17v-5h5m-3-3a7 7 0 0 1 12-2l2 2M4 13l2 2a7 7 0 0 0 12-2"/></svg>Sinkron semua</button></form>
+            <form method="POST" action="{{ route('marketplace-stock.resolve') }}">@csrf<button class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 2.6-6.4L3 8m0-5v5h5m4 1v5l3 2"/></svg>Refresh listing</button></form>
+            <form method="POST" action="{{ route('marketplace-stock.kosongkan') }}" onsubmit="return confirm('Kosongkan SEMUA produk master? Semua master + tautannya dihapus permanen (stok HQ TIDAK terpengaruh). Tidak bisa dibatalkan.')">@csrf<button class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-white border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>Kosongkan master</button></form>
+            <a href="{{ route('marketplace-stock.channel', 'tiktok') }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok &amp; Harga TikTok <span aria-hidden="true">→</span></a>
+            <a href="{{ route('marketplace-stock.channel', 'shopee') }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200">Stok &amp; Harga Shopee <span aria-hidden="true">→</span></a>
         </div>
         @if($unlinkedCount > 0)
             <p class="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{{ $unlinkedCount }} listing belum ditautkan ke master — pakai "Tambah ke Marketplace" pada produk untuk menautkan.</p>
@@ -25,9 +29,9 @@
     </div>
 
     {{-- Tabs --}}
-    <div class="flex gap-1 text-sm">
+    <div class="flex gap-2 text-sm border-b border-stone-200">
         @foreach(['semua' => 'Semua', 'satuan' => 'Satuan', 'bundle' => 'Bundle'] as $key => $label)
-            <a href="{{ $tabUrl($key) }}" class="px-4 py-2 rounded-lg {{ $tab === $key ? 'bg-stone-800 text-white' : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50' }}">{{ $label }} <span class="opacity-70">({{ $counts[$key] }})</span></a>
+            <a href="{{ $tabUrl($key) }}" class="px-4 py-2.5 rounded-t-xl border-b-2 font-semibold {{ $tab === $key ? 'border-red-600 text-red-700 bg-red-50/50' : 'border-transparent text-stone-500 hover:text-stone-800 hover:bg-stone-50' }}">{{ $label }} <span class="ml-1 opacity-70">{{ $counts[$key] }}</span></a>
         @endforeach
     </div>
 
@@ -36,8 +40,9 @@
             <p class="px-5 py-12 text-center text-stone-400 text-sm">Belum ada produk master. Klik <span class="font-medium text-stone-600">+ Tambah Produk Baru</span> untuk mulai.</p>
         </div>
     @else
-        <div class="bg-white rounded-2xl border border-stone-200 overflow-visible">
-            <table class="w-full text-sm">
+        <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full min-w-[1050px] text-sm">
                 <thead class="text-left text-stone-500 border-b border-stone-200">
                     <tr>
                         <th class="px-4 py-3 font-medium">Informasi Produk</th>
@@ -73,13 +78,13 @@
                             <td class="px-4 py-3">
                                 <form method="POST" action="{{ route('marketplace-stock.master.harga', $m) }}" class="flex items-center gap-1">@csrf
                                     <input type="number" step="0.01" min="0" name="price" value="{{ $m->base_price }}" placeholder="—" class="w-24 px-2 py-1 border border-stone-200 rounded">
-                                    <button class="text-xs text-indigo-600 hover:underline">set</button>
+                                    <button aria-label="Simpan harga {{ $m->name }}" title="Simpan harga" class="inline-flex items-center justify-center w-8 h-8 text-indigo-700 border border-indigo-100 rounded-lg hover:bg-indigo-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg></button>
                                 </form>
                             </td>
                             <td class="px-4 py-3">
                                 <form method="POST" action="{{ route('marketplace-stock.master.stok', $m) }}" class="flex items-center gap-1">@csrf
                                     <input type="number" min="0" name="quantity" value="{{ $m->base_stock }}" placeholder="—" class="w-20 px-2 py-1 border border-stone-200 rounded">
-                                    <button class="text-xs text-indigo-600 hover:underline">set</button>
+                                    <button aria-label="Simpan stok {{ $m->name }}" title="Simpan stok" class="inline-flex items-center justify-center w-8 h-8 text-indigo-700 border border-indigo-100 rounded-lg hover:bg-indigo-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg></button>
                                 </form>
                             </td>
                             <td class="px-4 py-3">
@@ -94,14 +99,14 @@
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <details class="relative inline-block text-left">
-                                    <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700">Atur ▾</summary>
-                                    <div class="absolute right-0 mt-1 w-56 bg-white border border-stone-200 rounded-lg shadow-lg z-20 py-1 text-left">
-                                        <a href="{{ route('marketplace-stock.edit', $m) }}" class="block px-4 py-2 hover:bg-stone-50">Ubah</a>
-                                        <form method="POST" action="{{ route('marketplace-stock.duplikat', $m) }}">@csrf<button class="w-full text-left px-4 py-2 hover:bg-stone-50">Duplikat Produk</button></form>
-                                        <button type="button" data-master-id="{{ $m->id }}" data-master-sku="{{ $m->master_sku }}" data-master-name="{{ $m->name }}" onclick="mpOpenKaitkan(this)" class="w-full text-left px-4 py-2 hover:bg-stone-50">Tambah ke Marketplace</button>
-                                        <form method="POST" action="{{ route('marketplace-stock.master.konten', $m) }}" onsubmit="return confirm('Kirim &amp; timpa deskripsi/berat/dimensi produk ini di TikTok &amp; Shopee? (field kosong dilewati, foto belum termasuk)')">@csrf<button class="w-full text-left px-4 py-2 hover:bg-stone-50" title="Kirim deskripsi, berat, dan dimensi ke listing TikTok/Shopee yang tertaut">Dorong Konten</button></form>
-                                        <form method="POST" action="{{ route('marketplace-stock.master.bundle', $m) }}">@csrf<button class="w-full text-left px-4 py-2 hover:bg-stone-50">{{ $m->is_bundle ? 'Jadikan Satuan' : 'Jadikan Bundle' }}</button></form>
-                                        <form method="POST" action="{{ route('marketplace-stock.master.hapus', $m) }}" onsubmit="return confirm('Hapus produk master ini?')">@csrf @method('DELETE')<button class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Hapus</button></form>
+                                    <summary aria-label="Aksi produk {{ $m->name }}" class="cursor-pointer list-none inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white border border-stone-200 hover:bg-stone-100 text-stone-700"><svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></summary>
+                                    <div class="absolute right-0 mt-1 w-60 bg-white border border-stone-200 rounded-xl shadow-lg z-20 py-1.5 text-left">
+                                        <a href="{{ route('marketplace-stock.edit', $m) }}" class="flex items-center gap-2 px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.5 5.5 3 3M4 20l4.5-.9L19.3 8.3a2.1 2.1 0 0 0-3-3L5.5 16.1 4 20Z"/></svg>Ubah master</a>
+                                        <form method="POST" action="{{ route('marketplace-stock.duplikat', $m) }}">@csrf<button class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><rect x="8" y="8" width="12" height="12" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>Duplikat produk</button></form>
+                                        <button type="button" data-master-id="{{ $m->id }}" data-master-sku="{{ $m->master_sku }}" data-master-name="{{ $m->name }}" onclick="mpOpenKaitkan(this)" class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7m2.7 6.4a5 5 0 0 0-7.1 0l-3 3A5 5 0 0 0 11 21.1l1.7-1.7"/></svg>Tambah ke marketplace</button>
+                                        <form method="POST" action="{{ route('marketplace-stock.master.konten', $m) }}" onsubmit="return confirm('Kirim &amp; timpa deskripsi/berat/dimensi produk ini di TikTok &amp; Shopee? (field kosong dilewati, foto belum termasuk)')">@csrf<button class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50" title="Kirim deskripsi, berat, dan dimensi ke listing TikTok/Shopee yang tertaut"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-6-6 6 6-6 6M5 5v14"/></svg>Dorong konten</button></form>
+                                        <form method="POST" action="{{ route('marketplace-stock.master.bundle', $m) }}">@csrf<button class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 5 9 5 9-5"/></svg>{{ $m->is_bundle ? 'Jadikan satuan' : 'Jadikan bundle' }}</button></form>
+                                        <form method="POST" action="{{ route('marketplace-stock.master.hapus', $m) }}" onsubmit="return confirm('Hapus produk master ini?')">@csrf @method('DELETE')<button class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>Hapus master</button></form>
                                     </div>
                                 </details>
                             </td>
@@ -109,6 +114,7 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
         </div>
     @endif
 </div>
@@ -202,9 +208,9 @@ window.__mp = {
         var tb=document.getElementById('kaitkanRows'); tb.innerHTML='';
         rows.forEach(function(r){
             var l=r.l, st=r.st, shop=(window.__mp.shopNames||{})[l.channel]||'';
-            var badge = st==='terkait' ? '<span class="text-[11px] text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5">✅ Tertaut</span>'
-                : st==='tidak' ? '<span class="text-[11px] text-stone-500 bg-stone-100 rounded px-1.5 py-0.5">⬜ Belum</span>'
-                : '<span class="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">🔗 '+esc((window.__mp.masterNames||{})[l.master_id]||'master lain')+'</span>';
+            var badge = st==='terkait' ? '<span class="text-[11px] text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5">Tertaut</span>'
+                : st==='tidak' ? '<span class="text-[11px] text-stone-500 bg-stone-100 rounded px-1.5 py-0.5">Belum tertaut</span>'
+                : '<span class="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-0.5">Master lain · '+esc((window.__mp.masterNames||{})[l.master_id]||'')+'</span>';
             var dis = st==='lain' ? 'disabled' : '';
             var tr=document.createElement('tr');
             tr.innerHTML='<td class="py-2"><input type="checkbox" class="kaitkan-cb" data-id="'+l.id+'" data-st="'+st+'" '+dis+'></td>'

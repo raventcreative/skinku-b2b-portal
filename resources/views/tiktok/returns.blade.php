@@ -7,7 +7,7 @@
 
 <div class="mt-3 flex flex-wrap items-center gap-3">
     <form method="POST" action="{{ route('tiktok.returns.sync') }}">@csrf
-        <button class="px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900"> Tarik Retur dari TikTok</button>
+        <button class="inline-flex items-center gap-2 px-4 py-2 text-sm bg-stone-800 text-white rounded-lg hover:bg-stone-900"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7v5h-5M4 17v-5h5M5.6 9A8 8 0 0 1 19 6l1 1M4 17l1 1a8 8 0 0 0 13.4-3"/></svg>Tarik Retur dari TikTok</button>
     </form>
     <span class="text-[11px] text-stone-500">Barang retur <b>tidak otomatis masuk stok</b>. Cek dulu: <b>layak jual</b> → Terima (stok +), <b>cacat</b> → Tolak.</span>
 </div>
@@ -32,7 +32,7 @@
                                 <span class="text-emerald-700">{{ $c['product']->name }}</span><span class="text-emerald-600 font-semibold"> +{{ $c['add'] }}</span>@if(!$loop->last)<span class="text-stone-300"> + </span>@endif
                             @endforeach
                         @else
-                            <span class="text-rose-600 font-semibold">❌ SKU belum ada resep</span>
+                            <span class="inline-flex rounded-md bg-rose-50 px-2 py-1 font-semibold text-rose-700">Perlu resep SKU</span>
                         @endif
                     </div>
                 @empty
@@ -42,26 +42,26 @@
             </div>
             <div class="sm:w-48 sm:shrink-0 sm:text-right">
                 @if($r->review_status === \App\Models\TiktokReturn::REVIEW_RESTOCKED)
-                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">✓ stok ditambah</span>
+                    <span class="px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-semibold">Stok ditambah</span>
                     <form method="POST" action="{{ route('tiktok.returns.reset', $r) }}" class="inline" onsubmit="return confirm('Batalkan? Stok yang tadi ditambah akan ditarik lagi.')">@csrf
-                        <button class="ml-1 text-[10px] text-stone-500 hover:text-rose-600 underline">batalkan</button>
+                        <button class="inline-flex items-center gap-1 ml-1 text-[10px] text-stone-500 hover:text-rose-600 underline"><svg aria-hidden="true" focusable="false" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v6h6M5.6 5.6A9 9 0 1 1 3 13"/></svg>Batalkan</button>
                     </form>
                 @elseif($r->review_status === \App\Models\TiktokReturn::REVIEW_REJECTED)
-                    <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">✗ ditolak (cacat)</span>
+                    <span class="px-2 py-1 rounded-full bg-rose-100 text-rose-800 text-[11px] font-semibold">Ditolak (cacat)</span>
                     <form method="POST" action="{{ route('tiktok.returns.reset', $r) }}" class="inline">@csrf
-                        <button class="ml-1 text-[10px] text-stone-500 hover:text-stone-700 underline">ubah</button>
+                        <button class="inline-flex items-center gap-1 ml-1 text-[10px] text-stone-500 hover:text-stone-700 underline"><svg aria-hidden="true" focusable="false" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m16 5 3 3L8 19H5v-3L16 5Z"/></svg>Ubah</button>
                     </form>
                 @else
                     <div class="flex sm:flex-col gap-1.5 sm:items-end">
                         @if($pv['all_matched'])
                             <form method="POST" action="{{ route('tiktok.returns.restock', $r) }}" onsubmit="return confirm('Barang layak jual — tambah stok?')">@csrf
-                                <button class="px-3 py-1.5 text-[11px] bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold w-full"> Terima &amp; Tambah Stok</button>
+                                <button class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold w-full"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>Terima &amp; Tambah Stok</button>
                             </form>
                         @else
                             <span class="text-[10px] text-rose-500">petakan SKU dulu (di Pesanan)</span>
                         @endif
                         <form method="POST" action="{{ route('tiktok.returns.reject', $r) }}" onsubmit="return confirm('Tandai cacat / tidak layak jual? Stok tidak ditambah.')">@csrf
-                            <button class="px-3 py-1.5 text-[11px] bg-white border border-rose-300 text-rose-600 rounded-lg hover:bg-rose-50 font-semibold w-full"> Tolak (cacat)</button>
+                            <button class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] bg-white border border-rose-300 text-rose-600 rounded-lg hover:bg-rose-50 font-semibold w-full"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></svg>Tolak (cacat)</button>
                         </form>
                     </div>
                 @endif

@@ -3,9 +3,10 @@
 @section('heading', 'Petakan Kolom Import')
 
 @section('content')
-<a href="{{ route('kol-affiliate.import') }}" class="text-xs text-stone-500 hover:text-stone-800">← Unggah file lain</a>
+<div class="mx-auto max-w-[1440px] px-2 sm:px-4 space-y-4">
+<a href="{{ route('kol-affiliate.import') }}" class="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>Unggah file lain</a>
 
-<div class="mt-3 space-y-5">
+<div class="space-y-5">
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <p class="text-sm text-stone-700">
             File <b>{{ $filename }}</b> ({{ strtoupper($platform) }}) — <b class="tabular-nums">{{ number_format($rowCount, 0, ',', '.') }}</b> baris data.
@@ -76,10 +77,11 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-4">
-            <button class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Import sekarang</button>
+        <div class="flex flex-wrap items-center gap-4 rounded-2xl bg-white border border-stone-200 p-4">
+            <button class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4m-4 7v2h16v-2"/></svg>Import sekarang</button>
             <span class="text-[11px] text-stone-400">Username tak dikenal masuk daftar "Belum Cocok" untuk ditautkan manual.</span>
         </div>
     </form>
+</div>
 </div>
 @endsection

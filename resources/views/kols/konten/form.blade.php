@@ -5,7 +5,7 @@
 @section('content')
 <a href="{{ route('kol-konten.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Konten &amp; Views</a>
 
-<div class="max-w-2xl mt-3">
+<div class="mx-auto max-w-3xl mt-4">
     @if($errors->any())
         <div class="mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ $errors->first() }}</div>
     @endif
@@ -37,7 +37,7 @@
                 <div class="mt-1 flex gap-2">
                     <input name="url" id="urlInput" required maxlength="255" value="{{ old('url', $content->url) }}"
                         placeholder="https://www.tiktok.com/@.../video/..." class="flex-1 px-3 py-2 border border-stone-300 rounded-lg">
-                    <button type="button" id="fetchTitle" class="px-3 py-2 text-xs font-semibold rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50 whitespace-nowrap">Ambil judul</button>
+                    <button type="button" id="fetchTitle" class="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border border-stone-300 text-stone-700 hover:bg-stone-50 whitespace-nowrap"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 2.6-6.4L3 8m0-5v5h5m4 1v5l3 2"/></svg>Ambil judul</button>
                 </div>
             </label>
 
@@ -100,7 +100,7 @@
             @endunless
 
             <div class="flex items-center gap-4 pt-2">
-                <button class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">{{ $content->exists ? 'Simpan Perubahan' : 'Tambah Konten' }}</button>
+                <button class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $content->exists ? 'M4 20h4l10.8-10.8a2.1 2.1 0 0 0-3-3L5 17v3Z' : 'M12 5v14m-7-7h14' }}"/></svg>{{ $content->exists ? 'Simpan Perubahan' : 'Tambah Konten' }}</button>
                 <a href="{{ route('kol-konten.index') }}" class="text-xs text-stone-500 hover:text-stone-800">Batal</a>
             </div>
         </form>
