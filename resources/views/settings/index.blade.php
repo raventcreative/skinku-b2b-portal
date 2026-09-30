@@ -3,20 +3,7 @@
 @section('heading', 'Pengaturan Sistem')
 
 @section('content')
-<div class="max-w-2xl">
-    <div class="bg-white rounded-2xl border border-stone-200 p-6">
-        <h3 class="text-sm font-bold text-stone-900 mb-1">Ringkasan Lingkungan</h3>
-        <p class="text-xs text-stone-500 mb-5">Konfigurasi sensitif dikelola melalui file <code class="bg-stone-100 px-1 rounded-sm">.env</code> dan tidak dapat diubah dari UI demi keamanan.</p>
-        <dl class="divide-y divide-stone-100 text-sm">
-            @foreach($info as $key => $value)
-                <div class="flex justify-between py-2.5">
-                    <dt class="text-stone-500 uppercase text-xs tracking-wide">{{ str_replace('_', ' ', $key) }}</dt>
-                    <dd class="font-semibold text-stone-800">{{ $value }}</dd>
-                </div>
-            @endforeach
-        </dl>
-    </div>
-
+<div class="w-full">
     {{-- Asisten AI — pilih otak (provider + model). Key tetap di .env. --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
         <h3 class="text-sm font-bold text-stone-900 mb-1">Asisten AI</h3>
@@ -149,7 +136,7 @@
         <div class="flex flex-wrap items-center gap-3 mb-3">
             <h3 class="text-sm font-bold text-stone-900">Backup Database</h3>
             <form method="POST" action="{{ route('settings.backup') }}" class="ml-auto">@csrf
-                <button class="px-3 py-1.5 text-xs bg-stone-800 text-white rounded-lg hover:bg-stone-900">⬇ Backup Sekarang</button>
+                <button class="px-3 py-1.5 text-xs bg-stone-800 text-white rounded-lg hover:bg-stone-900"> Backup Sekarang</button>
             </form>
         </div>
 

@@ -10,7 +10,7 @@
     $basisLabel = ['order' => 'Order / RO', 'login' => 'Login (last-online)', 'recruit' => 'Rekrut baru'];
 @endphp
 
-<div class="space-y-5 max-w-4xl">
+<div class="w-full space-y-5">
     <p class="text-sm text-stone-500 -mt-1">
         Akun member yang tak ada pergerakan sesuai batas di bawah akan <strong>otomatis dibekukan</strong>
         (tak bisa login). Menghidupkan kembali <strong>hanya manual dari sini</strong>. Aturan default <strong>mati</strong> —

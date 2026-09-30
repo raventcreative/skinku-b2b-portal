@@ -13,7 +13,7 @@
     ];
 @endphp
 
-<div class="max-w-4xl space-y-5">
+<div class="w-full space-y-5">
     {{-- Saldo --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div class="bg-white rounded-2xl border border-stone-200 p-5">

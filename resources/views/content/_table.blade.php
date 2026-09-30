@@ -26,7 +26,7 @@
                             <div class="flex flex-wrap gap-1">
                                 @foreach($p->targets as $t)
                                     @if($t->permalink)
-                                        <a href="{{ $t->permalink }}" target="_blank" rel="noopener noreferrer" title="{{ $t->statusLabel() }}">@include('content._badge', ['status' => $t->status, 'label' => $t->platformLabel().' ↗'])</a>
+                                        <a href="{{ $t->permalink }}" target="_blank" rel="noopener noreferrer" title="{{ $t->statusLabel() }}">@include('content._badge', ['status' => $t->status, 'label' => $t->platformLabel().' '])</a>
                                     @else
                                         <span title="{{ $t->statusLabel() }}">@include('content._badge', ['status' => $t->status, 'label' => $t->platformLabel()])</span>
                                     @endif

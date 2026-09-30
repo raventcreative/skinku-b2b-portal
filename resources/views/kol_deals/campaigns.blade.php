@@ -9,7 +9,7 @@
     $sTone = ['planned' => 'bg-sky-100 text-sky-700', 'active' => 'bg-red-100 text-red-700', 'done' => 'bg-emerald-100 text-emerald-700'];
 @endphp
 
-<div class="max-w-4xl space-y-4">
+<div class="w-full space-y-4">
     <a href="{{ route('kol-deals.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Daftar Deal</a>
 
     {{-- Daftar campaign (kartu-box + rollup) --}}

@@ -52,7 +52,7 @@
                             <td class="text-right"><input type="number" step="0.01" min="0" name="materials[{{ $i }}][unit_cost]" value="{{ 0 + $mline->unit_cost }}" oninput="recalc()" class="w-24 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
                             <td class="text-right"><input type="number" step="0.001" min="0" name="materials[{{ $i }}][quantity]" value="{{ 0 + $mline->quantity }}" oninput="recalc()" class="w-20 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
                             <td class="text-right font-semibold text-stone-700" data-sub>Rp 0</td>
-                            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>
+                            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -74,7 +74,7 @@
                         <tr class="border-t border-stone-100">
                             <td class="px-4 py-2"><input name="costs[{{ $i }}][label]" value="{{ $cost->label }}" class="w-52 px-2 py-1.5 border border-stone-300 rounded-lg"></td>
                             <td class="text-right"><input type="number" step="0.01" min="0" name="costs[{{ $i }}][amount]" value="{{ 0 + $cost->amount }}" oninput="recalc()" class="w-28 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
-                            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>
+                            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -115,7 +115,7 @@
             <td class="text-right"><input type="number" step="0.01" min="0" name="materials[${i}][unit_cost]" oninput="recalc()" class="w-24 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="text-right"><input type="number" step="0.001" min="0" name="materials[${i}][quantity]" oninput="recalc()" class="w-20 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="text-right font-semibold text-stone-700" data-sub>Rp 0</td>
-            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
+            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>`;
         document.getElementById('matRows').appendChild(tr);
     }
     function onMat(sel) {
@@ -132,7 +132,7 @@
         tr.innerHTML = `
             <td class="px-4 py-2"><input name="costs[${i}][label]" placeholder="mis. Ongkos Kirim" class="w-52 px-2 py-1.5 border border-stone-300 rounded-lg"></td>
             <td class="text-right"><input type="number" step="0.01" min="0" name="costs[${i}][amount]" oninput="recalc()" class="w-28 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
-            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
+            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>`;
         document.getElementById('costRows').appendChild(tr);
     }
     function recalc() {

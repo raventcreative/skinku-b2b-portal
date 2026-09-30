@@ -71,7 +71,7 @@
     ];
 @endphp
 
-<div class="space-y-5 max-w-4xl mx-auto">
+<div class="w-full space-y-5">
     @foreach($blocks as $title => $rows)
         <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
             <div class="px-5 py-3 border-b border-stone-100 font-bold text-stone-800 text-sm">{{ $title }}</div>

@@ -6,7 +6,7 @@
 @php
     $badge = ['pending' => 'bg-amber-100 text-amber-700', 'applied' => 'bg-emerald-100 text-emerald-700', 'rejected' => 'bg-rose-100 text-rose-700', 'void' => 'bg-stone-200 text-stone-500'];
 @endphp
-<div class="max-w-4xl">
+<div class="w-full">
     <div class="bg-white rounded-2xl border border-stone-200 overflow-x-auto">
         <table class="w-full text-xs whitespace-nowrap">
             <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">

@@ -7,7 +7,7 @@
 
 @php $rp = fn ($n) => number_format($n, 2, ',', '.'); @endphp
 
-<div class="max-w-3xl mx-auto">
+<div class="w-full">
     <div class="text-center mb-3">
         <h2 class="text-base font-bold text-stone-900">Neraca Saldo — per {{ accPeriodLabel($period) }}</h2>
         @if($report['balanced'])

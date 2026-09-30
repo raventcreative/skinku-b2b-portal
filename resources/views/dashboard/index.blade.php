@@ -23,7 +23,7 @@
         onclick="if (event.target === this) this.remove()">
         <div class="relative max-w-lg w-full my-8">
             <button type="button" onclick="document.getElementById('annBanner').remove()"
-                class="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-stone-700 shadow-sm flex items-center justify-center hover:bg-stone-100 z-10">✕</button>
+                class="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-stone-700 shadow-sm flex items-center justify-center hover:bg-stone-100 z-10"> Tutup </button>
             <div class="space-y-3">
                 @foreach($popups as $p)
                     @if($p->banner_link)
@@ -44,12 +44,12 @@
         <div class="grid sm:grid-cols-2 gap-3 mt-5">
             @if($user->canDo('view_learning'))
                 <a href="{{ route('learning.index') }}" class="flex items-center gap-3 p-4 rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50 transition">
-                    <span class="w-10 h-10 rounded-lg bg-red-600 text-white flex items-center justify-center text-lg">▶</span>
+                    <span class="w-10 h-10 rounded-lg bg-red-600 text-white flex items-center justify-center text-lg"></span>
                     <div><p class="font-bold text-stone-800 text-sm">SKINKU Academy</p><p class="text-[11px] text-stone-500">Materi video pelatihan</p></div>
                 </a>
             @endif
             <a href="{{ route('account.password') }}" class="flex items-center gap-3 p-4 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50 transition">
-                <span class="w-10 h-10 rounded-lg bg-stone-700 text-white flex items-center justify-center text-lg">🔑</span>
+                <span class="w-10 h-10 rounded-lg bg-stone-700 text-white flex items-center justify-center text-lg"></span>
                 <div><p class="font-bold text-stone-800 text-sm">Ubah Password</p><p class="text-[11px] text-stone-500">Ganti kata sandi akun</p></div>
             </a>
         </div>

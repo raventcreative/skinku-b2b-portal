@@ -140,7 +140,7 @@
                         @csrf
                         <input type="hidden" name="approve" value="1">
                         <button class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl"
-                            onclick="return confirm('Tandai pembayaran LUNAS?')">✓ Verifikasi Bayar</button>
+                            onclick="return confirm('Tandai pembayaran LUNAS?')"> Verifikasi Bayar</button>
                     </form>
                     <form method="POST" action="{{ route('pesanan-downline.verify-payment', $po) }}">
                         @csrf

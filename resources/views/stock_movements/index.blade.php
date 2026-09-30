@@ -8,7 +8,7 @@
         <span>🔎 Detail dari <b>Laporan Stok HQ</b>:</span>
         @if($focusProduct ?? null)<span class="font-semibold">{{ $focusProduct->name }}</span>@endif
         @if($filters['from'] ?? null)<span>· periode <b>{{ \Illuminate\Support\Carbon::parse($filters['from'])->format('d M Y') }}</b>@if(($filters['to'] ?? null) && $filters['to'] !== $filters['from']) – <b>{{ \Illuminate\Support\Carbon::parse($filters['to'])->format('d M Y') }}</b>@endif</span>@endif
-        <a href="{{ route('stock-movements.index') }}" class="ml-auto underline hover:text-indigo-900">✕ Lihat semua</a>
+        <a href="{{ route('stock-movements.index') }}" class="ml-auto underline hover:text-indigo-900">Lihat semua</a>
     </div>
 @endif
 

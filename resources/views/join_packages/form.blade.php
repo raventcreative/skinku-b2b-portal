@@ -100,7 +100,7 @@
             <td class="text-right py-2">
                 <input type="number" min="1" name="items[${i}][qty]" value="${qty || 1}" required class="w-20 px-2 py-1.5 border border-stone-300 rounded-lg text-right">
             </td>
-            <td class="pr-4 py-2 text-right"><button type="button" onclick="removeRow(${i})" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
+            <td class="pr-4 py-2 text-right"><button type="button" onclick="removeRow(${i})" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>`;
         document.getElementById('rows').appendChild(tr);
     }
 

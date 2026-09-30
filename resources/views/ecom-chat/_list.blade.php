@@ -34,7 +34,7 @@
         <form method="POST" action="{{ route('ecom-chat.sync') }}" class="flex-1" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Menarik…';">
             @csrf
             <input type="hidden" name="channel" value="{{ $channel }}">
-            <button class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-stone-800 text-white hover:bg-stone-900">🔄 Tarik chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}</button>
+            <button class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-stone-800 text-white hover:bg-stone-900"> Tarik chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}</button>
         </form>
         <form method="POST" action="{{ route('ecom-chat.autosend') }}">
             @csrf
@@ -78,7 +78,7 @@
             <span class="shrink-0 w-9 h-9 rounded-full bg-linear-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($nama, 0, 1) }}</span>
             <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-stone-800 truncate">
-                    <span data-conv-flag class="text-amber-500 {{ $c->flagged ? '' : 'hidden' }}">★</span>{{ $nama }}
+                    <span data-conv-flag class="text-amber-500 {{ $c->flagged ? '' : 'hidden' }}"></span>{{ $nama }}
                 </p>
                 <p class="text-xs text-stone-500 truncate">{{ $c->last_message_preview ?: '—' }}</p>
             </div>

@@ -30,7 +30,7 @@
         @if($canEdit)
         <div class="{{ $isOwner ? '' : 'ml-auto' }} flex items-center gap-1.5">
             <button id="mmAddSticky" class="px-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg hover:bg-stone-50 font-semibold">+ Sticky</button>
-            <button id="mmUndo" class="px-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg hover:bg-stone-50 font-semibold" title="Ctrl+Z">↶ Undo</button>
+            <button id="mmUndo" class="px-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg hover:bg-stone-50 font-semibold" title="Ctrl+Z"> Undo</button>
             <div class="flex items-center gap-1 px-2">
                 @foreach($colors as $key => $hex)
                     <button class="mm-color w-5 h-5 rounded-full border border-stone-300" data-color="{{ $key }}" style="background: {{ $hex }}" title="{{ $key }}"></button>

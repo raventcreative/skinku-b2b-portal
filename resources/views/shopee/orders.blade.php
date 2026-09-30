@@ -20,7 +20,7 @@
 {{-- Aksi massal + setelan potong (dipindah dari halaman Integrasi, konsisten TikTok) --}}
 <div class="mt-3 flex flex-wrap items-center gap-3">
     <form method="POST" action="{{ route('shopee.deduct-all') }}" onsubmit="return confirm('Potong stok untuk SEMUA order yang sudah dikirim & SKU-nya cocok?')">@csrf
-        <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">✂ Potong Semua yang Siap</button>
+        <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold"> Potong Semua yang Siap</button>
     </form>
     @if($connection)
         <form method="POST" action="{{ route('shopee.settings') }}" class="flex flex-wrap items-center gap-3">@csrf
@@ -166,7 +166,7 @@
                                 @else
                                     <form method="POST" action="{{ route('shopee.deduct', $o) }}" onsubmit="return confirm('Potong stok internal SKINKU untuk order ini?')">
                                         @csrf
-                                        <button class="px-3 py-1.5 text-[11px] bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">✂ Potong</button>
+                                        <button class="px-3 py-1.5 text-[11px] bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold"> Potong</button>
                                     </form>
                                 @endif
                             </td>

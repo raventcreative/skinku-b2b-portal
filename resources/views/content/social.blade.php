@@ -11,7 +11,7 @@
         'tiktok' => ['TikTok', 'tiktok', 'Selama belum terhubung, konten TikTok diposting manual oleh admin (download media + salin caption).'],
     ];
 @endphp
-<div class="space-y-5 max-w-4xl">
+<div class="w-full space-y-5">
     <p class="text-sm text-stone-500">Konten yang disetujui terbit ke akun-akun di bawah. Token tersimpan terenkripsi dan tidak pernah ditampilkan.
         Media diambil platform dari <b>{{ config('app.url') }}</b> — harus domain HTTPS publik.</p>
 

@@ -52,7 +52,7 @@
         <a href="{{ route('hq-stock.report', ['mode' => $mode, 'date' => $prev]) }}" class="px-3 py-2 border border-stone-300 rounded-lg text-sm hover:bg-stone-50">←</a>
         <a href="{{ route('hq-stock.report', ['mode' => $mode, 'date' => $next]) }}" class="px-3 py-2 border border-stone-300 rounded-lg text-sm hover:bg-stone-50">→</a>
         <a href="{{ route('hq-stock.export', ['mode' => $mode, 'date' => $anchor]) }}"
-            class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800">⬇ Export Excel</a>
+            class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"> Export Excel</a>
         @if($emptyCount > 0)
             <button type="button" id="toggleEmpty" onclick="toggleEmptyRows()"
                 class="px-3 py-2 text-sm border border-stone-300 rounded-lg hover:bg-stone-50"

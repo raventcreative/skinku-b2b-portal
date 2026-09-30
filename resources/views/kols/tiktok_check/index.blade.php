@@ -19,7 +19,7 @@
     $connected = $conn && $conn->shop_cipher;
 @endphp
 
-<div class="space-y-4 max-w-5xl">
+<div class="w-full space-y-4">
     <p class="text-sm text-stone-500 -mt-1">
         Ketik username / nama kreator TikTok → lihat <strong>GMV 30 hari</strong>, follower & views langsung dari TikTok
         (Creator Marketplace), <strong>walau dia belum pernah jadi affiliate kita</strong>. Buat menimbang layak/tidak
@@ -40,7 +40,7 @@
             class="flex-1 rounded-xl border border-stone-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden">
         <button type="submit" @disabled(! $connected)
             class="rounded-xl bg-red-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">
-            🔍 Cari
+             Cari
         </button>
     </form>
 
@@ -95,7 +95,7 @@
                         <div class="min-w-0">
                             <p class="font-semibold text-stone-800 text-sm truncate">{{ $c['nickname'] ?: $c['username'] }}</p>
                             <a href="{{ $profile }}" target="_blank" rel="noopener"
-                                class="text-xs text-red-600 hover:underline truncate block">{{ '@'.$c['username'] }} <span class="text-[10px]">↗</span></a>
+                                class="text-xs text-red-600 hover:underline truncate block">{{ '@'.$c['username'] }} <span class="text-[10px]"></span></a>
                         </div>
                     </div>
 
@@ -159,7 +159,7 @@
                                     <input type="hidden" name="followers" value="{{ $c['followers'] }}">
                                     @if($c['gmv_usd'] !== null)<input type="hidden" name="gmv_usd" value="{{ $c['gmv_usd'] }}">@endif
                                     <button type="submit" class="w-full text-xs font-semibold rounded-lg border border-stone-300 text-stone-700 px-3 py-1.5 hover:bg-stone-50"
-                                        title="Simpan follower + GMV asli TikTok ke record KOL ini">💾 Simpan ke Database</button>
+                                        title="Simpan follower + GMV asli TikTok ke record KOL ini"> Simpan ke Database</button>
                                 </form>
                                 @unless($k->is_gapok)
                                     <form method="POST" action="{{ route('kol-gapok.add-username') }}">

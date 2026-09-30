@@ -10,7 +10,7 @@
     $isAff = $card->track === \App\Models\KolPipelineCard::TRACK_AFFILIATE;
 @endphp
 
-<div class="max-w-4xl space-y-4">
+<div class="w-full space-y-4">
     <a href="{{ route('kol-pipeline.index', ['kind' => $card->track]) }}" class="text-xs text-stone-500 hover:text-stone-800">← Pipeline {{ $isAff ? 'Affiliate' : 'KOL' }}</a>
 
     {{-- Flash status & error dirender global oleh layout. --}}

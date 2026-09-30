@@ -6,7 +6,7 @@
         <form method="POST" action="{{ route('report-bot.rotate') }}" class="ml-auto"
             onsubmit="return confirm('Ganti kode akses sekarang? Chat yang SUDAH aktif tidak terpengaruh — hanya dibutuhkan untuk chat baru.');">
             @csrf
-            <button class="px-3 py-1.5 text-xs bg-stone-800 text-white rounded-lg hover:bg-stone-900">⟳ Rotasi Kode</button>
+            <button class="px-3 py-1.5 text-xs bg-stone-800 text-white rounded-lg hover:bg-stone-900">Rotasi Kode</button>
         </form>
     </div>
 
@@ -49,6 +49,6 @@
 
     <div class="mt-5 pt-4 border-t border-stone-100 flex flex-wrap items-center gap-2">
         <span class="text-[11px] text-stone-500">Peta SKU parser (kenali SKU produk baru tanpa deploy):</span>
-        <a href="{{ route('report-bot.sku-map') }}" class="px-3 py-1.5 text-xs bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50 font-semibold">🗺️ Kelola Peta SKU →</a>
+        <a href="{{ route('report-bot.sku-map') }}" class="px-3 py-1.5 text-xs bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50 font-semibold"> Kelola Peta SKU →</a>
     </div>
 </div>

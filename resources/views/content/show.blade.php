@@ -9,7 +9,7 @@
     $canReview = $u->canDo('content.review');
     $canPublish = $u->canDo('content.publish.manage');
     $actionLabels = [
-        'content.create' => 'Dibuat', 'content.update' => 'Diubah', 'content.submit' => 'Diajukan untuk review',
+        'content.create' => 'Dibuat', 'content.update' => 'Diubah', 'content.submit' => 'Diajukan untuk persetujuan',
         'content.withdraw' => 'Ditarik ke draft', 'content.approve' => 'Disetujui', 'content.reject' => 'Ditolak',
         'content.retry' => 'Retry publikasi', 'content.mark_published' => 'Ditandai terbit manual',
     ];
@@ -30,7 +30,7 @@
             </div>
 
             @if($post->review_note)
-                <div class="mt-4 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 text-sm text-rose-800"><b>Catatan reviewer:</b> {{ $post->review_note }}</div>
+                <div class="mt-4 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 text-sm text-rose-800"><b>Catatan admin:</b> {{ $post->review_note }}</div>
             @endif
             @if($post->creator_note)
                 <div class="mt-3 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-sm text-stone-700"><b>Catatan creator:</b> {{ $post->creator_note }}</div>
@@ -44,7 +44,7 @@
                         @else
                             <video src="{{ $f->url() }}" controls class="w-full aspect-square object-cover rounded-xl border border-stone-200 bg-black"></video>
                         @endif
-                        <a href="{{ $f->url() }}" download class="text-[11px] font-semibold text-red-700 hover:underline">⬇ Download</a>
+                        <a href="{{ $f->url() }}" download class="text-[11px] font-semibold text-red-700 hover:underline"> Download</a>
                     </div>
                 @empty
                     <p class="text-sm text-stone-400">Belum ada media.</p>
@@ -61,13 +61,13 @@
                             <p class="text-sm font-semibold text-stone-800">{{ $t->platformLabel() }}
                                 @if($t->isManual())<span class="text-[10px] font-normal text-amber-700">(manual)</span>@endif</p>
                             <div class="flex items-center gap-2">
-                                @if($t->permalink)<a href="{{ $t->permalink }}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-red-700 hover:underline">Lihat postingan ↗</a>@endif
+                                @if($t->permalink)<a href="{{ $t->permalink }}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-red-700 hover:underline">Lihat postingan </a>@endif
                                 @include('content._badge', ['status' => $t->status, 'label' => $t->statusLabel()])
                             </div>
                         </div>
                         <div class="relative">
                             <p class="text-xs text-stone-600 whitespace-pre-line bg-stone-50 rounded-lg p-2 pr-16 wrap-break-word" data-caption>{{ $t->caption() }}</p>
-                            <button type="button" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent); this.textContent='Tersalin ✓'"
+                            <button type="button" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent); this.textContent='Tersalin '"
                                     class="absolute top-1.5 right-1.5 px-2 py-0.5 text-[10px] rounded-sm bg-white border border-stone-300 text-stone-600">Salin</button>
                         </div>
                         @if($t->status === 'published' && ! $t->isManual())
@@ -120,19 +120,19 @@
         @if($isOwner && $post->isEditable())
             <div class="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col gap-2">
                 <form method="POST" action="{{ route('content.submit', $post) }}">@csrf
-                    <button class="w-full px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">Ajukan Review</button>
+                    <button class="w-full px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">Ajukan Persetujuan</button>
                 </form>
                 <a href="{{ route('content.edit', $post) }}" class="text-center px-5 py-2.5 text-sm border border-stone-300 text-stone-700 rounded-xl hover:bg-stone-50 font-semibold">Edit</a>
             </div>
         @elseif($isOwner && $post->status === 'in_review')
             <form method="POST" action="{{ route('content.withdraw', $post) }}" class="bg-white rounded-2xl border border-stone-200 p-5">@csrf
-                <p class="text-xs text-stone-500 mb-2">Sedang direview. Perlu mengubah sesuatu?</p>
+                <p class="text-xs text-stone-500 mb-2">Menunggu persetujuan admin. Perlu mengubah sesuatu?</p>
                 <button class="w-full px-5 py-2.5 text-sm border border-stone-300 text-stone-700 rounded-xl hover:bg-stone-50 font-semibold">Tarik kembali ke draft</button>
             </form>
         @endif
 
         @if($canReview && $isOwner && $post->status === 'in_review')
-            <p class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800">Ini konten kamu sendiri — review dilakukan kreator lain atau admin.</p>
+            <p class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800">Ini konten kamu sendiri dan menunggu persetujuan admin.</p>
         @endif
         @if($canReview && ! $isOwner && $post->status === 'in_review')
             <form method="POST" action="{{ route('content.approve', $post) }}" class="bg-white rounded-2xl border border-emerald-200 p-5 space-y-3">@csrf

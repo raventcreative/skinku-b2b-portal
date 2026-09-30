@@ -3,7 +3,7 @@
 @section('heading', 'Penyesuaian Stok / Adjustment')
 
 @section('content')
-<div class="max-w-3xl">
+<div class="w-full">
     <a href="{{ route('inventory.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Stok Saya</a>
 
     <form method="POST" action="{{ route('inventory.adjust.store') }}" class="bg-white rounded-2xl border border-stone-200 p-5 mt-3">@csrf
@@ -72,7 +72,7 @@ function addRow() {
         <span data-now class="w-24 px-2 py-2 text-sm text-right text-stone-400">·</span>
         <input type="number" name="items[${i}][target]" data-target min="0" placeholder="jumlah"
             class="w-28 px-2 py-2 border border-stone-300 rounded-lg text-sm text-right">
-        <button type="button" data-del class="w-6 text-stone-300 hover:text-rose-600 text-lg leading-none">×</button>`;
+        <button type="button" data-del class="w-6 text-stone-300 hover:text-rose-600 text-lg leading-none"> Hapus </button>`;
     document.getElementById('rows').appendChild(row);
 
     const inp = row.querySelector('[data-search]');

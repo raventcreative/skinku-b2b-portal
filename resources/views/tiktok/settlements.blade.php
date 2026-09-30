@@ -13,11 +13,11 @@
          wajib harian, dan orang mengira integrasinya manual. --}}
     <form method="POST" action="{{ route('tiktok.settlements.describe') }}" class="ml-auto">@csrf
         <button class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50"
-            title="Otomatis tiap jam. Tombol ini cuma untuk mendahului jadwal.">🏷️ Ambil Keterangan sekarang</button>
+            title="Otomatis tiap jam. Tombol ini cuma untuk mendahului jadwal."> Ambil Keterangan sekarang</button>
     </form>
     <form method="POST" action="{{ route('tiktok.settlements.sync') }}">@csrf
         <button class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800"
-            title="Otomatis tiap hari 01:00. Tombol ini cuma untuk mendahului jadwal.">↻ Tarik Pencairan sekarang</button>
+            title="Otomatis tiap hari 01:00. Tombol ini cuma untuk mendahului jadwal."> Tarik Pencairan sekarang</button>
     </form>
 </div>
 
@@ -53,13 +53,13 @@
         @if($journalOn)
             <form method="POST" action="{{ route('tiktok.post-journals') }}"
                 onsubmit="return confirm('Buat jurnal untuk semua yang belum: barang keluar, order sampai (omzet+HPP), dan pencairan?')">@csrf
-                <button class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 font-semibold">📒 Posting Jurnal</button>
+                <button class="px-4 py-2 text-sm bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 font-semibold"> Posting Jurnal</button>
             </form>
         @endif
         {{-- Selalu tersedia: dipakai untuk membersihkan jurnal yang terlanjur diposting. --}}
         <form method="POST" action="{{ route('tiktok.unpost-journals') }}"
             onsubmit="return confirm('CABUT semua jurnal TikTok? Jurnal bersumber TikTok akan dihapus dan buku kembali seperti sebelum pembukuan dinyalakan. Jurnal lain (impor Excel, manual, PO) TIDAK tersentuh.')">@csrf
-            <button class="px-3 py-2 text-xs text-rose-600 hover:text-rose-800 underline">↩ Cabut semua jurnal TikTok</button>
+            <button class="px-3 py-2 text-xs text-rose-600 hover:text-rose-800 underline"> Cabut semua jurnal TikTok</button>
         </form>
     </div>
 

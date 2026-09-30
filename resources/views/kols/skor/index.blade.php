@@ -9,7 +9,7 @@
     $skorFmt = fn ($n) => rtrim(rtrim(number_format($n, 1, ',', '.'), '0'), ',');
 @endphp
 
-<div class="max-w-5xl space-y-4">
+<div class="w-full space-y-4">
 
     @if($errors->any())
         <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ $errors->first() }}</div>
@@ -18,9 +18,9 @@
     {{-- Tab switch --}}
     <div class="flex gap-1 border-b border-stone-200">
         @if($canAffiliate)
-            <button type="button" data-tab="aps" onclick="showSkorTab('aps')" class="skor-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'aps' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}">🏆 Ranking APS</button>
+            <button type="button" data-tab="aps" onclick="showSkorTab('aps')" class="skor-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'aps' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}"> Ranking APS</button>
         @endif
-        <button type="button" data-tab="kss" onclick="showSkorTab('kss')" class="skor-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'kss' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}">🧮 Kalkulator KSS</button>
+        <button type="button" data-tab="kss" onclick="showSkorTab('kss')" class="skor-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'kss' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}"> Kalkulator KSS</button>
     </div>
 
     {{-- ===================== TAB: Ranking APS ===================== --}}
@@ -30,7 +30,7 @@
             <p class="text-sm text-stone-500">Siapa yang layak dibina — dari GMV &amp; konten 4 minggu terakhir. Urut skor tertinggi.</p>
             <form method="POST" action="{{ route('kol-skor.aps-snapshot') }}">
                 @csrf
-                <button class="text-xs font-semibold text-indigo-600 hover:underline border border-indigo-200 rounded-lg px-3 py-1.5">📸 Snapshot APS sekarang</button>
+                <button class="text-xs font-semibold text-indigo-600 hover:underline border border-indigo-200 rounded-lg px-3 py-1.5"> Snapshot APS sekarang</button>
             </form>
         </div>
 

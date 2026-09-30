@@ -5,7 +5,7 @@
 @section('content')
 @php $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.'); @endphp
 
-<div class="max-w-4xl">
+<div class="w-full">
 
     {{-- Batas potong stok: pengaman utama halaman ini --}}
     <form method="POST" action="{{ route('backdated-sales.cutoff') }}"
@@ -145,9 +145,9 @@
                             <td class="text-right text-stone-700">{{ $rp($po->total_amount) }}</td>
                             <td class="px-4">
                                 @if($po->stock_skipped)
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500">🛡️ tidak dipotong</span>
+                                    <span class="inline-flex min-h-6 items-center text-[11px] px-2.5 py-1 rounded-full bg-stone-100 text-stone-700">Tidak dipotong</span>
                                 @else
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">✂ dipotong</span>
+                                    <span class="inline-flex min-h-6 items-center text-[11px] px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Dipotong</span>
                                 @endif
                             </td>
                         </tr>
@@ -217,7 +217,7 @@ function addRow() {
         <input type="number" name="items[${i}][price]" data-price min="0" step="1" placeholder="harga"
             class="w-32 px-2 py-2 border border-stone-300 rounded-lg text-sm text-right">
         <span data-sub class="w-32 px-2 py-2 text-sm text-right text-stone-700 font-semibold">·</span>
-        <button type="button" data-del class="w-6 text-stone-300 hover:text-rose-600 text-lg leading-none">×</button>`;
+        <button type="button" data-del class="w-6 text-stone-300 hover:text-rose-600 text-lg leading-none"> Hapus </button>`;
     document.getElementById('rows').appendChild(row);
 
     const inp = row.querySelector('[data-search]');

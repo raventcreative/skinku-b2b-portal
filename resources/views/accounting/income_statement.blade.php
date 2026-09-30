@@ -7,7 +7,7 @@
 
 @php $rp = fn ($n) => 'Rp '.number_format($n, 2, ',', '.'); @endphp
 
-<div class="bg-white rounded-2xl border border-stone-200 max-w-3xl mx-auto overflow-hidden">
+<div class="bg-white rounded-2xl border border-stone-200 w-full overflow-hidden">
     <div class="px-6 py-4 border-b border-stone-100 text-center">
         <h2 class="text-base font-bold text-stone-900">Laba Rugi — {{ accPeriodLabel($report['period']) }}</h2>
         <p class="text-[11px] text-stone-400">SKINKU · Surabaya Timur</p>

@@ -61,12 +61,12 @@
                     <td class="px-4 py-3 font-semibold text-stone-800">{{ $row->fullname ?? $row->name }}</td>
                     <td class="text-stone-600">{{ $row->username }}</td>
                     <td class="text-stone-600">{{ $row->email }}</td>
-                    <td><span class="px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">{{ $row->role }}</span></td>
+                    <td><span class="inline-flex min-h-6 items-center px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 text-xs font-semibold">{{ $row->role }}</span></td>
                     <td class="text-stone-600 font-mono">{{ $row->member_id ?? '—' }}</td>
                     <td class="text-stone-600">{{ $row->company_name ?? '-' }}</td>
                     <td>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold
-                            {{ $row->status === 'active' ? 'bg-emerald-100 text-emerald-700' : ($row->status === 'deleted' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700') }}">
+                        <span class="inline-flex min-h-6 items-center px-2.5 py-1 rounded-full text-xs leading-none font-semibold
+                            {{ $row->status === 'active' ? 'bg-emerald-100 text-emerald-800' : ($row->status === 'deleted' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }}">
                             {{ $row->status }}
                         </span>
                     </td>
@@ -131,7 +131,7 @@
     <div class="bg-white rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-sm font-bold text-stone-900">Tambah User Baru</h3>
-            <button onclick="toggleModal('createUserModal')" class="text-stone-400 hover:text-stone-700">✕</button>
+            <button onclick="toggleModal('createUserModal')" class="text-stone-400 hover:text-stone-700"> Tutup </button>
         </div>
         <form method="POST" id="createUserForm" action="{{ route('users.store') }}" class="grid grid-cols-2 gap-3 text-sm">
             @csrf
@@ -141,12 +141,12 @@
                 <div class="flex gap-2">
                     <div class="relative flex-1">
                         <input type="text" name="password" id="genPassword" required
-                               class="w-full px-3 py-2 pr-10 border border-stone-300 rounded-lg font-mono tracking-wide">
+                               class="w-full px-3 py-2 pr-24 border border-stone-300 rounded-lg font-mono tracking-wide">
                         <button type="button" onclick="togglePw()" id="pwEyeBtn" title="Lihat / sembunyikan"
-                                class="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-sm">👁</button>
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-800 text-[10px]">Sembunyikan</button>
                     </div>
-                    <button type="button" onclick="regenPw()" title="Buat ulang" class="px-3 py-2 bg-stone-100 hover:bg-stone-200 rounded-lg">🔄</button>
-                    <button type="button" onclick="copyPw()" id="pwCopyBtn" title="Salin" class="px-3 py-2 bg-stone-100 hover:bg-stone-200 rounded-lg">📋</button>
+                    <button type="button" onclick="regenPw()" title="Buat ulang" class="px-3 py-2 bg-stone-100 hover:bg-stone-200 rounded-lg text-xs">Buat ulang</button>
+                    <button type="button" onclick="copyPw()" id="pwCopyBtn" title="Salin" class="px-3 py-2 bg-stone-100 hover:bg-stone-200 rounded-lg text-xs">Salin</button>
                 </div>
                 <input type="hidden" name="password_confirmation" id="genPasswordConfirm">
                 <p class="text-[10px] text-stone-400 mt-1">Salin password ini & berikan ke user. User dapat menggantinya sendiri lewat menu "Ubah Password" setelah login.</p>
@@ -164,7 +164,7 @@
     <div class="bg-white rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-sm font-bold text-stone-900">Edit User</h3>
-            <button onclick="toggleModal('editUserModal')" class="text-stone-400 hover:text-stone-700">✕</button>
+            <button onclick="toggleModal('editUserModal')" class="text-stone-400 hover:text-stone-700"> Tutup </button>
         </div>
         <form method="POST" id="editUserForm" class="grid grid-cols-2 gap-3 text-sm">
             @csrf @method('PUT')
@@ -332,7 +332,7 @@
             refreshMemberId(cf);
             regenPw();                 // fresh auto-generated password
             if (pw) pw.type = 'text';  // visible by default so it can be copied
-            if (pwEyeBtn) pwEyeBtn.textContent = '👁';
+            if (pwEyeBtn) pwEyeBtn.textContent = 'Sembunyikan';
             toggleModal('createUserModal');
         };
     })();
@@ -365,12 +365,12 @@
         const pw = document.getElementById('genPassword');
         if (!pw) return;
         pw.type = pw.type === 'password' ? 'text' : 'password';
-        if (pwEyeBtn) pwEyeBtn.textContent = pw.type === 'password' ? '🙈' : '👁';
+        if (pwEyeBtn) pwEyeBtn.textContent = pw.type === 'password' ? 'Tampilkan' : 'Sembunyikan';
     }
     function copyPw() {
         const pw = document.getElementById('genPassword');
         if (!pw) return;
-        const done = () => { const b = document.getElementById('pwCopyBtn'); if (b) { b.textContent = '✓'; setTimeout(() => b.textContent = '📋', 1200); } };
+        const done = () => { const b = document.getElementById('pwCopyBtn'); if (b) { b.textContent = 'Tersalin'; setTimeout(() => b.textContent = 'Salin', 1200); } };
         if (navigator.clipboard) {
             navigator.clipboard.writeText(pw.value).then(done).catch(() => { pw.select(); document.execCommand('copy'); done(); });
         } else {

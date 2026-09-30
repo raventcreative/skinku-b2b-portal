@@ -38,7 +38,7 @@
                        class="px-3 py-1 text-sm rounded-lg border {{ $mode === $key ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-300 text-stone-600 hover:bg-stone-50' }}">{{ $lbl }}</a>
                 @endforeach
             </div>
-            <a href="{{ route('kol-affiliate.index', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">📈 Semua affiliate</a>
+            <a href="{{ route('kol-affiliate.index', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl"> Semua affiliate</a>
         </div>
         <form method="GET" action="{{ route('kol-gapok.index') }}" class="flex flex-wrap items-center gap-2 text-sm">
             <span class="text-stone-400 text-xs">Rentang custom:</span>
@@ -86,7 +86,7 @@
                                 @php $profil = $r['kol']->profileUrl() ?: 'https://www.tiktok.com/@'.$r['kol']->handle(); @endphp
                                 <a href="{{ $profil }}" target="_blank" rel="noopener" class="group inline-block" title="Buka profil TikTok @{{ $r['kol']->handle() }}">
                                     <p class="font-semibold text-stone-800 group-hover:text-red-600 group-hover:underline">{{ $r['kol']->display_name }}</p>
-                                    <p class="text-xs text-stone-400 group-hover:text-red-500">{{ '@'.$r['kol']->tiktok_username }} <span class="text-[9px]">↗</span></p>
+                                    <p class="text-xs text-stone-400 group-hover:text-red-500">{{ '@'.$r['kol']->tiktok_username }} <span class="text-[9px]"></span></p>
                                 </a>
                             </td>
                             <td class="px-4 py-3">
@@ -152,7 +152,7 @@
                                         <div class="flex items-center justify-end gap-1 text-[10px] text-stone-500" data-pay-id="{{ $p->id }}">
                                             <span>{{ $p->paid_at->translatedFormat('d M') }}: {{ $rp($p->amount) }}</span>
                                             @if($canManage)
-                                                <button type="button" data-pay-del="{{ $p->id }}" class="text-stone-300 hover:text-rose-600" title="Hapus pembayaran">✕</button>
+                                                <button type="button" data-pay-del="{{ $p->id }}" class="text-stone-300 hover:text-rose-600" title="Hapus pembayaran"></button>
                                             @endif
                                         </div>
                                     @endforeach
@@ -174,7 +174,7 @@
                                         @csrf
                                         <input type="hidden" name="kol_id" value="{{ $r['kol']->id }}">
                                         <input type="hidden" name="is_gapok" value="0">
-                                        <button class="text-xs text-stone-400 hover:text-rose-600" title="Keluarkan dari tim">✕</button>
+                                        <button class="text-xs text-stone-400 hover:text-rose-600" title="Keluarkan dari tim"> Hapus </button>
                                     </form>
                                 </td>
                             @endif
@@ -384,7 +384,7 @@
                 row.className = 'flex items-center justify-end gap-1 text-[10px] text-stone-500';
                 row.setAttribute('data-pay-id', d.payment.id);
                 row.innerHTML = '<span>' + dayMon(d.payment.paid_at) + ': ' + rp(d.payment.amount) + '</span>' +
-                    '<button type="button" data-pay-del="' + d.payment.id + '" class="text-stone-300 hover:text-rose-600" title="Hapus pembayaran">✕</button>';
+                    '<button type="button" data-pay-del="' + d.payment.id + '" class="text-stone-300 hover:text-rose-600" title="Hapus pembayaran"> Hapus </button>';
                 listEl.appendChild(row);
                 amount.value = '';
                 refreshPayCell(cell);

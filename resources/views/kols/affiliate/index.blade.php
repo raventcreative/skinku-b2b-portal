@@ -24,9 +24,9 @@
             <a href="{{ route('kol-affiliate.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
         </div>
         <div class="flex items-center gap-2">
-            <a href="{{ route('kol-affiliate.transactions', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">📄 Semua transaksi</a>
+            <a href="{{ route('kol-affiliate.transactions', ['bulan' => $month]) }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl"> Semua transaksi</a>
             @if($canManage && \Illuminate\Support\Facades\Route::has('kol-affiliate.import'))
-                <a href="{{ route('kol-affiliate.import') }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl">⬆ Import data affiliate</a>
+                <a href="{{ route('kol-affiliate.import') }}" class="px-4 py-2 border border-stone-300 text-stone-700 hover:bg-stone-50 text-sm font-semibold rounded-xl"> Import data affiliate</a>
             @endif
         </div>
     </div>
@@ -145,7 +145,7 @@
                             <td class="px-4 py-2.5 text-stone-400">{{ $i + 1 }}</td>
                             <td class="px-4 py-2.5">
                                 <a href="{{ route('kols.show', $r->kol_id) }}" class="text-indigo-600 hover:underline">{{ '@'.$r->kol->tiktok_username }}</a>
-                                <a href="{{ route('kol-gapok.contents', ['kol' => $r->kol_id, 'bulan' => $month]) }}" class="ml-1 text-[11px] text-stone-400 hover:text-red-600" title="Lihat daftar video &amp; LIVE">🎬</a>
+                                <a href="{{ route('kol-gapok.contents', ['kol' => $r->kol_id, 'bulan' => $month]) }}" class="ml-1 text-[11px] text-stone-400 hover:text-red-600" title="Lihat daftar video &amp; LIVE"></a>
                             </td>
                             <td class="px-4 py-2.5 text-right font-medium text-stone-800">{{ $rp($r->gmv) }}</td>
                             <td class="px-4 py-2.5 text-right text-stone-600">{{ number_format((int) $r->orders, 0, ',', '.') }}</td>

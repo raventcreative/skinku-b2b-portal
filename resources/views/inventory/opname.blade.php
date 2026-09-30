@@ -3,7 +3,7 @@
 @section('heading', 'Stok Opname / Saldo Awal')
 
 @section('content')
-<div class="max-w-3xl">
+<div class="w-full">
     <div class="mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[12px] leading-relaxed">
         📋 Isi <b>hitungan fisik</b> hasil opname gudang. Kolom sudah terisi angka versi sistem sebagai ancang-ancang —
         cukup ubah yang berbeda. Yang <b>kosong</b> dilewati (tidak diubah). Selisihnya dicatat sebagai

@@ -76,7 +76,7 @@
                         <input type="number" min="1" name="blocks[${b}][output_qty]" oninput="recalc()" required class="w-28 px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     </div>
                 </div>
-                <button type="button" onclick="removeBlock(${b})" class="text-xs text-rose-600 hover:text-rose-800 font-semibold">✕ Hapus Produk</button>
+                <button type="button" onclick="removeBlock(${b})" class="text-xs text-rose-600 hover:text-rose-800 font-semibold"> Hapus Produk</button>
             </div>
             <div class="p-4 space-y-4">
                 <div>
@@ -124,7 +124,7 @@
             <td class="text-right"><input type="number" step="0.01" min="0" name="blocks[${b}][materials][${m}][unit_cost]" oninput="recalc()" placeholder="0" class="w-24 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="text-right"><input type="number" step="0.001" min="0" name="blocks[${b}][materials][${m}][quantity]" oninput="recalc()" class="w-20 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
             <td class="text-right font-semibold text-stone-700" data-sub>Rp 0</td>
-            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
+            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>`;
         blk.querySelector('[data-mat-rows]').appendChild(tr);
     }
 
@@ -171,7 +171,7 @@
         tr.innerHTML = `
             <td class="px-4 py-2"><input name="blocks[${b}][costs][${c}][label]" value="${label || ''}" placeholder="mis. Ongkos Kirim" class="w-52 px-2 py-1.5 border border-stone-300 rounded-lg"></td>
             <td class="text-right"><input type="number" step="0.01" min="0" name="blocks[${b}][costs][${c}][amount]" oninput="recalc()" class="w-28 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
-            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold">✕</button></td>`;
+            <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>`;
         blk.querySelector('[data-cost-rows]').appendChild(tr);
     }
 

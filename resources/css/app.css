@@ -7,6 +7,16 @@
 /* ponytail: kelas dinamis bg-{{ $color }}-500 di dashboard/index.blade.php — tambah warna di sini bila kartu baru pakai warna lain */
 @source inline("bg-{amber,blue,cyan,emerald,purple,rose,stone}-500");
 
+html,
+.portal-sidebar nav {
+    scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+.portal-sidebar nav::-webkit-scrollbar {
+    display: none;
+}
+
 /* Compat v3 → v4: v4 default border = currentColor & tombol cursor default; v3 = gray-200 & pointer */
 @layer base {
     *,
@@ -45,4 +55,61 @@
     --color-orange-50: #fff7ed; --color-orange-100: #ffedd5; --color-orange-200: #fed7aa; --color-orange-300: #fdba74; --color-orange-400: #fb923c; --color-orange-500: #f97316; --color-orange-600: #ea580c; --color-orange-700: #c2410c; --color-orange-800: #9a3412; --color-orange-900: #7c2d12; --color-orange-950: #431407;
     --color-cyan-50: #ecfeff; --color-cyan-100: #cffafe; --color-cyan-200: #a5f3fc; --color-cyan-300: #67e8f9; --color-cyan-400: #22d3ee; --color-cyan-500: #06b6d4; --color-cyan-600: #0891b2; --color-cyan-700: #0e7490; --color-cyan-800: #155e75; --color-cyan-900: #164e63; --color-cyan-950: #083344;
     --color-gray-50: #f9fafb; --color-gray-100: #f3f4f6; --color-gray-200: #e5e7eb; --color-gray-300: #d1d5db; --color-gray-400: #9ca3af; --color-gray-500: #6b7280; --color-gray-600: #4b5563; --color-gray-700: #374151; --color-gray-800: #1f2937; --color-gray-900: #111827; --color-gray-950: #030712;
+}
+
+:root {
+    color-scheme: light;
+    --canvas: #f7f6f4;
+    --surface: #ffffff;
+    --surface-soft: #f2f0ee;
+    --ink: #292524;
+    --ink-muted: #6b625e;
+    --line: #e7e2df;
+    --brand: #b4232f;
+    --brand-deep: #5c1118;
+    --focus: #b4232f;
+}
+
+@layer base {
+    html { scroll-behavior: smooth; }
+    body { background: var(--canvas); color: var(--ink); }
+    :focus-visible { outline: 3px solid color-mix(in srgb, var(--focus) 45%, transparent); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+    }
+}
+
+.portal-sidebar { box-shadow: 1px 0 0 rgb(60 10 16 / 12%); }
+.skip-link { position: fixed; top: .75rem; left: .75rem; z-index: 60; transform: translateY(-180%); border-radius: .5rem; background: #fff; padding: .75rem 1rem; color: var(--brand-deep); font-weight: 700; box-shadow: 0 2px 8px rgb(0 0 0 / 12%); }
+.skip-link:focus { transform: translateY(0); }
+.portal-sidebar nav a,
+.portal-sidebar nav button { transition: background-color 150ms ease, color 150ms ease; }
+.portal-main > header { box-shadow: 0 1px 2px rgb(41 37 36 / 3%); }
+.portal-content { min-width: 0; }
+.portal-content h1,
+.portal-content h2,
+.portal-content h3 { text-wrap: balance; }
+.portal-content input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.portal-content select,
+.portal-content textarea {
+    border-color: #d8d1cd;
+    border-radius: .625rem;
+    background-color: #fff;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.portal-content input:not([type='checkbox']):not([type='radio']):focus,
+.portal-content select:focus,
+.portal-content textarea:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgb(180 35 47 / 12%);
+    outline: none;
+}
+.portal-content table { border-collapse: separate; border-spacing: 0; }
+.portal-content thead th { color: #625954; font-weight: 650; }
+.portal-content tbody tr { transition: background-color 120ms ease; }
+.portal-content tbody tr:hover { background-color: #faf8f7; }
+
+@media (max-width: 639px) {
+    .portal-content { padding-bottom: 1.5rem; }
 }

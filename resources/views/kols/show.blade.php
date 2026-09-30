@@ -59,7 +59,7 @@
                 <div class="flex flex-wrap items-center gap-1.5 mt-2">
                     @foreach($flags as $lbl)<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓ {{ $lbl }}</span>@endforeach
                     @if($kol->voucher_code)<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">🎟 {{ $kol->voucher_code }}</span>@endif
-                    @if($kol->tracking_link)<a href="{{ $kol->tracking_link }}" target="_blank" rel="noopener" class="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200">🔗 tracking link</a>@endif
+                    @if($kol->tracking_link)<a href="{{ $kol->tracking_link }}" target="_blank" rel="noopener" class="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200"> tracking link</a>@endif
                 </div>
             @endif
             @if($kol->usage_rights)<p class="text-[11px] text-stone-400 mt-1.5">Usage rights: {{ $kol->usage_rights }}</p>@endif
@@ -207,7 +207,7 @@
                     <span class="flex items-center gap-2 shrink-0">
                         <span class="text-xs text-stone-500">{{ $acc->followers !== null ? number_format($acc->followers, 0, ',', '.') : '—' }}</span>
                         @if($u->canDo('kol.screening.manage'))
-                            <form method="POST" action="{{ route('kols.accounts.destroy', $acc) }}" onsubmit="return confirm('Hapus akun ini?')"> @csrf @method('DELETE')<button class="text-[11px] text-rose-400 hover:text-rose-600">×</button></form>
+                            <form method="POST" action="{{ route('kols.accounts.destroy', $acc) }}" onsubmit="return confirm('Hapus akun ini?')"> @csrf @method('DELETE')<button class="text-[11px] text-rose-400 hover:text-rose-600"> Hapus </button></form>
                         @endif
                     </span>
                 </div>
@@ -236,7 +236,7 @@
                     <span class="flex items-center gap-2 shrink-0">
                         <b class="text-stone-800">{{ $rp($rc->rate) }}</b>
                         @if($u->canDo('kol.screening.manage'))
-                            <form method="POST" action="{{ route('kols.rate-cards.destroy', $rc) }}" onsubmit="return confirm('Hapus rate ini?')"> @csrf @method('DELETE')<button class="text-[11px] text-rose-400 hover:text-rose-600">×</button></form>
+                            <form method="POST" action="{{ route('kols.rate-cards.destroy', $rc) }}" onsubmit="return confirm('Hapus rate ini?')"> @csrf @method('DELETE')<button class="text-[11px] text-rose-400 hover:text-rose-600"> Hapus </button></form>
                         @endif
                     </span>
                 </div>
@@ -305,7 +305,7 @@
 
 @if($kol->pipelineCard)
     <a href="{{ route('kol-pipeline.show', $kol->pipelineCard) }}" class="block bg-white rounded-2xl border border-stone-200 px-4 py-3 mb-5 text-sm hover:bg-stone-50">
-        📋 Di pipeline: tahap <b>{{ \App\Models\KolPipelineCard::STAGE_LABELS[$kol->pipelineCard->stage] ?? $kol->pipelineCard->stage }}</b>{{ $kol->pipelineCard->next_action ? ' · next: '.$kol->pipelineCard->next_action : '' }} <span class="text-indigo-600">→ buka kartu</span>
+         Di pipeline: tahap <b>{{ \App\Models\KolPipelineCard::STAGE_LABELS[$kol->pipelineCard->stage] ?? $kol->pipelineCard->stage }}</b>{{ $kol->pipelineCard->next_action ? ' · next: '.$kol->pipelineCard->next_action : '' }} <span class="text-indigo-600">→ buka kartu</span>
     </a>
 @endif
 

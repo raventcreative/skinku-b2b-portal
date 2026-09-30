@@ -144,22 +144,26 @@ class ContentCreatorTest extends TestCase
         $this->actingAs($creator)->post(route('content.withdraw', $post))->assertSessionHasErrors('status');
     }
 
-    public function test_kreator_lain_bisa_setujui_dan_menu_review_sosmed_tersembunyi_dari_super_admin(): void
+    public function test_super_admin_mengelola_semua_konten_tanpa_halaman_review_terpisah(): void
     {
         $creator = $this->user('content_creator', 'ccr1');
-        $reviewer = $this->user('content_creator', 'ccr2');
-        $post = $this->submitted($creator, ['facebook']);
+        $otherCreator = $this->user('content_creator', 'ccr2');
+        $firstPost = $this->submitted($creator, ['facebook'], 'image', ['title' => 'Konten Creator Satu']);
+        $secondPost = $this->submitted($otherCreator, ['facebook'], 'image', ['title' => 'Konten Creator Dua']);
 
-        $this->actingAs($reviewer)->get(route('content-review.index'))->assertOk();
-        $this->actingAs($reviewer)->post(route('content.approve', $post))->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame(ContentPost::SCHEDULED, $post->fresh()->status);
-        $this->assertSame($reviewer->id, $post->fresh()->reviewed_by);
+        $this->actingAs($creator)->get('/content-review')->assertNotFound();
+        $this->actingAs($creator)->post(route('content.approve', $secondPost))->assertForbidden();
+        $this->actingAs($creator)->get(route('creator.dashboard'))->assertSee('Dashboard Creator')->assertSee('Akun Sosial Media')->assertDontSee('Review Konten');
 
-        // Menu: kreator melihat Review Konten & Akun Sosial Media; super admin tidak (URL tetap bisa diakses).
-        $this->actingAs($reviewer)->get(route('creator.dashboard'))->assertSee('Review Konten')->assertSee('Akun Sosial Media');
         $root = $this->user(User::ROLE_SUPER_ADMIN, 'rootmenu');
-        $this->actingAs($root)->get(route('dashboard'))->assertDontSee('Review Konten')->assertDontSee('Akun Sosial Media');
+        $this->actingAs($root)->get(route('creator.dashboard'))->assertOk()
+            ->assertSee('Dashboard Konten')->assertSee('Semua Konten')->assertSee('Insight Konten')->assertSee('Akun Sosial Media')->assertDontSee('Review Konten');
+        $this->actingAs($root)->get(route('content.index'))->assertOk()
+            ->assertSee('Konten Creator Satu')->assertSee('Konten Creator Dua')->assertSee('CCR1')->assertSee('CCR2');
         $this->actingAs($root)->get(route('social.index'))->assertOk();
+        $this->actingAs($root)->post(route('content.approve', $firstPost))->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(ContentPost::SCHEDULED, $firstPost->fresh()->status);
+        $this->assertSame($root->id, $firstPost->fresh()->reviewed_by);
     }
 
     public function test_kreator_isi_kredensial_app_dari_portal_terenkripsi_dan_menimpa_env(): void

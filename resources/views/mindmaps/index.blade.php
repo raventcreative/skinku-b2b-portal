@@ -3,7 +3,7 @@
 @section('heading', 'Mindmaps')
 
 @section('content')
-<div class="max-w-5xl mx-auto">
+<div class="w-full">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
         <p class="text-sm text-stone-500">Kanvas ide, diagram, dan papan campaign — dibagikan ke tim.</p>
         <form method="POST" action="{{ route('mindmaps.store') }}" class="flex items-center gap-2">

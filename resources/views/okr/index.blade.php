@@ -10,7 +10,7 @@
         <p class="text-sm text-stone-600">AI menyusun Objective, Key Result, dan tugas individu. Progres mengikuti kartu Kanban secara otomatis.</p>
     </div>
     @if($u->canDo('okr.manage'))
-        <a href="{{ route('okr.create') }}" class="px-4 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">✨ Susun OKR dengan AI</a>
+        <a href="{{ route('okr.create') }}" class="px-4 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold"> Susun OKR dengan AI</a>
     @endif
 </div>
 
@@ -59,7 +59,7 @@
             @if($u->canDo('okr.manage'))
                 <form method="POST" action="{{ route('okr.destroy', $cycle) }}" class="absolute top-3 right-3 z-10" onsubmit="return confirm('{{ $cycle->isDraft() ? 'Hapus draf OKR ini?' : 'Hapus OKR ini beserta SEMUA kartu Kanban dari tugasnya? Tidak bisa dibatalkan.' }}')">
                     @csrf @method('DELETE')
-                    <button class="p-1.5 rounded-lg bg-white/90 border border-stone-200 text-rose-600 hover:bg-rose-50" title="Hapus OKR">🗑</button>
+                    <button class="px-2 py-1 rounded-lg bg-white/90 border border-stone-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold" title="Hapus OKR">Hapus</button>
                 </form>
             @endif
         </div>
