@@ -230,6 +230,26 @@ class TikTokAffiliateTest extends TestCase
         $this->assertStringContainsString('18–24, 25–34', $html);
     }
 
+    public function test_gmv_asli_pakai_profil_tiktok_bila_screening_kosong(): void
+    {
+        // Screening dibuat SETELAH sync marketplace → gmv screening null, profil punya GMV.
+        $kol = Kol::create(['tiktok_username' => 'gmvkol', 'followers' => 100_000]);
+        KolScreening::create(['kol_id' => $kol->id, 'tanggal_listing' => '2026-09-01', 'ratecard' => 500_000, 'gmv' => null]);
+        KolTiktokProfile::create(['kol_id' => $kol->id, 'followers' => 100_000, 'gmv_idr' => 26_660_884]);
+
+        $this->actingAs($this->user('kol_specialist', 'sp14'))->get(route('kols.index'))
+            ->assertOk()->assertSee('26.660.884');
+    }
+
+    public function test_baris_belum_discreening_tetap_sejajar_saat_kolom_views_disembunyikan(): void
+    {
+        Kol::create(['tiktok_username' => 'belumscreen', 'followers' => 1_000]);
+
+        $html = $this->actingAs($this->user('kol_specialist', 'sp15'))->get(route('kols.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('<td colspan="13" class="px-3 text-stone-300">belum discreening</td>', $html);
+        $this->assertStringContainsString('<td colspan="7" class="v7col"></td>', $html);
+    }
+
     public function test_simpan_performa_username_asing_tak_error(): void
     {
         // Username belum ada di database → redirect dgn pesan error, bukan 500.
