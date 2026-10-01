@@ -165,7 +165,8 @@ class BundleStokTest extends TestCase
             ->assertJsonPath('data.sumber', 'Tiktok SKU TT-REI-3')
             ->assertJsonPath('data.rows.0.component_id', $reina->id)->assertJsonPath('data.rows.0.qty', 3)
             ->assertJsonPath('data.rows.1.component_id', $soap->id)
-            ->assertJsonPath('data.gagal', ['Body Serum ×2']);
+            ->assertJsonPath('data.gagal', ['Body Serum ×2'])
+            ->assertJsonPath('data.kosong', [['qty' => 2, 'nama' => 'Body Serum']]);
 
         // Tanpa listing: dicoba lewat master_sku sbg SKU Shopee.
         $c = $this->master('SP-BND', 1, ['is_bundle' => true]);
@@ -173,5 +174,32 @@ class BundleStokTest extends TestCase
         $this->assertSame([['component_id' => $soap->id, 'qty' => 2, 'label' => 'Produk SOAP-HQ (SOAP-HQ)']], $this->svc()->resepDariHq($c)['rows']);
 
         $this->assertNull($this->svc()->resepDariHq($this->master('X', 1))['sumber']); // tak ada resep HQ
+    }
+
+    public function test_penanda_produk_hq_disimpan_dari_form_dan_dipakai_mencocokkan_resep(): void
+    {
+        $reinaHq = Product::create(['name' => 'REINA 30g', 'sku' => 'RN30', 'status' => 'active']);
+        $reina = $this->master('REI-1', 533);
+        $b = $this->master('REI-3', 18, ['is_bundle' => true]);
+        TiktokSkuMap::create(['tiktok_sku' => 'REI-3', 'product_id' => $reinaHq->id, 'qty' => 3]);
+        $admin = $this->admin();
+
+        $this->assertSame([], $this->svc()->resepDariHq($b)['rows']); // belum ditandai → tak cocok
+
+        $this->actingAs($admin)->put(route('marketplace-stock.update', $reina), ['name' => $reina->name, 'master_sku' => 'REI-1', 'product_id' => $reinaHq->id])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame($reinaHq->id, $reina->fresh()->product_id);
+        $this->assertSame(533, $reina->fresh()->base_stock); // penanda saja — stok tak tersentuh
+        $this->assertSame(533, $reina->fresh()->base_stock);
+
+        $this->assertSame([['component_id' => $reina->id, 'qty' => 3, 'label' => 'Produk REI-1 (REI-1)']], $this->svc()->resepDariHq($b)['rows']);
+
+        // Form tanpa field product_id tak menghapus penanda; kosongkan eksplisit → null.
+        $this->actingAs($admin)->put(route('marketplace-stock.update', $reina), ['name' => $reina->name, 'master_sku' => 'REI-1'])->assertRedirect();
+        $this->assertSame($reinaHq->id, $reina->fresh()->product_id);
+        $this->actingAs($admin)->put(route('marketplace-stock.update', $reina), ['name' => $reina->name, 'master_sku' => 'REI-1', 'product_id' => ''])->assertRedirect();
+        $this->assertNull($reina->fresh()->product_id);
+
+        $this->actingAs($admin)->get(route('marketplace-stock.edit', $reina))->assertOk()->assertSee('Produk HQ')->assertSee('REINA 30g (RN30)');
     }
 }
