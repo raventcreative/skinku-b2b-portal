@@ -199,4 +199,15 @@ class KolPerformanceTrackerTest extends TestCase
         $this->assertSame(0, KolAffiliateTransaction::whereNull('kol_id')->count());
         $this->assertDatabaseHas('audit_logs', ['action' => 'promote_all_affiliates_to_kol']);
     }
+
+    public function test_database_kol_ada_nomor_urut_dan_total(): void
+    {
+        Kol::create(['tiktok_username' => 'satu', 'followers' => 1]);
+        Kol::create(['tiktok_username' => 'dua', 'followers' => 1, 'status' => Kol::STATUS_AKTIF]);
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'sano');
+
+        $this->actingAs($super)->get(route('kols.index'))->assertOk()->assertSee('Total: 2 KOL');
+        $this->actingAs($super)->get(route('kols.index', ['status' => Kol::STATUS_AKTIF]))->assertOk()
+            ->assertSee('Total: 1 KOL (sesuai filter)');
+    }
 }
