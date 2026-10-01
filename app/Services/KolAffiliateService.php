@@ -66,9 +66,12 @@ class KolAffiliateService
     /** Ranking per creator bulan berjalan: gmv, orders, commission (kecuali batal). */
     public function monthly(Carbon $month): Collection
     {
-        $start = $month->copy()->startOfMonth();
-        $end = $month->copy()->endOfMonth();
+        return $this->between($month->copy()->startOfMonth(), $month->copy()->endOfMonth());
+    }
 
+    /** Rekap per KOL untuk rentang bebas (mis. 30 hari terakhir, sejajar GMV TikTok 30 hari). */
+    public function between(Carbon $start, Carbon $end): Collection
+    {
         return KolAffiliateTransaction::matched()->notCancelled()
             ->whereBetween('order_date', [$start, $end])
             ->selectRaw('kol_id, SUM(gmv) as gmv, COUNT(*) as orders, SUM(commission) as commission, SUM(commission_settled) as commission_settled')
