@@ -21,6 +21,10 @@
 .mps-add:hover{border-color:#6366f1;color:#4f46e5;background:#eef2ff}
 .mps-add .plus{font-size:1.9rem;line-height:1;font-weight:300}
 .mps-add .txt{font-size:11px;font-weight:600}
+/* Geser untuk atur urutan (foto tersimpan). Mouse: dari mana saja di foto; HP: lewat ikon ⠿ (touch-action:none). */
+.mps-tile[data-file-id]{cursor:grab;user-select:none;-webkit-user-select:none}
+.mps-tile.mps-dragging{opacity:.55;outline:2px dashed #6366f1;outline-offset:2px;cursor:grabbing}
+.mps-grip{position:absolute;top:.25rem;right:.25rem;width:1.5rem;height:1.5rem;display:flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(255,255,255,.9);color:#57534e;font-size:13px;line-height:1;touch-action:none;cursor:grab;box-shadow:0 1px 2px rgba(0,0,0,.15)}
 </style>
 @endpush
 
@@ -37,11 +41,12 @@
             <h3 class="font-semibold text-stone-800">Foto Produk</h3>
             <span class="text-xs text-stone-400">Maks 9 · foto pertama = utama</span>
         </div>
-        <div class="mps-grid" id="fotoGrid">
+        <div class="mps-grid" id="fotoGrid"@if($master->exists) data-urutan-url="{{ route('marketplace-stock.master.foto.urutan', $master) }}"@endif>
             @foreach($gallery as $i => $g)
-                <div class="mps-tile">
-                    <img src="{{ $g['url'] }}" alt="Foto {{ $i + 1 }}">
+                <div class="mps-tile" data-file-id="{{ $g['id'] }}">
+                    <img src="{{ $g['url'] }}" alt="Foto {{ $i + 1 }}" draggable="false">
                     @if($i === 0)<span class="mps-badge mps-badge-utama">Utama</span>@endif
+                    <span class="mps-grip" title="Geser untuk atur urutan" aria-hidden="true">⠿</span>
                     <div class="mps-actions">
                         @if($i !== 0)
                             <form method="POST" action="{{ route('marketplace-stock.master.foto.utama', [$master, $g['id']]) }}">@csrf<button type="submit" title="Jadikan foto utama">Jadikan Utama</button></form>
@@ -56,6 +61,9 @@
                 <span class="txt">Tambah Foto</span>
             </label>
         </div>
+        @if(count($gallery) > 1)
+            <p class="text-[11px] text-stone-500 leading-relaxed"><b>Atur urutan:</b> geser foto ke posisi yang diinginkan (di HP tahan &amp; geser ikon <b>⠿</b>) — foto paling kiri = <b>Utama</b>. Urutan langsung tersimpan. <span id="fotoUrutStatus" class="font-semibold"></span></p>
+        @endif
         <p class="text-[11px] text-stone-400 leading-relaxed">Klik kotak <b>“+ Tambah Foto”</b> untuk memilih gambar dari komputer/HP (JPG/PNG). Bisa pilih beberapa sekaligus — foto <b>otomatis dikecilkan di perangkatmu</b> (maks 1600px) biar upload cepat &amp; tak timeout, kualitas tetap tajam. Foto baru bertanda <span class="text-emerald-600 font-semibold">Baru</span> dan tersimpan saat kamu klik <b>Simpan</b>.</p>
     </div>
 
@@ -244,6 +252,97 @@
     form.addEventListener('submit', function(e){
         if (busy > 0) { e.preventDefault(); pendingSubmit = true; }
     });
+})();
+
+(function(){
+    // Atur urutan foto TERSIMPAN dengan geser (drag & drop). Mouse: dari mana saja di foto; sentuh/pen: lewat
+    // ikon ⠿ (supaya layar HP tetap bisa di-scroll). Urutan langsung disimpan via AJAX; foto paling kiri = Utama.
+    var grid = document.getElementById('fotoGrid');
+    var url = grid ? grid.getAttribute('data-urutan-url') : null;
+    if (!grid || !url) return;
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    var statusEl = document.getElementById('fotoUrutStatus');
+    var drag = null, sx = 0, sy = 0, moved = false, before = '';
+
+    function tiles(){ return Array.prototype.slice.call(grid.querySelectorAll('.mps-tile[data-file-id]')); }
+    function ids(){ return tiles().map(function(t){ return parseInt(t.getAttribute('data-file-id'), 10); }); }
+    function status(msg, err){ if (statusEl) { statusEl.textContent = msg; statusEl.style.color = err ? '#e11d48' : '#059669'; } }
+
+    // Badge "Utama" pindah ke foto pertama; tombol jadikan-utama disembunyikan di foto pertama.
+    function rapikanUtama(){
+        tiles().forEach(function(t, i){
+            var badge = t.querySelector('.mps-badge-utama');
+            if (i === 0 && !badge) {
+                badge = document.createElement('span');
+                badge.className = 'mps-badge mps-badge-utama';
+                badge.textContent = 'Utama';
+                t.querySelector('img').insertAdjacentElement('afterend', badge);
+            } else if (i !== 0 && badge) {
+                badge.parentNode.removeChild(badge);
+            }
+            var utama = t.querySelector('form[action$="/utama"]');
+            if (utama) utama.style.display = i === 0 ? 'none' : '';
+        });
+    }
+
+    function onMove(e){
+        if (!drag) return;
+        if (!moved && Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) < 6) return; // klik biasa ≠ geser
+        moved = true;
+        e.preventDefault();
+        drag.classList.add('mps-dragging');
+        drag.style.pointerEvents = 'none';
+        var under = document.elementFromPoint(e.clientX, e.clientY);
+        drag.style.pointerEvents = '';
+        var target = under && under.closest ? under.closest('.mps-tile[data-file-id]') : null;
+        if (!target || target === drag || target.parentNode !== grid) return;
+        var list = tiles();
+        grid.insertBefore(drag, list.indexOf(drag) < list.indexOf(target) ? target.nextSibling : target);
+    }
+
+    function onUp(){
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        if (!drag) return;
+        drag.classList.remove('mps-dragging');
+        drag = null;
+        if (!moved) return;
+        // Telan klik yang menyusul pelepasan geser (jangan sampai memicu tombol Hapus/Utama di bawah kursor).
+        var telan = function(ev){ ev.stopPropagation(); ev.preventDefault(); };
+        document.addEventListener('click', telan, true);
+        setTimeout(function(){ document.removeEventListener('click', telan, true); }, 0);
+        if (ids().join(',') === before) return; // dilepas di tempat semula
+        rapikanUtama();
+        simpan();
+    }
+
+    grid.addEventListener('pointerdown', function(e){
+        var tile = e.target.closest ? e.target.closest('.mps-tile[data-file-id]') : null;
+        if (!tile || e.button > 0 || e.target.closest('button, a, form')) return; // tombol Hapus/Utama tetap bisa diklik
+        if (e.pointerType !== 'mouse' && !e.target.closest('.mps-grip')) return;     // HP: geser lewat ikon ⠿
+        drag = tile; sx = e.clientX; sy = e.clientY; moved = false; before = ids().join(',');
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onUp);
+    });
+    // Cegah drag bawaan browser (gambar "hantu") agar tak bentrok dengan geser kita.
+    grid.addEventListener('dragstart', function(e){ if (e.target.closest && e.target.closest('.mps-tile[data-file-id]')) e.preventDefault(); });
+
+    function simpan(){
+        status('Menyimpan urutan…');
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': meta ? meta.content : '' },
+            body: JSON.stringify({ urutan: ids() })
+        }).then(function(res){
+            // redirected = dialihkan (mis. sesi login habis → halaman login 200): itu GAGAL, bukan tersimpan.
+            if (!res.ok || res.redirected) throw new Error(String(res.status));
+            status('Urutan foto tersimpan ✓');
+        }).catch(function(){
+            status('Gagal menyimpan urutan — muat ulang halaman lalu coba lagi.', true);
+        });
+    }
 })();
 </script>
 @endpush
