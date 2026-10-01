@@ -9,8 +9,10 @@ use App\Models\ShopeeConnection;
 use App\Models\TiktokConnection;
 use App\Services\ImageService;
 use App\Services\MarketplaceMasterService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -169,6 +171,35 @@ class MarketplaceStockController extends Controller
         }
 
         return back()->with('status', 'Foto utama diperbarui.');
+    }
+
+    /**
+     * Simpan urutan foto hasil geser (drag & drop, AJAX): `urutan` = id foto master_image dalam urutan baru
+     * (pertama = Utama). WAJIB persis himpunan foto master ini — tak kurang/lebih/duplikat — sekaligus guard
+     * IDOR (id milik master lain → himpunan tak cocok → 422) dan mencegah urutan tersimpan setengah. Urutan
+     * baru mengubah photoHash, jadi "Dorong konten & foto" berikutnya mengirim foto dengan urutan ini.
+     */
+    public function urutkanFoto(Request $r, MarketplaceMaster $master): JsonResponse|RedirectResponse
+    {
+        // Validasi MANUAL, bukan $r->validate(): di app ini ValidationException pada rute web dirender sebagai
+        // redirect 302 (juga utk request JSON) — fetch() mengikutinya ke halaman 200 sehingga kegagalan tampak
+        // sukses. abort(422) selalu non-2xx. Duplikat/kurang/lebih/id asing tertangkap cek himpunan di bawah.
+        $urutan = $r->input('urutan');
+        abort_unless(is_array($urutan) && $urutan !== [] && count($urutan) <= 9, 422, 'Urutan foto tidak valid.');
+        $ids = array_values(array_map('intval', $urutan));
+
+        $milik = $master->filesIn(MarketplaceMaster::MASTER_IMAGE)->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+        abort_unless(collect($ids)->sort()->values()->all() === $milik, 422, 'Urutan foto tak cocok dengan foto produk ini — muat ulang halaman lalu coba lagi.');
+
+        DB::transaction(function () use ($ids) {
+            foreach ($ids as $i => $id) {
+                File::whereKey($id)->update(['sort_order' => $i]);
+            }
+        });
+
+        return $r->expectsJson()
+            ? response()->json(['ok' => true, 'utama' => $ids[0]])
+            : back()->with('status', 'Urutan foto disimpan.');
     }
 
     /** Guard IDOR: file harus milik master ini DAN ada di koleksi master_image, kalau tidak 404. */
