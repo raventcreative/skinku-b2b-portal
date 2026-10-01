@@ -4,6 +4,13 @@
 
 @push('head')
 <style>
+/* Pemilih kategori marketplace (kolom bertingkat ala Seller Center) */
+.mp-kol{flex:0 0 15rem;overflow-y:auto;border-right:1px solid #f5f5f4}
+.mp-kol button{display:flex;width:100%;justify-content:space-between;gap:.5rem;text-align:left;padding:.45rem .65rem;font-size:13px;color:#292524;border-radius:.35rem}
+.mp-kol button:hover{background:#f5f5f4}
+.mp-kol button.aktif{background:#fef2f2;color:#b91c1c;font-weight:600}
+.mp-kat-hasil button{display:block;width:100%;text-align:left;padding:.45rem .65rem;font-size:12px;border-bottom:1px solid #f5f5f4}
+.mp-kat-hasil button:hover{background:#f5f5f4}
 /* Galeri foto ala Desty — plain CSS (tak bergantung kelas Tailwind terkompilasi). */
 .mps-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem}
 @media(min-width:640px){.mps-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
@@ -170,11 +177,18 @@
                         <button type="button" class="mp-kat-hapus text-[11px] text-rose-600 hover:underline" @if(! $master->{$ch.'_category_id'}) hidden @endif>Kosongkan</button>
                     </div>
                     <div class="mp-kat-terpilih text-xs text-stone-600">{{ $master->{$ch.'_category_name'} ?: 'Belum dipilih — kategori di marketplace tidak diubah.' }}</div>
-                    <div class="text-[11px] text-stone-500">Telusuri bertingkat (pilih sampai level terakhir):</div>
-                    <div class="mp-kat-telusur flex flex-wrap gap-2"></div>
-                    <div class="text-[11px] text-stone-500">…atau cari langsung bila sudah tahu namanya:</div>
-                    <input type="text" class="mp-kat-cari w-full px-3 py-2 border border-stone-200 rounded-lg text-sm" placeholder="Cari kategori {{ $label }}… (mis. mouth spray)" autocomplete="off">
-                    <div class="mp-kat-hasil" hidden style="max-height:14rem;overflow:auto;border:1px solid #e7e5e4;border-radius:.5rem"></div>
+                    {{-- Pemilih ala Seller Center: kotak → panel (cari + jejak + kolom bertingkat bersebelahan). --}}
+                    <div class="mp-kat-pilih" style="position:relative">
+                        <button type="button" class="mp-kat-buka w-full px-3 py-2 border border-stone-200 rounded-lg text-sm text-left flex items-center justify-between gap-2 bg-white hover:border-stone-300">
+                            <span class="mp-kat-label truncate">{{ $master->{$ch.'_category_name'} ?: 'Pilih kategori '.$label }}</span><span aria-hidden="true">▾</span>
+                        </button>
+                        <div class="mp-kat-panel" hidden style="position:absolute;left:0;right:0;top:calc(100% + .25rem);z-index:40;background:#fff;border:1px solid #e7e5e4;border-radius:.75rem;box-shadow:0 10px 25px rgba(0,0,0,.12);padding:.6rem">
+                            <input type="text" class="mp-kat-cari w-full px-3 py-2 border border-stone-200 rounded-lg text-sm" placeholder="Cari kategori… (atau telusuri kolom di bawah)" autocomplete="off">
+                            <div class="mp-kat-jejak" style="font-size:12px;color:#78716c;padding:.5rem .2rem .35rem"></div>
+                            <div class="mp-kat-kolom" style="display:flex;overflow-x:auto;height:16rem;border-top:1px solid #f5f5f4"></div>
+                            <div class="mp-kat-hasil" hidden style="height:16rem;overflow:auto;border-top:1px solid #f5f5f4"></div>
+                        </div>
+                    </div>
                     <div class="mp-kat-atribut space-y-2"></div>
                     <input type="hidden" name="{{ $ch }}_category_id" value="{{ $master->{$ch.'_category_id'} }}">
                     <input type="hidden" name="{{ $ch }}_category_name" value="{{ $master->{$ch.'_category_name'} }}">
@@ -199,7 +213,7 @@
              mengaktifkan sinkron otomatis tiap Simpan utk listing itu (MarketplaceMasterService::pushMasterContent). --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-3">
             <h3 class="font-semibold text-stone-800">Dorong Konten &amp; Foto ke Marketplace</h3>
-            <p class="text-xs text-stone-500 leading-relaxed"><b>Otomatis:</b> tiap klik <b>Simpan</b>, harga &amp; stok langsung terkirim, dan <b>nama, deskripsi, berat, dimensi, barcode &amp; foto</b> yang berubah ikut tersinkron ke listing TikTok &amp; Shopee yang <b>sudah pernah didorong</b> lewat tombol ini. <b>Tombol ini</b> = dorong <b>SEMUA</b> sekarang (paksa): isi listing <b>ditimpa</b> (field kosong dilewati) dan <b>⚠️ SEMUA foto listing DIGANTI</b> foto master (urutan sama, foto pertama = utama) — tak bisa dibatalkan dari SKINKU, jadi pastikan foto master sudah lengkap. Wajib sekali untuk listing baru tertaut supaya sinkron otomatis aktif. <b>Nama</b> hanya dikirim bila produk di marketplace cuma punya 1 varian (judul berlaku untuk semua varian); <b>barcode</b> hanya bila GTIN/EAN valid. <b>Kategori <b>barcode</b> hanya bila GTIN/EAN valid. Kategori belum ikut.</p>amp; atribut</b> ikut dari kartu Kategori Marketplace (bila dipilih).</p>
+            <p class="text-xs text-stone-500 leading-relaxed"><b>Otomatis:</b> tiap klik <b>Simpan</b>, harga &amp; stok langsung terkirim, dan <b>nama, deskripsi, berat, dimensi, barcode &amp; foto</b> yang berubah ikut tersinkron ke listing TikTok &amp; Shopee yang <b>sudah pernah didorong</b> lewat tombol ini. <b>Tombol ini</b> = dorong <b>SEMUA</b> sekarang (paksa): isi listing <b>ditimpa</b> (field kosong dilewati) dan <b>⚠️ SEMUA foto listing DIGANTI</b> foto master (urutan sama, foto pertama = utama) — tak bisa dibatalkan dari SKINKU, jadi pastikan foto master sudah lengkap. Wajib sekali untuk listing baru tertaut supaya sinkron otomatis aktif. <b>Nama</b> hanya dikirim bila produk di marketplace cuma punya 1 varian (judul berlaku untuk semua varian); <b>barcode</b> hanya bila GTIN/EAN valid. <b>Kategori &amp; atribut</b> ikut dari kartu Kategori Marketplace (bila dipilih).</p>amp; atribut</b> ikut dari kartu Kategori Marketplace (bila dipilih).</p>
             <form method="POST" action="{{ route('marketplace-stock.master.konten', $master) }}" onsubmit="return confirm('Dorong SEMUA ke TikTok &amp; Shopee: stok, harga, nama, deskripsi, berat, dimensi, barcode &amp; FOTO. Isi listing DITIMPA dan SEMUA foto listing DIGANTI foto master. Setelah ini, tiap Simpan menyinkronkan otomatis. Lanjut?')">
                 @csrf
                 <button type="submit" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-6-6 6 6-6 6M5 5v14"/></svg>Dorong konten &amp; foto ke marketplace</button>
@@ -472,68 +486,86 @@
         var cari = box.querySelector('.mp-kat-cari'), hasil = box.querySelector('.mp-kat-hasil');
         var wadah = box.querySelector('.mp-kat-atribut'), terpilih = box.querySelector('.mp-kat-terpilih');
         var hapus = box.querySelector('.mp-kat-hapus');
-        var telusur = box.querySelector('.mp-kat-telusur');
+        var buka = box.querySelector('.mp-kat-buka'), panel = box.querySelector('.mp-kat-panel'), label = box.querySelector('.mp-kat-label');
+        var kolom = box.querySelector('.mp-kat-kolom'), jejak = box.querySelector('.mp-kat-jejak');
+        var cacheAnak = {}; // parent → anak (hindari fetch ulang saat bolak-balik kolom)
         var lama = parse(inAttr.value) || [];
         var lamaBrand = inBrand ? parse(inBrand.value) : null;
         var meta = null, timer = null;
 
         function nilaiLama(id){ var a = lama.filter(function(x){ return String(x.id) === String(id); })[0]; return a ? (a.values || []) : []; }
 
+        // Panel ala Seller Center: buka/tutup, klik di luar / Esc menutup.
+        function tutup(){ panel.hidden = true; }
+        buka.addEventListener('click', function(){
+            panel.hidden = !panel.hidden;
+            if (!panel.hidden) { if (!kolom.children.length) kol('0', 0); cari.focus(); }
+        });
+        document.addEventListener('click', function(e){ if (!panel.hidden && !box.querySelector('.mp-kat-pilih').contains(e.target)) tutup(); });
+        panel.addEventListener('keydown', function(e){ if (e.key === 'Escape') { tutup(); buka.focus(); } });
+
         cari.addEventListener('keydown', function(e){ if (e.key === 'Enter') e.preventDefault(); });
         cari.addEventListener('input', function(){
             clearTimeout(timer);
             var q = cari.value.trim();
-            if (q.length < 2) { hasil.hidden = true; return; }
+            if (q.length < 2) { hasil.hidden = true; kolom.hidden = false; jejak.hidden = false; return; }
             timer = setTimeout(function(){
-                hasil.hidden = false; hasil.textContent = 'Mencari…';
+                kolom.hidden = true; jejak.hidden = true; hasil.hidden = false; hasil.textContent = 'Mencari…';
                 getJSON(cariUrl.replace('__CH__', ch) + '?q=' + encodeURIComponent(q)).then(function(list){
                     hasil.innerHTML = '';
-                    if (!list.length) { hasil.textContent = 'Tidak ketemu — coba kata lain.'; return; }
+                    if (!list.length) { hasil.textContent = 'Tidak ketemu — coba kata lain atau telusuri kolom.'; return; }
                     list.forEach(function(k){
-                        var b = make('button', { type: 'button', style: 'display:block;width:100%;text-align:left;padding:.4rem .6rem;font-size:12px;border-bottom:1px solid #f5f5f4' }, k.path);
+                        var b = make('button', { type: 'button' }, k.path);
                         b.addEventListener('click', function(){ pilih(k.id, k.path); });
                         hasil.appendChild(b);
                     });
                 }).catch(function(e){ hasil.textContent = 'Gagal mencari: ' + e.message; });
-            }, 300);
+            }, 250);
         });
 
-        // Telusur bertingkat ala Seller Center: tiap level = <select>; pilih non-daun → muncul level berikutnya,
-        // pilih daun → kategori terpilih (jalur = nama tiap level).
-        function level(parent, depth){
-            var sel = make('select', { 'class': 'px-2 py-1.5 border border-stone-200 rounded-lg text-sm', style: 'max-width:16rem' });
-            sel.appendChild(make('option', { value: '' }, depth === 0 ? 'Memuat…' : '…'));
-            telusur.appendChild(sel);
-            getJSON(anakUrl.replace('__CH__', ch) + '?parent=' + encodeURIComponent(parent)).then(function(list){
-                sel.innerHTML = '';
-                sel.appendChild(make('option', { value: '' }, '— Level ' + (depth + 1) + ' —'));
-                list.forEach(function(k){
-                    var o = make('option', { value: k.id, 'data-leaf': k.leaf ? '1' : '0' }, k.name + (k.leaf ? '' : ' ›'));
-                    o.setAttribute('data-name', k.name);
-                    sel.appendChild(o);
-                });
-            }).catch(function(e){ sel.innerHTML = ''; sel.appendChild(make('option', { value: '' }, 'Gagal memuat: ' + e.message)); });
-            sel.addEventListener('change', function(){
-                var all = Array.prototype.slice.call(telusur.querySelectorAll('select'));
-                all.slice(all.indexOf(sel) + 1).forEach(function(x){ x.remove(); });
-                var o = sel.selectedOptions[0];
-                if (!o || !o.value) return;
-                if (o.getAttribute('data-leaf') === '1') {
-                    var jalur = Array.prototype.slice.call(telusur.querySelectorAll('select')).map(function(x){
-                        return x.selectedOptions[0] ? x.selectedOptions[0].getAttribute('data-name') : '';
-                    }).join(' > ');
-                    pilih(o.value, jalur, true);
-                } else {
-                    level(o.value, depth + 1);
-                }
-            });
+        function anak(parent){
+            if (cacheAnak[parent]) return Promise.resolve(cacheAnak[parent]);
+            return getJSON(anakUrl.replace('__CH__', ch) + '?parent=' + encodeURIComponent(parent)).then(function(l){ cacheAnak[parent] = l; return l; });
         }
-        level('0', 0);
+        function tulisJejak(){
+            var nama = Array.prototype.map.call(kolom.querySelectorAll('button.aktif'), function(b){ return b.getAttribute('data-name'); });
+            jejak.textContent = ['Semua kategori'].concat(nama).join('  ›  ');
+        }
+        // Satu kolom per level; klik non-daun → kolom berikutnya di kanan; klik daun → kategori terpilih & panel tutup.
+        function kol(parent, depth){
+            Array.prototype.slice.call(kolom.children, depth).forEach(function(x){ x.remove(); });
+            var c = make('div', { 'class': 'mp-kol' }, 'Memuat…');
+            c.style.padding = '.25rem';
+            kolom.appendChild(c);
+            anak(parent).then(function(list){
+                c.textContent = '';
+                list.forEach(function(k){
+                    var b = make('button', { type: 'button', 'data-name': k.name });
+                    b.appendChild(make('span', null, k.name));
+                    if (!k.leaf) b.appendChild(make('span', { 'aria-hidden': 'true', style: 'color:#a8a29e' }, '›'));
+                    b.addEventListener('click', function(){
+                        Array.prototype.forEach.call(c.querySelectorAll('button.aktif'), function(x){ x.classList.remove('aktif'); });
+                        b.classList.add('aktif');
+                        tulisJejak();
+                        if (k.leaf) {
+                            Array.prototype.slice.call(kolom.children, depth + 1).forEach(function(x){ x.remove(); });
+                            var jalur = Array.prototype.map.call(kolom.querySelectorAll('button.aktif'), function(x){ return x.getAttribute('data-name'); }).join(' > ');
+                            pilih(k.id, jalur);
+                        } else {
+                            kol(k.id, depth + 1);
+                        }
+                    });
+                    c.appendChild(b);
+                });
+                kolom.scrollLeft = kolom.scrollWidth;
+            }).catch(function(e){ c.textContent = 'Gagal memuat: ' + e.message; });
+            tulisJejak();
+        }
 
-        function pilih(id, path, dariTelusur){
-            if (!dariTelusur) { telusur.innerHTML = ''; level('0', 0); } // reset telusur bila dipilih lewat cari
-            inId.value = id; inName.value = path; terpilih.textContent = path;
-            hapus.hidden = false; hasil.hidden = true; cari.value = '';
+        function pilih(id, path){
+            inId.value = id; inName.value = path; terpilih.textContent = path; label.textContent = path;
+            hapus.hidden = false; hasil.hidden = true; kolom.hidden = false; jejak.hidden = false; cari.value = '';
+            tutup();
             muat(id);
         }
 
@@ -541,6 +573,7 @@
             inId.value = ''; inName.value = ''; inAttr.value = '[]'; if (inBrand) inBrand.value = '';
             meta = null; wadah.innerHTML = ''; hapus.hidden = true;
             terpilih.textContent = 'Belum dipilih — kategori di marketplace tidak diubah.';
+            label.textContent = 'Pilih kategori';
         });
 
         function muat(id){
