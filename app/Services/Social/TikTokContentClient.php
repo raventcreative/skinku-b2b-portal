@@ -18,10 +18,7 @@ class TikTokContentClient
 {
     public const API = 'https://open.tiktokapis.com/v2';
 
-    // ponytail: video.list (insight TikTok, FR-80) ditunda — hanya membaca video publik, jadi tak bisa
-    // diperagakan di demo Sandbox (wajib private) untuk audit pertama. Tambahkan lagi + Display API di
-    // app TikTok sebagai revisi setelah lolos audit; videoStats() & ContentInsights sudah siap.
-    public const SCOPES = ['user.info.basic', 'video.publish', 'video.upload'];
+    public const SCOPES = ['user.info.basic', 'video.list', 'video.publish', 'video.upload'];
 
     public const PRIVACY_LABELS = [
         'PUBLIC_TO_EVERYONE' => 'Publik',
@@ -168,6 +165,27 @@ class TikTokContentClient
         ))['videos'] ?? [];
 
         return collect($videos)->keyBy(fn ($v) => (string) $v['id'])->all();
+    }
+
+    /** Ambil video publik terbaru untuk impor insight akun brand. */
+    public function videoList(string $token, int $since, int $maxPages = 10): array
+    {
+        $videos = [];
+        $cursor = 0;
+        for ($page = 0; $page < $maxPages; $page++) {
+            $response = $this->decode(Http::withToken($token)->asJson()->post(
+                self::API.'/video/list/?fields=id,title,video_description,create_time,share_url,view_count,like_count,comment_count,share_count',
+                ['max_count' => 20, 'cursor' => $cursor],
+            ));
+            $batch = $response['videos'] ?? [];
+            $videos = [...$videos, ...array_filter($batch, fn ($video) => (int) ($video['create_time'] ?? 0) >= $since)];
+            if (empty($response['has_more']) || ! $batch || (int) ($batch[array_key_last($batch)]['create_time'] ?? 0) < $since) {
+                break;
+            }
+            $cursor = (int) ($response['cursor'] ?? 0);
+        }
+
+        return $videos;
     }
 
     private function token(array $params): array

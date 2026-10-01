@@ -132,4 +132,36 @@ class ContentInsightTest extends TestCase
 
         $this->actingAs($this->user(User::ROLE_DISTRIBUTOR, 'di1'))->get(route('content-insights.index'))->assertForbidden();
     }
+
+    public function test_import_konten_brand_membuat_target_insight_tanpa_menduplikasi(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN, 'adminimport');
+        SocialConnection::create(['platform' => 'instagram', 'account_id' => 'ig1', 'access_token' => 'tok', 'status' => 'active', 'connected_by' => $admin->id]);
+
+        Http::fake(['*' => Http::response(['data' => [[
+            'id' => 'igpost1', 'caption' => 'Serum glow', 'media_type' => 'IMAGE',
+            'timestamp' => now()->subDay()->toIso8601String(), 'permalink' => 'https://instagram.test/p/1',
+            'like_count' => 12, 'comments_count' => 3,
+        ], ['id' => 'old', 'timestamp' => now()->subDays(100)->toIso8601String()]]])]);
+
+        $this->artisan('content:import-social-posts --days=90')->assertSuccessful();
+        $this->artisan('content:import-social-posts --days=90')->assertSuccessful();
+
+        $this->assertSame(1, ContentPost::count());
+        $target = ContentPostTarget::sole();
+        $this->assertSame('igpost1', $target->external_id);
+        $this->assertSame(ContentPostTarget::PUBLISHED, $target->status);
+        $this->assertTrue($target->options['imported'] ?? false);
+    }
+
+    public function test_import_menyimpan_error_izin_agar_tampil_di_insight(): void
+    {
+        $admin = $this->user(User::ROLE_SUPER_ADMIN, 'adminerror');
+        SocialConnection::create(['platform' => 'instagram', 'account_id' => 'ig1', 'access_token' => 'tok', 'status' => 'active', 'connected_by' => $admin->id]);
+        Http::fake(['*' => Http::response(['error' => ['message' => 'Application does not have permission for this action']], 403)]);
+
+        $this->artisan('content:import-social-posts')->assertSuccessful();
+
+        $this->actingAs($admin)->get(route('content-insights.index'))->assertOk()->assertSee('Application does not have permission');
+    }
 }

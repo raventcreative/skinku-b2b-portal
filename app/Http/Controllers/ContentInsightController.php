@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ContentPostSnapshot;
 use App\Models\ContentPostTarget;
+use App\Models\SocialConnection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -38,12 +39,12 @@ class ContentInsightController extends Controller
             ->where('captured_on', '>=', $since)
             ->selectRaw('captured_on, sum(views) as views')->groupBy('captured_on')->orderBy('captured_on')->get();
 
-        $creators = $targets->groupBy(fn ($t) => $t->post->user_id)->map(function ($group) {
+        $creators = $targets->groupBy(fn ($t) => ($t->options['imported'] ?? false) ? 'brand_imported' : $t->post->user_id)->map(function ($group, $owner) {
             $s = $group->pluck('latestSnapshot')->filter();
             $v = (int) $s->sum('views');
 
             return [
-                'name' => $group->first()->post->user?->fullname ?? $group->first()->post->user?->name ?? '—',
+                'name' => $owner === 'brand_imported' ? 'Konten brand (impor)' : ($group->first()->post->user?->fullname ?? $group->first()->post->user?->name ?? '—'),
                 'posts' => $group->pluck('content_post_id')->unique()->count(),
                 'targets' => $group->count(),
                 'views' => $v,
@@ -53,6 +54,10 @@ class ContentInsightController extends Controller
 
         return view('content.insights', [
             'days' => $days,
+            'syncErrors' => SocialConnection::whereIn('platform', ['instagram', 'tiktok'])->get()
+                ->filter(fn ($connection) => filled($connection->meta['insight_error'] ?? null))
+                ->map(fn ($connection) => ['platform' => $connection->platform, 'message' => $connection->meta['insight_error']])
+                ->values(),
             'stats' => [
                 'views' => $views,
                 'er' => $views ? $interactions / $views * 100 : null,
