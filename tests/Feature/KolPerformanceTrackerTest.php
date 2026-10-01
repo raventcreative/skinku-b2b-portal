@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\Kol;
+use App\Models\KolAffiliateTransaction;
 use App\Models\KolTiktokProfile;
 use App\Models\KolTiktokSnapshot;
 use App\Models\TiktokAffiliateConnection;
 use App\Models\User;
 use App\Services\TikTokAffiliateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -150,5 +152,27 @@ class KolPerformanceTrackerTest extends TestCase
         $this->artisan('tiktok:kol-performance-sync', ['--sleep' => 0, '--semua' => true])->assertSuccessful();
 
         $this->assertTrue(KolTiktokSnapshot::where('kol_id', $prospek->id)->exists());
+    }
+
+    public function test_porsi_skinku_30_hari_dibanding_gmv_asli_dan_periode_bisa_diganti(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-01 10:00'));
+        $kol = $this->kol('porsikol');
+        $kol->tiktokProfile->update(['gmv_idr' => 10_000_000]); // GMV Asli 30 hari, semua brand
+        // 2 jt di September (masih dalam 30 hari) + 500rb di Oktober.
+        foreach ([['O1', '2026-09-20', 2_000_000], ['O2', '2026-10-01', 500_000]] as [$id, $tgl, $gmv]) {
+            KolAffiliateTransaction::create(['platform' => 'tiktok', 'order_id' => $id, 'kol_id' => $kol->id,
+                'raw_username' => 'porsikol', 'gmv' => $gmv, 'order_date' => $tgl, 'status' => 'completed']);
+        }
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'saporsi');
+
+        // Default 30 hari: 2,5 jt ÷ 10 jt = 25%.
+        $this->actingAs($super)->get(route('kols.index'))->assertOk()
+            ->assertSee('Porsi SKINKU')->assertSee('Rp 2.500.000')->assertSee('25,0%');
+
+        // Bulan ini: hanya 500rb, porsi tak dihitung (jendela beda dgn GMV Asli).
+        $html = $this->actingAs($super)->get(route('kols.index', ['gmv_periode' => 'bulan_ini']))->assertOk()->getContent();
+        $this->assertStringContainsString('Rp 500.000', $html);
+        $this->assertStringNotContainsString('25,0%', $html);
     }
 }

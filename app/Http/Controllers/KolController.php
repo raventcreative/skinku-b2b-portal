@@ -20,12 +20,12 @@ class KolController extends Controller
 {
     public function index(Request $request, KolAffiliateService $aff)
     {
-        $filters = $request->only(['level', 'kategori', 'status', 'verdict', 'platform', 'role', 'q', 'gapok']);
+        $filters = $request->only(['level', 'kategori', 'status', 'verdict', 'platform', 'role', 'q', 'gapok', 'gmv_periode']);
 
         // Arah & kolom sort divalidasi ke daftar putih — nilai ngawur jatuh ke default.
         $sortable = ['username', 'followers', 'level', 'kategori', 'status', 'agency',
             'ratecard', 'total', 'avg', 'median', 'ratio', 'cpm_mean', 'cpm', 'cpv', 'rank',
-            'verdict_mean', 'verdict', 'gmv', 'gmv_real'];
+            'verdict_mean', 'verdict', 'gmv', 'gmv_real', 'share'];
         $sort = in_array($request->query('sort'), $sortable, true)
             ? $request->query('sort') : 'username';
         $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
@@ -58,9 +58,18 @@ class KolController extends Controller
         // GMV affiliate bulan ini (real) — dihitung SEBELUM sort supaya bisa jadi
         // kunci urut kolom "GMV Bln". APS/KSS terakhir = jejak skor.
         $canAffiliate = $request->user()->canDo('kol.affiliate.view');
-        $gmvMap = $canAffiliate ? $aff->monthly(now())->keyBy('kol_id') : collect();
+        // Periode GMV SKINKU. Default 30 hari terakhir = jendela yang SAMA dengan
+        // GMV Asli TikTok (30 hari) → "Porsi SKINKU" bisa dibandingkan apel-ke-apel.
+        $gmvPeriode = in_array($filters['gmv_periode'] ?? '', ['30h', 'bulan_ini', 'bulan_lalu'], true)
+            ? $filters['gmv_periode'] : '30h';
+        [$gmvFrom, $gmvTo, $gmvLabel] = match ($gmvPeriode) {
+            'bulan_ini' => [now()->startOfMonth(), now()->endOfMonth(), 'bulan ini'],
+            'bulan_lalu' => [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth(), 'bulan lalu'],
+            default => [now()->subDays(30)->startOfDay(), now()->endOfDay(), '30 hari'],
+        };
+        $gmvMap = $canAffiliate ? $aff->between($gmvFrom, $gmvTo)->keyBy('kol_id') : collect();
 
-        $kols = $this->sorted($kols, $sort, $dir, $gmvMap)->values();
+        $kols = $this->sorted($kols, $sort, $dir, $gmvMap, $gmvPeriode === '30h')->values();
         $scores = KolScore::whereIn('type', ['aps', 'kss'])->latest('captured_on')->latest('id')->get();
         $apsMap = $scores->where('type', 'aps')->unique('kol_id')->keyBy('kol_id');
         $kssMap = $scores->where('type', 'kss')->unique('kol_id')->keyBy('kol_id');
@@ -79,6 +88,8 @@ class KolController extends Controller
             'platforms' => config('kol.platforms'),
             'canAffiliate' => $canAffiliate,
             'gmvMap' => $gmvMap,
+            'gmvPeriode' => $gmvPeriode,
+            'gmvLabel' => $gmvLabel,
             'apsMap' => $apsMap,
             'kssMap' => $kssMap,
             // Rank global (kolom Z Excel) — daftar menampilkan rank milik
@@ -136,7 +147,22 @@ class KolController extends Controller
         return $ranks;
     }
 
-    private function sorted($kols, string $sort, string $dir, $gmvMap = null)
+    /**
+     * Porsi SKINKU = GMV SKINKU 30 hari ÷ GMV Asli 30 hari (semua brand) × 100.
+     * Hanya bermakna bila kedua angka berjendela sama (periode 30 hari) → null selain itu.
+     */
+    public static function porsiSkinku(Kol $k, $gmvMap, bool $sameWindow): ?float
+    {
+        $skinku = (float) ($gmvMap?->get($k->id)?->gmv ?? 0);
+        $total = (float) ($k->tiktokProfile?->gmv_idr ?: $k->latestScreening?->gmv ?: 0);
+        if (! $sameWindow || $skinku <= 0 || $total <= 0) {
+            return null;
+        }
+
+        return round($skinku / $total * 100, 1);
+    }
+
+    private function sorted($kols, string $sort, string $dir, $gmvMap = null, bool $sameWindow = true)
     {
         // Kolom turunan screening — SEMUA header angka bisa diurutkan, seperti
         // Excel. Yang belum discreening SELALU di bawah, apa pun arahnya:
@@ -152,6 +178,7 @@ class KolController extends Controller
             'gmv' => fn (Kol $k) => $k->latestScreening?->gmv_estimate,
             // GMV Bln = GMV affiliate REAL bulan ini (dari $gmvMap), bukan estimasi screening.
             'gmv_real' => fn (Kol $k) => $gmvMap?->get($k->id)?->gmv,
+            'share' => fn (Kol $k) => self::porsiSkinku($k, $gmvMap, $sameWindow),
             // Indikator/CPM Mean pakai CPM rata sebagai nilai sort-nya.
             'cpm_mean', 'verdict_mean' => fn (Kol $k) => $k->latestScreening?->cpm_rata,
             'cpm', 'cpv', 'rank', 'verdict' => fn (Kol $k) => $k->latestScreening?->cpm_median,
