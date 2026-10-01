@@ -10,9 +10,9 @@
     <div class="bg-rose-50 border border-rose-200 text-rose-800 text-sm rounded-xl px-4 py-2 mb-3">{{ session('error') }}</div>
 @endif
 
-<div class="flex flex-col lg:flex-row gap-4 lg:h-[calc(100vh-8.5rem)]">
+<div class="flex flex-col gap-4 lg:h-[calc(100vh-8.5rem)] lg:flex-row">
     {{-- KIRI: daftar percakapan --}}
-    <div class="lg:w-80 shrink-0 flex flex-col bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full">
+    <div id="ecomInbox" class="flex shrink-0 flex-col overflow-hidden rounded-2xl border border-stone-200 bg-brand-cream lg:h-full lg:w-[22rem] xl:w-96">
         {{-- Toolbar + tab + daftar SEMUA di dalam #ecomList: sekali swap AJAX (ganti
              tab ATAU channel) semuanya ikut ter-render ulang, tanpa reload halaman. --}}
         <div id="ecomList" class="flex-1 flex flex-col min-h-0 overflow-hidden transition-opacity">
@@ -21,8 +21,8 @@
     </div>
 
     {{-- KANAN: panel chat (di-load AJAX) --}}
-    <div id="ecomChatPane" class="flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-96 flex items-center justify-center text-sm text-stone-400 p-6 text-center">
-        Pilih percakapan di kiri untuk membuka chat.
+    <div id="ecomChatPane" class="flex min-h-96 flex-1 items-center justify-center overflow-hidden rounded-2xl border border-stone-200 bg-brand-cream p-6 text-center text-sm text-stone-400 lg:h-full lg:min-w-0">
+        <div class="max-w-xs"><span class="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-brand-cream text-brand-maroon"><svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h7A2.5 2.5 0 0 1 16 5.5v4A2.5 2.5 0 0 1 13.5 12H9l-4.5 3v-3.4A2.5 2.5 0 0 1 4 10V5.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 7.5h.01M11 7.5h.01m4.5 5H20a1 1 0 0 1 1 1v6h-6v-6a1 1 0 0 1 1-1Zm1-1v-.75a2 2 0 1 1 4 0v.75"/></svg></span><p class="mt-3 font-semibold text-stone-700">Pilih percakapan</p><p class="mt-1 text-xs leading-relaxed text-stone-500">Pilih chat dari daftar untuk melihat pesan dan membalas pembeli.</p></div>
     </div>
 </div>
 
@@ -30,6 +30,7 @@
 (function () {
     var pane = document.getElementById('ecomChatPane');
     if (!pane) return;
+    var inbox = document.getElementById('ecomInbox');
     var activeItem = null;
     var activeConvId = null;
     var currentTab = '{{ $tab }}';
@@ -42,6 +43,10 @@
     };
 
     function marker() { return pane.querySelector('[data-thread-status]'); }
+    function syncMobileLayout() {
+        if (inbox) inbox.classList.toggle('hidden', Boolean(marker()) && window.matchMedia('(max-width: 1023px)').matches);
+    }
+    window.addEventListener('resize', syncMobileLayout);
 
     // Sinkronkan tag + bintang "Ditandai" di daftar kiri dgn kondisi terbaru thread.
     function syncMeta() {
@@ -54,7 +59,7 @@
         var badge = activeItem.querySelector('[data-conv-badge]');
         if (m && badge) {
             badge.textContent = m[0];
-            badge.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ' + m[1];
+            badge.className = 'text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap ' + m[1];
         }
         var star = activeItem.querySelector('[data-conv-flag]');
         if (star) star.classList.toggle('hidden', st.getAttribute('data-thread-flagged') !== '1');
@@ -85,22 +90,25 @@
     // area pesan bisa scroll sendiri & kotak balas TETAP kelihatan di bawah — tanpa
     // ini, di mobile tak ada tinggi pasti → kotak balas kedorong jauh & tak bisa dibalas.
     function threadMode() {
-        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden h-[80vh] min-h-96 lg:h-full';
+        pane.className = 'flex-1 min-w-0 bg-brand-cream border border-stone-200 rounded-2xl overflow-hidden h-[80vh] min-h-96 lg:h-full';
     }
 
     // Kembalikan panel kanan ke keadaan kosong (dipakai saat ganti channel: chat yang
     // sedang kebuka milik channel lama, jadi jangan dibiarkan nyangkut di kanan).
     function emptyMode() {
-        pane.className = 'flex-1 min-w-0 bg-white border border-stone-200 rounded-2xl overflow-hidden lg:h-full min-h-96 flex items-center justify-center text-sm text-stone-400 p-6 text-center';
-        pane.innerHTML = 'Pilih percakapan di kiri untuk membuka chat.';
+        pane.className = 'flex flex-1 items-center justify-center overflow-hidden rounded-2xl border border-stone-200 bg-brand-cream p-6 text-center text-sm text-stone-400 lg:h-full lg:min-w-0 min-h-96';
+        pane.innerHTML = '<div class="max-w-xs"><span class="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-brand-cream text-brand-maroon"><svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h7A2.5 2.5 0 0 1 16 5.5v4A2.5 2.5 0 0 1 13.5 12H9l-4.5 3v-3.4A2.5 2.5 0 0 1 4 10V5.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 7.5h.01M11 7.5h.01m4.5 5H20a1 1 0 0 1 1 1v6h-6v-6a1 1 0 0 1 1-1Zm1-1v-.75a2 2 0 1 1 4 0v.75"/></svg></span><p class="mt-3 font-semibold text-stone-700">Pilih percakapan</p><p class="mt-1 text-xs leading-relaxed text-stone-500">Pilih chat dari daftar untuk melihat pesan dan membalas pembeli.</p></div>';
     }
 
     window.ecomOpen = function (el) {
         var id = el.getAttribute('data-conv-id');
         activeItem = el;
         activeConvId = id;
-        document.querySelectorAll('[data-conv-id]').forEach(function (x) { x.classList.remove('bg-stone-100'); });
-        el.classList.add('bg-stone-100');
+        document.querySelectorAll('[data-conv-id]').forEach(function (x) { x.classList.remove('is-active', 'border-brand-maroon', 'bg-white', 'shadow-sm'); x.classList.add('border-transparent'); x.setAttribute('aria-pressed', 'false'); });
+        el.classList.add('is-active');
+        el.classList.remove('border-transparent');
+        el.classList.add('border-brand-maroon', 'bg-white', 'shadow-sm');
+        el.setAttribute('aria-pressed', 'true');
         threadMode();
         pane.innerHTML = '<div class="w-full text-center text-stone-400 text-sm py-10">Memuat…</div>';
         fetch('{{ url('/ecom-chat') }}/' + id + '/thread', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -108,16 +116,40 @@
             .then(function (html) {
                 if (html === null) { pane.innerHTML = '<div class="w-full text-center text-rose-500 text-sm py-10">Gagal memuat.</div>'; return; }
                 pane.innerHTML = html;
+                syncMobileLayout();
                 scrollThread();
                 syncMeta();
                 // Di HP thread muncul DI BAWAH daftar — bawa ke layar biar langsung
                 // kelihatan (termasuk kotak balasnya). Di desktop tak perlu (2 kolom).
                 if (window.matchMedia('(max-width: 1023px)').matches) {
+                    var back = pane.querySelector('[data-inbox-back]');
+                    if (back) back.focus({ preventScroll: true });
                     pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             })
             .catch(function () { pane.innerHTML = '<div class="w-full text-center text-rose-500 text-sm py-10">Gagal memuat.</div>'; });
     };
+
+    // Kembali ke inbox di ponsel tanpa mengubah status percakapan.
+    pane.addEventListener('click', function (e) {
+        var back = e.target.closest('[data-inbox-back]');
+        if (!back) return;
+        e.preventDefault();
+        if (inbox) inbox.classList.remove('hidden');
+        if (activeItem) {
+            activeItem.classList.remove('is-active', 'border-brand-maroon', 'bg-white', 'bg-brand-cream', 'shadow-sm');
+            activeItem.classList.add('border-transparent');
+            activeItem.setAttribute('aria-pressed', 'false');
+        }
+        activeItem = null;
+        activeConvId = null;
+        emptyMode();
+        if (window.matchMedia('(max-width: 1023px)').matches && inbox) {
+            inbox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            var firstConversation = inbox.querySelector('[data-conv-id]');
+            if (firstConversation) firstConversation.focus({ preventScroll: true });
+        }
+    });
 
     // Enter = kirim, Shift+Enter = baris baru (khusus textarea balasan).
     pane.addEventListener('keydown', function (e) {
@@ -146,6 +178,7 @@
             })
             .then(function (html) {
                 pane.innerHTML = html;
+                syncMobileLayout();
                 scrollThread();
                 syncMeta();
                 maybeRemoveActive();
@@ -184,7 +217,11 @@
                     }
                     // Sorot ulang percakapan yang sedang dibuka bila masih ada di tab ini.
                     activeItem = activeConvId ? listWrap.querySelector('[data-conv-id="' + activeConvId + '"]') : null;
-                    if (activeItem) activeItem.classList.add('bg-stone-100');
+                    if (activeItem) {
+                        activeItem.classList.remove('border-transparent');
+                        activeItem.classList.add('is-active', 'border-brand-maroon', 'bg-white', 'shadow-sm');
+                        activeItem.setAttribute('aria-pressed', 'true');
+                    }
                 })
                 .catch(function () { listWrap.style.opacity = ''; });
         });

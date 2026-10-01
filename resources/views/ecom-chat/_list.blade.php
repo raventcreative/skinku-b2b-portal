@@ -34,7 +34,7 @@
         <form method="POST" action="{{ route('ecom-chat.sync') }}" class="flex-1" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Menarik…';">
             @csrf
             <input type="hidden" name="channel" value="{{ $channel }}">
-            <button class="w-full px-3 py-2 text-xs font-semibold rounded-lg bg-stone-800 text-white hover:bg-stone-900 inline-flex items-center justify-center gap-1.5"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" class="w-4 h-4"><path d="M16.5 9a6.5 6.5 0 0 0-11.8-3L3 8m0 0V4m0 4h4m-3.5 3a6.5 6.5 0 0 0 11.8 3L17 12m0 0v4m0-4h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Tarik chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}</button>
+            <button class="w-full min-h-10 px-3 py-2 text-xs font-semibold rounded-lg bg-brand-maroon text-white hover:bg-brand-dark inline-flex items-center justify-center gap-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-maroon focus-visible:ring-offset-2"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" class="w-4 h-4"><path d="M16.5 9a6.5 6.5 0 0 0-11.8-3L3 8m0 0V4m0 4h4m-3.5 3a6.5 6.5 0 0 0 11.8 3L17 12m0 0v4m0-4h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Tarik chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }}</button>
         </form>
         <form method="POST" action="{{ route('ecom-chat.autosend') }}">
             @csrf
@@ -51,9 +51,9 @@
     {{-- Tab channel: TikTok / Shopee dipisah (bukan 1 kolom campur). --}}
     <div class="flex gap-1 mb-2">
         @foreach($chanTabs as $ch => [$clabel, $ccount])
-            <a href="{{ route('ecom-chat.index', ['channel' => $ch, 'tab' => $tab]) }}" data-channel="{{ $ch }}" class="flex-1 text-center px-2 py-1.5 text-xs font-bold rounded-lg flex items-center justify-center gap-1 {{ $channel === $ch ? 'bg-stone-800 text-white' : 'bg-stone-100 text-stone-500 hover:bg-stone-200' }}">
+            <a href="{{ route('ecom-chat.index', ['channel' => $ch, 'tab' => $tab]) }}" data-channel="{{ $ch }}" @if($channel === $ch) aria-current="page" @endif class="flex-1 min-h-10 text-center px-2 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition {{ $channel === $ch ? 'bg-brand-maroon text-white' : 'bg-stone-100 text-stone-600 hover:bg-brand-cream hover:text-brand-maroon' }}">
                 {{ $clabel }}
-                @if($ccount)<span class="px-1.5 rounded-full text-[10px] {{ $channel === $ch ? 'bg-white/25' : 'bg-red-100 text-red-700' }}">{{ $ccount }}</span>@endif
+                @if($ccount)<span class="min-w-5 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums {{ $channel === $ch ? 'bg-brand-cream/15 text-white' : 'bg-brand-cream text-brand-maroon' }}">{{ $ccount }}</span>@endif
             </a>
         @endforeach
     </div>
@@ -62,9 +62,9 @@
 <div class="px-3 pb-3 border-b border-stone-200 shrink-0">
     <div class="flex flex-wrap gap-1">
         @foreach($tabs as $key => [$tlabel, $tcount])
-            <a href="{{ route('ecom-chat.index', ['tab' => $key, 'channel' => $channel]) }}" data-tab="{{ $key }}" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 {{ $tab === $key ? 'bg-red-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200' }}">
+            <a href="{{ route('ecom-chat.index', ['tab' => $key, 'channel' => $channel]) }}" data-tab="{{ $key }}" @if($tab === $key) aria-current="page" @endif class="min-h-9 px-2.5 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition {{ $tab === $key ? 'bg-brand-maroon text-white' : 'bg-stone-100 text-stone-600 hover:bg-brand-cream hover:text-brand-maroon' }}">
                 {{ $tlabel }}
-                @if($tcount)<span class="px-1.5 rounded-full text-[10px] {{ $tab === $key ? 'bg-white/25' : 'bg-red-100 text-red-700' }}">{{ $tcount }}</span>@endif
+                @if($tcount)<span class="min-w-5 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums {{ $tab === $key ? 'bg-brand-cream/15 text-white' : 'bg-stone-200 text-stone-700' }}">{{ $tcount }}</span>@endif
             </a>
         @endforeach
     </div>
@@ -74,23 +74,23 @@
     @forelse($conversations as $c)
         @php([$label, $cls] = $badgeFor($c->status, $c->last_reply_via))
         @php($nama = $c->buyer_name ?: ($c->channel === 'shopee' ? 'Pembeli Shopee' : 'Pembeli TikTok'))
-        <button type="button" data-conv-id="{{ $c->id }}" onclick="ecomOpen(this)" class="w-full text-left flex items-center gap-3 p-3 hover:bg-stone-50">
-            <span class="shrink-0 w-9 h-9 rounded-full bg-linear-to-br from-red-500 to-rose-600 text-white flex items-center justify-center text-xs font-bold uppercase">{{ mb_substr($nama, 0, 1) }}</span>
+        <button type="button" data-conv-id="{{ $c->id }}" aria-pressed="false" onclick="ecomOpen(this)" class="w-full text-left flex min-h-[4.5rem] items-center gap-3 border-l-2 border-transparent p-3 transition hover:bg-brand-cream/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-maroon">
+            <span class="shrink-0 grid h-10 w-10 place-items-center rounded-xl bg-brand-maroon text-sm font-bold uppercase text-white">{{ mb_substr($nama, 0, 1) }}</span>
             <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-stone-800 truncate">
-                    <span data-conv-flag class="text-amber-500 {{ $c->flagged ? '' : 'hidden' }}"></span>{{ $nama }}
+                    <span data-conv-flag class="inline-flex align-middle text-brand-gold {{ $c->flagged ? '' : 'hidden' }}"><svg aria-label="Ditandai" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="m10 2.5 2.2 4.45 4.9.71-3.55 3.46.84 4.88L10 13.7l-4.39 2.3.84-4.88L2.9 7.66l4.9-.71L10 2.5Z"/></svg></span>{{ $nama }}
                 </p>
                 <p class="text-xs text-stone-500 truncate">{{ $c->last_message_preview ?: '—' }}</p>
             </div>
             <div class="flex flex-col items-end gap-1 shrink-0">
-                <span data-conv-badge class="text-[9px] font-bold px-1.5 py-0.5 rounded-full {{ $cls }} whitespace-nowrap">{{ $label }}</span>
+                <span data-conv-badge class="text-[10px] font-bold px-2 py-1 rounded-full {{ $cls }} whitespace-nowrap">{{ $label }}</span>
                 <span class="text-[9px] text-stone-400 whitespace-nowrap">{{ optional($c->last_message_at)->diffForHumans(null, true) }}</span>
             </div>
         </button>
     @empty
         <p class="p-6 text-sm text-stone-400 text-center">
             @if($tab === 'perlu')
-                Tak ada chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }} yang perlu dibalas. <a href="{{ route('ecom-chat.index', ['tab' => 'semua', 'channel' => $channel]) }}" data-tab="semua" class="text-red-600 underline">Lihat semua</a>
+                Tak ada chat {{ $channel === 'shopee' ? 'Shopee' : 'TikTok' }} yang perlu dibalas. <a href="{{ route('ecom-chat.index', ['tab' => 'semua', 'channel' => $channel]) }}" data-tab="semua" class="font-semibold text-brand-maroon underline underline-offset-2">Lihat semua</a>
             @elseif($tab === 'ditandai')
                 Belum ada chat yang ditandai. Buka chat lalu pilih <b>Tandai</b>.
             @else
