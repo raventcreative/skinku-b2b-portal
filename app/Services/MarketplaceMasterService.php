@@ -342,8 +342,10 @@ class MarketplaceMasterService
     {
         $tiktok = $channel === 'tiktok';
         $payload = [];
+        $varian = $m;              // barcode = level SKU → dari master varian/listing ini
+        $m = $m->sumberKonten();   // nama/deskripsi/berat/dimensi/kategori = level PRODUK → dari induk bila varian
 
-        if ($l && trim((string) $m->name) !== '' && $this->satuSku($l)) {
+        if ($l && trim((string) $m->name) !== '' && $this->satuSku($l, $m)) {
             $payload[$tiktok ? 'title' : 'item_name'] = trim((string) $m->name);
         }
 
@@ -375,7 +377,7 @@ class MarketplaceMasterService
             $payload += $this->kategoriPayload($m, $l);
         }
 
-        $gtin = self::gtin((string) $m->barcode);
+        $gtin = self::gtin((string) $varian->barcode);
         if ($l && $gtin !== null) {
             if ($tiktok && $l->variation_id) {
                 $payload['skus'] = [['id' => (string) $l->variation_id, 'identifier_code' => ['code' => $gtin, 'type' => self::gtinType($gtin)]]];
@@ -388,10 +390,17 @@ class MarketplaceMasterService
         return $payload;
     }
 
-    /** Produk marketplace listing ini cuma 1 SKU (tak ada listing lain dgn item yang sama di channel itu). */
-    private function satuSku(MarketplaceListing $l): bool
+    /**
+     * Judul boleh dikirim: SEMUA SKU produk marketplace ini (channel+item_id sama) tertaut ke keluarga master yang sama
+     * (induk + variannya) — produk 1 SKU, atau produk bervarian yang variannya dikelola sbg varian master ini.
+     * Ada SKU tak tertaut / milik master lain → dilewati agar judul tak tertimpa nama satu varian.
+     */
+    private function satuSku(MarketplaceListing $l, MarketplaceMaster $induk): bool
     {
-        return MarketplaceListing::where('channel', $l->channel)->where('item_id', $l->item_id)->count() === 1;
+        $keluarga = $induk->keluargaIds();
+
+        return ! MarketplaceListing::where('channel', $l->channel)->where('item_id', $l->item_id)
+            ->where(fn ($q) => $q->whereNull('master_id')->orWhereNotIn('master_id', $keluarga))->exists();
     }
 
     /** Barcode → GTIN bersih bila valid (8/12/13/14 digit + check digit benar), selain itu null (tak dikirim). */
@@ -482,7 +491,7 @@ class MarketplaceMasterService
      */
     public function photoHash(MarketplaceMaster $m): string
     {
-        return $this->photoSetHash($m->filesIn(MarketplaceMaster::MASTER_IMAGE)->get());
+        return $this->photoSetHash($m->sumberKonten()->filesIn(MarketplaceMaster::MASTER_IMAGE)->get());
     }
 
     /** Cast int: tipe angka dari driver DB (MySQL prod vs SQLite tes) tak boleh mengubah hash. */
@@ -509,7 +518,7 @@ class MarketplaceMasterService
      */
     public function pushPhotos(MarketplaceListing $l, MarketplaceMaster $m, bool $force, array &$uploaded = []): string
     {
-        $files = $m->filesIn(MarketplaceMaster::MASTER_IMAGE)->get();
+        $files = $m->sumberKonten()->filesIn(MarketplaceMaster::MASTER_IMAGE)->get(); // foto = level produk (induk)
         if ($files->isEmpty()) {
             return 'skip';
         }
@@ -586,10 +595,12 @@ class MarketplaceMasterService
         $out = ['pushed' => 0, 'skipped' => 0, 'failed' => 0];
         $uploaded = []; // cache upload foto run ini — lihat pushPhotos()
         $force = $force && ! $otomatis;
-        foreach ($m->listings()->whereNotNull('item_id')->get() as $l) {
+        // Seluruh keluarga (induk + varian): tiap listing didorong dgn master pemiliknya (konten diambil dari induk).
+        foreach (MarketplaceListing::with('master')->whereIn('master_id', $m->keluargaIds())->whereNotNull('item_id')->orderBy('id')->get() as $l) {
+            $pemilik = $l->master;
             $hasil = [
-                $otomatis && ! $l->last_content_pushed_at ? 'skip' : $this->pushContent($l, $m, $force),
-                $otomatis && ! $l->last_photo_pushed_at ? 'skip' : $this->pushPhotos($l, $m, $force, $uploaded),
+                $otomatis && ! $l->last_content_pushed_at ? 'skip' : $this->pushContent($l, $pemilik, $force),
+                $otomatis && ! $l->last_photo_pushed_at ? 'skip' : $this->pushPhotos($l, $pemilik, $force, $uploaded),
             ];
             // tallyPush() menghitung stok+harga sbg DUA unit; di sini konten+foto = SATU unit per listing.
             match (true) {
@@ -788,15 +799,20 @@ class MarketplaceMasterService
      */
     private function kategoriBoleh(MarketplaceMaster $m, MarketplaceListing $l, string $kolom): bool
     {
-        return ! MarketplaceListing::where('channel', $l->channel)->where('item_id', $l->item_id)
-            ->whereNotNull('master_id')->where('master_id', '!=', $m->id)
-            ->whereHas('master', fn ($q) => $q->whereNotNull($kolom)->where($kolom, '!=', $m->{$kolom}))
-            ->exists();
+        // Master lain (di luar keluarga induk ini) yg tertaut ke produk yg sama & memilih kategori berbeda → tahan.
+        return ! MarketplaceListing::with('master.parent')->where('channel', $l->channel)->where('item_id', $l->item_id)
+            ->whereNotNull('master_id')->whereNotIn('master_id', $m->keluargaIds())->get()
+            ->contains(function ($x) use ($kolom, $m) {
+                $lain = $x->master?->sumberKonten();
+
+                return $lain && $lain->{$kolom} !== null && (string) $lain->{$kolom} !== (string) $m->{$kolom};
+            });
     }
 
     /** Payload kategori+atribut per channel (bagian buildContentPayload). [] bila master belum memilih kategori. */
     private function kategoriPayload(MarketplaceMaster $m, MarketplaceListing $l): array
     {
+        $m = $m->sumberKonten();
         if ($l->channel === 'tiktok') {
             if (! $m->tiktok_category_id || ! $this->kategoriBoleh($m, $l, 'tiktok_category_id')) {
                 return [];

@@ -103,11 +103,11 @@
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
             <h3 class="font-semibold text-stone-800">Informasi Penjualan</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+                <div class="mp-induk-saja">
                     <label class="block text-sm font-medium text-stone-700 mb-1">Harga</label>
                     <input type="number" step="0.01" min="0" name="price" value="{{ old('price', $master->base_price) }}" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                 </div>
-                <div>
+                <div class="mp-induk-saja">
                     <label class="block text-sm font-medium text-stone-700 mb-1">Stok</label>
                     <input type="number" min="0" name="stock" value="{{ old('stock', $master->base_stock) }}" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                 </div>
@@ -128,6 +128,55 @@
                 </div>
             </div>
             <p class="text-[11px] text-stone-400">Harga & stok akan disinkron ke TikTok/Shopee. Field lain disimpan di SKINKU.</p>
+        </div>
+
+        {{-- VARIAN ala Desty: opsi varian = master anak (SKU/harga/stok/barcode + listing sendiri). Nama/foto/deskripsi/
+             kategori tetap di produk ini (induk). Daftar terkirim = himpunan lengkap (lihat simpanVarian()). --}}
+        @php
+            $varianRows = old('varian', $master->exists ? $master->variants->map(fn ($v) => ['id' => $v->id, 'name' => $v->variant_name, 'sku' => $v->master_sku, 'price' => $v->base_price, 'stock' => $v->base_stock, 'barcode' => $v->barcode, 'listing' => $v->listings->count()])->all() : []);
+        @endphp
+        <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-4" id="varianCard">
+            <input type="hidden" name="varian_ada" value="1">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <h3 class="font-semibold text-stone-800">Varian Produk</h3>
+                <span class="text-xs text-stone-400">mis. Qty: Scrub 1 Pcs, Scrub 3 Pcs</span>
+            </div>
+            <p class="text-[11px] text-stone-500 leading-relaxed">Isi bila produk ini punya beberapa varian di TikTok/Shopee. Tiap varian punya <b>SKU, harga, stok & barcode sendiri</b> dan ditautkan ke varian marketplace-nya lewat menu <b>Atur</b> di baris varian (katalog). Nama, foto, deskripsi & kategori cukup diisi sekali di produk ini. Kosongkan tabel = produk tanpa varian.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-sm font-medium text-stone-700 mb-1">Tipe Varian</label>
+                    <input type="text" name="variant_type" value="{{ old('variant_type', $master->variant_type) }}" list="tipeVarianList" placeholder="Qty / Ukuran / Warna" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
+                    <datalist id="tipeVarianList"><option value="Qty"><option value="Ukuran"><option value="Isi"><option value="Warna"><option value="Paket"></datalist>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-end gap-2 bg-stone-50 rounded-xl p-3">
+                <span class="text-xs font-semibold text-stone-600 w-full">Terapkan ke semua varian</span>
+                <input type="number" step="0.01" min="0" id="varSemuaHarga" placeholder="Harga" class="w-32 px-2 py-1.5 border border-stone-200 rounded-lg text-sm">
+                <input type="number" min="0" id="varSemuaStok" placeholder="Stok" class="w-24 px-2 py-1.5 border border-stone-200 rounded-lg text-sm">
+                <button type="button" id="varTerapkan" class="px-3 py-1.5 text-sm rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">Terapkan</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm" id="varianTabel">
+                    <thead><tr class="text-left text-xs text-stone-500"><th class="py-1 pr-2">Nama opsi *</th><th class="py-1 pr-2">SKU *</th><th class="py-1 pr-2">Harga</th><th class="py-1 pr-2">Stok</th><th class="py-1 pr-2">Barcode</th><th class="py-1 pr-2">Tautan</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach($varianRows as $i => $v)
+                            <tr class="mp-var">
+                                <td class="py-1 pr-2"><input type="hidden" name="varian[{{ $i }}][id]" value="{{ $v['id'] ?? '' }}"><input type="text" name="varian[{{ $i }}][name]" value="{{ $v['name'] ?? '' }}" required maxlength="100" class="w-40 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
+                                <td class="py-1 pr-2"><input type="text" name="varian[{{ $i }}][sku]" value="{{ $v['sku'] ?? '' }}" required maxlength="255" class="w-32 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
+                                <td class="py-1 pr-2"><input type="number" step="0.01" min="0" name="varian[{{ $i }}][price]" value="{{ $v['price'] ?? '' }}" class="mp-var-harga w-28 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
+                                <td class="py-1 pr-2"><input type="number" min="0" name="varian[{{ $i }}][stock]" value="{{ $v['stock'] ?? '' }}" class="mp-var-stok w-20 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
+                                <td class="py-1 pr-2"><input type="text" name="varian[{{ $i }}][barcode]" value="{{ $v['barcode'] ?? '' }}" maxlength="255" class="w-32 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
+                                <td class="py-1 pr-2 text-xs text-stone-500" data-listing="{{ $v['listing'] ?? 0 }}">{{ ($v['listing'] ?? 0) ? $v['listing'].' listing' : '—' }}</td>
+                                <td class="py-1"><button type="button" class="mp-var-hapus text-xs text-rose-600 hover:underline">Hapus</button></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" id="varTambah" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-dashed border-stone-300 text-stone-600 hover:border-indigo-400 hover:text-indigo-700">+ Tambah opsi varian</button>
+            @if($master->exists && $master->variants->isEmpty() && $master->listings()->exists())
+                <p class="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2">Produk ini sudah tertaut ke listing marketplace. Saat varian pertama disimpan, listing itu <b>dipindah ke varian pertama</b> (harga/stok ikut bila varian belum diisi) — tautkan ulang per varian bila perlu.</p>
+            @endif
         </div>
 
         {{-- Pengiriman --}}
@@ -584,6 +633,7 @@
 
         function render(d){
             wadah.innerHTML = '';
+            d.attributes = d.attributes || [];
             var attrs = d.attributes.slice().sort(function(a, b){ return (b.required ? 1 : 0) - (a.required ? 1 : 0); });
             if (d.brands) {
                 var row = make('div', { 'class': 'mp-brand' });
@@ -684,6 +734,58 @@
             e.preventDefault(); e.stopImmediatePropagation();
         }
     }, true);
+})();
+(function(){
+    // Tabel Varian: tambah/hapus baris (indeks name terus naik → tak bentrok), "Terapkan ke semua", dan sembunyikan
+    // Harga/Stok induk bila ada varian (harga/stok diatur per varian).
+    var tabel = document.getElementById('varianTabel');
+    if (!tabel) return;
+    var tbody = tabel.querySelector('tbody');
+    var idx = tbody.querySelectorAll('tr.mp-var').length;
+    function rapikan(){
+        var ada = tbody.querySelectorAll('tr.mp-var').length > 0;
+        document.querySelectorAll('.mp-induk-saja').forEach(function(el){ el.hidden = ada; });
+    }
+    function sel(name, cls, attrs){
+        var i = document.createElement('input');
+        i.name = name; i.className = cls + ' px-2 py-1.5 border border-stone-200 rounded-lg';
+        Object.keys(attrs || {}).forEach(function(k){ i.setAttribute(k, attrs[k]); });
+        var td = document.createElement('td'); td.className = 'py-1 pr-2'; td.appendChild(i);
+        return td;
+    }
+    document.getElementById('varTambah').addEventListener('click', function(){
+        var i = idx++, tr = document.createElement('tr');
+        tr.className = 'mp-var';
+        var tdNama = sel('varian[' + i + '][name]', 'w-40', { type: 'text', required: '', maxlength: '100', placeholder: 'mis. 3 Pcs' });
+        var hid = document.createElement('input'); hid.type = 'hidden'; hid.name = 'varian[' + i + '][id]'; tdNama.insertBefore(hid, tdNama.firstChild);
+        tr.appendChild(tdNama);
+        tr.appendChild(sel('varian[' + i + '][sku]', 'w-32', { type: 'text', required: '', maxlength: '255' }));
+        tr.appendChild(sel('varian[' + i + '][price]', 'mp-var-harga w-28', { type: 'number', step: '0.01', min: '0' }));
+        tr.appendChild(sel('varian[' + i + '][stock]', 'mp-var-stok w-20', { type: 'number', min: '0' }));
+        tr.appendChild(sel('varian[' + i + '][barcode]', 'w-32', { type: 'text', maxlength: '255' }));
+        var tdL = document.createElement('td'); tdL.className = 'py-1 pr-2 text-xs text-stone-500'; tdL.setAttribute('data-listing', '0'); tdL.textContent = 'baru'; tr.appendChild(tdL);
+        var tdH = document.createElement('td'); tdH.className = 'py-1';
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'mp-var-hapus text-xs text-rose-600 hover:underline'; b.textContent = 'Hapus';
+        tdH.appendChild(b); tr.appendChild(tdH);
+        tbody.appendChild(tr);
+        tdNama.querySelector('input[type=text]').focus();
+        rapikan();
+    });
+    tbody.addEventListener('click', function(e){
+        var b = e.target.closest('.mp-var-hapus');
+        if (!b) return;
+        var tr = b.closest('tr');
+        var n = parseInt(tr.querySelector('[data-listing]').getAttribute('data-listing'), 10) || 0;
+        if (n > 0 && !confirm('Varian ini tertaut ke ' + n + ' listing marketplace. Dihapus saat Simpan → listing jadi tak tertaut (stok tak tersinkron lagi). Lanjut?')) return;
+        tr.remove();
+        rapikan();
+    });
+    document.getElementById('varTerapkan').addEventListener('click', function(){
+        var h = document.getElementById('varSemuaHarga').value, s = document.getElementById('varSemuaStok').value;
+        if (h !== '') tbody.querySelectorAll('.mp-var-harga').forEach(function(x){ x.value = h; });
+        if (s !== '') tbody.querySelectorAll('.mp-var-stok').forEach(function(x){ x.value = s; });
+    });
+    rapikan();
 })();
 </script>
 @endpush
