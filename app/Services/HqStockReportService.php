@@ -135,6 +135,13 @@ class HqStockReportService
     /** Masukkan satu gerakan ke kolom yang tepat (keluar disimpan positif). */
     private function bucketize(array &$b, ?string $ref, string $type, int $delta): void
     {
+        // Paket Join = barang keluar ke reseller baru; batal join mengembalikannya → keduanya di kolom Reseller
+        // (dicek sebelum cabang penyesuaian karena batal join dicatat bertipe adjustment).
+        if ($ref === 'join_transaction' || $ref === 'join_cancel') {
+            $b['reseller'] += -$delta;
+
+            return;
+        }
         if ($type === StockMovement::TYPE_ADJUSTMENT || $ref === 'opname' || $type === StockMovement::TYPE_TRANSFER) {
             $b['penyesuaian'] += $delta; // bertanda
 
