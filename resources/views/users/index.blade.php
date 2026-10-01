@@ -116,6 +116,11 @@
                                     @csrf
                                     <button aria-label="Pulihkan {{ $row->fullname }}" title="Pulihkan anggota" class="inline-flex items-center justify-center w-9 h-9 text-emerald-700 bg-white border border-stone-200 rounded-lg hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 2.6-6.4L3 8m0-5v5h5m-1 4a3 3 0 1 0 3-3"/></svg></button>
                                 </form>
+                                <form method="POST" action="{{ route('users.force-destroy', $row) }}" class="inline"
+                                    onsubmit="return confirm('HAPUS PERMANEN {{ $row->fullname }}? Data akun hilang selamanya & tidak bisa dipulihkan (email/username bisa dipakai lagi). Ditolak otomatis bila akun punya riwayat transaksi. Lanjut?')">
+                                    @csrf @method('DELETE')
+                                    <button aria-label="Hapus permanen {{ $row->fullname }}" title="Hapus permanen" class="inline-flex items-center justify-center w-9 h-9 ml-1 text-rose-700 bg-white border border-stone-200 rounded-lg hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg></button>
+                                </form>
                             @else
                                 <span class="text-stone-400">—</span>
                             @endif
