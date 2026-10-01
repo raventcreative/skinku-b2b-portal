@@ -288,6 +288,28 @@ class ShopeeClient
         return $imageId;
     }
 
+    /** Pohon kategori (bahasa Indonesia) — sumber pemilih kategori Produk Master. */
+    public function getCategories(string $accessToken, string $shopId): array
+    {
+        return $this->shopCall('GET', '/api/v2/product/get_category', $accessToken, $shopId, ['language' => 'id']);
+    }
+
+    /** Atribut satu kategori daun (get_attribute_tree): wajib, tipe isian, nilai pilihan. */
+    public function getAttributeTree(string $accessToken, string $shopId, int $categoryId): array
+    {
+        return $this->shopCall('GET', '/api/v2/product/get_attribute_tree', $accessToken, $shopId, [
+            'category_id_list' => (string) $categoryId, 'language' => 'id',
+        ]);
+    }
+
+    /** Daftar merek yang sah utk kategori daun (+ is_mandatory). Satu halaman (maks 100). */
+    public function getBrandList(string $accessToken, string $shopId, int $categoryId, int $offset = 0): array
+    {
+        return $this->shopCall('GET', '/api/v2/product/get_brand_list', $accessToken, $shopId, [
+            'category_id' => $categoryId, 'status' => 1, 'offset' => $offset, 'page_size' => 100, 'language' => 'id',
+        ]);
+    }
+
     /** Daftar item toko (status NORMAL) — dipakai memetakan produk lokal ↔ item Shopee. */
     public function getItemList(string $accessToken, string $shopId, int $offset = 0, int $pageSize = 50): array
     {

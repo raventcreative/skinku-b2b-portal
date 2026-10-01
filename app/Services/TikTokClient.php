@@ -344,6 +344,18 @@ class TikTokClient
         return $uri;
     }
 
+    /** Pohon kategori toko (semua level; pakai yang is_leaf) — sumber pemilih kategori Produk Master. */
+    public function getCategories(string $accessToken, string $shopCipher): array
+    {
+        return $this->request('GET', '/product/202309/categories', $accessToken, $shopCipher);
+    }
+
+    /** Atribut kategori (daun): wajib/opsional, nilai pilihan, boleh isian bebas, multi-pilih. */
+    public function getCategoryAttributes(string $accessToken, string $shopCipher, string $categoryId): array
+    {
+        return $this->request('GET', '/product/202309/categories/'.rawurlencode($categoryId).'/attributes', $accessToken, $shopCipher);
+    }
+
     /** Cari produk aktif toko — dipakai memetakan produk lokal ↔ product/SKU TikTok. */
     public function searchProducts(string $accessToken, string $shopCipher, int $pageSize = 50, string $pageToken = ''): array
     {

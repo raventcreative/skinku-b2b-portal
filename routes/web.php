@@ -662,6 +662,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::delete('/marketplace-stock/master/{master}', [MarketplaceStockController::class, 'deleteMaster'])->name('marketplace-stock.master.hapus');
         Route::post('/marketplace-stock/master/{master}/bundle', [MarketplaceStockController::class, 'toggleBundle'])->name('marketplace-stock.master.bundle');
         Route::post('/marketplace-stock/master/{master}/foto/urutan', [MarketplaceStockController::class, 'urutkanFoto'])->name('marketplace-stock.master.foto.urutan');
+        Route::post('/marketplace-stock/master/{master}/kategori/tarik', [MarketplaceStockController::class, 'tarikKategori'])->name('marketplace-stock.master.kategori.tarik');
+        Route::get('/marketplace-stock/kategori/{channel}/cari', [MarketplaceStockController::class, 'cariKategori'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.kategori.cari');
+        Route::get('/marketplace-stock/kategori/{channel}/{category}/atribut', [MarketplaceStockController::class, 'atributKategori'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.kategori.atribut');
         Route::delete('/marketplace-stock/master/{master}/foto/{file}', [MarketplaceStockController::class, 'deleteFoto'])->name('marketplace-stock.master.foto.hapus');
         Route::post('/marketplace-stock/master/{master}/foto/{file}/utama', [MarketplaceStockController::class, 'setFotoUtama'])->name('marketplace-stock.master.foto.utama');
         Route::post('/marketplace-stock/kosongkan', [MarketplaceStockController::class, 'kosongkan'])->name('marketplace-stock.kosongkan');

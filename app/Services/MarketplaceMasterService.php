@@ -10,6 +10,7 @@ use App\Models\ShopeeConnection;
 use App\Models\TiktokConnection;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -370,6 +371,10 @@ class MarketplaceMasterService
             }
         }
 
+        if ($l) {
+            $payload += $this->kategoriPayload($m, $l);
+        }
+
         $gtin = self::gtin((string) $m->barcode);
         if ($l && $gtin !== null) {
             if ($tiktok && $l->variation_id) {
@@ -595,6 +600,216 @@ class MarketplaceMasterService
         }
 
         return $out;
+    }
+
+    // ---- Kategori marketplace (pemilih kategori + atribut per channel; pohon & ID TikTok ≠ Shopee) ----
+
+    /** Kategori DAUN channel: [{id, path "A > B > C"}]. Pohon dari API di-cache 1 hari (berubah jarang, ribuan baris). */
+    public function kategoriDaun(string $channel): array
+    {
+        return Cache::remember("mp-kategori:{$channel}", 86400, function () use ($channel) {
+            if ($channel === 'tiktok') {
+                $c = $this->tiktokConn() ?? throw new \RuntimeException('TikTok belum terhubung');
+                $rows = collect($this->tiktok->getCategories($this->tiktokToken($c), (string) $c->shop_cipher)['categories'] ?? [])
+                    ->map(fn ($x) => ['id' => (string) $x['id'], 'parent' => (string) ($x['parent_id'] ?? '0'), 'name' => (string) ($x['local_name'] ?? ''), 'leaf' => (bool) ($x['is_leaf'] ?? false)]);
+            } else {
+                $c = $this->shopeeConn() ?? throw new \RuntimeException('Shopee belum terhubung');
+                $rows = collect($this->shopee->getCategories($this->shopeeToken($c), $c->shop_id)['response']['category_list'] ?? [])
+                    ->map(fn ($x) => ['id' => (string) $x['category_id'], 'parent' => (string) ($x['parent_category_id'] ?? '0'),
+                        'name' => (string) (($x['display_category_name'] ?? '') ?: ($x['original_category_name'] ?? '')), 'leaf' => ! ($x['has_children'] ?? false)]);
+            }
+            $byId = $rows->keyBy('id');
+
+            return $rows->where('leaf', true)->map(function ($x) use ($byId) {
+                $path = [$x['name']];
+                for ($p = $x['parent'], $i = 0; isset($byId[$p]) && $i < 10; $p = $byId[$p]['parent'], $i++) {
+                    array_unshift($path, $byId[$p]['name']);
+                }
+
+                return ['id' => $x['id'], 'path' => implode(' > ', $path)];
+            })->values()->all();
+        });
+    }
+
+    /** Cari kategori daun: semua kata kunci harus ada di jalur kategori (tak peka huruf besar). */
+    public function cariKategori(string $channel, string $q, int $limit = 50): array
+    {
+        $kata = array_filter(preg_split('/\s+/', mb_strtolower(trim($q))));
+
+        return collect($this->kategoriDaun($channel))
+            ->filter(fn ($k) => collect($kata)->every(fn ($w) => str_contains(mb_strtolower($k['path']), $w)))
+            ->take($limit)->values()->all();
+    }
+
+    /**
+     * Atribut kategori daun ternormalisasi utk form: ['attributes' => [{id, name, required, multi, custom, units,
+     * values:[{id,name}]}], 'brands' => [{id,name}]|null, 'brand_required' => bool]. Di-cache 1 hari per kategori.
+     * TikTok: atribut SALES_PROPERTY (warna/ukuran varian = level SKU) dibuang — yang diisi hanya atribut produk.
+     */
+    public function atributKategori(string $channel, string $categoryId): array
+    {
+        return Cache::remember("mp-atribut:{$channel}:{$categoryId}", 86400, function () use ($channel, $categoryId) {
+            if ($channel === 'tiktok') {
+                $c = $this->tiktokConn() ?? throw new \RuntimeException('TikTok belum terhubung');
+                $attrs = collect($this->tiktok->getCategoryAttributes($this->tiktokToken($c), (string) $c->shop_cipher, $categoryId)['attributes'] ?? [])
+                    ->reject(fn ($a) => ($a['type'] ?? '') === 'SALES_PROPERTY')
+                    ->map(fn ($a) => [
+                        'id' => (string) $a['id'], 'name' => (string) ($a['name'] ?? ''),
+                        'required' => (bool) ($a['is_requried'] ?? $a['is_required'] ?? false), // ejaan "requried" milik API
+                        'multi' => (bool) ($a['is_multiple_selection'] ?? false), 'custom' => (bool) ($a['is_customizable'] ?? false), 'units' => [],
+                        'values' => collect($a['values'] ?? [])->map(fn ($v) => ['id' => (string) $v['id'], 'name' => (string) ($v['name'] ?? '')])->values()->all(),
+                    ]);
+
+                return ['attributes' => $attrs->values()->all(), 'brands' => null, 'brand_required' => false];
+            }
+
+            $c = $this->shopeeConn() ?? throw new \RuntimeException('Shopee belum terhubung');
+            $token = $this->shopeeToken($c);
+            $tree = $this->shopee->getAttributeTree($token, $c->shop_id, (int) $categoryId)['response']['list'][0]['attribute_tree'] ?? [];
+            $attrs = collect($tree)->map(function ($a) {
+                $input = (int) ($a['attribute_info']['input_type'] ?? 1); // 1 dropdown, 2 combo, 3 teks, 4 multi-dropdown, 5 multi-combo
+                $nama = collect($a['multi_lang'] ?? [])->firstWhere('language', 'id')['value'] ?? ($a['name'] ?? '');
+
+                return [
+                    'id' => (string) $a['attribute_id'], 'name' => (string) $nama, 'required' => (bool) ($a['mandatory'] ?? false),
+                    'multi' => in_array($input, [4, 5], true), 'custom' => in_array($input, [2, 3, 5], true),
+                    'units' => array_values(array_map('strval', $a['attribute_info']['attribute_unit_list'] ?? [])),
+                    'values' => collect($a['attribute_value_list'] ?? [])->map(fn ($v) => [
+                        'id' => (string) $v['value_id'],
+                        'name' => (string) (collect($v['multi_lang'] ?? [])->firstWhere('language', 'id')['value'] ?? ($v['name'] ?? '')),
+                    ])->values()->all(),
+                ];
+            });
+
+            $brands = [];
+            $wajib = false;
+            for ($offset = 0, $hal = 0; $hal < 5; $hal++) { // ponytail: maks 500 merek; kategori dgn merek lebih banyak terpotong
+                $r = $this->shopee->getBrandList($token, $c->shop_id, (int) $categoryId, $offset)['response'] ?? [];
+                $wajib = $wajib || (bool) ($r['is_mandatory'] ?? false);
+                foreach ($r['brand_list'] ?? [] as $b) {
+                    $brands[] = ['id' => (string) $b['brand_id'], 'name' => (string) (($b['display_brand_name'] ?? '') ?: ($b['original_brand_name'] ?? ''))];
+                }
+                if (! ($r['has_next_page'] ?? false)) {
+                    break;
+                }
+                $offset = (int) ($r['next_offset'] ?? $offset + 100);
+            }
+
+            return ['attributes' => $attrs->values()->all(), 'brands' => $brands, 'brand_required' => $wajib];
+        });
+    }
+
+    /**
+     * Tarik kategori + atribut (+ merek Shopee) yang SEKARANG terpasang di listing tertaut ke master — titik awal
+     * aman supaya dorong berikutnya tak mengosongkan atribut. Per channel: listing pertama ber-item_id.
+     *
+     * @return array<string,string> channel => 'ok' | pesan gagal (channel tanpa listing tak muncul)
+     */
+    public function tarikKategori(MarketplaceMaster $m): array
+    {
+        $hasil = [];
+        foreach (['tiktok', 'shopee'] as $channel) {
+            $l = $m->listings()->where('channel', $channel)->whereNotNull('item_id')->first();
+            if (! $l) {
+                continue;
+            }
+            try {
+                if ($channel === 'tiktok') {
+                    $c = $this->tiktokConn() ?? throw new \RuntimeException('TikTok belum terhubung');
+                    $p = $this->tiktok->getProduct($this->tiktokToken($c), (string) $c->shop_cipher, (string) $l->item_id);
+                    $chain = collect($p['category_chains'] ?? []);
+                    $daun = $chain->firstWhere('is_leaf', true) ?? $chain->last();
+                    if (! $daun) {
+                        throw new \RuntimeException('produk TikTok tanpa kategori');
+                    }
+                    $m->update([
+                        'tiktok_category_id' => (string) $daun['id'],
+                        'tiktok_category_name' => $chain->pluck('local_name')->implode(' > '),
+                        'tiktok_attributes' => collect($p['product_attributes'] ?? [])->map(fn ($a) => [
+                            'id' => (string) $a['id'],
+                            'values' => collect($a['values'] ?? [])->map(fn ($v) => ['id' => (string) ($v['id'] ?? ''), 'name' => (string) ($v['name'] ?? '')])->values()->all(),
+                        ])->values()->all(),
+                    ]);
+                } else {
+                    $c = $this->shopeeConn() ?? throw new \RuntimeException('Shopee belum terhubung');
+                    $item = $this->shopee->getItemBaseInfo($this->shopeeToken($c), $c->shop_id, [(int) $l->item_id])['response']['item_list'][0] ?? null;
+                    if (! $item || empty($item['category_id'])) {
+                        throw new \RuntimeException('item Shopee tak ditemukan / tanpa kategori');
+                    }
+                    $id = (string) $item['category_id'];
+                    $path = collect($this->kategoriDaun('shopee'))->firstWhere('id', $id)['path'] ?? $id;
+                    $brand = $item['brand'] ?? null;
+                    $m->update([
+                        'shopee_category_id' => $id,
+                        'shopee_category_name' => $path,
+                        'shopee_attributes' => collect($item['attribute_list'] ?? [])->map(fn ($a) => [
+                            'id' => (string) $a['attribute_id'],
+                            'values' => collect($a['attribute_value_list'] ?? [])->map(fn ($v) => array_filter([
+                                'id' => (string) ($v['value_id'] ?? 0) === '0' ? '' : (string) $v['value_id'],
+                                'name' => (string) ($v['original_value_name'] ?? ''),
+                                'unit' => (string) ($v['value_unit'] ?? ''),
+                            ], fn ($x, $k) => $k !== 'unit' || $x !== '', ARRAY_FILTER_USE_BOTH))->values()->all(),
+                        ])->values()->all(),
+                        'shopee_brand' => $brand ? ['brand_id' => (int) ($brand['brand_id'] ?? 0), 'original_brand_name' => (string) ($brand['original_brand_name'] ?? '')] : null,
+                    ]);
+                }
+                $hasil[$channel] = 'ok';
+            } catch (\Throwable $e) {
+                $hasil[$channel] = $this->errorText($e);
+            }
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * Kategori master boleh dikirim ke listing ini? Kategori = level PRODUK: tolak bila varian lain dari produk yg
+     * sama tertaut ke master LAIN yg memilih kategori berbeda di channel itu (saling timpa tiap Simpan).
+     */
+    private function kategoriBoleh(MarketplaceMaster $m, MarketplaceListing $l, string $kolom): bool
+    {
+        return ! MarketplaceListing::where('channel', $l->channel)->where('item_id', $l->item_id)
+            ->whereNotNull('master_id')->where('master_id', '!=', $m->id)
+            ->whereHas('master', fn ($q) => $q->whereNotNull($kolom)->where($kolom, '!=', $m->{$kolom}))
+            ->exists();
+    }
+
+    /** Payload kategori+atribut per channel (bagian buildContentPayload). [] bila master belum memilih kategori. */
+    private function kategoriPayload(MarketplaceMaster $m, MarketplaceListing $l): array
+    {
+        if ($l->channel === 'tiktok') {
+            if (! $m->tiktok_category_id || ! $this->kategoriBoleh($m, $l, 'tiktok_category_id')) {
+                return [];
+            }
+
+            // Ganti kategori di TikTok MENGHAPUS atribut lama → atribut selalu ikut dikirim bersama kategori.
+            return [
+                'category_id' => (string) $m->tiktok_category_id,
+                'product_attributes' => collect($m->tiktok_attributes ?? [])->map(fn ($a) => [
+                    'id' => (string) $a['id'],
+                    'values' => collect($a['values'] ?? [])->map(fn ($v) => ($v['id'] ?? '') !== '' ? ['id' => (string) $v['id'], 'name' => (string) ($v['name'] ?? '')] : ['name' => (string) ($v['name'] ?? '')])->values()->all(),
+                ])->filter(fn ($a) => $a['values'] !== [])->values()->all(),
+            ];
+        }
+        if (! $m->shopee_category_id || ! $this->kategoriBoleh($m, $l, 'shopee_category_id')) {
+            return [];
+        }
+        $payload = [
+            'category_id' => (int) $m->shopee_category_id,
+            'attribute_list' => collect($m->shopee_attributes ?? [])->map(fn ($a) => [
+                'attribute_id' => (int) $a['id'],
+                'attribute_value_list' => collect($a['values'] ?? [])->map(fn ($v) => array_filter([
+                    'value_id' => (int) ($v['id'] ?? 0), // 0 = nilai isian bebas → original_value_name
+                    'original_value_name' => (string) ($v['name'] ?? ''),
+                    'value_unit' => (string) ($v['unit'] ?? ''),
+                ], fn ($x, $k) => $k !== 'value_unit' || $x !== '', ARRAY_FILTER_USE_BOTH))->values()->all(),
+            ])->filter(fn ($a) => $a['attribute_value_list'] !== [])->values()->all(),
+        ];
+        if (is_array($m->shopee_brand) && isset($m->shopee_brand['brand_id'])) {
+            $payload['brand'] = ['brand_id' => (int) $m->shopee_brand['brand_id'], 'original_brand_name' => (string) ($m->shopee_brand['original_brand_name'] ?? '')];
+        }
+
+        return $payload;
     }
 
     // ---- Cermin order (aditif; HQ TAK disentuh) ----

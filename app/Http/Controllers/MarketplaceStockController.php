@@ -63,7 +63,7 @@ class MarketplaceStockController extends Controller
     public function store(Request $r, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
     {
         $this->validateMaster($r);
-        $master = MarketplaceMaster::create($this->masterAttributes($r));
+        $master = MarketplaceMaster::create($this->masterAttributes($r) + $this->kategoriAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
 
         return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" dibuat.");
@@ -77,7 +77,7 @@ class MarketplaceStockController extends Controller
     public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
     {
         $this->validateMaster($r);
-        $master->update($this->masterAttributes($r));
+        $master->update($this->masterAttributes($r) + $this->kategoriAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
         $svc->pushMaster($master);
         // Sinkron otomatis nama/deskripsi/berat/dimensi/barcode/foto — hanya listing yg sudah pernah didorong manual,
@@ -121,7 +121,111 @@ class MarketplaceStockController extends Controller
             'foto' => ['nullable', 'array', 'max:9'],
             'foto.*' => ['image', 'max:5120'],
             'urutan_foto' => ['nullable', 'string', 'max:200'],
+            'tiktok_category_id' => ['nullable', 'regex:/^\d{1,32}$/'],
+            'tiktok_category_name' => ['nullable', 'string', 'max:500'],
+            'tiktok_attributes' => ['nullable', 'string', 'max:60000'],
+            'shopee_category_id' => ['nullable', 'regex:/^\d{1,32}$/'],
+            'shopee_category_name' => ['nullable', 'string', 'max:500'],
+            'shopee_attributes' => ['nullable', 'string', 'max:60000'],
+            'shopee_brand' => ['nullable', 'string', 'max:1000'],
         ]);
+    }
+
+    /**
+     * Kolom kategori marketplace dari form — HANYA bila field dikirim (form lain/tes lama tak menyentuhnya).
+     * Atribut = JSON dari skrip pemilih; disaring ketat ke bentuk [{id, values:[{id, name, unit?}]}].
+     */
+    private function kategoriAttributes(Request $r): array
+    {
+        $out = [];
+        foreach (['tiktok', 'shopee'] as $ch) {
+            if (! $r->has("{$ch}_category_id")) {
+                continue;
+            }
+            $id = $r->input("{$ch}_category_id") ?: null;
+            $out["{$ch}_category_id"] = $id;
+            $out["{$ch}_category_name"] = $id ? $r->input("{$ch}_category_name") : null;
+            $out["{$ch}_attributes"] = $id ? self::saringAtribut((string) $r->input("{$ch}_attributes")) : null;
+        }
+        if ($r->has('shopee_brand')) {
+            $b = json_decode((string) $r->input('shopee_brand'), true);
+            $out['shopee_brand'] = ($out['shopee_category_id'] ?? true) && is_array($b) && isset($b['brand_id']) && is_numeric($b['brand_id'])
+                ? ['brand_id' => (int) $b['brand_id'], 'original_brand_name' => mb_substr((string) ($b['original_brand_name'] ?? ''), 0, 255)]
+                : null;
+        }
+
+        return $out;
+    }
+
+    /** @return list<array{id:string, values:list<array>}> */
+    private static function saringAtribut(string $json): array
+    {
+        $rows = json_decode($json, true);
+        if (! is_array($rows)) {
+            return [];
+        }
+        $out = [];
+        foreach (array_slice($rows, 0, 200) as $a) {
+            if (! is_array($a) || ! preg_match('/^\d{1,32}$/', (string) ($a['id'] ?? ''))) {
+                continue;
+            }
+            $values = [];
+            foreach (array_slice((array) ($a['values'] ?? []), 0, 50) as $v) {
+                $vid = (string) ($v['id'] ?? '');
+                $nama = trim(mb_substr((string) ($v['name'] ?? ''), 0, 255));
+                if (($vid !== '' && ! preg_match('/^\d{1,32}$/', $vid)) || ($vid === '' && $nama === '')) {
+                    continue;
+                }
+                $values[] = array_filter(['id' => $vid, 'name' => $nama, 'unit' => mb_substr((string) ($v['unit'] ?? ''), 0, 32)],
+                    fn ($x, $k) => $k !== 'unit' || $x !== '', ARRAY_FILTER_USE_BOTH);
+            }
+            if ($values !== []) {
+                $out[] = ['id' => (string) $a['id'], 'values' => $values];
+            }
+        }
+
+        return $out;
+    }
+
+    /** JSON pemilih kategori: kategori daun channel yang cocok kata kunci. */
+    public function cariKategori(Request $r, string $channel, MarketplaceMasterService $svc): JsonResponse
+    {
+        try {
+            return response()->json(['data' => $svc->cariKategori($channel, (string) $r->query('q', ''))]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => MarketplaceMasterService::maskSecrets($e->getMessage())], 422);
+        }
+    }
+
+    /** JSON atribut (+ merek Shopee) satu kategori daun. */
+    public function atributKategori(string $channel, string $category, MarketplaceMasterService $svc): JsonResponse
+    {
+        abort_unless(preg_match('/^\d{1,32}$/', $category), 404);
+        try {
+            return response()->json(['data' => $svc->atributKategori($channel, $category)]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => MarketplaceMasterService::maskSecrets($e->getMessage())], 422);
+        }
+    }
+
+    /** Tarik kategori + atribut yang sekarang terpasang di listing tertaut (titik awal sebelum diubah). */
+    public function tarikKategori(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
+    {
+        $hasil = $svc->tarikKategori($master);
+        if ($hasil === []) {
+            return back()->with('error', 'Belum ada listing TikTok/Shopee tertaut — tautkan dulu lewat "Tambah ke Marketplace".');
+        }
+        $ok = array_keys(array_filter($hasil, fn ($x) => $x === 'ok'));
+        $gagal = array_filter($hasil, fn ($x) => $x !== 'ok');
+        $back = back();
+        if ($ok !== []) {
+            $back->with('status', 'Kategori & atribut ditarik dari '.implode(' & ', array_map('ucfirst', $ok)).'.');
+        }
+        if ($gagal !== []) {
+            $back->with('error', collect($gagal)->map(fn ($m, $ch) => ucfirst($ch).': '.$m)->implode(' · '));
+        }
+
+        return $back;
     }
 
     /** Atribut master dari request (dipakai store & update). */
