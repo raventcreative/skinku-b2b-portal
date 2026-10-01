@@ -79,6 +79,30 @@ class OkrBusinessSnapshotService
                         'jumlah_order' => (int) $channels->sum('orders_n'),
                     ];
                 })->values()->all();
+            // Bulan berjalan di awal periode masih 0 (MTD) → beri baseline dari 3 bulan
+            // yang SUDAH selesai, supaya Fakta server & AI tak membaca bisnis "nol".
+            $closed = $this->latestClosedMonth($month);
+            $closedMonths = collect([2, 1, 0])->map(function (int $back) use ($closed) {
+                $period = $closed->copy()->subMonths($back)->startOfMonth();
+                $channels = collect($this->reports->channelSales($period));
+
+                return [
+                    'bulan' => $period->format('Y-m'),
+                    'semua_channel' => round((float) $channels->sum('confirmed'), 2),
+                    'ecommerce' => round((float) $channels->whereIn('key', ['tiktok', 'shopee'])->sum('confirmed'), 2),
+                    'distributor' => round((float) $channels->where('key', 'reseller')->sum('confirmed'), 2),
+                ];
+            });
+            $out['penjualan_bulan_selesai'] = [
+                'per_bulan' => $closedMonths->values()->all(),
+                'bulan_terakhir' => $closedMonths->last(),
+                'rata_rata_3_bulan' => [
+                    'semua_channel' => round((float) $closedMonths->avg('semua_channel'), 2),
+                    'ecommerce' => round((float) $closedMonths->avg('ecommerce'), 2),
+                    'distributor' => round((float) $closedMonths->avg('distributor'), 2),
+                ],
+                'catatan' => 'Baseline dari bulan yang sudah selesai. Angka bulan berjalan (MTD) belum lengkap — jangan dibaca sebagai performa.',
+            ];
             $out['distributor'] = $this->distributorSnapshot($month);
             $out['portofolio_produk'] = [
                 'master_aktif' => Product::where('status', Product::STATUS_ACTIVE)->count(),
@@ -351,9 +375,13 @@ class OkrBusinessSnapshotService
     public function coreFacts(array $catalog): array
     {
         $spec = [
-            ['path' => 'cmo.penjualan.total_sales', 'label' => 'Omzet total (semua channel)'],
-            ['path' => 'cmo.omzet_ecommerce_bulan', 'label' => 'Omzet e-commerce (bulan berjalan)'],
-            ['path' => 'cmo.distributor.omzet_selesai', 'label' => 'Omzet distributor (bulan berjalan)'],
+            ['path' => 'cmo.penjualan_bulan_selesai.bulan_terakhir.semua_channel', 'label' => 'Omzet semua channel (bulan selesai terakhir)'],
+            ['path' => 'cmo.penjualan_bulan_selesai.bulan_terakhir.ecommerce', 'label' => 'Omzet e-commerce (bulan selesai terakhir)'],
+            ['path' => 'cmo.penjualan_bulan_selesai.bulan_terakhir.distributor', 'label' => 'Omzet distributor (bulan selesai terakhir)'],
+            ['path' => 'cmo.penjualan_bulan_selesai.rata_rata_3_bulan.semua_channel', 'label' => 'Rata-rata omzet/bulan (3 bulan selesai)'],
+            ['path' => 'cmo.penjualan.total_sales', 'label' => 'Omzet total (bulan berjalan · MTD)'],
+            ['path' => 'cmo.omzet_ecommerce_bulan', 'label' => 'Omzet e-commerce (bulan berjalan · MTD)'],
+            ['path' => 'cmo.distributor.omzet_selesai', 'label' => 'Omzet distributor (bulan berjalan · MTD)'],
             ['path' => 'cmo.distributor.mencapai_100_juta', 'label' => 'Distributor tembus Rp100 juta'],
             ['path' => 'cmo.distributor.aktif_30_hari', 'label' => 'Distributor aktif (30 hari)'],
             ['path' => 'cmo.distributor.onboarding', 'label' => 'Distributor onboarding (belum PO)'],

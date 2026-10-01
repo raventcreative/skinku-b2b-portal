@@ -11,12 +11,14 @@ use App\Models\OkrCycle;
 use App\Models\OkrTask;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
+use App\Models\TiktokOrder;
 use App\Models\User;
 use App\Services\Ai\AiException;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiTurn;
 use App\Services\OkrBusinessSnapshotService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAiProvider;
@@ -217,7 +219,8 @@ class OkrTest extends TestCase
         $this->assertSame(0, BoardCard::count());
         $this->assertGreaterThanOrEqual(3, count($cycle->analysis_evidence));
         $this->assertSame(0.0, (float) $cycle->analysis_evidence[0]['value']);
-        $this->assertSame('cmo.penjualan.total_sales', $cycle->analysis_evidence[0]['source_path']);
+        // Fakta inti diawali baseline bulan selesai (bulan berjalan di awal periode masih 0).
+        $this->assertSame('cmo.penjualan_bulan_selesai.bulan_terakhir.semua_channel', $cycle->analysis_evidence[0]['source_path']);
 
         $this->assertCount(4, $fake->sent);
         $this->assertStringContainsString('spesialis CMO AI', $fake->sent[0]['messages'][0]['content']);
@@ -736,8 +739,8 @@ class OkrTest extends TestCase
         // pilihan kutipan AI berbeda.
         $shape = fn ($facts) => collect($facts)->map(fn ($f) => [$f['source_path'], (string) $f['value']])->all();
         $this->assertSame($shape($first), $shape($second));
-        // Urutan tetap diawali omzet total.
-        $this->assertSame('cmo.penjualan.total_sales', $first[0]['source_path']);
+        // Urutan tetap diawali omzet bulan selesai terakhir.
+        $this->assertSame('cmo.penjualan_bulan_selesai.bulan_terakhir.semua_channel', $first[0]['source_path']);
         // Bukan hasil kutipan AI: fakta tak punya interpretasi model.
         $this->assertArrayNotHasKey('interpretation', $first[0]);
         // Metrik yang diminta ikut tampil di daftar tetap.
@@ -1214,5 +1217,29 @@ class OkrTest extends TestCase
         $this->assertTrue($new->columns()->where('name', 'like', 'To Do List%')->exists());
         $this->assertTrue($new->columns()->where('name', 'like', 'Done%')->exists());
         $this->assertSame(2, $old->columns()->count()); // papan lama tak disentuh
+    }
+
+    public function test_fakta_inti_awal_bulan_memuat_omzet_bulan_selesai(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-01 09:00'));
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrbaseline');
+        // September (bulan selesai) ada penjualan; Oktober (berjalan) masih kosong.
+        TiktokOrder::create(['tiktok_order_id' => 'T-SEP', 'status' => 'COMPLETED', 'total_amount' => 600_000,
+            'order_created_at' => '2026-09-15', 'line_items' => []]);
+        TiktokOrder::create(['tiktok_order_id' => 'T-AGU', 'status' => 'COMPLETED', 'total_amount' => 300_000,
+            'order_created_at' => '2026-08-15', 'line_items' => []]);
+
+        $svc = app(OkrBusinessSnapshotService::class);
+        $catalog = $svc->evidenceCatalog(['cmo' => $svc->for('cmo', $super, [
+            'start_date' => '2026-10-01', 'end_date' => '2026-12-31',
+        ])]);
+        $facts = collect($svc->coreFacts($catalog))->keyBy('source_path');
+
+        $last = $facts['cmo.penjualan_bulan_selesai.bulan_terakhir.semua_channel'];
+        $this->assertEquals(600_000, $last['value']);
+        $this->assertSame('2026-09', $last['period']);
+        $this->assertEquals(600_000, $facts['cmo.penjualan_bulan_selesai.bulan_terakhir.ecommerce']['value']);
+        $this->assertEquals(300_000, $facts['cmo.penjualan_bulan_selesai.rata_rata_3_bulan.semua_channel']['value']); // (0+300rb+600rb)/3
+        $this->assertEquals(0, $facts['cmo.omzet_ecommerce_bulan']['value']); // MTD Oktober tetap jujur 0
     }
 }
