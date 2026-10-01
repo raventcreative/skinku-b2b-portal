@@ -41,6 +41,11 @@ html::-webkit-scrollbar,
 /* Palet v3 (hex, dari tailwindcss@3.4.19) untuk keluarga warna yang dipakai — v4 default OKLCH lebih menyala.
    ponytail: keluarga warna baru di luar daftar ini akan pakai palet v4; tambahkan bila perlu konsisten. */
 @theme {
+    --color-brand-dark: #1c1917;
+    --color-brand-gold: #c8a96a;
+    --color-brand-maroon: #5c1118;
+    --color-brand-deep: #5c1118;
+    --color-brand-cream: #faf7f2;
     --color-stone-50: #fafaf9; --color-stone-100: #f5f5f4; --color-stone-200: #e7e5e4; --color-stone-300: #d6d3d1; --color-stone-400: #a8a29e; --color-stone-500: #78716c; --color-stone-600: #57534e; --color-stone-700: #44403c; --color-stone-800: #292524; --color-stone-900: #1c1917; --color-stone-950: #0c0a09;
     --color-red-50: #fef2f2; --color-red-100: #fee2e2; --color-red-200: #fecaca; --color-red-300: #fca5a5; --color-red-400: #f87171; --color-red-500: #ef4444; --color-red-600: #dc2626; --color-red-700: #b91c1c; --color-red-800: #991b1b; --color-red-900: #7f1d1d; --color-red-950: #450a0a;
     --color-rose-50: #fff1f2; --color-rose-100: #ffe4e6; --color-rose-200: #fecdd3; --color-rose-300: #fda4af; --color-rose-400: #fb7185; --color-rose-500: #f43f5e; --color-rose-600: #e11d48; --color-rose-700: #be123c; --color-rose-800: #9f1239; --color-rose-900: #881337; --color-rose-950: #4c0519;

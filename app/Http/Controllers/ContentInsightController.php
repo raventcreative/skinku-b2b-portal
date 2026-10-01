@@ -24,20 +24,29 @@ class ContentInsightController extends Controller
     public function index(Request $request): View
     {
         $days = in_array((int) $request->query('days'), self::PERIODS, true) ? (int) $request->query('days') : 30;
+        $platform = in_array($request->query('platform'), ['instagram', 'tiktok'], true) ? $request->query('platform') : 'semua';
         $since = now()->subDays($days)->startOfDay();
 
         $targets = ContentPostTarget::with(['post.user', 'latestSnapshot'])
             ->where('status', ContentPostTarget::PUBLISHED)
             ->where('published_at', '>=', $since)
+            ->when($platform !== 'semua', fn ($query) => $query->where('platform', $platform))
             ->get();
 
         $snaps = $targets->pluck('latestSnapshot')->filter();
         $views = (int) $snaps->sum('views');
         $interactions = $snaps->sum(fn (ContentPostSnapshot $s) => $s->interactions());
 
-        $daily = ContentPostSnapshot::whereIn('content_post_target_id', $targets->pluck('id'))
-            ->where('captured_on', '>=', $since)
-            ->selectRaw('captured_on, sum(views) as views')->groupBy('captured_on')->orderBy('captured_on')->get();
+        $daily = ContentPostSnapshot::query()
+            ->join('content_post_targets', 'content_post_targets.id', '=', 'content_post_snapshots.content_post_target_id')
+            ->whereIn('content_post_snapshots.content_post_target_id', $targets->pluck('id'))
+            ->where('content_post_snapshots.captured_on', '>=', $since)
+            ->selectRaw('content_post_snapshots.captured_on, content_post_targets.platform, sum(content_post_snapshots.views) as views')
+            ->groupBy('content_post_snapshots.captured_on', 'content_post_targets.platform')
+            ->orderBy('content_post_snapshots.captured_on')
+            ->get();
+        $chartDates = $daily->pluck('captured_on')->map(fn ($date) => Carbon::parse($date)->toDateString())->unique()->sort()->values();
+        $chartPlatforms = $platform === 'semua' ? ['instagram', 'tiktok'] : [$platform];
 
         $creators = $targets->groupBy(fn ($t) => ($t->options['imported'] ?? false) ? 'brand_imported' : $t->post->user_id)->map(function ($group, $owner) {
             $s = $group->pluck('latestSnapshot')->filter();
@@ -54,7 +63,11 @@ class ContentInsightController extends Controller
 
         return view('content.insights', [
             'days' => $days,
-            'syncErrors' => SocialConnection::whereIn('platform', ['instagram', 'tiktok'])->get()
+            'platform' => $platform,
+            'platformLabel' => $platform === 'semua' ? 'Semua platform' : ($platform === 'tiktok' ? 'TikTok' : 'Instagram'),
+            'syncErrors' => SocialConnection::whereIn('platform', ['instagram', 'tiktok'])
+                ->when($platform !== 'semua', fn ($query) => $query->where('platform', $platform))
+                ->get()
                 ->filter(fn ($connection) => filled($connection->meta['insight_error'] ?? null))
                 ->map(fn ($connection) => ['platform' => $connection->platform, 'message' => $connection->meta['insight_error']])
                 ->values(),
@@ -67,8 +80,15 @@ class ContentInsightController extends Controller
                 'targets' => $targets->count(),
             ],
             'chart' => [
-                'labels' => $daily->map(fn ($d) => Carbon::parse($d->captured_on)->format('d M'))->all(),
-                'views' => $daily->pluck('views')->map(fn ($v) => (int) $v)->all(),
+                'labels' => $chartDates->map(fn ($date) => Carbon::parse($date)->format('d M'))->all(),
+                'datasets' => collect($chartPlatforms)->map(function ($chartPlatform) use ($daily, $chartDates) {
+                    $byDate = $daily->where('platform', $chartPlatform)->keyBy(fn ($row) => Carbon::parse($row->captured_on)->toDateString());
+
+                    return [
+                        'label' => $chartPlatform === 'tiktok' ? 'TikTok' : 'Instagram',
+                        'data' => $chartDates->map(fn ($date) => isset($byDate[$date]) ? (int) $byDate[$date]->views : null)->all(),
+                    ];
+                })->all(),
             ],
             'top' => $targets->filter(fn ($t) => $t->latestSnapshot)->sortByDesc(fn ($t) => (int) $t->latestSnapshot->views)->take(10)->values(),
             'creators' => $creators,

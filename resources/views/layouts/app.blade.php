@@ -550,9 +550,9 @@
             <div class="flex items-center gap-3">
                 @if($u->canDo('manage_ecommerce_chat'))
                     @php($ecomUnread = app(\App\Services\EcomChatService::class)->unreadCountFor($u))
-                    <a href="{{ route('ecom-chat.index') }}" class="relative w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-100" title="Chat E-commerce" aria-label="Chat E-commerce">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.83L3 20l1.17-3.5A7.6 7.6 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                        <span id="ecomChatBadge" class="{{ $ecomUnread > 0 ? '' : 'hidden' }} absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">{{ $ecomUnread }}</span>
+                    <a href="{{ route('ecom-chat.index') }}" class="relative flex h-10 w-10 items-center justify-center rounded-xl border {{ request()->routeIs('ecom-chat.*') ? 'border-brand-maroon bg-brand-cream text-brand-maroon' : 'border-stone-200 text-stone-700 hover:border-brand-maroon hover:bg-brand-cream hover:text-brand-maroon' }} transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-maroon focus-visible:ring-offset-2" title="Chat E-commerce" aria-label="Chat E-commerce">
+                        <svg aria-hidden="true" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h7A2.5 2.5 0 0 1 16 5.5v4A2.5 2.5 0 0 1 13.5 12H9l-4.5 3v-3.4A2.5 2.5 0 0 1 4 10V5.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 7.5h.01M11 7.5h.01m4.5 5H20a1 1 0 0 1 1 1v6h-6v-6a1 1 0 0 1 1-1Zm1-1v-.75a2 2 0 1 1 4 0v.75"/></svg>
+                        <span id="ecomChatBadge" class="{{ $ecomUnread > 0 ? '' : 'hidden' }} absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-gold text-brand-dark text-[10px] font-bold flex items-center justify-center">{{ $ecomUnread }}</span>
                     </a>
                     <button id="ecomChatMute" type="button" class="w-7 h-7 flex items-center justify-center rounded-lg text-stone-400 hover:text-stone-700" title="Bunyi notifikasi" aria-label="Toggle bunyi notifikasi">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6l-4 4H4v4h4l4 4V6z"/></svg>
@@ -679,7 +679,7 @@
     function setMuted(v) { try { localStorage.setItem('ecomChatMute', v ? '1' : '0'); } catch (e) {} renderMute(); }
     function renderMute() {
         if (!muteBtn) return;
-        muteBtn.classList.toggle('text-red-600', muted());
+        muteBtn.classList.toggle('text-brand-gold', muted());
         muteBtn.title = muted() ? 'Bunyi notifikasi: MATI' : 'Bunyi notifikasi: NYALA';
     }
     function lastSeen() { try { return parseInt(localStorage.getItem('ecomChatUnread') || '0', 10) || 0; } catch (e) { return 0; } }
