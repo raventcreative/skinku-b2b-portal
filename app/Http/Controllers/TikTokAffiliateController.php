@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\KolTiktokProfile;
 use App\Models\TiktokAffiliateConnection;
 use App\Services\AuditService;
 use App\Services\TikTokAffiliateService;
@@ -112,20 +113,21 @@ class TikTokAffiliateController extends Controller
             } catch (\Throwable $e) {
                 $out['lives_ERROR'] = $e->getMessage();
             }
-            // Creator Marketplace: cari kreator contoh + performa (buat screening).
+            // Creator Marketplace: performa satu kreator (buat screening/tracker). Hemat
+            // kuota (rate limit marketplace dipakai bareng sync harian): pakai open_id KOL
+            // yang SUDAH tersimpan → 1 panggilan; baru cari by username bila belum ada.
             try {
-                $mk = $client->searchMarketplaceCreators($access, $cipher, 'dewick02', 12);
-                $out['marketplace_search'] = $mk;
-                $openId = data_get($mk, 'creators.0.creator_open_id');
+                $openId = KolTiktokProfile::whereNotNull('open_id')->latest('synced_at')->value('open_id');
+                if (! $openId) {
+                    $mk = $client->searchMarketplaceCreators($access, $cipher, 'dewick02', 12);
+                    $out['marketplace_search'] = $mk;
+                    $openId = data_get($mk, 'creators.0.creator_open_id');
+                }
                 if ($openId) {
-                    try {
-                        $out['marketplace_performance'] = $client->getMarketplaceCreatorPerformance($access, $cipher, (string) $openId);
-                    } catch (\Throwable $e) {
-                        $out['marketplace_performance_ERROR'] = $e->getMessage();
-                    }
+                    $out['marketplace_performance'] = $client->getMarketplaceCreatorPerformance($access, $cipher, (string) $openId);
                 }
             } catch (\Throwable $e) {
-                $out['marketplace_search_ERROR'] = $e->getMessage();
+                $out['marketplace_performance_ERROR'] = $e->getMessage();
             }
 
             $conn->update(['last_synced_at' => now()]);
