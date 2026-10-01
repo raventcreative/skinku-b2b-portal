@@ -105,7 +105,7 @@
                 </div>
             @else
                 <p class="text-xs text-stone-400">Pencarian: <span class="text-stone-500">{{ $kolResult['query'] }}</span> · {{ count($kolResult['candidates']) }} kandidat</p>
-                <p class="text-[11px] text-stone-400 -mt-2">💡 CPM · verdict · estimasi GMV muncul setelah <b>+ Tambah ke Database KOL</b> lalu di-screening (input views 7 video + ratecard).</p>
+                <p class="text-[11px] text-stone-400 -mt-2">💡 CPM · verdict · estimasi GMV muncul setelah <b>+ Tambah ke Database KOL / Affiliate</b> lalu di-screening (input views 7 video + ratecard).</p>
                 <div class="grid sm:grid-cols-2 gap-3">
                     @foreach($kolResult['candidates'] as $c)
                         <div class="bg-white rounded-2xl border border-stone-200 p-4 flex flex-col gap-2">
@@ -139,7 +139,7 @@
                                     <input type="hidden" name="followers" value="{{ $c['followers_est'] }}">
                                     <input type="hidden" name="kategori" value="{{ $c['kategori'] }}">
                                     <button class="w-full px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60">
-                                        + Tambah ke Database KOL
+                                        + Tambah ke Database KOL / Affiliate
                                     </button>
                                 </form>
                             @endif
@@ -239,7 +239,7 @@
                 </label>
                 <div class="flex items-center gap-4">
                     <button class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl disabled:opacity-60">
-                        + Tambah Semua ke Database KOL
+                        + Tambah Semua ke Database KOL / Affiliate
                     </button>
                     <span class="text-[11px] text-stone-400">Duplikat & baris tak valid otomatis dilewati.</span>
                 </div>

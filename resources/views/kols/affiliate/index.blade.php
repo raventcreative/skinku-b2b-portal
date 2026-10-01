@@ -91,7 +91,7 @@
                 <p class="text-sm font-semibold text-amber-800">⚠ {{ $unmatched->count() }} username belum cocok — GMV tak masuk ranking. Yang GMV-nya besar = calon affiliate belum terdata.</p>
                 @if($canManage)
                     <form method="POST" action="{{ route('kol-affiliate.promote-all') }}"
-                        onsubmit="return confirm('Masukkan SEMUA {{ $unmatched->count() }} username ini ke Database KOL sebagai affiliate? Username yang sudah ada di Database KOL cukup ditautkan (tidak dobel).')">
+                        onsubmit="return confirm('Masukkan SEMUA {{ $unmatched->count() }} username ini ke Database KOL / Affiliate sebagai affiliate? Username yang sudah ada di Database KOL / Affiliate cukup ditautkan (tidak dobel).')">
                         @csrf
                         <button class="inline-flex min-h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-700">Jadikan KOL semua ({{ $unmatched->count() }})</button>
                     </form>
@@ -118,7 +118,7 @@
                                 </form>
                                 <span class="text-[10px] text-stone-400">atau</span>
                                 <form method="POST" action="{{ route('kol-affiliate.promote') }}"
-                                    onsubmit="return confirm('Tambahkan @{{ $row->raw_username }} ke Database KOL sebagai affiliate baru? Semua ordernya ikut tertaut.')">
+                                    onsubmit="return confirm('Tambahkan @{{ $row->raw_username }} ke Database KOL / Affiliate sebagai affiliate baru? Semua ordernya ikut tertaut.')">
                                     @csrf
                                     <input type="hidden" name="raw_username" value="{{ $row->raw_username }}">
                                     <button class="inline-flex min-h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-700">Jadikan KOL</button>

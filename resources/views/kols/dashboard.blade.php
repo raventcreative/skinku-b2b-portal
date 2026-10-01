@@ -20,7 +20,7 @@
         <div class="bg-white rounded-2xl border border-dashed border-stone-300 p-6">
             <p class="text-sm font-bold text-stone-800 mb-3">Mulai dari sini 🚀</p>
             <ol class="space-y-2 text-sm text-stone-600">
-                <li><b>1.</b> Tambahkan KOL di <a href="{{ route('kols.index') }}" class="text-indigo-600 hover:underline">Database KOL</a> lalu isi screening.</li>
+                <li><b>1.</b> Tambahkan KOL di <a href="{{ route('kols.index') }}" class="text-indigo-600 hover:underline">Database KOL / Affiliate</a> lalu isi screening.</li>
                 <li><b>2.</b> Scout &amp; nego lewat <a href="{{ route('kol-pipeline.index') }}" class="text-indigo-600 hover:underline">Pipeline</a>, lalu buat <a href="{{ route('kol-deals.index') }}" class="text-indigo-600 hover:underline">Deal</a>.</li>
                 <li><b>3.</b> Catat <a href="{{ route('kol-konten.index') }}" class="text-indigo-600 hover:underline">Konten &amp; views</a> dan import <a href="{{ route('kol-affiliate.index') }}" class="text-indigo-600 hover:underline">Affiliate GMV</a> — dashboard terisi otomatis.</li>
             </ol>

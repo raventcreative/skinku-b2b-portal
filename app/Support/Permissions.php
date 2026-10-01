@@ -44,7 +44,7 @@ class Permissions
         'manage_learning' => 'Kelola Materi SKINKU Academy',
         'manage_tiktok' => 'Integrasi TikTok Shop',
         'manage_shopee' => 'Integrasi Shopee',
-        'kol.view' => 'Lihat Database KOL & Hasil Kurasi',
+        'kol.view' => 'Lihat Database KOL / Affiliate & Hasil Kurasi',
         'kol.screening.manage' => 'Input/Edit Screening KOL',
         'kol.deal.manage' => 'Kelola Deal KOL (buat/edit/hapus/urus)',
         'kol.deal.approve' => 'Setujui/Tolak Deal KOL (penyetuju — bukan pengaju)',

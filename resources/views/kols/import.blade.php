@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="mx-auto max-w-[1440px] px-2 sm:px-4 space-y-4">
-<a href="{{ route('kols.index') }}" class="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>Database KOL</a>
+<a href="{{ route('kols.index') }}" class="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>Database KOL / Affiliate</a>
 
 @if($errors->any())
     <p class="mt-3 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">{{ $errors->first() }}</p>

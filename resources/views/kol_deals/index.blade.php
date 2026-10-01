@@ -25,7 +25,7 @@
 @endphp
 
 <div class="flex flex-wrap items-center gap-3 mb-4">
-    <a href="{{ route('kols.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Database KOL</a>
+    <a href="{{ route('kols.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Database KOL / Affiliate</a>
     <form method="GET" class="flex items-center gap-1">
         <select name="status" onchange="this.form.submit()" class="px-2 py-1.5 text-xs border border-stone-300 rounded-lg">
             <option value="">Semua status</option>

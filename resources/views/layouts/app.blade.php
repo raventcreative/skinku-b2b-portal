@@ -381,7 +381,7 @@
                     @if($u->canDo('kol.view'))
                         {!! navItem('kol-dashboard.index', 'Dashboard', 'kol-dashboard.*') !!}
                         {!! navItem('kol-reminder.index', 'Reminder', 'kol-reminder.*') !!}
-                        {!! navItem('kols.index', 'Database KOL', 'kols.*') !!}
+                        {!! navItem('kols.index', 'Database KOL / Affiliate', 'kols.*') !!}
                         {!! navItem('kol-pipeline.index', 'Pipeline', 'kol-pipeline.*') !!}
                     @endif
                     @if($u->canDo('kol.deal.manage'))
