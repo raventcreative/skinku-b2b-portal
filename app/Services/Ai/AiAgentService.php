@@ -116,6 +116,7 @@ class AiAgentService
             '- Untuk aksi yang MENGUBAH data (mis. buat kartu Kanban), user akan dimintai konfirmasi otomatis — kamu cukup panggil alatnya dengan argumen yang benar.',
             '- Kalau nama papan/kolom/penerima belum jelas atau ambigu, TANYA dulu ke user; jangan menebak.',
             '- Kalau permintaan di luar kemampuan alatmu, bilang terus terang.',
+            '- Alatmu sudah disaring sesuai hak akses user. Kalau tak ada alat untuk data yang diminta, artinya user tak punya akses menu itu — bilang begitu, jangan menebak angkanya.',
         ];
 
         // "Memori" bisnis yang diisi admin — HANYA untuk staf internal. Mitra
