@@ -6,6 +6,7 @@ use App\Models\Kol;
 use App\Models\KolCreatorContent;
 use App\Models\KolCreatorContentStat;
 use App\Models\KolTiktokProfile;
+use App\Models\KolTiktokSnapshot;
 use App\Models\KolUsernameAlias;
 use App\Models\TiktokAffiliateConnection;
 use Illuminate\Support\Carbon;
@@ -235,6 +236,80 @@ class TikTokAffiliateService
         ], fn ($v) => $v !== null));
 
         return ['gmv_saved' => $gmvSaved, 'gmv_idr' => $gmvIdr];
+    }
+
+    /**
+     * Performa 30 hari satu kreator (endpoint marketplace_creators/{open_id}) →
+     * angka siap simpan, SEMUA uang sudah Rupiah. MURNI (tanpa I/O) → dites
+     * dengan JSON asli dari probe. Rate/persen TikTok berbasis 10.000
+     * (250 = 2,5%; 700 = 7%). GPM = GMV per 1.000 views.
+     *
+     * @return array<string,mixed>
+     */
+    public function mapCreatorPerformance(array $data): array
+    {
+        $c = (array) ($data['creator'] ?? $data);
+        $rate = (int) config('services.tiktok_affiliate.usd_idr_rate', 16000);
+        $idr = function (string $key) use ($c, $rate): ?int {
+            $v = data_get($c, $key.'.amount');
+
+            return ($v === null || $v === '') ? null : (int) round((float) $v * $rate);
+        };
+        $pct = fn (string $key) => isset($c[$key]) && $c[$key] !== '' ? round((float) $c[$key] / 100, 2) : null;
+        $int = fn (string $key) => isset($c[$key]) ? (int) $c[$key] : null;
+
+        return [
+            'followers' => $int('follower_count'),
+            'avg_video_views' => $int('avg_ec_video_play_count'),
+            'avg_live_uv' => $int('avg_ec_live_view_count'),
+            'video_count' => $int('ec_video_count'),
+            'live_count' => $int('ec_live_count'),
+            'video_engagement_pct' => $pct('ec_video_engagement_rate'),
+            'live_engagement_pct' => $pct('ec_live_engagement_rate'),
+            'gmv_idr' => $idr('gmv'),
+            'video_gmv_idr' => $idr('video_gmv'),
+            'live_gmv_idr' => $idr('live_gmv'),
+            'gpm_idr' => $idr('gpm'),
+            'units_sold' => $int('units_sold'),
+            'brand_collab_count' => $int('brand_collaboration_count'),
+            'avg_commission_pct' => $pct('avg_commission_rate'),
+            'gmv_range' => (string) data_get($c, 'gmv_range.formatted_range', '') ?: null,
+            'usd_idr_rate' => $rate,
+        ];
+    }
+
+    /**
+     * Tarik performa 30 hari satu KOL (butuh open_id di profil) lalu simpan:
+     * profil = angka terbaru, snapshot hari ini = riwayat tracker (1 baris/hari).
+     */
+    public function syncKolPerformance(TiktokAffiliateConnection $conn, Kol $kol): KolTiktokSnapshot
+    {
+        $openId = (string) $kol->tiktokProfile?->open_id;
+        if ($openId === '') {
+            throw new \RuntimeException("@{$kol->tiktok_username} belum punya open_id TikTok — cek dulu lewat Cek Performa TikTok.");
+        }
+        $data = $this->client->getMarketplaceCreatorPerformance($this->freshToken($conn), (string) $conn->shop_cipher, $openId);
+
+        return $this->applyPerformanceToKol($kol, $this->mapCreatorPerformance($data));
+    }
+
+    /** @param  array<string,mixed>  $m  hasil mapCreatorPerformance */
+    public function applyPerformanceToKol(Kol $kol, array $m): KolTiktokSnapshot
+    {
+        $keep = fn (array $a) => array_filter($a, fn ($v) => $v !== null);
+
+        KolTiktokProfile::updateOrCreate(['kol_id' => $kol->id], $keep($m + ['performance_synced_at' => now()]));
+        if ($m['followers'] !== null) {
+            $kol->update(['followers' => $m['followers']]);
+        }
+
+        return KolTiktokSnapshot::updateOrCreate(
+            ['kol_id' => $kol->id, 'captured_on' => now()->toDateString()],
+            $keep(collect($m)->only([
+                'followers', 'avg_video_views', 'video_count', 'live_count', 'video_engagement_pct',
+                'live_engagement_pct', 'gmv_idr', 'video_gmv_idr', 'live_gmv_idr', 'gpm_idr', 'units_sold',
+            ])->all()),
+        );
     }
 
     /**

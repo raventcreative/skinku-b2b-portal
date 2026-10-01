@@ -164,4 +164,25 @@ class KolTiktokCheckController extends Controller
 
         return null;
     }
+
+    /** Tarik performa 30 hari satu KOL sekarang (1 panggilan API) → profil + snapshot tracker. */
+    public function syncPerformance(Kol $kol): RedirectResponse
+    {
+        $conn = TiktokAffiliateConnection::latest('id')->first();
+        if (! $conn || ! $conn->shop_cipher) {
+            return back()->with('error', 'App TikTok Affiliate belum terhubung.');
+        }
+        $kol->loadMissing('tiktokProfile');
+        try {
+            $this->svc->syncKolPerformance($conn, $kol);
+        } catch (\Throwable $e) {
+            $limited = str_contains($e->getMessage(), '36009002');
+
+            return back()->with('error', $limited
+                ? 'Kuota TikTok sedang habis. Coba lagi beberapa jam lagi.'
+                : 'Gagal tarik performa: '.$e->getMessage());
+        }
+
+        return back()->with('status', 'Performa TikTok @'.$kol->tiktok_username.' diperbarui.');
+    }
 }

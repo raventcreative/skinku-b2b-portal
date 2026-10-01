@@ -131,16 +131,19 @@
     <div class="bg-white rounded-2xl border border-stone-200 p-5 mb-5">
         <div class="flex items-center justify-between gap-2 mb-3">
             <p class="text-sm font-bold text-stone-800">Performa TikTok <span class="text-xs font-normal text-stone-400">(Creator Marketplace)</span></p>
-            <a href="{{ route('kol-cek-tiktok.index', ['q' => $kol->tiktok_username]) }}" class="text-[11px] text-red-600 hover:underline whitespace-nowrap">Perbarui →</a>
+            @if(auth()->user()->canDo('kol.affiliate.manage') && $tp->open_id)
+                <form method="POST" action="{{ route('kols.tiktok-performance', $kol) }}">@csrf
+                    <button class="text-[11px] text-red-600 hover:underline whitespace-nowrap">Perbarui performa →</button>
+                </form>
+            @else
+                <a href="{{ route('kol-cek-tiktok.index', ['q' => $kol->tiktok_username]) }}" class="text-[11px] text-red-600 hover:underline whitespace-nowrap">Perbarui →</a>
+            @endif
         </div>
         <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="bg-stone-50 rounded-xl px-3 py-2.5 sm:col-span-2">
                 <p class="text-[10px] uppercase tracking-wide text-stone-400 font-semibold">GMV 30 hari</p>
                 <p class="text-lg font-bold text-stone-800 leading-tight">{{ $tp->gmv_idr !== null ? '≈ '.$rp($tp->gmv_idr) : ($tp->gmv_range ?: '—') }}</p>
-                <p class="text-[11px] text-stone-400">
-                    @if($tp->gmv_usd !== null)${{ number_format($tp->gmv_usd, 0, '.', ',') }}@endif
-                    @if($tp->gmv_range) · {{ $tp->gmv_range }}@endif
-                </p>
+                @if($tp->gmv_range)<p class="text-[11px] text-stone-400">{{ $tp->gmv_range }}</p>@endif
                 @if($tp->video_gmv_idr !== null || $tp->live_gmv_idr !== null)
                     <p class="text-[11px] text-stone-500 mt-1">
                         @if($tp->video_gmv_idr !== null)Video {{ $rp($tp->video_gmv_idr) }}@endif
@@ -163,6 +166,59 @@
                 </div>
             </div>
         </div>
+        @if($tp->performance_synced_at)
+            @php $pctF = fn ($v) => $v !== null ? number_format($v, 1, ',', '.').'%' : '—'; @endphp
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-3">
+                @foreach([
+                    ['GPM (per 1.000 views)', $tp->gpm_idr !== null ? $rp($tp->gpm_idr) : '—'],
+                    ['Engagement video', $pctF($tp->video_engagement_pct)],
+                    ['Engagement LIVE', $pctF($tp->live_engagement_pct)],
+                    ['Video · LIVE jualan', ($tp->video_count ?? '—').' · '.($tp->live_count ?? '—')],
+                    ['Produk terjual', $tp->units_sold !== null ? number_format($tp->units_sold, 0, ',', '.') : '—'],
+                    ['Kolaborasi brand · komisi', ($tp->brand_collab_count ?? '—').' · '.$pctF($tp->avg_commission_pct)],
+                ] as [$label, $val])
+                    <div class="bg-stone-50 rounded-xl px-3 py-2.5">
+                        <p class="text-[10px] uppercase tracking-wide text-stone-400 font-semibold">{{ $label }}</p>
+                        <p class="text-sm font-bold text-stone-800">{{ $val }}</p>
+                    </div>
+                @endforeach
+            </div>
+            <p class="text-[10px] text-stone-400 mt-1">Data 30 hari terakhir dari TikTok · diperbarui {{ $tp->performance_synced_at->diffForHumans() }} · Rupiah estimasi (kurs Rp{{ number_format($tp->usd_idr_rate ?? 16000, 0, ',', '.') }}).</p>
+        @endif
+
+        {{-- Tracker: riwayat snapshot (1 titik per sync; sync otomatis mingguan untuk KOL aktif). --}}
+        @if($kol->tiktokSnapshots->count() >= 2)
+            <div class="mt-4 border-t border-stone-100 pt-3">
+                <p class="text-xs uppercase tracking-wide text-stone-400 font-semibold mb-2">📈 Tracker performa</p>
+                <div class="h-56"><canvas id="kolTrackerChart"></canvas></div>
+            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    if (! window.Chart) return; // CDN gagal → kartu angka tetap tampil
+                    var s = @json($kol->tiktokSnapshots->map(fn ($x) => ['d' => $x->captured_on->format('d M'), 'v' => $x->avg_video_views, 'g' => $x->gmv_idr]));
+                    new Chart(document.getElementById('kolTrackerChart'), {
+                        data: {
+                            labels: s.map(x => x.d),
+                            datasets: [
+                                { type: 'line', label: 'Rata-rata views video', data: s.map(x => x.v), borderColor: '#0d9488', yAxisID: 'y', tension: .3 },
+                                { type: 'bar', label: 'GMV 30 hari (Rp)', data: s.map(x => x.g), backgroundColor: 'rgba(220,38,38,.25)', yAxisID: 'y1' },
+                            ],
+                        },
+                        options: {
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: { position: 'left', beginAtZero: true, title: { display: true, text: 'Views' } },
+                                y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false },
+                                    ticks: { callback: v => 'Rp' + Number(v).toLocaleString('id-ID') } },
+                            },
+                        },
+                    });
+                });
+            </script>
+        @elseif($tp->performance_synced_at)
+            <p class="text-[11px] text-stone-400 mt-3">📈 Grafik tracker muncul setelah minimal 2 kali sync (otomatis tiap Senin untuk KOL aktif/affiliate).</p>
+        @endif
+
         @if($tp->region || $tp->gender || $tp->age_ranges)
             <div class="mt-4 border-t border-stone-100 pt-3">
                 <p class="text-xs uppercase tracking-wide text-stone-400 font-semibold mb-2">👥 Demografi Audiens</p>
