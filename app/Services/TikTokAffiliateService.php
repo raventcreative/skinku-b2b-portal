@@ -275,6 +275,30 @@ class TikTokAffiliateService
             'avg_commission_pct' => $pct('avg_commission_rate'),
             'gmv_range' => (string) data_get($c, 'gmv_range.formatted_range', '') ?: null,
             'usd_idr_rate' => $rate,
+            'region' => ($c['selection_region'] ?? '') ?: null,
+        ] + $this->mapPerformanceDemografi($c);
+    }
+
+    /**
+     * Demografi dari endpoint performa: follower_gender/follower_age = daftar
+     * {key, value pecahan}. Disimpan format yang sama dgn hasil search
+     * (gender FEMALE|MALE + % mayoritas, "25–34, 18–24" = 2 umur terbesar).
+     *
+     * @return array{gender:?string,gender_pct:?float,age_ranges:?string}
+     */
+    private function mapPerformanceDemografi(array $c): array
+    {
+        $gender = collect((array) ($c['follower_gender'] ?? []))
+            ->filter(fn ($g) => in_array(strtolower((string) ($g['key'] ?? '')), ['male', 'female'], true))
+            ->sortByDesc(fn ($g) => (float) ($g['value'] ?? 0))->first();
+        $ages = collect((array) ($c['follower_age'] ?? []))
+            ->sortByDesc(fn ($a) => (float) ($a['value'] ?? 0))->take(2)
+            ->map(fn ($a) => str_replace('-', '–', (string) ($a['key'] ?? '')))->filter()->values();
+
+        return [
+            'gender' => $gender ? strtoupper((string) $gender['key']) : null,
+            'gender_pct' => $gender ? round((float) $gender['value'] * 100, 1) : null,
+            'age_ranges' => $ages->isNotEmpty() ? $ages->implode(', ') : null,
         ];
     }
 
