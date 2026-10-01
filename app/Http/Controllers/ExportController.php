@@ -97,7 +97,7 @@ class ExportController extends Controller
         return XlsxWriter::download('laporan-stok-hq-'.$mode.'-'.$anchor->format('Y-m-d').'.xlsx', [
             'Mutasi Stok HQ' => [
                 'headers' => ['Produk', 'SKU', 'Stok Awal', 'Produksi', 'Masuk Lain',
-                    'TikTok', 'Shopee', 'Reseller', 'Keluar Lain', 'Penyesuaian', 'Stok Akhir',
+                    'TikTok', 'Shopee', 'Reseller / Distributor', 'Keluar Lain', 'Penyesuaian', 'Stok Akhir',
                     'HPP/Unit', 'Nilai HPP', 'Jual/Unit', 'Nilai Jual'],
                 'rows' => $rows,
             ],

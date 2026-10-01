@@ -96,7 +96,7 @@
                 @if($showMasukLain)<th class="text-right px-3 py-1.5">Lain</th>@endif
                 <th class="text-right px-3 py-1.5 border-l border-stone-200">TikTok</th>
                 <th class="text-right px-3 py-1.5">Shopee</th>
-                <th class="text-right px-3 py-1.5">Reseller</th>
+                <th class="text-right px-3 py-1.5">Reseller / Distributor</th>
                 @if($showKeluarLain)<th class="text-right px-3 py-1.5">Lain</th>@endif
                 <th class="text-right px-3 py-1.5 border-l-2 border-stone-300">HPP/Unit</th>
                 <th class="text-right px-3 py-1.5">Nilai HPP</th>
@@ -155,7 +155,7 @@
 </div>
 
 <p class="mt-3 text-[11px] text-stone-400">
-    Rumus: <b>Stok Akhir = Stok Awal + Produksi + Penyesuaian − (TikTok + Shopee + Reseller)</b>.
+    Rumus: <b>Stok Akhir = Stok Awal + Produksi + Penyesuaian − (TikTok + Shopee + Reseller/Distributor)</b>.
     Kolom TikTok &amp; Shopee terisi dari order yang sudah kamu <b>Potong Stok</b>. Titik <b>·</b> = nol.
     <br>💡 Klik <b>nama produk</b> untuk lihat rincian tiap pergerakannya (buku besar) pada periode ini.
     <br>💰 <b>Nilai Persediaan</b> (Rupiah) = Stok Akhir × harga/unit. <b>Nilai HPP</b> pakai harga pokok (cogs) = modal barang tersimpan; <b>Nilai Jual</b> pakai harga retail = potensi omzet.
