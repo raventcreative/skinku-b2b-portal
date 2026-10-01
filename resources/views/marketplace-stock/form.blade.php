@@ -179,7 +179,6 @@
     if (!input || !grid || !addTile || !form) return;
 
     var MAX_DIM = 1600, QUALITY = 0.85; // ukuran & kualitas foto ramah-marketplace
-    var previews = [];
     var busy = 0;             // batch kompresi yang sedang berjalan
     var pendingSubmit = false;
 
@@ -211,10 +210,24 @@
         img.src = url;
     }
 
-    function renderPreview(file, idx){
+    // Foto Baru DITAMPUNG (bukan diganti) tiap kali pilih — bisa tambah 1-per-1. input.files dirakit ulang dari `baru`
+    // via DataTransfer; browser tanpa DataTransfer → perilaku lama (pilihan baru menggantikan pilihan sebelumnya).
+    var baru = []; // [{file, tile}] urut = indeks di foto[] (token n<i>)
+    var canDT = (function(){ try { new DataTransfer(); return true; } catch (e) { return false; } })();
+
+    function rakit(){
+        if (canDT) {
+            var dt = new DataTransfer();
+            baru.forEach(function(b){ dt.items.add(b.file); });
+            input.files = dt.files;
+        }
+        baru.forEach(function(b, i){ b.tile.setAttribute('data-new', String(i)); });
+        grid.dispatchEvent(new CustomEvent('foto:baru')); // skrip geser: segarkan urutan_foto & hint
+    }
+
+    function renderPreview(file){
         var tile = document.createElement('div');
         tile.className = 'mps-tile';
-        tile.setAttribute('data-new', String(idx)); // = indeks di foto[] (token n<idx> di urutan_foto)
         var im = document.createElement('img');
         im.draggable = false;
         im.src = URL.createObjectURL(file);
@@ -224,16 +237,33 @@
         badge.textContent = 'Baru';
         var grip = document.createElement('span');
         grip.className = 'mps-grip'; grip.title = 'Geser untuk atur urutan'; grip.setAttribute('aria-hidden', 'true'); grip.textContent = '⠿';
-        tile.appendChild(im); tile.appendChild(badge); tile.appendChild(grip);
+        var actions = document.createElement('div');
+        actions.className = 'mps-actions';
+        var del = document.createElement('button');
+        del.type = 'button'; del.title = 'Batalkan foto ini'; del.textContent = 'Hapus';
+        actions.appendChild(del);
+        tile.appendChild(im); tile.appendChild(badge); tile.appendChild(grip); tile.appendChild(actions);
         grid.insertBefore(tile, addTile);
-        previews.push(tile);
+        var item = { file: file, tile: tile };
+        del.addEventListener('click', function(){
+            baru = baru.filter(function(b){ return b !== item; });
+            if (tile.parentNode) tile.parentNode.removeChild(tile);
+            if (!canDT) { input.value = ''; baru.forEach(function(b){ b.tile.remove(); }); baru = []; } // tak bisa buang 1 file
+            rakit();
+        });
+        return item;
     }
 
     input.addEventListener('change', function(){
-        previews.forEach(function(el){ if (el.parentNode) el.parentNode.removeChild(el); });
-        previews = [];
         var files = Array.prototype.slice.call(input.files || []);
-        if (!files.length) { grid.dispatchEvent(new CustomEvent('foto:baru')); return; }
+        if (!canDT) { baru.forEach(function(b){ b.tile.remove(); }); baru = []; }
+        else if (!files.length) { rakit(); return; } // dialog dibatalkan → pertahankan foto Baru yang sudah ada
+        var sisa = 9 - grid.querySelectorAll('.mps-tile[data-file-id]').length - baru.length;
+        if (files.length > sisa) {
+            alert('Maksimal 9 foto per produk — ' + (sisa > 0 ? 'hanya ' + sisa + ' foto pertama yang ditambahkan.' : 'foto tidak ditambahkan.'));
+            files = files.slice(0, Math.max(0, sisa));
+        }
+        if (!files.length) { rakit(); return; }
 
         var out = new Array(files.length), done = 0;
         busy += 1;
@@ -241,14 +271,8 @@
             compress(f, function(res){
                 out[i] = res;
                 if (++done === files.length){
-                    try { // ganti isi input dgn hasil kompres supaya form mengirim yang kecil
-                        var dt = new DataTransfer();
-                        out.forEach(function(r){ if (r) dt.items.add(r); });
-                        input.files = dt.files;
-                    } catch (e) { /* tak didukung → biarkan file asli terkirim */ }
-                    var n = 0;
-                    out.forEach(function(r){ if (r) renderPreview(r, n++); });
-                    grid.dispatchEvent(new CustomEvent('foto:baru')); // skrip geser: reset urutan_foto & hint
+                    out.forEach(function(r){ if (r) baru.push(renderPreview(r)); });
+                    rakit(); // ganti isi input dgn SEMUA foto Baru hasil kompres (tak didukung → file asli terkirim)
                     busy -= 1;
                     if (busy === 0 && pendingSubmit) { pendingSubmit = false; form.submit(); }
                 }
@@ -300,9 +324,9 @@
         });
     }
 
-    // Foto Baru dipilih ulang/dihapus dari pilihan → urutan lama tak berlaku lagi (indeks n<i> berubah).
+    // Foto Baru ditambah/dibatalkan → indeks n<i> berubah: bila urutan sudah pernah digeser, catat ulang dari tampilan.
     grid.addEventListener('foto:baru', function(){
-        if (hidden) hidden.value = '';
+        if (hidden && hidden.value !== '') hidden.value = tokens().join(',');
         rapikanUtama();
         if (hint) hint.hidden = tiles().length < 2;
         status('');
