@@ -41,6 +41,9 @@ class KolPerformanceTrackerTest extends TestCase
             'gpm' => ['amount' => '1.697', 'currency' => 'USD'],
             'live_gmv' => ['amount' => '12.192392', 'currency' => 'USD'],
             'units_sold' => 29,
+            'selection_region' => 'ID',
+            'follower_gender' => [['key' => 'male', 'value' => '0.1113'], ['key' => 'female', 'value' => '0.4126']],
+            'follower_age' => [['key' => '25-34', 'value' => '0.5888'], ['key' => '18-24', 'value' => '0.2338'], ['key' => '35-44', 'value' => '0.1373']],
             'username' => 'yhuri333',
             'video_gmv' => ['amount' => '126.671118', 'currency' => 'USD'],
         ]];
@@ -86,6 +89,11 @@ class KolPerformanceTrackerTest extends TestCase
         $this->assertSame(47, $m['video_count']);
         $this->assertSame(2459, $m['followers']);
         $this->assertSame('Rp1JT+', $m['gmv_range']);
+        // Demografi ikut diperbarui dari endpoint performa.
+        $this->assertSame('FEMALE', $m['gender']);
+        $this->assertSame(41.3, $m['gender_pct']);
+        $this->assertSame('25–34, 18–24', $m['age_ranges']);
+        $this->assertSame('ID', $m['region']);
     }
 
     public function test_sync_mingguan_hanya_kol_aktif_dan_simpan_snapshot(): void
