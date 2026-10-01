@@ -87,7 +87,16 @@
     {{-- Belum cocok --}}
     @if($unmatched->isNotEmpty())
         <div class="bg-amber-50 rounded-2xl border border-amber-200 p-4">
-            <p class="text-sm font-semibold text-amber-800 mb-2">⚠ {{ $unmatched->count() }} username belum cocok — GMV tak masuk ranking. Yang GMV-nya besar = calon affiliate belum terdata.</p>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <p class="text-sm font-semibold text-amber-800">⚠ {{ $unmatched->count() }} username belum cocok — GMV tak masuk ranking. Yang GMV-nya besar = calon affiliate belum terdata.</p>
+                @if($canManage)
+                    <form method="POST" action="{{ route('kol-affiliate.promote-all') }}"
+                        onsubmit="return confirm('Masukkan SEMUA {{ $unmatched->count() }} username ini ke Database KOL sebagai affiliate? Username yang sudah ada di Database KOL cukup ditautkan (tidak dobel).')">
+                        @csrf
+                        <button class="inline-flex min-h-9 items-center rounded-lg bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-700">Jadikan KOL semua ({{ $unmatched->count() }})</button>
+                    </form>
+                @endif
+            </div>
             <div class="space-y-1">
                 @foreach($unmatched as $row)
                     <div class="flex flex-wrap items-center justify-between gap-2 bg-white rounded-lg px-3 py-2 text-sm">

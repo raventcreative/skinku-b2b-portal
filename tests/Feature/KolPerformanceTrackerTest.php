@@ -166,13 +166,37 @@ class KolPerformanceTrackerTest extends TestCase
         }
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'saporsi');
 
-        // Default 30 hari: 2,5 jt ÷ 10 jt = 25%.
+        // Kolom 30 hari: 2,5 jt ÷ 10 jt = 25%; kolom bulan ini: 500rb — tampil berdampingan.
         $this->actingAs($super)->get(route('kols.index'))->assertOk()
-            ->assertSee('Porsi SKINKU')->assertSee('Rp 2.500.000')->assertSee('25,0%');
+            ->assertSee('Porsi SKINKU')->assertSee('Rp 2.500.000')->assertSee('25,0%')->assertSee('Rp 500.000');
 
-        // Bulan ini: hanya 500rb, porsi tak dihitung (jendela beda dgn GMV Asli).
-        $html = $this->actingAs($super)->get(route('kols.index', ['gmv_periode' => 'bulan_ini']))->assertOk()->getContent();
-        $this->assertStringContainsString('Rp 500.000', $html);
-        $this->assertStringNotContainsString('25,0%', $html);
+        // GMV Asli TikTok basi (lebih kecil dari GMV SKINKU) → ditandai, bukan 250%.
+        $kol->tiktokProfile->update(['gmv_idr' => 1_000_000]);
+        $html = $this->actingAs($super)->get(route('kols.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('100%+', $html);
+        $this->assertStringNotContainsString('250,0%', $html);
+    }
+
+    public function test_jadikan_kol_semua_memasukkan_affiliate_belum_cocok_tanpa_dobel(): void
+    {
+        $ada = Kol::create(['tiktok_username' => 'sudahada', 'followers' => 10]);
+        foreach ([['A1', 'Sudahada'], ['A2', 'barukreator'], ['A3', 'barukreator']] as [$id, $u]) {
+            KolAffiliateTransaction::create(['platform' => 'tiktok', 'order_id' => $id, 'raw_username' => $u,
+                'gmv' => 100_000, 'order_date' => now()->toDateString(), 'status' => 'completed']);
+        }
+
+        $this->actingAs($this->user(User::ROLE_GUDANG, 'gudall'))
+            ->post(route('kol-affiliate.promote-all'))->assertForbidden();
+
+        $this->actingAs($this->user('kol_specialist', 'specall'))
+            ->post(route('kol-affiliate.promote-all'))->assertRedirect();
+
+        $baru = Kol::where('tiktok_username', 'barukreator')->firstOrFail();
+        $this->assertSame('affiliate', $baru->role);
+        $this->assertSame(1, Kol::where('tiktok_username', 'sudahada')->count()); // tak dobel
+        $this->assertSame(2, KolAffiliateTransaction::where('kol_id', $baru->id)->count());
+        $this->assertSame(1, KolAffiliateTransaction::where('kol_id', $ada->id)->count());
+        $this->assertSame(0, KolAffiliateTransaction::whereNull('kol_id')->count());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'promote_all_affiliates_to_kol']);
     }
 }
