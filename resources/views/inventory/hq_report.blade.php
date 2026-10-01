@@ -117,7 +117,7 @@
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-100 text-emerald-700">{{ $r['produksi'] ? $n($r['produksi']) : '·' }}</td>
                     @if($showMasukLain)<td class="text-right px-3 py-2 font-mono text-emerald-700">{{ $r['masuk_lain'] ? $n($r['masuk_lain']) : '·' }}</td>@endif
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-100 text-rose-600">{{ $r['tiktok'] ? $n($r['tiktok']) : '·' }}</td>
-                    <td class="text-right px-3 py-2 font-mono text-stone-300">{{ $r['shopee'] ? $n($r['shopee']) : '·' }}</td>
+                    <td class="text-right px-3 py-2 font-mono text-orange-600">{{ $r['shopee'] ? $n($r['shopee']) : '·' }}</td>
                     <td class="text-right px-3 py-2 font-mono text-rose-600">{{ $r['reseller'] ? $n($r['reseller']) : '·' }}</td>
                     @if($showKeluarLain)<td class="text-right px-3 py-2 font-mono text-rose-600">{{ $r['keluar_lain'] ? $n($r['keluar_lain']) : '·' }}</td>@endif
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-100 {{ $r['penyesuaian'] > 0 ? 'text-emerald-600' : ($r['penyesuaian'] < 0 ? 'text-rose-600' : 'text-stone-300') }}">{{ $r['penyesuaian'] ? $sign($r['penyesuaian']) : '·' }}</td>
@@ -156,7 +156,7 @@
 
 <p class="mt-3 text-[11px] text-stone-400">
     Rumus: <b>Stok Akhir = Stok Awal + Produksi + Penyesuaian − (TikTok + Shopee + Reseller)</b>.
-    Kolom TikTok terisi dari order yang sudah kamu <b>Potong Stok</b>. Shopee 0 (belum integrasi). Titik <b>·</b> = nol.
+    Kolom TikTok &amp; Shopee terisi dari order yang sudah kamu <b>Potong Stok</b>. Titik <b>·</b> = nol.
     <br>💡 Klik <b>nama produk</b> untuk lihat rincian tiap pergerakannya (buku besar) pada periode ini.
     <br>💰 <b>Nilai Persediaan</b> (Rupiah) = Stok Akhir × harga/unit. <b>Nilai HPP</b> pakai harga pokok (cogs) = modal barang tersimpan; <b>Nilai Jual</b> pakai harga retail = potensi omzet.
 </p>
