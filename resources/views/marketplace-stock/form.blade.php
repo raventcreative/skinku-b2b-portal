@@ -119,12 +119,13 @@
                     <label class="block text-sm font-medium text-stone-700 mb-1">Barcode</label>
                     <input type="text" name="barcode" value="{{ old('barcode', $master->barcode) }}" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-stone-700 mb-1">Produk HQ <span class="text-xs font-normal text-stone-400">(penanda — stok belum disambung)</span></label>
+                <div class="mp-produk-hq">
+                    <label class="block text-sm font-medium text-stone-700 mb-1">Sama dengan produk gudang (HQ)</label>
                     <select name="product_id" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                         <option value="">— belum ditandai —</option>
                         @foreach($produkHq as $p)<option value="{{ $p->id }}" @selected((int) old('product_id', $master->product_id) === $p->id)>{{ $p->name }}{{ $p->sku ? ' ('.$p->sku.')' : '' }}</option>@endforeach
                     </select>
+                    <p class="text-[11px] text-stone-400 mt-1">Untuk produk <b>satuan</b>: produk ini = produk apa di stok gudang HQ. Hanya catatan (stok tak berubah) — dipakai tombol "Ambil resep dari HQ" di bundling.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-stone-700 mb-1">Tipe</label>
@@ -839,6 +840,8 @@
     function rapikan(){
         var bundle = tipe.value === '1', ada = bundle && tbody.querySelectorAll('tr.mp-isi').length > 0;
         card.hidden = !bundle;
+        // Penanda produk gudang hanya utk satuan — bundling tak ada di gudang sbg satu barang.
+        document.querySelectorAll('.mp-produk-hq').forEach(function(el){ el.hidden = bundle; });
         // Tipe Satuan: isian disable (tak divalidasi/terkirim) — flag isi_bundle_ada tetap terkirim → resep dikosongkan server.
         card.querySelectorAll('select, input:not([name="isi_bundle_ada"])').forEach(function(el){ el.disabled = !bundle; });
         document.querySelectorAll('.mp-stok-manual').forEach(function(el){ if (ada) el.hidden = true; else if (!document.querySelector('#varianTabel tr.mp-var')) el.hidden = false; });

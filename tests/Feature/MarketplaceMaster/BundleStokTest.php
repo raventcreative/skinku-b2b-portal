@@ -200,6 +200,6 @@ class BundleStokTest extends TestCase
         $this->actingAs($admin)->put(route('marketplace-stock.update', $reina), ['name' => $reina->name, 'master_sku' => 'REI-1', 'product_id' => ''])->assertRedirect();
         $this->assertNull($reina->fresh()->product_id);
 
-        $this->actingAs($admin)->get(route('marketplace-stock.edit', $reina))->assertOk()->assertSee('Produk HQ')->assertSee('REINA 30g (RN30)');
+        $this->actingAs($admin)->get(route('marketplace-stock.edit', $reina))->assertOk()->assertSee('Sama dengan produk gudang (HQ)')->assertSee('REINA 30g (RN30)');
     }
 }
