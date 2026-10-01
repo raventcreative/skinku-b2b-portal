@@ -81,13 +81,33 @@
             </label>
             <label class="block mt-4">
                 <span class="text-xs font-semibold text-stone-700">Papan Kanban utama <span class="font-normal text-stone-400">(opsional)</span></span>
-                <select name="preferred_board_id" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                <select name="preferred_board_id" id="okrBoardSelect" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
                     <option value="">AI pilih otomatis</option>
                     @foreach($boards as $board)
-                        <option value="{{ $board->id }}" @selected((int) old('preferred_board_id') === $board->id)>{{ $board->name }}</option>
+                        <option value="{{ $board->id }}" @selected((string) old('preferred_board_id') === (string) $board->id)>{{ $board->name }}</option>
                     @endforeach
+                    @if(auth()->user()->canDo('kanban.view'))
+                        <option value="new" @selected(old('preferred_board_id') === 'new')>+ Buat papan baru…</option>
+                    @endif
                 </select>
             </label>
+            @if(auth()->user()->canDo('kanban.view'))
+                <label id="okrNewBoard" class="block mt-3 {{ old('preferred_board_id') === 'new' ? '' : 'hidden' }}">
+                    <span class="text-xs font-semibold text-stone-700">Nama papan baru</span>
+                    <input name="new_board_name" maxlength="150" value="{{ old('new_board_name') }}" placeholder="Contoh: OKR Q4 2026 — Marketing"
+                        class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-sm">
+                    <span class="block text-[11px] text-stone-500 mt-1">Dibuat dengan kolom To Do · Proses · Selesai saat Anda klik Jalankan. Kolom bisa diubah nanti di menu Kanban.</span>
+                </label>
+                <script>
+                    document.getElementById('okrBoardSelect').addEventListener('change', function () {
+                        var box = document.getElementById('okrNewBoard');
+                        var on = this.value === 'new';
+                        box.classList.toggle('hidden', ! on);
+                        box.querySelector('input').required = on;
+                        if (on) box.querySelector('input').focus();
+                    });
+                </script>
+            @endif
         </div>
 
         <button class="w-full px-5 py-3 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold">

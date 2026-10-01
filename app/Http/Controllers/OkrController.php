@@ -60,9 +60,25 @@ class OkrController extends Controller
             'scope_type' => ['required', 'in:company,team,individual'],
             'scope_name' => ['nullable', 'string', 'max:150', 'required_if:scope_type,team'],
             'scope_owner_user_id' => ['nullable', 'integer', 'exists:users,id', 'required_if:scope_type,individual'],
-            'preferred_board_id' => ['nullable', 'integer', 'exists:boards,id'],
+            // "new" = buat papan Kanban baru dari form ini (nama di new_board_name).
+            'preferred_board_id' => ['nullable', 'regex:/^(new|\d+)$/'],
+            'new_board_name' => ['nullable', 'string', 'max:150', 'required_if:preferred_board_id,new'],
             'direction' => ['required', 'string', 'max:5000'],
         ]);
+
+        if (($data['preferred_board_id'] ?? null) === 'new') {
+            // Buat papan = hak menu Kanban; jangan jadi jalan pintas bagi yang tak punya.
+            if (! $request->user()->canDo('kanban.view')) {
+                return back()->withInput()->with('error', 'Anda tidak punya akses membuat papan Kanban.');
+            }
+            $board = Board::createWithDefaultColumns(trim($data['new_board_name']), $request->user()->id);
+            AuditService::log(action: 'create_board', targetType: 'board', targetId: $board->id, after: ['name' => $board->name, 'via' => 'okr']);
+            $data['preferred_board_id'] = $board->id;
+        } elseif (! empty($data['preferred_board_id']) && ! Board::whereKey($data['preferred_board_id'])->exists()) {
+            return back()->withInput()->withErrors(['preferred_board_id' => 'Papan Kanban tidak ditemukan.']);
+        }
+        $data['preferred_board_id'] = isset($data['preferred_board_id']) && $data['preferred_board_id'] !== '' ? (int) $data['preferred_board_id'] : null;
+        unset($data['new_board_name']);
 
         $payload = array_merge($data, $this->period($data), [
             'scope_label' => $this->scopeLabel($data),

@@ -56,14 +56,7 @@ class KanbanController extends Controller
     {
         $data = $request->validate(['name' => ['required', 'string', 'max:150']]);
 
-        $board = DB::transaction(function () use ($data, $request) {
-            $board = Board::create(['name' => $data['name'], 'created_by' => $request->user()->id]);
-            foreach (Board::DEFAULT_COLUMNS as $i => $name) {
-                $board->columns()->create(['name' => $name, 'position' => $i]);
-            }
-
-            return $board;
-        });
+        $board = Board::createWithDefaultColumns($data['name'], $request->user()->id);
 
         AuditService::log(action: 'create_board', targetType: 'board', targetId: $board->id, after: ['name' => $board->name]);
 
