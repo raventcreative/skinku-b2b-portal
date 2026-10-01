@@ -42,11 +42,15 @@ class MarketplaceStockController extends Controller
         // Stok bundle ber-resep = hitungan dari komponen (stok dasar, tanpa override channel) utk ditampilkan.
         $svc = app(MarketplaceMasterService::class);
         $stokBundle = $masters->filter(fn ($m) => $m->bundleItems->isNotEmpty())->mapWithKeys(fn ($m) => [$m->id => $svc->effectiveStock($m, '')]);
+        // Bundle yg stoknya tak bisa dihitung: sebut isi mana yg stoknya belum diisi.
+        $isiKosong = $masters->filter(fn ($m) => $m->bundleItems->isNotEmpty() && $stokBundle[$m->id] === null)
+            ->mapWithKeys(fn ($m) => [$m->id => $m->bundleItems->filter(fn ($it) => $it->component && $svc->effectiveStock($it->component, '') === null)->map(fn ($it) => $it->component->master_sku)->implode(', ')]);
 
         return view('marketplace-stock.index', [
             'tab' => $tab,
             'masters' => $masters,
             'stokBundle' => $stokBundle,
+            'isiKosong' => $isiKosong,
             'counts' => [
                 'semua' => MarketplaceMaster::whereNull('parent_id')->count(),
                 'satuan' => MarketplaceMaster::whereNull('parent_id')->where('is_bundle', false)->count(),

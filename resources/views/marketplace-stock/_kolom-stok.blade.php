@@ -11,7 +11,7 @@
     </td>
     @if($m->relationLoaded('bundleItems') && $m->bundleItems->isNotEmpty())
         {{-- Bundle ber-resep: stok dihitung dari komponen, tak bisa diisi manual. --}}
-        <td class="px-4 py-3 text-sm"><span class="font-semibold text-stone-800">{{ $stokBundle[$m->id] ?? '—' }}</span> <span class="text-[11px] text-emerald-700" title="Dihitung dari stok isi bundling">otomatis</span></td>
+        <td class="px-4 py-3 text-sm"><span class="font-semibold text-stone-800">{{ $stokBundle[$m->id] ?? '—' }}</span> <span class="text-[11px] text-emerald-700" title="Dihitung dari stok isi bundling">otomatis</span>@if(($isiKosong[$m->id] ?? '') !== '')<div class="text-[11px] text-amber-700">stok isi belum diisi: {{ $isiKosong[$m->id] }}</div>@endif</td>
     @else
     <td class="px-4 py-3">
         <form method="POST" action="{{ route('marketplace-stock.master.stok', $m) }}" class="flex items-center gap-1">@csrf

@@ -202,4 +202,13 @@ class BundleStokTest extends TestCase
 
         $this->actingAs($admin)->get(route('marketplace-stock.edit', $reina))->assertOk()->assertSee('Sama dengan produk gudang (HQ)')->assertSee('REINA 30g (RN30)');
     }
+
+    public function test_katalog_menyebut_isi_yang_stoknya_kosong(): void
+    {
+        $scrub = $this->master('SCRUB-1', 50);
+        $serum = $this->master('SERUM-1', null);
+        $this->bundle([[$scrub, 1], [$serum, 1]]);
+
+        $this->actingAs($this->admin())->get(route('marketplace-stock.index'))->assertOk()->assertSee('stok isi belum diisi: SERUM-1');
+    }
 }
