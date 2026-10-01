@@ -8,6 +8,7 @@ use App\Models\Board;
 use App\Models\BoardCard;
 use App\Models\BoardColumn;
 use App\Models\OkrCycle;
+use App\Models\OkrTask;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\User;
@@ -1186,5 +1187,32 @@ class OkrTest extends TestCase
 
         $this->assertSame(0, Board::count());
         Queue::assertNothingPushed();
+    }
+
+    public function test_papan_pilihan_menampung_semua_tugas_dan_kolom_orang_dibuat(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrpilih');
+        $member = $this->user(User::ROLE_ADMIN, 'billy');
+        // Papan lama punya kolom "To Do BILLY" → dulu tugas Billy nyasar ke sini.
+        [$old, $oldTodo] = $this->board($super);
+        $this->app->instance(AiProvider::class, $this->fakeDraft($member, $oldTodo->id));
+
+        $this->actingAs($super)->post(route('okr.generate'), array_merge($this->generatePayload(), [
+            'preferred_board_id' => 'new',
+            'new_board_name' => 'OKR Baru',
+        ]))->assertRedirect();
+
+        $new = Board::where('name', 'OKR Baru')->firstOrFail();
+        $cycle = OkrCycle::firstOrFail();
+        $this->assertSame(OkrCycle::GEN_READY, $cycle->generation_status);
+
+        $columnIds = OkrTask::query()
+            ->whereHas('keyResult.objective', fn ($q) => $q->where('okr_cycle_id', $cycle->id))
+            ->pluck('board_column_id')->unique();
+        $this->assertNotEmpty($columnIds);
+        $this->assertSame([$new->id], BoardColumn::whereIn('id', $columnIds)->pluck('board_id')->unique()->values()->all());
+        $this->assertTrue($new->columns()->where('name', 'like', 'To Do List%')->exists());
+        $this->assertTrue($new->columns()->where('name', 'like', 'Done%')->exists());
+        $this->assertSame(2, $old->columns()->count()); // papan lama tak disentuh
     }
 }
