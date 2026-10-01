@@ -441,6 +441,15 @@ Satu view `marketplace-stock.form` (kontainer `max-w-3xl`) dipakai `create` (mas
 - **Flash pesan**: `session('status')` ("Foto dihapus.", "Foto utama diperbarui.") ditampilkan oleh `layouts.app`; view form TIDAK mengulangnya (jaga: `test_form_edit_flash_status_tampil_sekali`, kalau tidak banner muncul dobel tiap habis Hapus/Jadikan Utama).
 - **Tes**: `CreateEditMasterTest` (store/update field lengkap, foto banyak + batas 9, render form Tambah & Ubah, galeri, guard form-bersarang & banner dobel) dan `FotoMasterTest` (hapus/jadikan utama, IDOR master lain/koleksi lain, non-izin 403), `FotoUrutanTest` (simpan urutan geser, tolak himpunan tak cocok/IDOR, 403, urutan campuran foto Baru saat Simpan/Tambah). Skrip geser diverifikasi di Chromium (mouse, sentuh via ⠿, klik biasa tak menyimpan, 422 & sesi habis tampil "Gagal").
 
+### Pemetaan ke HQ (persiapan penggabungan stok — Tahap 1)
+
+Halaman `marketplace-stock.pemetaan-hq` (GET/POST, izin `manage_marketplace_stock`, `MarketplacePemetaanHqController`, tombol "Pemetaan ke HQ" di katalog): satu tabel semua unit jual (induk bervarian dilewati, variannya tampil). **Hanya merapikan data Produk Master** — stok HQ, SKU map, marketplace & stok master tak disentuh.
+- Satuan: dropdown produk gudang (`product_id`), pra-isi **tebakan** `tebakProdukHq()` bila belum ditandai (disorot kuning): (1) SKU listing = SKU resep tunggal ×1 di SKU map HQ, (2) SKU sama (master_sku/seller_sku = SKU produk), (3) nama mirip (`kataPenting`: ≥2 kata penting sama, satuan dibuang, seri → tak menebak).
+- Satuan bernama bundling (`detectBundle`) → centang "Jadikan Bundle?".
+- Bundle tanpa resep → pratinjau resep HQ + centang "Isi resep dari HQ" (tercentang bila lengkap).
+- Simpan sekali: tanda produk gudang → Jadikan Bundle (penanda dikosongkan) → resep HQ (hanya bila SEMUA isi ketemu padanan; yang belum → flash error). Tes: `PemetaanHqTest`.
+- Rencana gabung (Tahap 3): stok marketplace = stok HQ, resep tunggal, order potong HQ sekali, stok manual master dihapus. Konvensi: satu kode SKU per barang di HQ, Produk Master & Seller SKU marketplace.
+
 ### Stok Bundle Otomatis (Fase 6)
 
 - **Resep** di tabel `marketplace_bundle_items` (migrasi **`000156`**: `bundle_id`, `component_id`, `qty`; unik per pasangan; FK cascade) — model `MarketplaceBundleItem`, relasi `MarketplaceMaster::bundleItems()` / `dipakaiBundle()`.

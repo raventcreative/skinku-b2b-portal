@@ -670,6 +670,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::delete('/marketplace-stock/master/{master}/foto/{file}', [MarketplaceStockController::class, 'deleteFoto'])->name('marketplace-stock.master.foto.hapus');
         Route::post('/marketplace-stock/master/{master}/foto/{file}/utama', [MarketplaceStockController::class, 'setFotoUtama'])->name('marketplace-stock.master.foto.utama');
         Route::post('/marketplace-stock/kosongkan', [MarketplaceStockController::class, 'kosongkan'])->name('marketplace-stock.kosongkan');
+        Route::get('/marketplace-stock/pemetaan-hq', [\App\Http\Controllers\MarketplacePemetaanHqController::class, 'index'])->name('marketplace-stock.pemetaan-hq');
+        Route::post('/marketplace-stock/pemetaan-hq', [\App\Http\Controllers\MarketplacePemetaanHqController::class, 'simpan'])->name('marketplace-stock.pemetaan-hq.simpan');
     });
 
     /* ---------------- Kalkulator ROI ---------------- */

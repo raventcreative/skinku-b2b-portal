@@ -712,6 +712,49 @@ class MarketplaceMasterService
         return $p->sku ? $sah()->where('master_sku', $p->sku)->first() : null;
     }
 
+    /**
+     * Tebak produk gudang (HQ) untuk master SATUAN — usulan di halaman Pemetaan ke HQ (admin tetap memeriksa).
+     * Urutan keyakinan: (1) SKU listing master ini = SKU resep tunggal produk itu ×1 (SKU map HQ), (2) SKU sama
+     * (master_sku / seller_sku = SKU produk HQ), (3) nama mirip (≥2 kata penting sama; seri → tak menebak).
+     *
+     * @param  \Illuminate\Support\Collection<int,\App\Models\Product>  $produk
+     * @return array{id:int, sumber:string}|null
+     */
+    public function tebakProdukHq(MarketplaceMaster $m, \Illuminate\Support\Collection $produk): ?array
+    {
+        $skus = $m->listings->map(fn ($l) => [$l->channel, (string) $l->seller_sku]);
+        foreach ($skus as [$ch, $sku]) {
+            $maps = $ch === 'tiktok' ? \App\Models\TiktokSkuMap::where('tiktok_sku', $sku)->get() : \App\Models\ShopeeSkuMap::where('shopee_sku', $sku)->get();
+            if ($maps->count() === 1 && (int) $maps[0]->qty === 1) {
+                return ['id' => (int) $maps[0]->product_id, 'sumber' => 'SKU map HQ'];
+            }
+        }
+        $kode = $skus->pluck(1)->push((string) $m->master_sku)->map(fn ($x) => mb_strtolower(trim($x)))->filter()->all();
+        $sama = $produk->first(fn ($p) => $p->sku && in_array(mb_strtolower(trim($p->sku)), $kode, true));
+        if ($sama) {
+            return ['id' => (int) $sama->id, 'sumber' => 'SKU sama'];
+        }
+
+        $kata = self::kataPenting((string) $m->name);
+        $skor = $produk->map(fn ($p) => [$p->id, count(array_intersect($kata, self::kataPenting((string) $p->name)))])
+            ->filter(fn ($x) => $x[1] >= 2)->sortByDesc(1)->values();
+        if ($skor->isEmpty() || ($skor->count() > 1 && $skor[0][1] === $skor[1][1])) {
+            return null;
+        }
+
+        return ['id' => (int) $skor[0][0], 'sumber' => 'nama mirip — cek'];
+    }
+
+    /** Kata penting nama produk utk pencocokan: huruf kecil, satuan dibuang (100ml→100), kata umum/merek dibuang. */
+    private static function kataPenting(string $nama): array
+    {
+        $umum = ['skinku', 'skin', 'ku', 'dan', 'untuk', 'dengan', 'the', 'bpom', 'pcs', 'paket', 'bundling', 'bundle', 'isi', 'original', 'ori', 'new'];
+        $kata = preg_split('/[^a-z0-9]+/', mb_strtolower($nama)) ?: [];
+        $kata = array_map(fn ($k) => preg_replace('/^(\d+)(ml|gr|g|l|pcs)$/', '$1', $k), $kata);
+
+        return array_values(array_unique(array_filter($kata, fn ($k) => strlen($k) >= 3 && ! in_array($k, $umum, true))));
+    }
+
     // ---- Kategori marketplace (pemilih kategori + atribut per channel; pohon & ID TikTok ≠ Shopee) ----
 
     /** Pohon kategori mentah channel: [{id, parent, name, leaf}] — dari API, di-cache 1 hari (ribuan baris, jarang berubah). */
