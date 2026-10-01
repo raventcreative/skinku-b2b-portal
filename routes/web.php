@@ -459,6 +459,8 @@ Route::middleware(['auth', 'role'])->group(function () {
                 Route::post('/kol-gapok/payment/{payment}/delete', [KolGapokController::class, 'deletePayment'])->name('kol-gapok.payment.delete');
                 // Simpan performa TikTok (follower + GMV asli) ke record Database KOL.
                 Route::post('/kol-cek-tiktok/simpan', [KolTiktokCheckController::class, 'save'])->name('kol-cek-tiktok.save');
+                // Tracker: tarik performa 30 hari satu KOL sekarang.
+                Route::post('/kols/{kol}/tiktok-performance', [KolTiktokCheckController::class, 'syncPerformance'])->name('kols.tiktok-performance');
             });
         });
 

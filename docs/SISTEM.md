@@ -705,6 +705,12 @@ Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/spec
 
 **Izin baru:** `kol.affiliate.view`, `kol.affiliate.manage`.
 
+### Tracker performa TikTok (migrasi `000157`)
+- Sumber: TikTok Creator Marketplace `GET /affiliate_seller/202608/marketplace_creators/{open_id}` (`TikTokClient::getMarketplaceCreatorPerformance`) — **ringkasan 30 hari saja** (avg views video jualan, jumlah video/LIVE, engagement, GMV + split video/LIVE, GPM, unit terjual, kolaborasi brand, komisi). **Tidak** ada views per video / tren harian di API ini.
+- `TikTokAffiliateService::mapCreatorPerformance()` (murni, dites dgn JSON probe asli): **semua uang Rupiah** (USD × `services.tiktok_affiliate.usd_idr_rate`), rate/persen TikTok basis 10.000 (250 = 2,5%). `applyPerformanceToKol()` → `kol_tiktok_profiles` (angka terbaru, kolom baru + `performance_synced_at`) + `kol_tiktok_snapshots` (1 baris/KOL/hari, unik `kol_id+captured_on`).
+- `tiktok:kol-performance-sync` — **mingguan Senin 13:15**, hanya KOL yang sedang kerja sama (status aktif / deal berjalan / role affiliate|both / Gapok) **dan** punya `open_id`; `--limit=30 --sleep=10 --stale-days=6`; berhenti sopan saat rate limit `36009002`. Tombol **Perbarui performa** di Detail KOL (`POST kols/{kol}/tiktok-performance`, izin `kol.affiliate.manage`).
+- UI: Detail KOL — kartu metrik + grafik tracker (Chart.js, ≥2 snapshot). Database KOL — kolom **Avg Views · Engagement · GPM · GMV Video·LIVE** (uang di balik `kol.affiliate.view`). Test: `tests/Feature/KolPerformanceTrackerTest.php`.
+
 ---
 
 ## 16. Report Bot (Telegram)

@@ -183,6 +183,10 @@
                 <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV = median views × 1,2% konversi × Rp38rb order rata-rata — hitungan sistem, BUKAN data asli">{!! $sortLink('gmv', 'GMV Estimasi · Viral · Fake') !!}</th>
                 <th rowspan="2" class="text-right align-bottom" title="GMV asli 30 hari dari TikTok Creator Marketplace atau isian manual screening (— bila belum ada)">GMV Asli</th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="GMV affiliate REAL bulan ini — penjualan SKINKU dari kreator ini (sama sumber dgn Affiliate & GMV). Bukan estimasi.">{!! $sortLink('gmv_real', 'GMV Bln') !!}</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="Rata-rata views video jualan 30 hari — dari TikTok (otomatis, bukan isian screening)">Avg Views</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="Engagement rate video jualan 30 hari — dari TikTok">Engagement</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="GPM = GMV per 1.000 views (Rupiah) — makin tinggi, makin jago jualan per penonton">GPM</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="GMV 30 hari dari video vs LIVE (Rupiah)">GMV Video · LIVE</th>
                 <th rowspan="2" class="text-center px-2 align-bottom" title="Skor APS terakhir (jejak)">APS</th>
                 <th rowspan="2" class="text-center px-2 align-bottom" title="Skor KSS terakhir (jejak)">KSS</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
@@ -268,6 +272,15 @@
                     @endif
                     @php $gmvB = $gmvMap->get($kol->id)?->gmv; $apsS = $apsMap->get($kol->id); $kssS = $kssMap->get($kol->id); @endphp
                     <td class="text-right px-2 text-stone-600">{{ $canAffiliate && $gmvB ? $rp($gmvB) : '—' }}</td>
+                    @php $tpp = $kol->tiktokProfile; @endphp
+                    <td class="text-right px-2 text-stone-700">{{ $tpp?->avg_video_views ? number_format($tpp->avg_video_views, 0, ',', '.') : '—' }}</td>
+                    <td class="text-right px-2 text-stone-700">{{ $tpp?->video_engagement_pct !== null ? number_format($tpp->video_engagement_pct, 1, ',', '.').'%' : '—' }}</td>
+                    <td class="text-right px-2 font-semibold text-stone-700 whitespace-nowrap">{{ $canAffiliate && $tpp?->gpm_idr !== null ? $rp($tpp->gpm_idr) : '—' }}</td>
+                    <td class="text-right px-2 text-[11px] text-stone-600 whitespace-nowrap">
+                        @if($canAffiliate && ($tpp?->video_gmv_idr !== null || $tpp?->live_gmv_idr !== null))
+                            {{ $tpp->video_gmv_idr !== null ? $rp($tpp->video_gmv_idr) : '—' }}<span class="block text-stone-400">LIVE {{ $tpp->live_gmv_idr !== null ? $rp($tpp->live_gmv_idr) : '—' }}</span>
+                        @else — @endif
+                    </td>
                     <td class="text-center px-2 font-semibold text-stone-700">{{ $canAffiliate && $apsS && $apsS->score !== null ? $skorFmt($apsS->score) : '—' }}</td>
                     <td class="text-center px-2 font-semibold text-stone-700">{{ $kssS && $kssS->score !== null ? $skorFmt($kssS->score) : '—' }}</td>
                     <td class="text-right px-4">
@@ -275,7 +288,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="31" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="35" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>

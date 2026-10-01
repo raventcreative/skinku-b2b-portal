@@ -209,7 +209,7 @@ class KolController extends Controller
 
     public function show(Request $request, Kol $kol, KolAffiliateService $aff, KolScoringService $scoring)
     {
-        $kol->load(['screenings', 'deals.pic', 'contactLogs.creator', 'scores', 'pipelineCard', 'accounts', 'rateCards', 'tiktokProfile']);
+        $kol->load(['screenings', 'deals.pic', 'contactLogs.creator', 'scores', 'pipelineCard', 'accounts', 'rateCards', 'tiktokProfile', 'tiktokSnapshots']);
         $canAffiliate = $request->user()->canDo('kol.affiliate.view');
 
         // Stat GMV/Views/APS bulan ini (butuh data affiliate — gated).

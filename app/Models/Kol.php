@@ -191,4 +191,10 @@ class Kol extends Model
     {
         return $this->hasOne(KolTiktokProfile::class);
     }
+
+    /** Riwayat performa TikTok per tanggal sync (tracker). */
+    public function tiktokSnapshots()
+    {
+        return $this->hasMany(KolTiktokSnapshot::class)->orderBy('captured_on');
+    }
 }

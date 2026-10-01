@@ -82,6 +82,9 @@ Schedule::command('tiktok:affiliate-content-sync')->dailyAt('04:00')->withoutOve
 // sehari saja (jeda istirahat panjang), jam 07:30 (setelah content/order sync
 // affiliate kelar) — kalau kena limit, keluar cepat & coba lagi besok.
 Schedule::command('tiktok:marketplace-sync --limit=20 --sleep=12')->dailyAt('07:30')->withoutOverlapping(60);
+// Tracker performa KOL (views/engagement/GPM/GMV Rupiah) — mingguan, siang hari supaya
+// tak berebut kuota marketplace dengan sync harian 07:30.
+Schedule::command('tiktok:kol-performance-sync --limit=30 --sleep=10')->weeklyOn(1, '13:15')->withoutOverlapping(60);
 
 /*
  * Pekerja antrean OKR (generate draf di background). Numpang cron scheduler yang
