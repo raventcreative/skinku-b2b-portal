@@ -604,31 +604,51 @@ class MarketplaceMasterService
 
     // ---- Kategori marketplace (pemilih kategori + atribut per channel; pohon & ID TikTok ≠ Shopee) ----
 
-    /** Kategori DAUN channel: [{id, path "A > B > C"}]. Pohon dari API di-cache 1 hari (berubah jarang, ribuan baris). */
-    public function kategoriDaun(string $channel): array
+    /** Pohon kategori mentah channel: [{id, parent, name, leaf}] — dari API, di-cache 1 hari (ribuan baris, jarang berubah). */
+    public function kategoriPohon(string $channel): array
     {
-        return Cache::remember("mp-kategori:{$channel}", 86400, function () use ($channel) {
+        return Cache::remember("mp-pohon:{$channel}", 86400, function () use ($channel) {
             if ($channel === 'tiktok') {
                 $c = $this->tiktokConn() ?? throw new \RuntimeException('TikTok belum terhubung');
-                $rows = collect($this->tiktok->getCategories($this->tiktokToken($c), (string) $c->shop_cipher)['categories'] ?? [])
-                    ->map(fn ($x) => ['id' => (string) $x['id'], 'parent' => (string) ($x['parent_id'] ?? '0'), 'name' => (string) ($x['local_name'] ?? ''), 'leaf' => (bool) ($x['is_leaf'] ?? false)]);
-            } else {
-                $c = $this->shopeeConn() ?? throw new \RuntimeException('Shopee belum terhubung');
-                $rows = collect($this->shopee->getCategories($this->shopeeToken($c), $c->shop_id)['response']['category_list'] ?? [])
-                    ->map(fn ($x) => ['id' => (string) $x['category_id'], 'parent' => (string) ($x['parent_category_id'] ?? '0'),
-                        'name' => (string) (($x['display_category_name'] ?? '') ?: ($x['original_category_name'] ?? '')), 'leaf' => ! ($x['has_children'] ?? false)]);
+
+                return collect($this->tiktok->getCategories($this->tiktokToken($c), (string) $c->shop_cipher)['categories'] ?? [])
+                    ->map(fn ($x) => ['id' => (string) $x['id'], 'parent' => (string) ($x['parent_id'] ?? '0'), 'name' => (string) ($x['local_name'] ?? ''), 'leaf' => (bool) ($x['is_leaf'] ?? false)])
+                    ->values()->all();
             }
-            $byId = $rows->keyBy('id');
+            $c = $this->shopeeConn() ?? throw new \RuntimeException('Shopee belum terhubung');
 
-            return $rows->where('leaf', true)->map(function ($x) use ($byId) {
-                $path = [$x['name']];
-                for ($p = $x['parent'], $i = 0; isset($byId[$p]) && $i < 10; $p = $byId[$p]['parent'], $i++) {
-                    array_unshift($path, $byId[$p]['name']);
-                }
-
-                return ['id' => $x['id'], 'path' => implode(' > ', $path)];
-            })->values()->all();
+            return collect($this->shopee->getCategories($this->shopeeToken($c), $c->shop_id)['response']['category_list'] ?? [])
+                ->map(fn ($x) => ['id' => (string) $x['category_id'], 'parent' => (string) ($x['parent_category_id'] ?? '0'),
+                    'name' => (string) (($x['display_category_name'] ?? '') ?: ($x['original_category_name'] ?? '')), 'leaf' => ! ($x['has_children'] ?? false)])
+                ->values()->all();
         });
+    }
+
+    /** Anak langsung satu kategori (parent '0' = level teratas), urut nama — untuk telusur bertingkat ala Seller Center. */
+    public function anakKategori(string $channel, string $parent): array
+    {
+        $ids = collect($this->kategoriPohon($channel))->pluck('id')->flip();
+
+        return collect($this->kategoriPohon($channel))
+            // Akar = parent '0' ATAU parent yang tak ada di pohon (jaga-jaga format akar beda).
+            ->filter(fn ($x) => $parent === '0' ? ($x['parent'] === '0' || ! isset($ids[$x['parent']])) : $x['parent'] === $parent)
+            ->map(fn ($x) => ['id' => $x['id'], 'name' => $x['name'], 'leaf' => $x['leaf']])
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+    }
+
+    /** Kategori DAUN channel: [{id, path "A > B > C"}] — diturunkan dari pohon (cache yang sama). */
+    public function kategoriDaun(string $channel): array
+    {
+        $byId = collect($this->kategoriPohon($channel))->keyBy('id');
+
+        return $byId->where('leaf', true)->map(function ($x) use ($byId) {
+            $path = [$x['name']];
+            for ($p = $x['parent'], $i = 0; isset($byId[$p]) && $i < 10; $p = $byId[$p]['parent'], $i++) {
+                array_unshift($path, $byId[$p]['name']);
+            }
+
+            return ['id' => $x['id'], 'path' => implode(' > ', $path)];
+        })->values()->all();
     }
 
     /** Cari kategori daun: semua kata kunci harus ada di jalur kategori (tak peka huruf besar). */

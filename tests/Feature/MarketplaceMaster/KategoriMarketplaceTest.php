@@ -234,4 +234,19 @@ class KategoriMarketplaceTest extends TestCase
         $this->actingAs($this->user(User::ROLE_SUPER_ADMIN))->getJson(route('marketplace-stock.kategori.cari', ['tiktok', 'q' => 'x']))
             ->assertStatus(422)->assertJson(fn ($j) => $j->where('error', fn ($e) => ! str_contains($e, 'RAHASIA'))->etc());
     }
+
+    public function test_telusur_bertingkat_anak_kategori_per_level(): void
+    {
+        $this->fakeApi();
+
+        $this->assertSame([['id' => '1', 'name' => 'Kecantikan', 'leaf' => false]], $this->svc()->anakKategori('tiktok', '0'));
+        $this->assertSame([['id' => '2', 'name' => 'Perawatan Mulut', 'leaf' => false], ['id' => '4', 'name' => 'Sabun Mandi', 'leaf' => true]], $this->svc()->anakKategori('tiktok', '1'));
+        $this->assertSame([['id' => '11', 'name' => 'Perawatan Mulut', 'leaf' => true]], $this->svc()->anakKategori('shopee', '10'));
+
+        $this->actingAs($this->user(User::ROLE_SUPER_ADMIN))->getJson(route('marketplace-stock.kategori.anak', ['tiktok', 'parent' => '2']))
+            ->assertOk()->assertJsonPath('data.0.id', '3')->assertJsonPath('data.0.leaf', true);
+        $this->actingAs($this->user(User::ROLE_SUPER_ADMIN))->getJson(route('marketplace-stock.kategori.anak', ['tiktok', 'parent' => 'x']))->assertNotFound();
+        $this->actingAs($this->user(User::ROLE_RESELLER))->getJson(route('marketplace-stock.kategori.anak', ['tiktok']))->assertForbidden();
+        Http::assertSentCount(2); // pohon tiap channel diambil sekali (cache)
+    }
 }

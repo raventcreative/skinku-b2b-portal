@@ -150,6 +150,7 @@
              Nilai dikirim lewat input tersembunyi (JSON diisi skrip saat submit); disaring kategoriAttributes() di controller. --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-4" id="kategoriMarketplace"
              data-cari-url="{{ route('marketplace-stock.kategori.cari', '__CH__') }}"
+             data-anak-url="{{ route('marketplace-stock.kategori.anak', '__CH__') }}"
              data-atribut-url="{{ route('marketplace-stock.kategori.atribut', ['__CH__', '__ID__']) }}">
             <div class="flex items-center justify-between gap-2 flex-wrap">
                 <h3 class="font-semibold text-stone-800">Kategori Marketplace</h3>
@@ -169,6 +170,9 @@
                         <button type="button" class="mp-kat-hapus text-[11px] text-rose-600 hover:underline" @if(! $master->{$ch.'_category_id'}) hidden @endif>Kosongkan</button>
                     </div>
                     <div class="mp-kat-terpilih text-xs text-stone-600">{{ $master->{$ch.'_category_name'} ?: 'Belum dipilih — kategori di marketplace tidak diubah.' }}</div>
+                    <div class="text-[11px] text-stone-500">Telusuri bertingkat (pilih sampai level terakhir):</div>
+                    <div class="mp-kat-telusur flex flex-wrap gap-2"></div>
+                    <div class="text-[11px] text-stone-500">…atau cari langsung bila sudah tahu namanya:</div>
                     <input type="text" class="mp-kat-cari w-full px-3 py-2 border border-stone-200 rounded-lg text-sm" placeholder="Cari kategori {{ $label }}… (mis. mouth spray)" autocomplete="off">
                     <div class="mp-kat-hasil" hidden style="max-height:14rem;overflow:auto;border:1px solid #e7e5e4;border-radius:.5rem"></div>
                     <div class="mp-kat-atribut space-y-2"></div>
@@ -441,6 +445,7 @@
     if (!root) return;
     var form = root.closest('form');
     var cariUrl = root.getAttribute('data-cari-url'), atributUrl = root.getAttribute('data-atribut-url');
+    var anakUrl = root.getAttribute('data-anak-url');
     var semua = [];
 
     function getJSON(url){
@@ -467,6 +472,7 @@
         var cari = box.querySelector('.mp-kat-cari'), hasil = box.querySelector('.mp-kat-hasil');
         var wadah = box.querySelector('.mp-kat-atribut'), terpilih = box.querySelector('.mp-kat-terpilih');
         var hapus = box.querySelector('.mp-kat-hapus');
+        var telusur = box.querySelector('.mp-kat-telusur');
         var lama = parse(inAttr.value) || [];
         var lamaBrand = inBrand ? parse(inBrand.value) : null;
         var meta = null, timer = null;
@@ -492,7 +498,40 @@
             }, 300);
         });
 
-        function pilih(id, path){
+        // Telusur bertingkat ala Seller Center: tiap level = <select>; pilih non-daun → muncul level berikutnya,
+        // pilih daun → kategori terpilih (jalur = nama tiap level).
+        function level(parent, depth){
+            var sel = make('select', { 'class': 'px-2 py-1.5 border border-stone-200 rounded-lg text-sm', style: 'max-width:16rem' });
+            sel.appendChild(make('option', { value: '' }, depth === 0 ? 'Memuat…' : '…'));
+            telusur.appendChild(sel);
+            getJSON(anakUrl.replace('__CH__', ch) + '?parent=' + encodeURIComponent(parent)).then(function(list){
+                sel.innerHTML = '';
+                sel.appendChild(make('option', { value: '' }, '— Level ' + (depth + 1) + ' —'));
+                list.forEach(function(k){
+                    var o = make('option', { value: k.id, 'data-leaf': k.leaf ? '1' : '0' }, k.name + (k.leaf ? '' : ' ›'));
+                    o.setAttribute('data-name', k.name);
+                    sel.appendChild(o);
+                });
+            }).catch(function(e){ sel.innerHTML = ''; sel.appendChild(make('option', { value: '' }, 'Gagal memuat: ' + e.message)); });
+            sel.addEventListener('change', function(){
+                var all = Array.prototype.slice.call(telusur.querySelectorAll('select'));
+                all.slice(all.indexOf(sel) + 1).forEach(function(x){ x.remove(); });
+                var o = sel.selectedOptions[0];
+                if (!o || !o.value) return;
+                if (o.getAttribute('data-leaf') === '1') {
+                    var jalur = Array.prototype.slice.call(telusur.querySelectorAll('select')).map(function(x){
+                        return x.selectedOptions[0] ? x.selectedOptions[0].getAttribute('data-name') : '';
+                    }).join(' > ');
+                    pilih(o.value, jalur, true);
+                } else {
+                    level(o.value, depth + 1);
+                }
+            });
+        }
+        level('0', 0);
+
+        function pilih(id, path, dariTelusur){
+            if (!dariTelusur) { telusur.innerHTML = ''; level('0', 0); } // reset telusur bila dipilih lewat cari
             inId.value = id; inName.value = path; terpilih.textContent = path;
             hapus.hidden = false; hasil.hidden = true; cari.value = '';
             muat(id);
