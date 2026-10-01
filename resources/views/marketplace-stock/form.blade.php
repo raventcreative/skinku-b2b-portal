@@ -21,8 +21,9 @@
 .mps-add:hover{border-color:#6366f1;color:#4f46e5;background:#eef2ff}
 .mps-add .plus{font-size:1.9rem;line-height:1;font-weight:300}
 .mps-add .txt{font-size:11px;font-weight:600}
-/* Geser untuk atur urutan (foto tersimpan). Mouse: dari mana saja di foto; HP: lewat ikon ⠿ (touch-action:none). */
-.mps-tile[data-file-id]{cursor:grab;user-select:none;-webkit-user-select:none}
+/* Geser untuk atur urutan (foto tersimpan & foto Baru). Mouse: dari mana saja di foto; HP: lewat ikon ⠿ (touch-action:none). */
+.mps-tile[data-file-id],.mps-tile[data-new]{cursor:grab;user-select:none;-webkit-user-select:none}
+.mps-badge-baru{top:auto;bottom:.25rem} /* bawah: kiri-atas dipakai badge Utama bila foto Baru digeser ke depan */
 .mps-tile.mps-dragging{opacity:.55;outline:2px dashed #6366f1;outline-offset:2px;cursor:grabbing}
 .mps-grip{position:absolute;top:.25rem;right:.25rem;width:1.5rem;height:1.5rem;display:flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(255,255,255,.9);color:#57534e;font-size:13px;line-height:1;touch-action:none;cursor:grab;box-shadow:0 1px 2px rgba(0,0,0,.15)}
 </style>
@@ -61,9 +62,8 @@
                 <span class="txt">Tambah Foto</span>
             </label>
         </div>
-        @if(count($gallery) > 1)
-            <p class="text-[11px] text-stone-500 leading-relaxed"><b>Atur urutan:</b> geser foto ke posisi yang diinginkan (di HP tahan &amp; geser ikon <b>⠿</b>) — foto paling kiri = <b>Utama</b>. Urutan langsung tersimpan. <span id="fotoUrutStatus" class="font-semibold"></span></p>
-        @endif
+        {{-- Tampil bila ada ≥2 foto (tersimpan + Baru) — diatur JS geser di bawah. --}}
+        <p id="fotoUrutHint" class="text-[11px] text-stone-500 leading-relaxed"@if(count($gallery) < 2) hidden @endif><b>Atur urutan:</b> geser foto ke posisi yang diinginkan (di HP tahan &amp; geser ikon <b>⠿</b>) — foto paling kiri = <b>Utama</b>. Foto tersimpan langsung tersimpan urutannya; bila ada foto <b>Baru</b>, urutan ikut tersimpan saat klik <b>Simpan</b>. <span id="fotoUrutStatus" class="font-semibold"></span></p>
         <p class="text-[11px] text-stone-400 leading-relaxed">Klik kotak <b>“+ Tambah Foto”</b> untuk memilih gambar dari komputer/HP (JPG/PNG). Bisa pilih beberapa sekaligus — foto <b>otomatis dikecilkan di perangkatmu</b> (maks 1600px) biar upload cepat &amp; tak timeout, kualitas tetap tajam. Foto baru bertanda <span class="text-emerald-600 font-semibold">Baru</span> dan tersimpan saat kamu klik <b>Simpan</b>.</p>
     </div>
 
@@ -72,6 +72,8 @@
         @if($master->exists)@method('PUT')@endif
         {{-- Input file tersembunyi — dipicu tombol "+" di atas (label for="fotoUpload"). Tetap di DALAM form agar ikut ter-submit. --}}
         <input type="file" name="foto[]" id="fotoUpload" accept="image/*" multiple class="hidden">
+        {{-- Urutan campuran (f<id> tersimpan, n<i> foto Baru ke-i) bila foto digeser sebelum Simpan — lihat terapkanUrutanFoto(). --}}
+        <input type="hidden" name="urutan_foto" id="urutanFoto" value="">
 
         {{-- Informasi Produk --}}
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
@@ -209,16 +211,20 @@
         img.src = url;
     }
 
-    function renderPreview(file){
+    function renderPreview(file, idx){
         var tile = document.createElement('div');
         tile.className = 'mps-tile';
+        tile.setAttribute('data-new', String(idx)); // = indeks di foto[] (token n<idx> di urutan_foto)
         var im = document.createElement('img');
+        im.draggable = false;
         im.src = URL.createObjectURL(file);
         im.onload = function(){ URL.revokeObjectURL(im.src); };
         var badge = document.createElement('span');
         badge.className = 'mps-badge mps-badge-baru';
         badge.textContent = 'Baru';
-        tile.appendChild(im); tile.appendChild(badge);
+        var grip = document.createElement('span');
+        grip.className = 'mps-grip'; grip.title = 'Geser untuk atur urutan'; grip.setAttribute('aria-hidden', 'true'); grip.textContent = '⠿';
+        tile.appendChild(im); tile.appendChild(badge); tile.appendChild(grip);
         grid.insertBefore(tile, addTile);
         previews.push(tile);
     }
@@ -227,7 +233,7 @@
         previews.forEach(function(el){ if (el.parentNode) el.parentNode.removeChild(el); });
         previews = [];
         var files = Array.prototype.slice.call(input.files || []);
-        if (!files.length) return;
+        if (!files.length) { grid.dispatchEvent(new CustomEvent('foto:baru')); return; }
 
         var out = new Array(files.length), done = 0;
         busy += 1;
@@ -240,7 +246,9 @@
                         out.forEach(function(r){ if (r) dt.items.add(r); });
                         input.files = dt.files;
                     } catch (e) { /* tak didukung → biarkan file asli terkirim */ }
-                    out.forEach(function(r){ if (r) renderPreview(r); });
+                    var n = 0;
+                    out.forEach(function(r){ if (r) renderPreview(r, n++); });
+                    grid.dispatchEvent(new CustomEvent('foto:baru')); // skrip geser: reset urutan_foto & hint
                     busy -= 1;
                     if (busy === 0 && pendingSubmit) { pendingSubmit = false; form.submit(); }
                 }
@@ -255,17 +263,24 @@
 })();
 
 (function(){
-    // Atur urutan foto TERSIMPAN dengan geser (drag & drop). Mouse: dari mana saja di foto; sentuh/pen: lewat
-    // ikon ⠿ (supaya layar HP tetap bisa di-scroll). Urutan langsung disimpan via AJAX; foto paling kiri = Utama.
+    // Atur urutan foto dengan geser (drag & drop) — foto tersimpan MAUPUN foto Baru (belum di-Simpan).
+    // Mouse: dari mana saja di foto; sentuh/pen: lewat ikon ⠿ (supaya layar HP tetap bisa di-scroll). Foto paling kiri = Utama.
+    // Hanya foto tersimpan → urutan langsung disimpan via AJAX. Ada foto Baru → urutan dicatat di input `urutan_foto`
+    // (token f<id>/n<i>) dan diterapkan server saat Simpan (terapkanUrutanFoto).
     var grid = document.getElementById('fotoGrid');
-    var url = grid ? grid.getAttribute('data-urutan-url') : null;
-    if (!grid || !url) return;
+    if (!grid) return;
+    var url = grid.getAttribute('data-urutan-url');
+    var hidden = document.getElementById('urutanFoto');
+    var hint = document.getElementById('fotoUrutHint');
     var meta = document.querySelector('meta[name="csrf-token"]');
     var statusEl = document.getElementById('fotoUrutStatus');
+    var SEL = '.mps-tile[data-file-id], .mps-tile[data-new]';
     var drag = null, sx = 0, sy = 0, moved = false, before = '';
 
-    function tiles(){ return Array.prototype.slice.call(grid.querySelectorAll('.mps-tile[data-file-id]')); }
-    function ids(){ return tiles().map(function(t){ return parseInt(t.getAttribute('data-file-id'), 10); }); }
+    function tiles(){ return Array.prototype.slice.call(grid.querySelectorAll(SEL)); }
+    function token(t){ return t.hasAttribute('data-file-id') ? 'f' + t.getAttribute('data-file-id') : 'n' + t.getAttribute('data-new'); }
+    function tokens(){ return tiles().map(token); }
+    function adaBaru(){ return !!grid.querySelector('.mps-tile[data-new]'); }
     function status(msg, err){ if (statusEl) { statusEl.textContent = msg; statusEl.style.color = err ? '#e11d48' : '#059669'; } }
 
     // Badge "Utama" pindah ke foto pertama; tombol jadikan-utama disembunyikan di foto pertama.
@@ -285,6 +300,14 @@
         });
     }
 
+    // Foto Baru dipilih ulang/dihapus dari pilihan → urutan lama tak berlaku lagi (indeks n<i> berubah).
+    grid.addEventListener('foto:baru', function(){
+        if (hidden) hidden.value = '';
+        rapikanUtama();
+        if (hint) hint.hidden = tiles().length < 2;
+        status('');
+    });
+
     function onMove(e){
         if (!drag) return;
         if (!moved && Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) < 6) return; // klik biasa ≠ geser
@@ -294,7 +317,7 @@
         drag.style.pointerEvents = 'none';
         var under = document.elementFromPoint(e.clientX, e.clientY);
         drag.style.pointerEvents = '';
-        var target = under && under.closest ? under.closest('.mps-tile[data-file-id]') : null;
+        var target = under && under.closest ? under.closest(SEL) : null;
         if (!target || target === drag || target.parentNode !== grid) return;
         var list = tiles();
         grid.insertBefore(drag, list.indexOf(drag) < list.indexOf(target) ? target.nextSibling : target);
@@ -312,29 +335,35 @@
         var telan = function(ev){ ev.stopPropagation(); ev.preventDefault(); };
         document.addEventListener('click', telan, true);
         setTimeout(function(){ document.removeEventListener('click', telan, true); }, 0);
-        if (ids().join(',') === before) return; // dilepas di tempat semula
+        if (tokens().join(',') === before) return; // dilepas di tempat semula
         rapikanUtama();
-        simpan();
+        if (adaBaru() || !url) {
+            if (hidden) hidden.value = tokens().join(',');
+            status('Urutan dicatat — tersimpan saat klik Simpan.');
+        } else {
+            simpan();
+        }
     }
 
     grid.addEventListener('pointerdown', function(e){
-        var tile = e.target.closest ? e.target.closest('.mps-tile[data-file-id]') : null;
+        var tile = e.target.closest ? e.target.closest(SEL) : null;
         if (!tile || e.button > 0 || e.target.closest('button, a, form')) return; // tombol Hapus/Utama tetap bisa diklik
         if (e.pointerType !== 'mouse' && !e.target.closest('.mps-grip')) return;     // HP: geser lewat ikon ⠿
-        drag = tile; sx = e.clientX; sy = e.clientY; moved = false; before = ids().join(',');
+        drag = tile; sx = e.clientX; sy = e.clientY; moved = false; before = tokens().join(',');
         document.addEventListener('pointermove', onMove);
         document.addEventListener('pointerup', onUp);
         document.addEventListener('pointercancel', onUp);
     });
     // Cegah drag bawaan browser (gambar "hantu") agar tak bentrok dengan geser kita.
-    grid.addEventListener('dragstart', function(e){ if (e.target.closest && e.target.closest('.mps-tile[data-file-id]')) e.preventDefault(); });
+    grid.addEventListener('dragstart', function(e){ if (e.target.closest && e.target.closest(SEL)) e.preventDefault(); });
 
     function simpan(){
+        var ids = tiles().map(function(t){ return parseInt(t.getAttribute('data-file-id'), 10); });
         status('Menyimpan urutan…');
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': meta ? meta.content : '' },
-            body: JSON.stringify({ urutan: ids() })
+            body: JSON.stringify({ urutan: ids })
         }).then(function(res){
             // redirected = dialihkan (mis. sesi login habis → halaman login 200): itu GAGAL, bukan tersimpan.
             if (!res.ok || res.redirected) throw new Error(String(res.status));

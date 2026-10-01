@@ -143,7 +143,64 @@ class FotoUrutanTest extends TestCase
         $this->assertStringContainsString('Atur urutan:', $html);
         $this->assertStringContainsString("grid.getAttribute('data-urutan-url')", $html);
 
-        // Master baru belum punya foto tersimpan → grid tak diberi atribut url urutan (skrip geser tak aktif).
+        // Master baru belum punya foto tersimpan → grid tak diberi atribut url urutan (foto Baru diurutkan lewat urutan_foto saat Simpan).
         $this->assertStringNotContainsString('data-urutan-url="', $this->actingAs($admin)->get(route('marketplace-stock.create'))->assertOk()->getContent());
+    }
+
+    /** @return list<string> original_name foto master sesuai urutan tersimpan */
+    private function namaUrut(MarketplaceMaster $m): array
+    {
+        return $m->filesIn(MarketplaceMaster::MASTER_IMAGE)->pluck('original_name')->all();
+    }
+
+    public function test_foto_baru_bisa_diurutkan_bersama_foto_tersimpan_saat_simpan(): void
+    {
+        [$m, [$a, $b]] = $this->masterBerfoto(2);
+
+        $this->actingAs($this->admin())->put(route('marketplace-stock.update', $m), [
+            'name' => $m->name, 'master_sku' => $m->master_sku,
+            'foto' => [UploadedFile::fake()->image('baru0.jpg'), UploadedFile::fake()->image('baru1.jpg')],
+            'urutan_foto' => "n1,f{$b->id},n0,f{$a->id}",
+        ])->assertRedirect();
+
+        $this->assertSame(['baru1.jpg', 'U-1-2.jpg', 'baru0.jpg', 'U-1-1.jpg'], $this->namaUrut($m));
+    }
+
+    public function test_tambah_produk_foto_baru_ikut_urutan_geser(): void
+    {
+        $this->actingAs($this->admin())->post(route('marketplace-stock.store'), [
+            'name' => 'Produk Baru', 'master_sku' => 'NB-1',
+            'foto' => [UploadedFile::fake()->image('x0.jpg'), UploadedFile::fake()->image('x1.jpg'), UploadedFile::fake()->image('x2.jpg')],
+            'urutan_foto' => 'n2,n0,n1',
+        ])->assertRedirect();
+
+        $this->assertSame(['x2.jpg', 'x0.jpg', 'x1.jpg'], $this->namaUrut(MarketplaceMaster::where('master_sku', 'NB-1')->firstOrFail()));
+    }
+
+    public function test_urutan_foto_abaikan_token_asing_dan_foto_master_lain(): void
+    {
+        [$m, [$a, $b, $c]] = $this->masterBerfoto();
+        [, [$asing]] = $this->masterBerfoto(1, 'LAIN');
+
+        // Token foto master lain, token rusak, duplikat diabaikan; foto yang tak disebut ditaruh di belakang (urutan lama).
+        $this->actingAs($this->admin())->put(route('marketplace-stock.update', $m), [
+            'name' => $m->name, 'master_sku' => $m->master_sku,
+            'urutan_foto' => "f{$asing->id},x9,f{$c->id},f{$c->id},n5",
+        ])->assertRedirect();
+
+        $this->assertSame([$c->id, $a->id, $b->id], $this->urutan($m));
+        $this->assertSame(0, (int) $asing->fresh()->sort_order);
+    }
+
+    public function test_tanpa_urutan_foto_foto_baru_tetap_di_belakang(): void
+    {
+        [$m, [$a]] = $this->masterBerfoto(1);
+
+        $this->actingAs($this->admin())->put(route('marketplace-stock.update', $m), [
+            'name' => $m->name, 'master_sku' => $m->master_sku,
+            'foto' => [UploadedFile::fake()->image('baru.jpg')],
+        ])->assertRedirect();
+
+        $this->assertSame(['U-1-1.jpg', 'baru.jpg'], $this->namaUrut($m));
     }
 }

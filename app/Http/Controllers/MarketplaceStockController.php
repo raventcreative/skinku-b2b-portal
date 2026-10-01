@@ -108,6 +108,7 @@ class MarketplaceStockController extends Controller
             'barcode' => ['nullable', 'string', 'max:255'],
             'foto' => ['nullable', 'array', 'max:9'],
             'foto.*' => ['image', 'max:5120'],
+            'urutan_foto' => ['nullable', 'string', 'max:200'],
         ]);
     }
 
@@ -139,16 +140,49 @@ class MarketplaceStockController extends Controller
             $svc->setMasterStock($master, (int) $r->stock);
         }
         $existing = $master->files()->where('collection', MarketplaceMaster::MASTER_IMAGE)->count();
-        foreach ((array) $r->file('foto', []) as $file) {
+        $baru = []; // indeks foto[] → id File yang tercipta (utk urutan_foto)
+        foreach ((array) $r->file('foto', []) as $i => $file) {
             if (! $file || $existing >= 9) {
                 continue;
             }
             // Foto master ditujukan utk marketplace → simpan lebih besar & tajam (1600px, q85)
             // ketimbang default 1280/q80. Browser sudah mengecilkan sebelum upload (lihat form),
             // jadi ini praktis tanpa re-shrink berarti; JS-off tetap aman (server yang mengecilkan).
-            $img->attach($master, $file, MarketplaceMaster::MASTER_IMAGE, 1600, 85);
+            $baru[(int) $i] = $img->attach($master, $file, MarketplaceMaster::MASTER_IMAGE, 1600, 85)->id;
             $existing++;
         }
+        $this->terapkanUrutanFoto($master, (string) $r->input('urutan_foto', ''), $baru);
+    }
+
+    /**
+     * Urutan foto campuran hasil geser SEBELUM Simpan: `urutan_foto` = token dipisah koma, `f<id>` = foto
+     * tersimpan, `n<i>` = foto baru ke-i di `foto[]` (pertama = Utama). Longgar (bagian dari Simpan, bukan
+     * AJAX): token asing/foto master lain/foto yang tak ter-upload diabaikan, foto yang tak disebut ditaruh
+     * di belakang dengan urutan lamanya. Hanya foto milik master ini yang bisa disentuh (guard IDOR).
+     */
+    private function terapkanUrutanFoto(MarketplaceMaster $master, string $urutan, array $baru): void
+    {
+        if ($urutan === '') {
+            return;
+        }
+        $milik = $master->filesIn(MarketplaceMaster::MASTER_IMAGE)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $ids = [];
+        foreach (explode(',', $urutan) as $t) {
+            if (! preg_match('/^([fn])(\d+)$/', trim($t), $m)) {
+                continue;
+            }
+            $id = $m[1] === 'f' ? (int) $m[2] : ($baru[(int) $m[2]] ?? null);
+            if ($id !== null && in_array($id, $milik, true) && ! in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        }
+        $ids = array_merge($ids, array_values(array_diff($milik, $ids)));
+
+        DB::transaction(function () use ($ids) {
+            foreach ($ids as $i => $id) {
+                File::whereKey($id)->update(['sort_order' => $i]);
+            }
+        });
     }
 
     public function deleteFoto(MarketplaceMaster $master, File $file): RedirectResponse
