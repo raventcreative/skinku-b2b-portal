@@ -20,7 +20,8 @@ class TikTokKolPerformanceSyncCommand extends Command
         {--limit=30 : Maksimum KOL per jalan}
         {--sleep=10 : Jeda detik antar panggilan}
         {--stale-days=6 : Lewati KOL yang performanya sudah ditarik dalam N hari terakhir}
-        {--kol= : Hanya satu KOL (id)}';
+        {--kol= : Hanya satu KOL (id)}
+        {--semua : Semua KOL yang punya open_id (bukan hanya yang sedang kerja sama) — untuk isi awal sekali jalan}';
 
     protected $description = 'Tarik performa TikTok 30 hari (views, engagement, GPM, GMV Rupiah) untuk KOL aktif → snapshot tracker.';
 
@@ -77,10 +78,10 @@ class TikTokKolPerformanceSyncCommand extends Command
             ->with('tiktokProfile')
             ->whereHas('tiktokProfile', fn ($q) => $q->whereNotNull('open_id')->where('open_id', '!=', '')
                 ->where(fn ($w) => $w->whereNull('performance_synced_at')->orWhere('performance_synced_at', '<', $stale)))
-            ->where(fn ($q) => $q->where('status', Kol::STATUS_AKTIF)
+            ->when(! $this->option('semua'), fn ($q) => $q->where(fn ($q) => $q->where('status', Kol::STATUS_AKTIF)
                 ->orWhere('is_gapok', true)
                 ->orWhereIn('role', ['affiliate', 'both'])
-                ->orWhereHas('deals', fn ($d) => $d->where('status', 'berjalan')))
+                ->orWhereHas('deals', fn ($d) => $d->where('status', 'berjalan'))))
             ->orderByDesc('followers')
             ->limit(max(1, (int) $this->option('limit')))
             ->get();

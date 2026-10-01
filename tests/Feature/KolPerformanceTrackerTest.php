@@ -140,4 +140,15 @@ class KolPerformanceTrackerTest extends TestCase
 
         $this->actingAs($super)->get(route('kols.index'))->assertOk()->assertSee('GPM')->assertSee('2,5%');
     }
+
+    public function test_opsi_semua_ikut_menarik_kol_prospek(): void
+    {
+        $this->connect();
+        Http::fake(['*marketplace_creators/OID*' => Http::response(['code' => 0, 'data' => $this->performanceJson()], 200)]);
+        $prospek = $this->kol('prospekall', ['status' => Kol::STATUS_PROSPEK]);
+
+        $this->artisan('tiktok:kol-performance-sync', ['--sleep' => 0, '--semua' => true])->assertSuccessful();
+
+        $this->assertTrue(KolTiktokSnapshot::where('kol_id', $prospek->id)->exists());
+    }
 }
