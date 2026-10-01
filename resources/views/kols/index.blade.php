@@ -181,7 +181,7 @@
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari RATA-RATA views — bisa terangkat 1 video viral, jadi pembanding saja">{!! $sortLink('verdict_mean', 'Penilaian Rata-rata') !!}</th>
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari views MEDIAN (tengah) — ACUAN UTAMA, tahan dari 1 video viral">{!! $sortLink('verdict', 'Penilaian Median') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV = median views × 1,2% konversi × Rp38rb order rata-rata — hitungan sistem, BUKAN data asli">{!! $sortLink('gmv', 'GMV Estimasi · Viral · Fake') !!}</th>
-                <th rowspan="2" class="text-right align-bottom" title="GMV asli dari data KOL — diisi manual saat screening (— bila belum diisi)">GMV Asli</th>
+                <th rowspan="2" class="text-right align-bottom" title="GMV asli 30 hari dari TikTok Creator Marketplace atau isian manual screening (— bila belum ada)">GMV Asli</th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="GMV affiliate REAL bulan ini — penjualan SKINKU dari kreator ini (sama sumber dgn Affiliate & GMV). Bukan estimasi.">{!! $sortLink('gmv_real', 'GMV Bln') !!}</th>
                 <th rowspan="2" class="text-center px-2 align-bottom" title="Skor APS terakhir (jejak)">APS</th>
                 <th rowspan="2" class="text-center px-2 align-bottom" title="Skor KSS terakhir (jejak)">KSS</th>
@@ -254,10 +254,15 @@
                             <span class="block text-[10px] text-stone-500">Viral {{ $ls->viral_label }} · Fake {{ $ls->fake_label ?? '—' }}</span>
                         </td>
                         <td class="text-right whitespace-nowrap">
-                            @if($ls->gmv)<span class="font-semibold text-emerald-700">{{ $rp($ls->gmv) }}</span>@else<span class="text-stone-300" title="Belum diisi — isi lewat + Screening / detail">—</span>@endif
+                            {{-- Screening dibuat SETELAH sync marketplace → gmv screening kosong; pakai GMV profil TikTok. --}}
+                            @php $gmvAsli = $ls->gmv ?: $kol->tiktokProfile?->gmv_idr; @endphp
+                            @if($gmvAsli)<span class="font-semibold text-emerald-700" @if(! $ls->gmv) title="Dari profil TikTok Creator Marketplace (30 hari)" @endif>{{ $rp($gmvAsli) }}</span>@else<span class="text-stone-300" title="Belum ada — belum tersinkron dari TikTok Marketplace atau belum diisi lewat + Screening / detail">—</span>@endif
                         </td>
                     @else
-                        <td colspan="20" class="px-3 text-stone-300">belum discreening</td>
+                        {{-- 20 kolom = 13 tetap + 7 kolom views (v7col). Dipisah supaya saat 7 kolom
+                             views disembunyikan, baris ini tetap sejajar (bukan meluber ke kanan). --}}
+                        <td colspan="13" class="px-3 text-stone-300">belum discreening</td>
+                        <td colspan="7" class="v7col"></td>
                     @endif
                     @php $gmvB = $gmvMap->get($kol->id)?->gmv; $apsS = $apsMap->get($kol->id); $kssS = $kssMap->get($kol->id); @endphp
                     <td class="text-right px-2 text-stone-600">{{ $canAffiliate && $gmvB ? $rp($gmvB) : '—' }}</td>
