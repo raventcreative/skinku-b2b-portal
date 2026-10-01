@@ -27,6 +27,22 @@ class MarketplaceMasterService
 
     public function effectiveStock(MarketplaceMaster $m, string $channel): ?int
     {
+        // Bundle ber-resep: stok DIHITUNG dari komponen = min(floor(stok komponen / qty)); komponen tanpa stok → null.
+        $isi = $this->isiBundle($m);
+        if ($isi->isNotEmpty()) {
+            $min = null;
+            foreach ($isi as $it) {
+                $s = $it->component ? $this->effectiveStock($it->component, $channel) : null;
+                if ($s === null) {
+                    return null;
+                }
+                $bisa = intdiv(max(0, $s), max(1, $it->qty));
+                $min = $min === null ? $bisa : min($min, $bisa);
+            }
+
+            return $min;
+        }
+
         $ch = $m->channels->firstWhere('channel', $channel)
             ?? MarketplaceMasterChannel::where('master_id', $m->id)->where('channel', $channel)->first();
         if ($ch && $ch->stock !== null) {
@@ -613,6 +629,28 @@ class MarketplaceMasterService
         return $out;
     }
 
+    // ---- Bundle ber-resep ----
+
+    /** Isi bundle (dgn komponen) — pakai relasi ter-eager-load bila ada. Kosong = bukan bundle ber-resep. */
+    private function isiBundle(MarketplaceMaster $m): \Illuminate\Support\Collection
+    {
+        return $m->relationLoaded('bundleItems') ? $m->bundleItems : $m->bundleItems()->with('component.channels')->get();
+    }
+
+    /**
+     * Dorong stok bundle-bundle yang memakai master ini (stok komponen berubah → stok bundle ikut berubah).
+     * Cron 5-menit juga menyusul lewat diff-guard; ini supaya marketplace langsung ter-update saat admin mengubah stok.
+     */
+    public function pushBundleTerkait(MarketplaceMaster $komponen): void
+    {
+        $ids = $komponen->dipakaiBundle()->pluck('bundle_id')->unique();
+        foreach (MarketplaceMaster::whereIn('id', $ids)->get() as $b) {
+            foreach ($b->listings()->whereNotNull('item_id')->get() as $l) {
+                $this->pushListing($l);
+            }
+        }
+    }
+
     // ---- Kategori marketplace (pemilih kategori + atribut per channel; pohon & ID TikTok ≠ Shopee) ----
 
     /** Pohon kategori mentah channel: [{id, parent, name, leaf}] — dari API, di-cache 1 hari (ribuan baris, jarang berubah). */
@@ -860,7 +898,23 @@ class MarketplaceMasterService
         if (! $master) {
             return;
         }
-        $channel = $listing->channel;
+        // Bundle ber-resep: yang berkurang/bertambah stok KOMPONENNYA (qty × delta); stok bundle ikut terhitung ulang.
+        $isi = $this->isiBundle($master);
+        if ($isi->isNotEmpty()) {
+            foreach ($isi as $it) {
+                if ($it->component) {
+                    $this->applyDeltaMaster($it->component, $listing->channel, $delta * $it->qty, $orderCreatedAt);
+                }
+            }
+
+            return;
+        }
+        $this->applyDeltaMaster($master, $listing->channel, $delta, $orderCreatedAt);
+    }
+
+    /** Terapkan delta stok ke satu master (override channel bila ada, else base_stock) dgn guard seeded_at. */
+    private function applyDeltaMaster(MarketplaceMaster $master, string $channel, int $delta, Carbon $orderCreatedAt): void
+    {
         $override = MarketplaceMasterChannel::where('master_id', $master->id)->where('channel', $channel)->first();
 
         if ($override && $override->stock !== null) {

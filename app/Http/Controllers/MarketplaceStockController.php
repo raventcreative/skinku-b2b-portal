@@ -31,16 +31,22 @@ class MarketplaceStockController extends Controller
         $tab = in_array($request->query('tab'), ['satuan', 'bundle'], true) ? $request->query('tab') : 'semua';
 
         // Hanya master teratas (induk/tunggal); varian ditampilkan menempel di bawah induknya.
-        $q = MarketplaceMaster::whereNull('parent_id')->with(['listings:id,master_id,channel', 'variants.listings:id,master_id,channel']);
+        $q = MarketplaceMaster::whereNull('parent_id')->with(['listings:id,master_id,channel', 'variants.listings:id,master_id,channel', 'bundleItems.component.channels', 'variants.bundleItems']);
         if ($tab === 'satuan') {
             $q->where('is_bundle', false);
         } elseif ($tab === 'bundle') {
             $q->where('is_bundle', true);
         }
 
+        $masters = $q->orderBy('name')->get();
+        // Stok bundle ber-resep = hitungan dari komponen (stok dasar, tanpa override channel) utk ditampilkan.
+        $svc = app(MarketplaceMasterService::class);
+        $stokBundle = $masters->filter(fn ($m) => $m->bundleItems->isNotEmpty())->mapWithKeys(fn ($m) => [$m->id => $svc->effectiveStock($m, '')]);
+
         return view('marketplace-stock.index', [
             'tab' => $tab,
-            'masters' => $q->orderBy('name')->get(),
+            'masters' => $masters,
+            'stokBundle' => $stokBundle,
             'counts' => [
                 'semua' => MarketplaceMaster::whereNull('parent_id')->count(),
                 'satuan' => MarketplaceMaster::whereNull('parent_id')->where('is_bundle', false)->count(),
@@ -58,7 +64,7 @@ class MarketplaceStockController extends Controller
 
     public function create(): View
     {
-        return view('marketplace-stock.form', ['master' => new MarketplaceMaster]);
+        return view('marketplace-stock.form', ['master' => new MarketplaceMaster, 'komponenOpsi' => $this->komponenOpsi(null)]);
     }
 
     public function store(Request $r, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
@@ -67,6 +73,7 @@ class MarketplaceStockController extends Controller
         $master = MarketplaceMaster::create($this->masterAttributes($r) + $this->kategoriAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
         $this->simpanVarian($r, $master, $svc);
+        $this->simpanIsiBundle($r, $master);
 
         return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" dibuat.");
     }
@@ -78,7 +85,7 @@ class MarketplaceStockController extends Controller
             return redirect()->route('marketplace-stock.edit', $master->parent_id);
         }
 
-        return view('marketplace-stock.form', ['master' => $master->load('variants.listings')]);
+        return view('marketplace-stock.form', ['master' => $master->load('variants.listings', 'bundleItems'), 'komponenOpsi' => $this->komponenOpsi($master)]);
     }
 
     public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
@@ -87,7 +94,9 @@ class MarketplaceStockController extends Controller
         $master->update($this->masterAttributes($r) + $this->kategoriAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
         $pindah = $this->simpanVarian($r, $master, $svc);
+        $this->simpanIsiBundle($r, $master->fresh());
         $this->pushKeluarga($master, $svc, true);
+        $svc->pushBundleTerkait($master);
         // Sinkron otomatis nama/deskripsi/berat/dimensi/barcode/foto — hanya listing yg sudah pernah didorong manual,
         // hanya yg berubah. Upload foto bisa lama → beri waktu (lihat pushContent()).
         if (function_exists('set_time_limit')) {
@@ -141,6 +150,9 @@ class MarketplaceStockController extends Controller
             'varian.*.price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'varian.*.stock' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'varian.*.barcode' => ['nullable', 'string', 'max:255'],
+            'isi_bundle' => ['nullable', 'array', 'max:20'],
+            'isi_bundle.*.component_id' => ['required', 'integer', 'exists:marketplace_masters,id'],
+            'isi_bundle.*.qty' => ['required', 'integer', 'min:1', 'max:999'],
             'tiktok_category_id' => ['nullable', 'regex:/^\d{1,32}$/'],
             'tiktok_category_name' => ['nullable', 'string', 'max:500'],
             'tiktok_attributes' => ['nullable', 'string', 'max:60000'],
@@ -326,6 +338,40 @@ class MarketplaceStockController extends Controller
         return $pindah;
     }
 
+    /**
+     * Simpan resep bundling (kartu "Isi Bundling", flag `isi_bundle_ada`) sbg himpunan lengkap. Hanya utk master
+     * bertipe Bundle; tipe Satuan → resep dikosongkan. Komponen dilewati bila: diri sendiri, induk bervarian (bukan unit
+     * jual), atau bundle ber-resep (cegah bundle-dalam-bundle/siklus). Komponen sama dua kali → qty dijumlah.
+     */
+    private function simpanIsiBundle(Request $r, MarketplaceMaster $master): void
+    {
+        if (! $r->has('isi_bundle_ada')) {
+            return;
+        }
+        $master->bundleItems()->delete();
+        if (! $master->is_bundle) {
+            return;
+        }
+        $qty = [];
+        foreach ((array) $r->input('isi_bundle', []) as $row) {
+            $qty[(int) $row['component_id']] = ($qty[(int) $row['component_id']] ?? 0) + (int) $row['qty'];
+        }
+        $sah = MarketplaceMaster::whereIn('id', array_keys($qty))->where('id', '!=', $master->id)
+            ->whereDoesntHave('variants')->whereDoesntHave('bundleItems')->pluck('id');
+        foreach ($sah as $id) {
+            $master->bundleItems()->create(['component_id' => $id, 'qty' => min(999, $qty[$id])]);
+        }
+    }
+
+    /** Pilihan komponen bundling: unit jual (bukan induk bervarian, bukan bundle ber-resep, bukan diri sendiri). */
+    private function komponenOpsi(?MarketplaceMaster $kecuali): array
+    {
+        return MarketplaceMaster::whereDoesntHave('variants')->whereDoesntHave('bundleItems')
+            ->when($kecuali, fn ($q) => $q->where('id', '!=', $kecuali->id))
+            ->orderBy('name')->get(['id', 'name', 'master_sku', 'base_stock'])
+            ->map(fn ($m) => ['id' => $m->id, 'label' => $m->name.' ('.$m->master_sku.')', 'stok' => $m->base_stock])->all();
+    }
+
     /** Dorong stok & harga induk + semua variannya. @return array{pushed:int,skipped:int,failed:int} */
     private function pushKeluarga(MarketplaceMaster $master, MarketplaceMasterService $svc, bool $force): array
     {
@@ -504,9 +550,14 @@ class MarketplaceStockController extends Controller
     public function setMasterStock(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
         $r->validate(['quantity' => ['required', 'integer', 'min:0', 'max:2147483647']]);
+        if ($master->bundleItems()->exists()) {
+            return back()->with('error', "Stok \"{$master->name}\" dihitung otomatis dari isi bundlingnya — ubah stok komponennya.");
+        }
         $svc->setMasterStock($master, (int) $r->quantity);
+        $hasil = $svc->pushMaster($master);
+        $svc->pushBundleTerkait($master); // bundle yg memakai produk ini ikut ter-update
 
-        return $this->pushFlash(back(), $svc->pushMaster($master), "Stok master \"{$master->name}\" disetel.");
+        return $this->pushFlash(back(), $hasil, "Stok master \"{$master->name}\" disetel.");
     }
 
     public function setMasterPrice(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
@@ -674,6 +725,10 @@ class MarketplaceStockController extends Controller
 
     public function deleteMaster(MarketplaceMaster $master): RedirectResponse
     {
+        $dipakai = MarketplaceMaster::whereIn('id', $master->dipakaiBundle()->pluck('bundle_id'))->pluck('name');
+        if ($dipakai->isNotEmpty()) {
+            return back()->with('error', "\"{$master->name}\" masih jadi isi bundling: ".$dipakai->implode(', ').' — keluarkan dulu dari bundling itu.');
+        }
         $name = $master->name;
         $master->delete();
 

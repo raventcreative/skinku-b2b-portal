@@ -58,6 +58,18 @@ class MarketplaceMaster extends Model
         return $this->hasMany(self::class, 'parent_id')->orderBy('id');
     }
 
+    /** Resep bundling (isi bundle). Kosong = stok diisi manual seperti biasa. */
+    public function bundleItems(): HasMany
+    {
+        return $this->hasMany(MarketplaceBundleItem::class, 'bundle_id')->orderBy('id');
+    }
+
+    /** Bundle yang memakai master ini sebagai komponen. */
+    public function dipakaiBundle(): HasMany
+    {
+        return $this->hasMany(MarketplaceBundleItem::class, 'component_id');
+    }
+
     /** Sumber konten level PRODUK (nama/foto/deskripsi/berat/dimensi/kategori): induk bila varian, else diri sendiri. */
     public function sumberKonten(): self
     {

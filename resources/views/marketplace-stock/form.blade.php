@@ -107,7 +107,7 @@
                     <label class="block text-sm font-medium text-stone-700 mb-1">Harga</label>
                     <input type="number" step="0.01" min="0" name="price" value="{{ old('price', $master->base_price) }}" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                 </div>
-                <div class="mp-induk-saja">
+                <div class="mp-induk-saja mp-stok-manual">
                     <label class="block text-sm font-medium text-stone-700 mb-1">Stok</label>
                     <input type="number" min="0" name="stock" value="{{ old('stock', $master->base_stock) }}" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                 </div>
@@ -121,13 +121,44 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-stone-700 mb-1">Tipe</label>
-                    <select name="is_bundle" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
+                    <select name="is_bundle" id="tipeBundle" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                         <option value="0" @selected(! old('is_bundle', $master->is_bundle))>Satuan</option>
                         <option value="1" @selected(old('is_bundle', $master->is_bundle))>Bundle</option>
                     </select>
                 </div>
             </div>
             <p class="text-[11px] text-stone-400">Harga & stok akan disinkron ke TikTok/Shopee. Field lain disimpan di SKINKU.</p>
+        </div>
+
+        {{-- ISI BUNDLING: resep bundle = qty × produk komponen. Stok bundle DIHITUNG dari komponen & order bundle memotong
+             stok komponen (MarketplaceMasterService). Tampil bila Tipe = Bundle. Disimpan sbg himpunan lengkap (simpanIsiBundle). --}}
+        @php
+            $isiRows = old('isi_bundle', $master->exists ? $master->bundleItems->map(fn ($b) => ['component_id' => $b->component_id, 'qty' => $b->qty])->all() : []);
+        @endphp
+        <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-3" id="isiBundleCard">
+            <input type="hidden" name="isi_bundle_ada" value="1">
+            <h3 class="font-semibold text-stone-800">Isi Bundling</h3>
+            <p class="text-[11px] text-stone-500 leading-relaxed">Isi bundling ini terdiri dari apa saja. Setelah diisi: <b>stok bundling dihitung otomatis</b> dari stok isinya (mis. Reina 100 pcs, isi 3 → stok bundling 33), dan <b>tiap bundling terjual otomatis memotong stok isinya</b>. Kosongkan = stok bundling diisi manual seperti biasa.</p>
+            <table class="w-full text-sm" id="isiBundleTabel">
+                <thead><tr class="text-left text-xs text-stone-500"><th class="py-1 pr-2">Produk isi</th><th class="py-1 pr-2 w-24">Jumlah</th><th></th></tr></thead>
+                <tbody>
+                    @foreach($isiRows as $i => $row)
+                        <tr class="mp-isi">
+                            <td class="py-1 pr-2"><select name="isi_bundle[{{ $i }}][component_id]" required class="mp-isi-produk w-full px-2 py-1.5 border border-stone-200 rounded-lg">
+                                <option value="">— pilih produk —</option>
+                                @foreach($komponenOpsi as $o)<option value="{{ $o['id'] }}" data-stok="{{ $o['stok'] }}" @selected((int) ($row['component_id'] ?? 0) === $o['id'])>{{ $o['label'] }}</option>@endforeach
+                            </select></td>
+                            <td class="py-1 pr-2"><input type="number" min="1" max="999" name="isi_bundle[{{ $i }}][qty]" value="{{ $row['qty'] ?? 1 }}" required class="mp-isi-qty w-20 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
+                            <td class="py-1"><button type="button" class="mp-isi-hapus text-xs text-rose-600 hover:underline">Hapus</button></td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            <template id="isiBundleOpsi"><option value="">— pilih produk —</option>@foreach($komponenOpsi as $o)<option value="{{ $o['id'] }}" data-stok="{{ $o['stok'] }}">{{ $o['label'] }}</option>@endforeach</template>
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <button type="button" id="isiTambah" class="px-3 py-1.5 text-sm rounded-lg border border-dashed border-stone-300 text-stone-600 hover:border-indigo-400 hover:text-indigo-700">+ Tambah isi</button>
+                <span class="text-xs text-stone-600">Perkiraan stok bundling: <b id="isiPerkiraan">—</b></span>
+            </div>
         </div>
 
         {{-- VARIAN ala Desty: opsi varian = master anak (SKU/harga/stok/barcode + listing sendiri). Nama/foto/deskripsi/
@@ -785,6 +816,44 @@
         if (h !== '') tbody.querySelectorAll('.mp-var-harga').forEach(function(x){ x.value = h; });
         if (s !== '') tbody.querySelectorAll('.mp-var-stok').forEach(function(x){ x.value = s; });
     });
+    rapikan();
+})();
+(function(){
+    // Isi Bundling: tampil bila Tipe = Bundle; tambah/hapus baris; perkiraan stok = min(floor(stok isi / jumlah));
+    // input Stok manual disembunyikan bila ada isi (stok dihitung otomatis).
+    var card = document.getElementById('isiBundleCard'), tipe = document.getElementById('tipeBundle');
+    if (!card || !tipe) return;
+    var tbody = card.querySelector('tbody'), opsi = document.getElementById('isiBundleOpsi').innerHTML;
+    var idx = tbody.querySelectorAll('tr.mp-isi').length;
+    function rapikan(){
+        var bundle = tipe.value === '1', ada = bundle && tbody.querySelectorAll('tr.mp-isi').length > 0;
+        card.hidden = !bundle;
+        // Tipe Satuan: isian disable (tak divalidasi/terkirim) — flag isi_bundle_ada tetap terkirim → resep dikosongkan server.
+        card.querySelectorAll('select, input:not([name="isi_bundle_ada"])').forEach(function(el){ el.disabled = !bundle; });
+        document.querySelectorAll('.mp-stok-manual').forEach(function(el){ if (ada) el.hidden = true; else if (!document.querySelector('#varianTabel tr.mp-var')) el.hidden = false; });
+        var min = null, kosong = !ada;
+        tbody.querySelectorAll('tr.mp-isi').forEach(function(tr){
+            var o = tr.querySelector('.mp-isi-produk').selectedOptions[0], q = parseInt(tr.querySelector('.mp-isi-qty').value, 10) || 1;
+            var st = o && o.value ? o.getAttribute('data-stok') : '';
+            if (st === '' || st === null) { kosong = true; return; }
+            var bisa = Math.floor(parseInt(st, 10) / q);
+            min = min === null ? bisa : Math.min(min, bisa);
+        });
+        document.getElementById('isiPerkiraan').textContent = kosong || min === null ? '—' : min;
+    }
+    document.getElementById('isiTambah').addEventListener('click', function(){
+        var i = idx++, tr = document.createElement('tr');
+        tr.className = 'mp-isi';
+        tr.innerHTML = '<td class="py-1 pr-2"><select name="isi_bundle[' + i + '][component_id]" required class="mp-isi-produk w-full px-2 py-1.5 border border-stone-200 rounded-lg">' + opsi + '</select></td>'
+            + '<td class="py-1 pr-2"><input type="number" min="1" max="999" name="isi_bundle[' + i + '][qty]" value="1" required class="mp-isi-qty w-20 px-2 py-1.5 border border-stone-200 rounded-lg"></td>'
+            + '<td class="py-1"><button type="button" class="mp-isi-hapus text-xs text-rose-600 hover:underline">Hapus</button></td>';
+        tbody.appendChild(tr);
+        rapikan();
+    });
+    tbody.addEventListener('click', function(e){ var b = e.target.closest('.mp-isi-hapus'); if (b) { b.closest('tr').remove(); rapikan(); } });
+    tbody.addEventListener('change', rapikan);
+    tbody.addEventListener('input', rapikan);
+    tipe.addEventListener('change', rapikan);
     rapikan();
 })();
 </script>
