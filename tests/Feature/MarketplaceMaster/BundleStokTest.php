@@ -5,6 +5,9 @@ namespace Tests\Feature\MarketplaceMaster;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
 use App\Models\MarketplaceMasterChannel;
+use App\Models\Product;
+use App\Models\ShopeeSkuMap;
+use App\Models\TiktokSkuMap;
 use App\Models\TiktokConnection;
 use App\Models\User;
 use App\Services\MarketplaceMasterService;
@@ -138,5 +141,37 @@ class BundleStokTest extends TestCase
         $this->assertNotNull($reina->fresh());
 
         $this->actingAs($admin)->get(route('marketplace-stock.edit', $b))->assertOk()->assertSee('Isi Bundling')->assertSee('Produk REI-1 (REI-1)');
+    }
+
+    public function test_ambil_resep_dari_sku_map_hq(): void
+    {
+        $reinaHq = Product::create(['name' => 'Reina Cream', 'sku' => 'RC-HQ', 'status' => 'active']);
+        $soapHq = Product::create(['name' => 'Body Soap', 'sku' => 'SOAP-HQ', 'status' => 'active']);
+        $serumHq = Product::create(['name' => 'Body Serum', 'sku' => 'SER-HQ', 'status' => 'active']);
+
+        // Reina: dicocokkan lewat listing satuan yg SKU map-nya Reina ×1. Soap: lewat master_sku = SKU produk HQ.
+        $reina = $this->master('REI-1', 100);
+        MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'TT-REI-1', 'master_id' => $reina->id]);
+        TiktokSkuMap::create(['tiktok_sku' => 'TT-REI-1', 'product_id' => $reinaHq->id, 'qty' => 1]);
+        $soap = $this->master('SOAP-HQ', 50);
+
+        $b = $this->master('REI-3', 18, ['is_bundle' => true]);
+        MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'TT-REI-3', 'master_id' => $b->id]);
+        TiktokSkuMap::create(['tiktok_sku' => 'TT-REI-3', 'product_id' => $reinaHq->id, 'qty' => 3]);
+        TiktokSkuMap::create(['tiktok_sku' => 'TT-REI-3', 'product_id' => $soapHq->id, 'qty' => 1]);
+        TiktokSkuMap::create(['tiktok_sku' => 'TT-REI-3', 'product_id' => $serumHq->id, 'qty' => 2]);
+
+        $this->actingAs($this->admin())->getJson(route('marketplace-stock.master.resep-hq', $b))->assertOk()
+            ->assertJsonPath('data.sumber', 'Tiktok SKU TT-REI-3')
+            ->assertJsonPath('data.rows.0.component_id', $reina->id)->assertJsonPath('data.rows.0.qty', 3)
+            ->assertJsonPath('data.rows.1.component_id', $soap->id)
+            ->assertJsonPath('data.gagal', ['Body Serum ×2']);
+
+        // Tanpa listing: dicoba lewat master_sku sbg SKU Shopee.
+        $c = $this->master('SP-BND', 1, ['is_bundle' => true]);
+        ShopeeSkuMap::create(['shopee_sku' => 'SP-BND', 'product_id' => $soapHq->id, 'qty' => 2]);
+        $this->assertSame([['component_id' => $soap->id, 'qty' => 2, 'label' => 'Produk SOAP-HQ (SOAP-HQ)']], $this->svc()->resepDariHq($c)['rows']);
+
+        $this->assertNull($this->svc()->resepDariHq($this->master('X', 1))['sumber']); // tak ada resep HQ
     }
 }
