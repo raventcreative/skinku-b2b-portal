@@ -197,6 +197,18 @@ class MarketplaceStockController extends Controller
         }
     }
 
+    /** JSON telusur bertingkat: anak langsung dari `parent` (default '0' = level teratas). */
+    public function anakKategori(Request $r, string $channel, MarketplaceMasterService $svc): JsonResponse
+    {
+        $parent = (string) $r->query('parent', '0');
+        abort_unless(preg_match('/^\d{1,32}$/', $parent), 404);
+        try {
+            return response()->json(['data' => $svc->anakKategori($channel, $parent)]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => MarketplaceMasterService::maskSecrets($e->getMessage())], 422);
+        }
+    }
+
     /** JSON atribut (+ merek Shopee) satu kategori daun. */
     public function atributKategori(string $channel, string $category, MarketplaceMasterService $svc): JsonResponse
     {
