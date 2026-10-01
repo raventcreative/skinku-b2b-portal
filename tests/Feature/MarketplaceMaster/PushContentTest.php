@@ -77,7 +77,8 @@ class PushContentTest extends TestCase
 
     private function masterKosong(): MarketplaceMaster
     {
-        return MarketplaceMaster::create(['master_sku' => 'K-1', 'name' => 'Kosong']);
+        // Nama kosong juga: sejak nama ikut didorong (judul, produk 1 SKU), master bernama TIDAK lagi "kosong".
+        return MarketplaceMaster::create(['master_sku' => 'K-1', 'name' => '']);
     }
 
     private function tiktokListing(MarketplaceMaster $m, array $over = []): MarketplaceListing
@@ -265,14 +266,14 @@ class PushContentTest extends TestCase
         $this->assertSame('ok', $l->last_content_status);
         $this->assertNull($l->last_content_error);
         $this->assertNotNull($l->last_content_pushed_at);
-        $this->assertSame(md5(json_encode(self::TIKTOK_LENGKAP)), $l->content_hash);
+        $this->assertSame(md5(json_encode(['title' => 'Serum X'] + self::TIKTOK_LENGKAP)), $l->content_hash);
         Http::assertSentCount(1);
         Http::assertSent(function ($req) {
             return $req->method() === 'POST'
                 && str_contains($req->url(), '/product/202309/products/PID1/partial_edit')
                 && str_contains($req->url(), 'shop_cipher=c')
                 && $req->hasHeader('x-tts-access-token', 't')
-                && json_decode($req->body(), true) === self::TIKTOK_LENGKAP;
+                && json_decode($req->body(), true) === ['title' => 'Serum X'] + self::TIKTOK_LENGKAP;
         });
     }
 
@@ -323,7 +324,7 @@ class PushContentTest extends TestCase
         Http::assertSentCount(2);
         $baru = $l->fresh()->content_hash;
         $this->assertNotSame($hashLama, $baru);
-        $this->assertSame(md5(json_encode($svc->buildContentPayload($m, 'tiktok'))), $baru);
+        $this->assertSame(md5(json_encode($svc->buildContentPayload($m, 'tiktok', $l))), $baru);
     }
 
     public function test_api_error_catat_failed_dan_pesan_asli_tanpa_menyimpan_hash(): void
@@ -442,7 +443,7 @@ class PushContentTest extends TestCase
         $this->assertSame('ok', $l->last_content_status);
         $this->assertNull($l->last_content_error);
         $this->assertNotNull($l->last_content_pushed_at);
-        $this->assertSame(md5(json_encode(self::SHOPEE_LENGKAP)), $l->content_hash);
+        $this->assertSame(md5(json_encode(['item_name' => 'Serum X'] + self::SHOPEE_LENGKAP)), $l->content_hash);
         Http::assertSentCount(1);
         Http::assertSent(function ($req) {
             return $req->method() === 'POST'
@@ -450,7 +451,7 @@ class PushContentTest extends TestCase
                 && str_contains($req->url(), 'shop_id=123')
                 && str_contains($req->url(), 'access_token=t')
                 // body = item_id (int, dari listing) + payload persis, tak ada key lain.
-                && json_decode($req->body(), true) === array_merge(['item_id' => 555], self::SHOPEE_LENGKAP);
+                && json_decode($req->body(), true) === array_merge(['item_id' => 555, 'item_name' => 'Serum X'], self::SHOPEE_LENGKAP);
         });
     }
 
@@ -495,7 +496,7 @@ class PushContentTest extends TestCase
         $this->tiktokConn();
         $this->fakeOk();
         $m = $this->masterLengkap();
-        $this->tiktokListing($m, ['content_hash' => md5(json_encode(self::TIKTOK_LENGKAP))]); // sudah terkirim persis ini
+        $this->tiktokListing($m, ['content_hash' => md5(json_encode(['title' => 'Serum X'] + self::TIKTOK_LENGKAP))]); // sudah terkirim persis ini
         $svc = $this->svc();
 
         $this->assertSame(['pushed' => 0, 'skipped' => 1, 'failed' => 0], $svc->pushMasterContent($m, false));
@@ -604,5 +605,67 @@ class PushContentTest extends TestCase
             $this->assertNull($l->last_content_pushed_at);
             $this->assertNull($l->content_hash);
         }
+    }
+
+    // ---- Nama, barcode & mode otomatis (sinkron tiap Simpan) ----
+
+    public function test_nama_dikirim_hanya_bila_produk_satu_sku(): void
+    {
+        $m = $this->masterLengkap();
+        $tt = $this->tiktokListing($m);
+        $sp = $this->shopeeListing($m);
+
+        $this->assertSame('Serum X', $this->svc()->buildContentPayload($m, 'tiktok', $tt)['title']);
+        $this->assertSame('Serum X', $this->svc()->buildContentPayload($m, 'shopee', $sp)['item_name']);
+
+        // Ada varian lain di produk yang sama → judul (level produk) tak boleh ditimpa nama satu varian.
+        MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'SX-2', 'item_id' => 'PID1', 'variation_id' => 'SKU2']);
+        $this->assertArrayNotHasKey('title', $this->svc()->buildContentPayload($m, 'tiktok', $tt));
+        $this->assertArrayHasKey('item_name', $this->svc()->buildContentPayload($m, 'shopee', $sp)); // channel lain tak terpengaruh
+    }
+
+    public function test_barcode_gtin_valid_dikirim_per_sku_yang_tak_valid_dilewati(): void
+    {
+        $m = $this->masterLengkap(['barcode' => '8991234567891']);
+        $tt = $this->tiktokListing($m);
+        $spModel = $this->shopeeListing($m);
+        $spTunggal = $this->shopeeListing($m, ['seller_sku' => 'SX-T', 'item_id' => '777', 'variation_id' => '0']);
+
+        $this->assertSame([['id' => 'SKU1', 'identifier_code' => ['code' => '8991234567891', 'type' => 'EAN']]],
+            $this->svc()->buildContentPayload($m, 'tiktok', $tt)['skus']);
+        $this->assertSame('8991234567891', $this->svc()->buildContentPayload($m, 'shopee', $spTunggal)['gtin_code']);
+        $this->assertArrayNotHasKey('gtin_code', $this->svc()->buildContentPayload($m, 'shopee', $spModel)); // per-model belum
+
+        $m->update(['barcode' => '8991234567890']); // check digit salah
+        $this->assertArrayNotHasKey('skus', $this->svc()->buildContentPayload($m, 'tiktok', $tt));
+    }
+
+    public function test_validasi_gtin(): void
+    {
+        $this->assertSame('8991234567891', MarketplaceMasterService::gtin(' 8991234567891 '));
+        $this->assertSame('036000291452', MarketplaceMasterService::gtin('036000291452'));   // UPC-A
+        $this->assertSame('96385074', MarketplaceMasterService::gtin('96385074'));           // EAN-8
+        $this->assertNull(MarketplaceMasterService::gtin('8991234567890'));
+        $this->assertNull(MarketplaceMasterService::gtin('HK-1'));
+        $this->assertNull(MarketplaceMasterService::gtin(''));
+    }
+
+    public function test_mode_otomatis_hanya_ke_listing_yang_pernah_didorong_manual(): void
+    {
+        $this->tiktokConn();
+        $this->fakeOk();
+        $m = $this->masterLengkap();
+        $baru = $this->tiktokListing($m);
+        $lama = $this->tiktokListing($m, ['seller_sku' => 'SX-L', 'item_id' => 'PID9', 'variation_id' => 'SKU9', 'last_content_pushed_at' => now()]);
+
+        $r = $this->svc()->pushMasterContent($m, true, true); // force diabaikan di mode otomatis
+
+        $this->assertSame(['pushed' => 1, 'skipped' => 1, 'failed' => 0], $r);
+        $this->assertNull($baru->fresh()->last_content_status); // belum pernah didorong manual → tak disentuh
+        $this->assertSame('ok', $lama->fresh()->last_content_status);
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($req) => str_contains($req->url(), '/products/PID9/partial_edit'));
+
+        $this->assertSame(['pushed' => 0, 'skipped' => 2, 'failed' => 0], $this->svc()->pushMasterContent($m, false, true)); // tak berubah
     }
 }

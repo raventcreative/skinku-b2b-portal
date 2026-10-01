@@ -319,10 +319,11 @@ class MarketplaceMasterService
         }
     }
 
-    // ---- Dorong KONTEN produk (deskripsi/berat/dimensi + foto) — jalur TERPISAH dari stok/harga ----
+    // ---- Dorong KONTEN produk (nama/deskripsi/berat/dimensi/barcode + foto) — jalur TERPISAH dari stok/harga ----
     //
-    // Sengaja TIDAK lewat pushListing/pushDirty/pushEach: konten & foto dikirim manual (tombol +
-    // konfirmasi), bukan oleh cron 5-menit. Nama/judul TIDAK ikut didorong.
+    // Sengaja TIDAK lewat pushListing/pushDirty/pushEach (cron 5-menit). Dua pemicu:
+    // (1) tombol "Dorong" (manual, paksa semua), (2) otomatis tiap Simpan form Ubah — HANYA ke listing yang
+    // sudah pernah didorong manual (dorong pertama menimpa isi listing, jadi wajib disengaja), lewat diff-guard.
 
     /**
      * Payload konten partial per-channel — HANYA field yang terisi (skip-empty), supaya master
@@ -330,12 +331,20 @@ class MarketplaceMasterService
      * satuan (gram → kg). `[]` bila tak ada satu pun yang dikirim.
      *
      * TIDAK pernah memuat `item_id` (ShopeeClient::updateItem menambahkannya sendiri lewat
-     * array_merge, jadi key yang sama di sini akan menimpanya) maupun nama/judul.
+     * array_merge, jadi key yang sama di sini akan menimpanya).
+     *
+     * Dengan $l (listing tujuan): + NAMA (judul = level PRODUK → hanya bila produk itu cuma punya 1 SKU di
+     * marketplace; produk bervarian dilewati agar judul tak tertimpa nama salah satu varian) dan BARCODE
+     * (level SKU; hanya GTIN valid — TikTok `skus[].identifier_code`, Shopee `gtin_code` utk item tanpa model).
      */
-    public function buildContentPayload(MarketplaceMaster $m, string $channel): array
+    public function buildContentPayload(MarketplaceMaster $m, string $channel, ?MarketplaceListing $l = null): array
     {
         $tiktok = $channel === 'tiktok';
         $payload = [];
+
+        if ($l && trim((string) $m->name) !== '' && $this->satuSku($l)) {
+            $payload[$tiktok ? 'title' : 'item_name'] = trim((string) $m->name);
+        }
 
         if (trim((string) $m->description) !== '') {
             $payload['description'] = (string) $m->description;
@@ -361,7 +370,49 @@ class MarketplaceMasterService
             }
         }
 
+        $gtin = self::gtin((string) $m->barcode);
+        if ($l && $gtin !== null) {
+            if ($tiktok && $l->variation_id) {
+                $payload['skus'] = [['id' => (string) $l->variation_id, 'identifier_code' => ['code' => $gtin, 'type' => self::gtinType($gtin)]]];
+            } elseif (! $tiktok && in_array((string) $l->variation_id, ['', '0'], true)) {
+                // ponytail: barcode per-model Shopee butuh endpoint update_model — belum; item bervarian dilewati.
+                $payload['gtin_code'] = $gtin;
+            }
+        }
+
         return $payload;
+    }
+
+    /** Produk marketplace listing ini cuma 1 SKU (tak ada listing lain dgn item yang sama di channel itu). */
+    private function satuSku(MarketplaceListing $l): bool
+    {
+        return MarketplaceListing::where('channel', $l->channel)->where('item_id', $l->item_id)->count() === 1;
+    }
+
+    /** Barcode → GTIN bersih bila valid (8/12/13/14 digit + check digit benar), selain itu null (tak dikirim). */
+    public static function gtin(string $barcode): ?string
+    {
+        $d = preg_replace('/\s+/', '', $barcode);
+        if (! preg_match('/^(\d{8}|\d{12,14})$/', $d)) {
+            return null;
+        }
+        $sum = 0;
+        $body = substr($d, 0, -1);
+        for ($i = strlen($body) - 1, $w = 3; $i >= 0; $i--, $w = $w === 3 ? 1 : 3) {
+            $sum += (int) $body[$i] * $w;
+        }
+
+        return (10 - $sum % 10) % 10 === (int) substr($d, -1) ? $d : null;
+    }
+
+    /** Jenis kode utk TikTok identifier_code: 12 digit = UPC, 14 = GTIN, 8/13 = EAN. */
+    private static function gtinType(string $gtin): string
+    {
+        return match (strlen($gtin)) {
+            12 => 'UPC',
+            14 => 'GTIN',
+            default => 'EAN',
+        };
     }
 
     /** Hash payload terkirim — kunci diff-guard (payload sama persis = tak perlu kirim ulang). */
@@ -393,7 +444,7 @@ class MarketplaceMasterService
      */
     public function pushContent(MarketplaceListing $l, MarketplaceMaster $m, bool $force): string
     {
-        $payload = $this->buildContentPayload($m, $l->channel);
+        $payload = $this->buildContentPayload($m, $l->channel, $l);
         if ($payload === []) {
             return 'skip';
         }
@@ -519,16 +570,22 @@ class MarketplaceMasterService
      * (1 listing = 1 unit) — beda dgn pushMaster yg menghitung stok & harga sbg dua unit. Status listing =
      * gabungan konten & foto: failed bila salah satu gagal; pushed bila salah satu terkirim; else skipped.
      *
-     * $force HANYA utk konten. Foto SELALU lewat diff-guard (force=false): user dijanjikan foto listing cuma
-     * diganti bila set foto master berubah — klik berulang utk update teks tak boleh terus meng-upload &
-     * mengganti foto (sekaligus mencegah upload ulang tiap klik yang rawan timeout).
+     * Dua mode:
+     * - manual (tombol "Dorong", $otomatis=false): $force berlaku utk konten DAN foto — semua terdorong ulang.
+     * - otomatis (tiap Simpan, $otomatis=true): diff-guard (tak dipaksa) & HANYA ke listing yang sudah pernah
+     *   sukses didorong manual per bagian (konten: last_content_pushed_at; foto: last_photo_pushed_at) — dorong
+     *   PERTAMA menimpa isi/foto listing, jadi tak boleh terjadi diam-diam dari Simpan.
      */
-    public function pushMasterContent(MarketplaceMaster $m, bool $force = true): array
+    public function pushMasterContent(MarketplaceMaster $m, bool $force = true, bool $otomatis = false): array
     {
         $out = ['pushed' => 0, 'skipped' => 0, 'failed' => 0];
         $uploaded = []; // cache upload foto run ini — lihat pushPhotos()
+        $force = $force && ! $otomatis;
         foreach ($m->listings()->whereNotNull('item_id')->get() as $l) {
-            $hasil = [$this->pushContent($l, $m, $force), $this->pushPhotos($l, $m, false, $uploaded)];
+            $hasil = [
+                $otomatis && ! $l->last_content_pushed_at ? 'skip' : $this->pushContent($l, $m, $force),
+                $otomatis && ! $l->last_photo_pushed_at ? 'skip' : $this->pushPhotos($l, $m, $force, $uploaded),
+            ];
             // tallyPush() menghitung stok+harga sbg DUA unit; di sini konten+foto = SATU unit per listing.
             match (true) {
                 in_array('failed', $hasil, true) => $out['failed']++,

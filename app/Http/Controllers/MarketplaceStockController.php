@@ -80,8 +80,20 @@ class MarketplaceStockController extends Controller
         $master->update($this->masterAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
         $svc->pushMaster($master);
+        // Sinkron otomatis nama/deskripsi/berat/dimensi/barcode/foto — hanya listing yg sudah pernah didorong manual,
+        // hanya yg berubah. Upload foto bisa lama → beri waktu (lihat pushContent()).
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(180);
+        }
+        $auto = $svc->pushMasterContent($master, false, true);
 
-        return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" diperbarui.");
+        $back = redirect()->route('marketplace-stock.index');
+        $info = $auto['pushed'] > 0 ? " Konten & foto ikut tersinkron ke {$auto['pushed']} listing marketplace." : '';
+        if ($auto['failed'] > 0) {
+            $back->with('error', "{$auto['failed']} sinkron konten/foto ke marketplace GAGAL — ".self::FAIL_HINT_KONTEN);
+        }
+
+        return $back->with('status', "Produk master \"{$master->name}\" diperbarui.{$info}");
     }
 
     public function duplicate(MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
@@ -370,20 +382,20 @@ class MarketplaceStockController extends Controller
             @set_time_limit(180);
         }
 
-        $sebelum = $master->listings()->pluck('last_photo_pushed_at', 'id')->all();
+        $mulai = now()->startOfSecond();
+        // Manual = SEMUA terdorong: stok & harga (paksa) + konten & foto (paksa, termasuk foto yg tak berubah).
+        $stokHarga = $svc->pushMaster($master, true);
         $r = $svc->pushMasterContent($master);
-        $listings = $r['pushed'] + $r['skipped'] + $r['failed'];
-        // Transparan soal foto: berapa listing yang fotonya BENAR-BENAR diganti di klik ini = waktu sukses foto
-        // BERUBAH dibanding sebelum klik (foto yg dilewati krn tak berubah tak menyentuhnya; aman thd klik ganda
-        // dalam detik yang sama). Bentuk array hasil pushMasterContent tetap.
-        $fotoDiganti = $master->listings()->where('last_photo_status', 'ok')->get(['id', 'last_photo_pushed_at'])
-            ->filter(fn ($l) => (string) $l->last_photo_pushed_at !== (string) ($sebelum[$l->id] ?? ''))->count();
+        $r['failed'] += $stokHarga['failed'];
+        $listings = $r['pushed'] + $r['skipped'] + $r['failed'] - $stokHarga['failed'];
+        // Transparan soal foto: listing yang fotonya diganti DI KLIK INI (sukses sejak awal request).
+        $fotoDiganti = $master->listings()->where('last_photo_status', 'ok')->where('last_photo_pushed_at', '>=', $mulai)->count();
 
         // Jujur: kalau tak ada yang benar-benar dikirim, bilang kenapa (bukan status kosong/"berhasil").
-        // Foto selalu lewat diff-guard → "semua dilewati" = teks kosong DAN foto tak ada/tak berubah.
+        // Konten & foto dipaksa → "semua dilewati" = teks & foto master memang kosong.
         $prefix = match (true) {
             $listings === 0 => "Konten & foto \"{$master->name}\" belum dikirim — belum ada listing marketplace tertaut (tautkan lewat \"Tambah ke Marketplace\")",
-            $r['skipped'] === $listings => "Tak ada yang dikirim untuk \"{$master->name}\" — deskripsi, berat, dan dimensi masih kosong, dan foto belum ada atau tak berubah sejak dorong terakhir",
+            $r['skipped'] === $listings => "Konten & foto \"{$master->name}\" tak dikirim — nama/deskripsi/berat/dimensi/barcode kosong (atau produk bervarian) dan foto belum ada",
             default => "Dorong konten & foto \"{$master->name}\"".($fotoDiganti > 0 ? " — foto diganti di {$fotoDiganti} listing" : ''),
         };
 
