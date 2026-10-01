@@ -120,6 +120,13 @@
                     <input type="text" name="barcode" value="{{ old('barcode', $master->barcode) }}" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                 </div>
                 <div>
+                    <label class="block text-sm font-medium text-stone-700 mb-1">Produk HQ <span class="text-xs font-normal text-stone-400">(penanda — stok belum disambung)</span></label>
+                    <select name="product_id" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
+                        <option value="">— belum ditandai —</option>
+                        @foreach($produkHq as $p)<option value="{{ $p->id }}" @selected((int) old('product_id', $master->product_id) === $p->id)>{{ $p->name }}{{ $p->sku ? ' ('.$p->sku.')' : '' }}</option>@endforeach
+                    </select>
+                </div>
+                <div>
                     <label class="block text-sm font-medium text-stone-700 mb-1">Tipe</label>
                     <select name="is_bundle" id="tipeBundle" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                         <option value="0" @selected(! old('is_bundle', $master->is_bundle))>Satuan</option>
@@ -866,10 +873,23 @@
         }).then(function(j){
             var d = j.data;
             if (!d.sumber) { tulis('Belum ada resep HQ untuk SKU produk ini — atur di halaman Order TikTok/Shopee (pemetaan SKU), atau isi manual.', true); return; }
-            if (d.rows.length && tbody.querySelectorAll('tr.mp-isi').length && !confirm('Ganti isi bundling sekarang dengan resep HQ?')) return;
-            if (d.rows.length) { tbody.innerHTML = ''; d.rows.forEach(function(x){ tambah(x.component_id, x.qty); }); }
+            var kosong = d.kosong || [];
+            if ((d.rows.length || kosong.length) && tbody.querySelectorAll('tr.mp-isi').length && !confirm('Ganti isi bundling sekarang dengan resep HQ?')) return;
+            if (d.rows.length || kosong.length) {
+                tbody.innerHTML = '';
+                d.rows.forEach(function(x){ tambah(x.component_id, x.qty); });
+                // Tak ketemu padanan: baris tetap dibuat dgn jumlah terisi; produk dipilih manual (disorot).
+                kosong.forEach(function(x){
+                    tambah(null, 1);
+                    var tr = tbody.lastElementChild;
+                    tr.querySelector('.mp-isi-qty').value = x.qty;
+                    var sel = tr.querySelector('.mp-isi-produk');
+                    sel.style.borderColor = '#f59e0b'; sel.title = 'Pilih Produk Master untuk: ' + x.nama;
+                    sel.options[0].textContent = '— pilih produk untuk: ' + x.nama + ' —';
+                });
+            }
             var msg = 'Resep HQ (' + d.sumber + '): ' + (d.rows.length ? d.rows.map(function(x){ return x.qty + ' × ' + x.label; }).join(', ') : 'tak ada yang cocok') + '.';
-            if (d.gagal.length) msg += ' Belum ada Produk Master untuk: ' + d.gagal.join(', ') + ' — buat/tautkan dulu lalu tambah manual.';
+            if (d.gagal.length) msg += ' Belum ketemu padanan untuk: ' + d.gagal.join(', ') + ' — pilih produknya di baris yang disorot (atau tandai "Produk HQ" di Produk Master satuannya supaya lain kali cocok otomatis).';
             tulis(msg, d.gagal.length > 0);
         }).catch(function(e){ tulis('Gagal mengambil resep HQ: ' + e.message, true); });
     });

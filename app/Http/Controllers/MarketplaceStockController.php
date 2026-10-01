@@ -64,7 +64,7 @@ class MarketplaceStockController extends Controller
 
     public function create(): View
     {
-        return view('marketplace-stock.form', ['master' => new MarketplaceMaster, 'komponenOpsi' => $this->komponenOpsi(null)]);
+        return view('marketplace-stock.form', ['master' => new MarketplaceMaster, 'komponenOpsi' => $this->komponenOpsi(null), 'produkHq' => $this->produkHq()]);
     }
 
     public function store(Request $r, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
@@ -85,7 +85,7 @@ class MarketplaceStockController extends Controller
             return redirect()->route('marketplace-stock.edit', $master->parent_id);
         }
 
-        return view('marketplace-stock.form', ['master' => $master->load('variants.listings', 'bundleItems'), 'komponenOpsi' => $this->komponenOpsi($master)]);
+        return view('marketplace-stock.form', ['master' => $master->load('variants.listings', 'bundleItems'), 'komponenOpsi' => $this->komponenOpsi($master), 'produkHq' => $this->produkHq()]);
     }
 
     public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
@@ -153,6 +153,7 @@ class MarketplaceStockController extends Controller
             'isi_bundle' => ['nullable', 'array', 'max:20'],
             'isi_bundle.*.component_id' => ['required', 'integer', 'exists:marketplace_masters,id'],
             'isi_bundle.*.qty' => ['required', 'integer', 'min:1', 'max:999'],
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
             'tiktok_category_id' => ['nullable', 'regex:/^\d{1,32}$/'],
             'tiktok_category_name' => ['nullable', 'string', 'max:500'],
             'tiktok_attributes' => ['nullable', 'string', 'max:60000'],
@@ -170,6 +171,10 @@ class MarketplaceStockController extends Controller
     private function kategoriAttributes(Request $r): array
     {
         $out = [];
+        // "Produk HQ" = PENANDA master ini = produk HQ mana (dipakai mencocokkan resep HQ; stok BELUM disambung).
+        if ($r->has('product_id')) {
+            $out['product_id'] = $r->input('product_id') ?: null;
+        }
         foreach (['tiktok', 'shopee'] as $ch) {
             if (! $r->has("{$ch}_category_id")) {
                 continue;
@@ -367,6 +372,12 @@ class MarketplaceStockController extends Controller
         foreach ($sah as $id) {
             $master->bundleItems()->create(['component_id' => $id, 'qty' => min(999, $qty[$id])]);
         }
+    }
+
+    /** Daftar produk HQ utk penanda "Produk HQ" (hanya dibaca). */
+    private function produkHq(): \Illuminate\Support\Collection
+    {
+        return \App\Models\Product::orderBy('name')->get(['id', 'name', 'sku']);
     }
 
     /** Pilihan komponen bundling: unit jual (bukan induk bervarian, bukan bundle ber-resep, bukan diri sendiri). */
