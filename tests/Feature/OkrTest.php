@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\GenerateOkrDraftJob;
 use App\Models\AiKnowledge;
 use App\Models\Board;
 use App\Models\BoardCard;
@@ -16,6 +17,7 @@ use App\Services\Ai\AiTurn;
 use App\Services\OkrBusinessSnapshotService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAiProvider;
 use Tests\TestCase;
 
@@ -1153,5 +1155,36 @@ class OkrTest extends TestCase
         $this->actingAs($super)->get(route('okr.status', $cycle))
             ->assertOk()
             ->assertJson(['status' => OkrCycle::GEN_READY]);
+    }
+
+    public function test_pilih_buat_papan_baru_membuat_papan_dan_dipakai_sebagai_papan_utama(): void
+    {
+        Queue::fake();
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrnewboard');
+        $this->board($super); // papan lama tetap ada; yang baru tak boleh menimpanya
+
+        $this->actingAs($super)->post(route('okr.generate'), array_merge($this->generatePayload(), [
+            'preferred_board_id' => 'new',
+            'new_board_name' => 'OKR Q4 Marketing',
+        ]))->assertRedirect();
+
+        $board = Board::where('name', 'OKR Q4 Marketing')->firstOrFail();
+        $this->assertSame(Board::DEFAULT_COLUMNS, $board->columns()->orderBy('position')->pluck('name')->all());
+        Queue::assertPushed(GenerateOkrDraftJob::class, fn ($job) => $job->input['preferred_board_id'] === $board->id
+            && ! array_key_exists('new_board_name', $job->input));
+        $this->assertDatabaseHas('audit_logs', ['action' => 'create_board', 'target_id' => $board->id]);
+    }
+
+    public function test_papan_baru_tanpa_nama_ditolak(): void
+    {
+        Queue::fake();
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrnoname');
+
+        $this->actingAs($super)->post(route('okr.generate'), array_merge($this->generatePayload(), [
+            'preferred_board_id' => 'new',
+        ]))->assertSessionHasErrors('new_board_name');
+
+        $this->assertSame(0, Board::count());
+        Queue::assertNothingPushed();
     }
 }
