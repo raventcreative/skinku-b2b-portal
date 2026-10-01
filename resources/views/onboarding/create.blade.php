@@ -57,6 +57,10 @@
                 @endforeach
             </select>
         </div>
+        <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-stone-700 mb-1">Alamat lengkap (pengiriman paket)</label>
+            <textarea name="address" rows="2" maxlength="500" placeholder="Jalan, nomor, RT/RW, kelurahan, kecamatan, kode pos" class="w-full px-3 py-2 border border-stone-300 rounded-lg">{{ old('address') }}</textarea>
+        </div>
     </div>
 
     <div class="bg-white rounded-2xl border border-stone-200 p-5 grid sm:grid-cols-2 gap-4 text-sm">
