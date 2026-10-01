@@ -651,6 +651,65 @@ class MarketplaceMasterService
         }
     }
 
+    /**
+     * Usulan resep bundling dari resep HQ (SKU map TikTok/Shopee: SKU marketplace → produk HQ × qty) — supaya resep
+     * Produk Master sama persis dgn yang memotong stok gudang. HANYA membaca HQ. Produk HQ dicocokkan ke master satuan:
+     * (1) master ber-product_id itu, (2) master yg listingnya ber-SKU map produk itu ×1, (3) master_sku = SKU produk.
+     *
+     * @return array{sumber:?string, rows:list<array{component_id:int, qty:int, label:string}>, gagal:list<string>}
+     */
+    public function resepDariHq(MarketplaceMaster $bundle): array
+    {
+        $kandidat = $bundle->listings()->orderByRaw("channel = 'tiktok' desc")->get(['channel', 'seller_sku'])
+            ->map(fn ($l) => [$l->channel, (string) $l->seller_sku])
+            ->push(['tiktok', (string) $bundle->master_sku], ['shopee', (string) $bundle->master_sku]);
+
+        foreach ($kandidat as [$ch, $sku]) {
+            $maps = ($ch === 'tiktok' ? \App\Models\TiktokSkuMap::where('tiktok_sku', $sku) : \App\Models\ShopeeSkuMap::where('shopee_sku', $sku))
+                ->with('product')->get();
+            if ($maps->isEmpty()) {
+                continue;
+            }
+            $rows = [];
+            $gagal = [];
+            foreach ($maps as $map) {
+                $m = $map->product ? $this->masterUntukProdukHq($map->product, $bundle) : null;
+                if ($m) {
+                    $rows[] = ['component_id' => $m->id, 'qty' => max(1, (int) $map->qty), 'label' => $m->name.' ('.$m->master_sku.')'];
+                } else {
+                    $gagal[] = ($map->product->name ?? 'produk #'.$map->product_id).' ×'.max(1, (int) $map->qty);
+                }
+            }
+
+            return ['sumber' => ucfirst($ch).' SKU '.$sku, 'rows' => $rows, 'gagal' => $gagal];
+        }
+
+        return ['sumber' => null, 'rows' => [], 'gagal' => []];
+    }
+
+    /** Master satuan (unit jual, bukan induk bervarian / bundle ber-resep / bundle ini) yang mewakili produk HQ. */
+    private function masterUntukProdukHq(\App\Models\Product $p, MarketplaceMaster $kecuali): ?MarketplaceMaster
+    {
+        $sah = fn () => MarketplaceMaster::where('id', '!=', $kecuali->id)->where('is_bundle', false)->whereDoesntHave('variants')->whereDoesntHave('bundleItems');
+
+        if ($m = $sah()->where('product_id', $p->id)->first()) {
+            return $m;
+        }
+        // SKU "satuan" = resepnya HANYA produk ini ×1 (SKU bundling campuran yg memuat produk ini ×1 bukan satuan).
+        $satuan = fn ($model, $kolom) => $model::where('product_id', $p->id)->where('qty', 1)->pluck($kolom)
+            ->filter(fn ($sku) => $model::where($kolom, $sku)->count() === 1);
+        $skuSatuan = $satuan(\App\Models\TiktokSkuMap::class, 'tiktok_sku')->map(fn ($x) => ['tiktok', $x])
+            ->merge($satuan(\App\Models\ShopeeSkuMap::class, 'shopee_sku')->map(fn ($x) => ['shopee', $x]));
+        foreach ($skuSatuan as [$ch, $sku]) {
+            $id = MarketplaceListing::where('channel', $ch)->where('seller_sku', $sku)->value('master_id');
+            if ($id && ($m = $sah()->whereKey($id)->first())) {
+                return $m;
+            }
+        }
+
+        return $p->sku ? $sah()->where('master_sku', $p->sku)->first() : null;
+    }
+
     // ---- Kategori marketplace (pemilih kategori + atribut per channel; pohon & ID TikTok ≠ Shopee) ----
 
     /** Pohon kategori mentah channel: [{id, parent, name, leaf}] — dari API, di-cache 1 hari (ribuan baris, jarang berubah). */

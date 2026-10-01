@@ -155,8 +155,12 @@
                 </tbody>
             </table>
             <template id="isiBundleOpsi"><option value="">— pilih produk —</option>@foreach($komponenOpsi as $o)<option value="{{ $o['id'] }}" data-stok="{{ $o['stok'] }}">{{ $o['label'] }}</option>@endforeach</template>
+            <p id="isiHqInfo" class="text-[11px] leading-relaxed" hidden></p>
             <div class="flex items-center justify-between gap-2 flex-wrap">
-                <button type="button" id="isiTambah" class="px-3 py-1.5 text-sm rounded-lg border border-dashed border-stone-300 text-stone-600 hover:border-indigo-400 hover:text-indigo-700">+ Tambah isi</button>
+                <div class="flex gap-2 flex-wrap">
+                    <button type="button" id="isiTambah" class="px-3 py-1.5 text-sm rounded-lg border border-dashed border-stone-300 text-stone-600 hover:border-indigo-400 hover:text-indigo-700">+ Tambah isi</button>
+                    @if($master->exists)<button type="button" id="isiDariHq" data-url="{{ route('marketplace-stock.master.resep-hq', $master) }}" class="px-3 py-1.5 text-sm rounded-lg bg-stone-100 text-stone-700 font-semibold hover:bg-stone-200" title="Isi dari resep SKU map di stok HQ (Order TikTok/Shopee)">Ambil resep dari HQ</button>@endif
+                </div>
                 <span class="text-xs text-stone-600">Perkiraan stok bundling: <b id="isiPerkiraan">—</b></span>
             </div>
         </div>
@@ -841,14 +845,33 @@
         });
         document.getElementById('isiPerkiraan').textContent = kosong || min === null ? '—' : min;
     }
-    document.getElementById('isiTambah').addEventListener('click', function(){
+    function tambah(komponen, qty){
         var i = idx++, tr = document.createElement('tr');
         tr.className = 'mp-isi';
         tr.innerHTML = '<td class="py-1 pr-2"><select name="isi_bundle[' + i + '][component_id]" required class="mp-isi-produk w-full px-2 py-1.5 border border-stone-200 rounded-lg">' + opsi + '</select></td>'
             + '<td class="py-1 pr-2"><input type="number" min="1" max="999" name="isi_bundle[' + i + '][qty]" value="1" required class="mp-isi-qty w-20 px-2 py-1.5 border border-stone-200 rounded-lg"></td>'
             + '<td class="py-1"><button type="button" class="mp-isi-hapus text-xs text-rose-600 hover:underline">Hapus</button></td>';
         tbody.appendChild(tr);
+        if (komponen) { tr.querySelector('.mp-isi-produk').value = String(komponen); tr.querySelector('.mp-isi-qty').value = qty; }
         rapikan();
+    }
+    document.getElementById('isiTambah').addEventListener('click', function(){ tambah(null, 1); });
+    var hq = document.getElementById('isiDariHq'), info = document.getElementById('isiHqInfo');
+    if (hq) hq.addEventListener('click', function(){
+        function tulis(msg, err){ info.hidden = false; info.textContent = msg; info.style.color = err ? '#b45309' : '#047857'; }
+        tulis('Mengambil resep HQ…');
+        fetch(hq.getAttribute('data-url'), { headers: { 'Accept': 'application/json' } }).then(function(r){
+            if (!r.ok || r.redirected) throw new Error('HTTP ' + r.status);
+            return r.json();
+        }).then(function(j){
+            var d = j.data;
+            if (!d.sumber) { tulis('Belum ada resep HQ untuk SKU produk ini — atur di halaman Order TikTok/Shopee (pemetaan SKU), atau isi manual.', true); return; }
+            if (d.rows.length && tbody.querySelectorAll('tr.mp-isi').length && !confirm('Ganti isi bundling sekarang dengan resep HQ?')) return;
+            if (d.rows.length) { tbody.innerHTML = ''; d.rows.forEach(function(x){ tambah(x.component_id, x.qty); }); }
+            var msg = 'Resep HQ (' + d.sumber + '): ' + (d.rows.length ? d.rows.map(function(x){ return x.qty + ' × ' + x.label; }).join(', ') : 'tak ada yang cocok') + '.';
+            if (d.gagal.length) msg += ' Belum ada Produk Master untuk: ' + d.gagal.join(', ') + ' — buat/tautkan dulu lalu tambah manual.';
+            tulis(msg, d.gagal.length > 0);
+        }).catch(function(e){ tulis('Gagal mengambil resep HQ: ' + e.message, true); });
     });
     tbody.addEventListener('click', function(e){ var b = e.target.closest('.mp-isi-hapus'); if (b) { b.closest('tr').remove(); rapikan(); } });
     tbody.addEventListener('change', rapikan);

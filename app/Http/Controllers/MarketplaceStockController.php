@@ -229,6 +229,12 @@ class MarketplaceStockController extends Controller
         }
     }
 
+    /** JSON usulan isi bundling dari resep HQ (SKU map) — hanya membaca. */
+    public function resepHq(MarketplaceMaster $master, MarketplaceMasterService $svc): JsonResponse
+    {
+        return response()->json(['data' => $svc->resepDariHq($master)]);
+    }
+
     /** JSON telusur bertingkat: anak langsung dari `parent` (default '0' = level teratas). */
     public function anakKategori(Request $r, string $channel, MarketplaceMasterService $svc): JsonResponse
     {
