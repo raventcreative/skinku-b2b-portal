@@ -243,11 +243,14 @@ class TikTokAffiliateTest extends TestCase
 
     public function test_baris_belum_discreening_tetap_sejajar_saat_kolom_views_disembunyikan(): void
     {
-        Kol::create(['tiktok_username' => 'belumscreen', 'followers' => 1_000]);
+        $kol = Kol::create(['tiktok_username' => 'belumscreen', 'followers' => 1_000]);
+        // Belum discreening tapi sudah tersinkron marketplace → GMV Asli tetap tampil.
+        KolTiktokProfile::create(['kol_id' => $kol->id, 'followers' => 1_000, 'gmv_idr' => 4_321_000]);
 
         $html = $this->actingAs($this->user('kol_specialist', 'sp15'))->get(route('kols.index'))->assertOk()->getContent();
-        $this->assertStringContainsString('<td colspan="13" class="px-3 text-stone-300">belum discreening</td>', $html);
+        $this->assertStringContainsString('<td colspan="12" class="px-3 text-stone-300">belum discreening</td>', $html);
         $this->assertStringContainsString('<td colspan="7" class="v7col"></td>', $html);
+        $this->assertStringContainsString('4.321.000', $html);
     }
 
     public function test_simpan_performa_username_asing_tak_error(): void

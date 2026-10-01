@@ -261,8 +261,12 @@
                     @else
                         {{-- 20 kolom = 13 tetap + 7 kolom views (v7col). Dipisah supaya saat 7 kolom
                              views disembunyikan, baris ini tetap sejajar (bukan meluber ke kanan). --}}
-                        <td colspan="13" class="px-3 text-stone-300">belum discreening</td>
+                        <td colspan="12" class="px-3 text-stone-300">belum discreening</td>
                         <td colspan="7" class="v7col"></td>
+                        {{-- GMV Asli tak butuh screening: datang dari profil TikTok Creator Marketplace. --}}
+                        <td class="text-right whitespace-nowrap">
+                            @if($kol->tiktokProfile?->gmv_idr)<span class="font-semibold text-emerald-700" title="Dari profil TikTok Creator Marketplace (30 hari)">{{ $rp($kol->tiktokProfile->gmv_idr) }}</span>@else<span class="text-stone-300">—</span>@endif
+                        </td>
                     @endif
                     @php $gmvB = $gmvMap->get($kol->id)?->gmv; $apsS = $apsMap->get($kol->id); $kssS = $kssMap->get($kol->id); @endphp
                     <td class="text-right px-2 text-stone-600">{{ $canAffiliate && $gmvB ? $rp($gmvB) : '—' }}</td>
