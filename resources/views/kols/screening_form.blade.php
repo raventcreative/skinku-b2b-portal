@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="max-w-3xl">
-    <a href="{{ route('kols.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Database KOL</a>
+    <a href="{{ route('kols.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke Database KOL / Affiliate</a>
 
     <form method="POST" action="{{ route('kol-screenings.store') }}" class="bg-white rounded-2xl border border-stone-200 p-5 mt-3">@csrf
         <p class="text-sm text-stone-600 mb-4">

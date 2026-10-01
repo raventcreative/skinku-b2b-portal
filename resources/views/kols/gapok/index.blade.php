@@ -220,7 +220,7 @@
                 </div>
                 <button class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">Tambahkan</button>
             </form>
-            <p class="text-xs text-stone-500">Username yang belum ada di Database KOL akan dibuat otomatis sebagai affiliate. GMV dan order akan terisi setelah data penjualan tersinkron.</p>
+            <p class="text-xs text-stone-500">Username yang belum ada di Database KOL / Affiliate akan dibuat otomatis sebagai affiliate. GMV dan order akan terisi setelah data penjualan tersinkron.</p>
 
             @if($nonGapok->isNotEmpty())
                 <div class="pt-2 border-t border-stone-100">

@@ -210,4 +210,15 @@ class KolPerformanceTrackerTest extends TestCase
         $this->actingAs($super)->get(route('kols.index', ['status' => Kol::STATUS_AKTIF]))->assertOk()
             ->assertSee('Total: 1 KOL (sesuai filter)');
     }
+
+    public function test_tag_peran_kol_dan_affiliate_tampil(): void
+    {
+        Kol::create(['tiktok_username' => 'murnikol', 'followers' => 1, 'role' => 'kol']);
+        Kol::create(['tiktok_username' => 'duaperan', 'followers' => 1, 'role' => 'both']);
+
+        $html = $this->actingAs($this->user(User::ROLE_SUPER_ADMIN, 'satag'))->get(route('kols.index'))
+            ->assertOk()->assertSee('Database KOL / Affiliate')->getContent();
+        $this->assertSame(2, substr_count($html, 'font-semibold">KOL</span>'));      // kol + both
+        $this->assertSame(1, substr_count($html, 'text-sky-700">Affiliate</span>')); // both
+    }
 }
