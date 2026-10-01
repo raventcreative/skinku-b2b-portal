@@ -69,6 +69,25 @@ class HqStockReportTest extends TestCase
         );
     }
 
+    public function test_paket_join_dan_batal_join_masuk_kolom_reseller(): void
+    {
+        $inv = app(InventoryService::class);
+        $p = $this->product(0);
+        $day = Carbon::parse('2026-07-14 08:00:00');
+        $inv->adjustHqStock($p, 1000, StockMovement::TYPE_ADJUSTMENT, 'opname', 'opname',
+            occurredAt: Carbon::parse('2026-07-14')->startOfDay()->subSecond());
+        $inv->adjustHqStock($p, -5, StockMovement::TYPE_OUT, null, 'join_transaction', occurredAt: $day);
+        $inv->adjustHqStock($p, -3, StockMovement::TYPE_OUT, null, 'join_transaction', occurredAt: $day);
+        $inv->adjustHqStock($p, 3, StockMovement::TYPE_ADJUSTMENT, null, 'join_cancel', occurredAt: $day);
+
+        $row = collect(app(HqStockReportService::class)->report('harian', Carbon::parse('2026-07-14'))['rows'])->firstWhere('product.id', $p->id);
+
+        $this->assertSame(5, $row['reseller']);   // 5 + 3 keluar − 3 batal
+        $this->assertSame(0, $row['keluar_lain']);
+        $this->assertSame(0, $row['penyesuaian']);
+        $this->assertSame(995, $row['akhir']);
+    }
+
     public function test_daily_closing_carries_to_next_day_opening(): void
     {
         $inv = app(InventoryService::class);
