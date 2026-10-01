@@ -30,7 +30,8 @@ class MarketplaceStockController extends Controller
     {
         $tab = in_array($request->query('tab'), ['satuan', 'bundle'], true) ? $request->query('tab') : 'semua';
 
-        $q = MarketplaceMaster::with('listings:id,master_id,channel');
+        // Hanya master teratas (induk/tunggal); varian ditampilkan menempel di bawah induknya.
+        $q = MarketplaceMaster::whereNull('parent_id')->with(['listings:id,master_id,channel', 'variants.listings:id,master_id,channel']);
         if ($tab === 'satuan') {
             $q->where('is_bundle', false);
         } elseif ($tab === 'bundle') {
@@ -41,9 +42,9 @@ class MarketplaceStockController extends Controller
             'tab' => $tab,
             'masters' => $q->orderBy('name')->get(),
             'counts' => [
-                'semua' => MarketplaceMaster::count(),
-                'satuan' => MarketplaceMaster::where('is_bundle', false)->count(),
-                'bundle' => MarketplaceMaster::where('is_bundle', true)->count(),
+                'semua' => MarketplaceMaster::whereNull('parent_id')->count(),
+                'satuan' => MarketplaceMaster::whereNull('parent_id')->where('is_bundle', false)->count(),
+                'bundle' => MarketplaceMaster::whereNull('parent_id')->where('is_bundle', true)->count(),
             ],
             'unlinkedCount' => MarketplaceListing::whereNull('master_id')->count(),
             'allListings' => MarketplaceListing::orderBy('channel')->orderBy('seller_sku')->get(['id', 'channel', 'seller_sku', 'title', 'master_id']),
@@ -65,13 +66,19 @@ class MarketplaceStockController extends Controller
         $this->validateMaster($r);
         $master = MarketplaceMaster::create($this->masterAttributes($r) + $this->kategoriAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
+        $this->simpanVarian($r, $master, $svc);
 
         return redirect()->route('marketplace-stock.index')->with('status', "Produk master \"{$master->name}\" dibuat.");
     }
 
-    public function edit(MarketplaceMaster $master): View
+    public function edit(MarketplaceMaster $master): View|RedirectResponse
     {
-        return view('marketplace-stock.form', ['master' => $master]);
+        // Varian diedit dari form induknya (konten level produk ada di induk).
+        if ($master->parent_id) {
+            return redirect()->route('marketplace-stock.edit', $master->parent_id);
+        }
+
+        return view('marketplace-stock.form', ['master' => $master->load('variants.listings')]);
     }
 
     public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
@@ -79,7 +86,8 @@ class MarketplaceStockController extends Controller
         $this->validateMaster($r);
         $master->update($this->masterAttributes($r) + $this->kategoriAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
-        $svc->pushMaster($master);
+        $pindah = $this->simpanVarian($r, $master, $svc);
+        $this->pushKeluarga($master, $svc, true);
         // Sinkron otomatis nama/deskripsi/berat/dimensi/barcode/foto — hanya listing yg sudah pernah didorong manual,
         // hanya yg berubah. Upload foto bisa lama → beri waktu (lihat pushContent()).
         if (function_exists('set_time_limit')) {
@@ -91,6 +99,10 @@ class MarketplaceStockController extends Controller
         $info = $auto['pushed'] > 0 ? " Konten & foto ikut tersinkron ke {$auto['pushed']} listing marketplace." : '';
         if ($auto['failed'] > 0) {
             $back->with('error', "{$auto['failed']} sinkron konten/foto ke marketplace GAGAL — ".self::FAIL_HINT_KONTEN);
+        }
+
+        if ($pindah > 0) {
+            $info .= " {$pindah} listing yang tadinya tertaut ke produk ini dipindah ke varian pertama — cek & tautkan ulang per varian bila perlu.";
         }
 
         return $back->with('status', "Produk master \"{$master->name}\" diperbarui.{$info}");
@@ -121,6 +133,14 @@ class MarketplaceStockController extends Controller
             'foto' => ['nullable', 'array', 'max:9'],
             'foto.*' => ['image', 'max:5120'],
             'urutan_foto' => ['nullable', 'string', 'max:200'],
+            'variant_type' => ['nullable', 'string', 'max:50'],
+            'varian' => ['nullable', 'array', 'max:50'],
+            'varian.*.id' => ['nullable', 'integer'],
+            'varian.*.name' => ['required', 'string', 'max:100'],
+            'varian.*.sku' => ['required', 'string', 'max:255'],
+            'varian.*.price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'varian.*.stock' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
+            'varian.*.barcode' => ['nullable', 'string', 'max:255'],
             'tiktok_category_id' => ['nullable', 'regex:/^\d{1,32}$/'],
             'tiktok_category_name' => ['nullable', 'string', 'max:500'],
             'tiktok_attributes' => ['nullable', 'string', 'max:60000'],
@@ -238,6 +258,85 @@ class MarketplaceStockController extends Controller
         }
 
         return $back;
+    }
+
+    /**
+     * Simpan opsi varian (master anak) dari tabel Varian form — hanya bila kartu Varian ikut terkirim (`varian_ada`).
+     * Daftar terkirim = himpunan lengkap: anak yang tak ada lagi dihapus (listingnya jadi tak tertaut). id hanya
+     * dicocokkan ke anak master INI (guard IDOR). Harga/stok lewat setter hanya bila berubah (seeded_at tak tergeser).
+     * Master tunggal yang baru diberi varian & sudah punya listing → listing dipindah ke varian pertama.
+     *
+     * @return int jumlah listing yang dipindah ke varian pertama
+     */
+    private function simpanVarian(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): int
+    {
+        if (! $r->has('varian_ada') || $master->parent_id) {
+            return 0;
+        }
+        $rows = array_values((array) $r->input('varian', []));
+        $ada = $master->variants()->get()->keyBy('id');
+        $sebelumnyaTunggal = $ada->isEmpty();
+        $simpan = [];
+
+        foreach ($rows as $row) {
+            $nama = trim((string) $row['name']);
+            $attrs = [
+                'parent_id' => $master->id,
+                'variant_name' => $nama,
+                'master_sku' => trim((string) $row['sku']),
+                'name' => $master->name.' - '.$nama,
+                'name_key' => MarketplaceMaster::normalizeName($master->name.' - '.$nama),
+                'barcode' => ($row['barcode'] ?? '') !== '' ? $row['barcode'] : null,
+                'is_bundle' => $master->is_bundle,
+            ];
+            $anak = $ada->get((int) ($row['id'] ?? 0));
+            if ($anak) {
+                $anak->update($attrs);
+            } else {
+                $anak = MarketplaceMaster::create($attrs);
+            }
+            if (($row['price'] ?? '') !== '' && (float) $row['price'] !== (float) $anak->base_price) {
+                $svc->setMasterPrice($anak, (float) $row['price']);
+            }
+            if (($row['stock'] ?? '') !== '' && (int) $row['stock'] !== $anak->base_stock) {
+                $svc->setMasterStock($anak, (int) $row['stock']);
+            }
+            $simpan[] = $anak;
+        }
+
+        $ids = array_map(fn ($a) => $a->id, $simpan);
+        $ada->reject(fn ($a) => in_array($a->id, $ids, true))->each->delete();
+        $master->update(['variant_type' => $simpan !== [] ? (trim((string) $r->input('variant_type')) ?: 'Varian') : null]);
+
+        $pindah = 0;
+        if ($sebelumnyaTunggal && $simpan !== []) {
+            $pertama = $simpan[0]->fresh();
+            $pindah = $master->listings()->update(['master_id' => $pertama->id]);
+            if ($pindah > 0) {
+                // Varian pertama mewarisi harga/stok induk bila belum diisi — supaya listing tak tiba-tiba kosong.
+                if ($pertama->base_price === null && $master->base_price !== null) {
+                    $svc->setMasterPrice($pertama, (float) $master->base_price);
+                }
+                if ($pertama->base_stock === null && $master->base_stock !== null) {
+                    $svc->setMasterStock($pertama, (int) $master->base_stock);
+                }
+            }
+        }
+
+        return $pindah;
+    }
+
+    /** Dorong stok & harga induk + semua variannya. @return array{pushed:int,skipped:int,failed:int} */
+    private function pushKeluarga(MarketplaceMaster $master, MarketplaceMasterService $svc, bool $force): array
+    {
+        $tot = ['pushed' => 0, 'skipped' => 0, 'failed' => 0];
+        foreach (MarketplaceMaster::whereIn('id', $master->keluargaIds())->get() as $m) {
+            foreach ($svc->pushMaster($m, $force) as $k => $v) {
+                $tot[$k] += $v;
+            }
+        }
+
+        return $tot;
     }
 
     /** Atribut master dari request (dipakai store & update). */
@@ -454,6 +553,9 @@ class MarketplaceStockController extends Controller
             'listing_ids' => ['required', 'array', 'min:1'],
             'listing_ids.*' => ['integer', 'exists:marketplace_listings,id'],
         ]);
+        if ($master->variants()->exists()) {
+            return back()->with('error', "\"{$master->name}\" punya varian — tautkan listing ke tiap VARIAN (menu Atur di baris varian), bukan ke induknya.");
+        }
         $n = $svc->linkListings($master, $data['listing_ids']);
 
         return $this->pushFlash(back(), $svc->pushMaster($master), "$n listing ditautkan ke \"{$master->name}\".");
@@ -500,7 +602,7 @@ class MarketplaceStockController extends Controller
 
         $mulai = now()->startOfSecond();
         // Manual = SEMUA terdorong: stok & harga (paksa) + konten & foto (paksa, termasuk foto yg tak berubah).
-        $stokHarga = $svc->pushMaster($master, true);
+        $stokHarga = $this->pushKeluarga($master, $svc, true);
         $r = $svc->pushMasterContent($master);
         $r['failed'] += $stokHarga['failed'];
         $listings = $r['pushed'] + $r['skipped'] + $r['failed'] - $stokHarga['failed'];

@@ -56,10 +56,6 @@
                 </thead>
                 <tbody class="divide-y divide-stone-100">
                     @foreach($masters as $m)
-                        @php
-                            $produkTerkait = $m->listings->count();
-                            $tokoTerkait = $m->listings->pluck('channel')->unique()->count();
-                        @endphp
                         <tr>
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-3">
@@ -74,36 +70,26 @@
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-4 py-3 text-stone-600">{{ $m->master_sku }}</td>
-                            <td class="px-4 py-3">
-                                <form method="POST" action="{{ route('marketplace-stock.master.harga', $m) }}" class="flex items-center gap-1">@csrf
-                                    <input type="number" step="0.01" min="0" name="price" value="{{ $m->base_price }}" placeholder="—" class="w-24 px-2 py-1 border border-stone-200 rounded">
-                                    <button aria-label="Simpan harga {{ $m->name }}" title="Simpan harga" class="inline-flex items-center justify-center w-8 h-8 text-indigo-700 border border-indigo-100 rounded-lg hover:bg-indigo-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg></button>
-                                </form>
-                            </td>
-                            <td class="px-4 py-3">
-                                <form method="POST" action="{{ route('marketplace-stock.master.stok', $m) }}" class="flex items-center gap-1">@csrf
-                                    <input type="number" min="0" name="quantity" value="{{ $m->base_stock }}" placeholder="—" class="w-20 px-2 py-1 border border-stone-200 rounded">
-                                    <button aria-label="Simpan stok {{ $m->name }}" title="Simpan stok" class="inline-flex items-center justify-center w-8 h-8 text-indigo-700 border border-indigo-100 rounded-lg hover:bg-indigo-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg></button>
-                                </form>
-                            </td>
-                            <td class="px-4 py-3">
-                                @if($produkTerkait > 0)
-                                    <button type="button" data-master-id="{{ $m->id }}" data-master-sku="{{ $m->master_sku }}" data-master-name="{{ $m->name }}" data-tab="terkait" onclick="mpOpenKaitkan(this)" class="text-indigo-600 hover:underline">{{ $produkTerkait }} Produk</button>
-                                @else <span class="text-stone-400">—</span> @endif
-                            </td>
-                            <td class="px-4 py-3">
-                                @if($tokoTerkait > 0)
-                                    <button type="button" data-master-id="{{ $m->id }}" data-master-sku="{{ $m->master_sku }}" data-master-name="{{ $m->name }}" data-tab="terkait" onclick="mpOpenKaitkan(this)" class="text-indigo-600 hover:underline">{{ $tokoTerkait }} Toko</button>
-                                @else <span class="text-stone-400">—</span> @endif
-                            </td>
+                            <td class="px-4 py-3 text-stone-600">{{ $m->master_sku }}@if($m->variants->isNotEmpty())<div class="text-[11px] text-indigo-600">{{ $m->variants->count() }} varian · {{ $m->variant_type }}</div>@endif</td>
+                            @if($m->variants->isNotEmpty())
+                                @php
+                                    $hrg = $m->variants->pluck('base_price')->filter(fn ($x) => $x !== null)->map(fn ($x) => (float) $x);
+                                    $vListing = $m->variants->flatMap->listings;
+                                @endphp
+                                <td class="px-4 py-3 text-stone-600 text-xs">{{ $hrg->isEmpty() ? '—' : ($hrg->min() == $hrg->max() ? number_format($hrg->min(), 0, ',', '.') : number_format($hrg->min(), 0, ',', '.').' – '.number_format($hrg->max(), 0, ',', '.')) }}</td>
+                                <td class="px-4 py-3 text-stone-600 text-xs">{{ $m->variants->sum('base_stock') }} <span class="text-stone-400">total</span></td>
+                                <td class="px-4 py-3 text-stone-600 text-xs">{{ $vListing->count() ?: '—' }}{{ $vListing->count() ? ' Produk' : '' }}</td>
+                                <td class="px-4 py-3 text-stone-600 text-xs">{{ $vListing->pluck('channel')->unique()->count() ?: '—' }}{{ $vListing->count() ? ' Toko' : '' }}</td>
+                            @else
+                                @include('marketplace-stock._kolom-stok', ['m' => $m])
+                            @endif
                             <td class="px-4 py-3 text-right">
                                 <details class="relative inline-block text-left">
                                     <summary aria-label="Aksi produk {{ $m->name }}" class="cursor-pointer list-none inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white border border-stone-200 hover:bg-stone-100 text-stone-700"><svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></summary>
                                     <div class="absolute right-0 mt-1 w-60 bg-white border border-stone-200 rounded-xl shadow-lg z-20 py-1.5 text-left">
                                         <a href="{{ route('marketplace-stock.edit', $m) }}" class="flex items-center gap-2 px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.5 5.5 3 3M4 20l4.5-.9L19.3 8.3a2.1 2.1 0 0 0-3-3L5.5 16.1 4 20Z"/></svg>Ubah master</a>
                                         <form method="POST" action="{{ route('marketplace-stock.duplikat', $m) }}">@csrf<button class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><rect x="8" y="8" width="12" height="12" rx="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>Duplikat produk</button></form>
-                                        <button type="button" data-master-id="{{ $m->id }}" data-master-sku="{{ $m->master_sku }}" data-master-name="{{ $m->name }}" onclick="mpOpenKaitkan(this)" class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7m2.7 6.4a5 5 0 0 0-7.1 0l-3 3A5 5 0 0 0 11 21.1l1.7-1.7"/></svg>Tambah ke marketplace</button>
+@if($m->variants->isEmpty())<button type="button" data-master-id="{{ $m->id }}" data-master-sku="{{ $m->master_sku }}" data-master-name="{{ $m->name }}" onclick="mpOpenKaitkan(this)" class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M10 13a5 5 0 0 0 7.1 0l3-3A5 5 0 0 0 13 2.9l-1.7 1.7m2.7 6.4a5 5 0 0 0-7.1 0l-3 3A5 5 0 0 0 11 21.1l1.7-1.7"/></svg>Tambah ke marketplace</button>@endif
                                         <form method="POST" action="{{ route('marketplace-stock.master.konten', $m) }}" onsubmit="return confirm('Dorong SEMUA ke TikTok &amp; Shopee: stok, harga, nama, deskripsi, berat, dimensi, barcode &amp; FOTO. Isi listing DITIMPA dan SEMUA foto listing DIGANTI foto master. Setelah ini, tiap Simpan menyinkronkan otomatis. Lanjut?')">@csrf<button class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50" title="Dorong SEMUA (stok, harga, nama, deskripsi, berat, dimensi, barcode &amp; foto) ke listing TikTok/Shopee yang tertaut — mengganti SEMUA foto listing"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-6-6 6 6-6 6M5 5v14"/></svg>Dorong konten &amp; foto</button></form>
                                         <form method="POST" action="{{ route('marketplace-stock.master.bundle', $m) }}">@csrf<button class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 5 9 5 9-5"/></svg>{{ $m->is_bundle ? 'Jadikan satuan' : 'Jadikan bundle' }}</button></form>
                                         <form method="POST" action="{{ route('marketplace-stock.master.hapus', $m) }}" onsubmit="return confirm('Hapus produk master ini?')">@csrf @method('DELETE')<button class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>Hapus master</button></form>
@@ -111,6 +97,25 @@
                                 </details>
                             </td>
                         </tr>
+                        @foreach($m->variants as $v)
+                            {{-- Baris varian: harga/stok/tautan per opsi; konten level produk ada di induk (Ubah → form induk). --}}
+                            <tr class="bg-stone-50/60">
+                                <td class="px-4 py-2 pl-10">
+                                    <div class="flex items-center gap-2 text-stone-700"><span class="text-stone-400" aria-hidden="true">↳</span><span class="text-[11px] text-stone-400">{{ $m->variant_type }}:</span> <span class="font-medium">{{ $v->variant_name }}</span></div>
+                                </td>
+                                <td class="px-4 py-2 text-stone-600">{{ $v->master_sku }}</td>
+                                @include('marketplace-stock._kolom-stok', ['m' => $v])
+                                <td class="px-4 py-2 text-right">
+                                    <details class="relative inline-block text-left">
+                                        <summary aria-label="Aksi varian {{ $v->name }}" class="cursor-pointer list-none inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-stone-200 hover:bg-stone-100 text-stone-700"><svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></summary>
+                                        <div class="absolute right-0 mt-1 w-60 bg-white border border-stone-200 rounded-xl shadow-lg z-20 py-1.5 text-left">
+                                            <button type="button" data-master-id="{{ $v->id }}" data-master-sku="{{ $v->master_sku }}" data-master-name="{{ $v->name }}" onclick="mpOpenKaitkan(this)" class="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50">Tambah ke marketplace</button>
+                                            <a href="{{ route('marketplace-stock.edit', $m) }}" class="flex items-center gap-2 px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50">Ubah produk (induk)</a>
+                                        </div>
+                                    </details>
+                                </td>
+                            </tr>
+                        @endforeach
                     @endforeach
                 </tbody>
             </table>
