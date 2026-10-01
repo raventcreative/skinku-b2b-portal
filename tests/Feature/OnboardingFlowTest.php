@@ -46,10 +46,12 @@ class OnboardingFlowTest extends TestCase
             'fullname' => 'Budi Reseller', 'email' => 'budi@t.test', 'username' => 'budi',
             'password' => 'secret123', 'password_confirmation' => 'secret123',
             'join_package_id' => $paket->id, 'upline_id' => $upline->id, 'sponsor_id' => $sponsor->id, 'paid' => 1,
+            'address' => 'Jl. Melati No. 5, RT 02/03, Kel. Sukamaju, 40123',
         ])->assertRedirect();
 
         $reseller = User::where('username', 'budi')->first();
         $this->assertNotNull($reseller);
+        $this->assertSame('Jl. Melati No. 5, RT 02/03, Kel. Sukamaju, 40123', $reseller->address); // alamat pengiriman paket tersimpan
         $this->assertSame(User::ROLE_RESELLER_BRONZE, $reseller->role);
         $this->assertSame($upline->id, $reseller->upline_id);
         $this->assertSame($sponsor->id, $reseller->sponsor_id);
@@ -102,7 +104,7 @@ class OnboardingFlowTest extends TestCase
 
         $this->actingAs($admin)->get(route('onboarding.create'))
             ->assertOk()
-            ->assertSee($paket->name)
+            ->assertSee($paket->name)->assertSee('name="address"', false)
             ->assertSee('Konfirmasi');
     }
 }
