@@ -21,6 +21,17 @@ abstract class BaseTool implements AiTool
         return null;
     }
 
+    public function availableFor(User $user): bool
+    {
+        return true;
+    }
+
+    /** Tanggal YYYY-MM-DD dari AI → string, atau null bila kosong/ngawur. */
+    protected function tanggal(?string $v): ?string
+    {
+        return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null;
+    }
+
     public function validate(array $args, User $user): ?string
     {
         return null;

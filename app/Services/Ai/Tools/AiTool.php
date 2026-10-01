@@ -24,6 +24,9 @@ interface AiTool
     /** Izin yang dibutuhkan (null = cukup akses halaman asisten). */
     public function permission(): ?string;
 
+    /** Syarat tambahan selain izin (mis. khusus staff & mitra, atau salah satu dari dua izin). */
+    public function availableFor(User $user): bool;
+
     /** Alat tulis: pesan minta-perjelas (AI tanya balik) atau null kalau sudah OK. */
     public function validate(array $args, User $user): ?string;
 

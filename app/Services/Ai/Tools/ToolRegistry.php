@@ -50,6 +50,6 @@ class ToolRegistry
     {
         $perm = $tool->permission();
 
-        return $perm === null || Permissions::roleHas($user->role, $perm);
+        return ($perm === null || Permissions::roleHas($user->role, $perm)) && $tool->availableFor($user);
     }
 }

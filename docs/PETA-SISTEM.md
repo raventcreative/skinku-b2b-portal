@@ -59,7 +59,7 @@ Model komisi terpusat lama → **dorman (revivable)**. Semua ke-wire (route+nav+
 - **KolAgent** — endpoint penerima `POST /api/kol-agent/affiliate` (untuk agen scraper lokal).
 
 ### AI & Produktivitas
-- **AI** — AiAssistant + AiDiscovery (Tavily) + `Ai/` (provider factory, 8 tools). OKR AI (`OkrAiService`, `OkrBusinessSnapshotService`).
+- **AI** — AiAssistant + AiDiscovery (Tavily) + `Ai/` (provider factory, 11 tools — termasuk alat baca per menu: Stok HQ, PO, Stok Marketplace, Pesanan Marketplace, Komisi; disaring izin role + data mitra milik sendiri). OKR AI (`OkrAiService`, `OkrBusinessSnapshotService`).
 - **Produktivitas** — Okr, Kanban, Mindmap (+ AI tools), Learning (SKINKU Academy). OKR: `destroy()` kini bisa hapus OKR **draf & AKTIF** (aktif → `forceDelete()` kartu Kanban terkait dulu [BoardCard SoftDeletes; komentar cascade], lalu cascade objectives/KR/tasks); tombol Hapus di kartu daftar `/okr` & halaman detail (izin `okr.manage`) — branch `feat/okr-delete-and-cleanups`.
 
 ### Kalkulator ROI

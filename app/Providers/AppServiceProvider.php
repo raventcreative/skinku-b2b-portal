@@ -7,15 +7,23 @@ use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderFactory;
 use App\Services\Ai\Tools\BuatKartuKanbanTool;
 use App\Services\Ai\Tools\BuatMindmapTool;
+use App\Services\Ai\Tools\DaftarPoTool;
+use App\Services\Ai\Tools\KomisiTool;
+use App\Services\Ai\Tools\LaporanStokHqTool;
+use App\Services\Ai\Tools\PesananMarketplaceTool;
 use App\Services\Ai\Tools\RingkasDashboardTool;
 use App\Services\Ai\Tools\RingkasKpiKanbanTool;
 use App\Services\Ai\Tools\RingkasMindmapTool;
+use App\Services\Ai\Tools\StokMarketplaceTool;
 use App\Services\Ai\Tools\TambahMindmapTool;
 use App\Services\Ai\Tools\ToolRegistry;
+use App\Services\CommissionService;
 use App\Services\Discovery\WebSearchFactory;
 use App\Services\Discovery\WebSearchProvider;
+use App\Services\HqStockReportService;
 use App\Services\ImpersonationService;
 use App\Services\KanbanKpiService;
+use App\Services\MarketplaceMasterService;
 use App\Services\ReportService;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -44,6 +52,11 @@ class AppServiceProvider extends ServiceProvider
             new RingkasMindmapTool,
             new BuatMindmapTool,
             new TambahMindmapTool,
+            new LaporanStokHqTool($app->make(HqStockReportService::class)),
+            new DaftarPoTool,
+            new StokMarketplaceTool($app->make(MarketplaceMasterService::class)),
+            new PesananMarketplaceTool,
+            new KomisiTool($app->make(CommissionService::class)),
         ]));
     }
 

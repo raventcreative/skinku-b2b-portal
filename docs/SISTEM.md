@@ -761,8 +761,15 @@ Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/spec
 | `buat_kartu_kanban` | **write** | `kanban.view` | Buat kartu task (tanya klarifikasi kalau ambigu). |
 | `buat_mindmap` | **write** | `mindmap.view` | Buat board mindmap baru. |
 | `tambah_mindmap` | **write** | `mindmap.view` | Tambah sticky/branch ke board. |
+| `laporan_stok_hq` | read | `manage_hq_stock` | Laporan Mutasi Stok HQ (harian/bulanan, saring produk) via `HqStockReportService`. |
+| `daftar_po` | read | staff & mitra (= `business`) | PO + status bayar + sisa tagihan. **Mitra hanya PO miliknya.** |
+| `stok_marketplace` | read | `manage_marketplace_stock` | Stok etalase Produk Master per channel (varian & bundle terhitung). |
+| `pesanan_marketplace` | read | `manage_tiktok` / `manage_shopee` | Ringkas pesanan; channel tampil hanya bila punya izin channel itu. |
+| `komisi` | read | mitra / staff + `view_commission_report` | Mitra: saldo & riwayat sendiri. Admin: rekap per mitra. |
 
 Tool write selalu lewat alur confirm; tool read eksekusi inline.
+
+**Aturan alat per menu:** izin alat = izin route menunya (`permission()`), syarat tambahan (mis. `business`, salah satu dari dua izin) lewat `availableFor(User)`; `ToolRegistry` mengecek keduanya — alat yang tak lolos tak dikirim ke model dan tak bisa dipanggil by name. Scoping data mitra (milik sendiri) dilakukan **di dalam** alat. Jangan buat alat generik "query bebas" — melewati batas role. Test: `tests/Feature/AiMenuToolsTest.php`.
 
 ### Controller / route
 `/asisten` (halaman penuh) + widget floating → backend JSON-or-redirect sama: `state` (poll), `send` (POST → mungkin `confirm`), `confirm` (eksekusi 1 tool write pending setelah `validate()` re-run defensif + audit-log), `reset`. `/asisten/pengetahuan` (**"Pengetahuan AI"**) digating tambahan `internal`.
