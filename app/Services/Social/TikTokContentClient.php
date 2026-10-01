@@ -86,7 +86,8 @@ class TikTokContentClient
     /** @return array{creator_nickname?:string,creator_username?:string,privacy_level_options?:array,comment_disabled?:bool,duet_disabled?:bool,stitch_disabled?:bool,max_video_post_duration_sec?:int} */
     public function creatorInfo(string $token): array
     {
-        return $this->decode(Http::withToken($token)->asJson()->post(self::API.'/post/publish/creator_info/query/'));
+        return $this->decode(Http::withToken($token)->withHeaders(['Content-Type' => 'application/json; charset=UTF-8'])
+            ->send('POST', self::API.'/post/publish/creator_info/query/', ['body' => '']));
     }
 
     /**
