@@ -24,6 +24,9 @@ use Illuminate\Validation\ValidationException;
  */
 class OkrAiService
 {
+    /** Kolom orang yang dibuat selama satu kali generate (papan pilihan user). */
+    private array $createdColumns = [];
+
     private const SPECIALISTS = [
         'cmo' => [
             'label' => 'CMO',
@@ -953,8 +956,13 @@ class OkrAiService
         $delegationRules = $this->delegationRules($members);
         $columns = collect($boards)->flatMap(fn (array $board) => $board['columns']);
         $actionableColumns = $columns->filter(fn (array $column) => ! $column['done']);
-        $columnIds = $actionableColumns->pluck('id')->all();
         $preferredBoard = collect($boards)->firstWhere('id', (int) ($input['preferred_board_id'] ?? 0));
+        $this->createdColumns = [];
+        // Papan dipilih user = SEMUA tugas wajib di papan itu (bukan cuma bonus skor):
+        // kolom pilihan AI di papan lain tidak dihormati.
+        $columnIds = ($preferredBoard
+            ? $actionableColumns->where('board_id', $preferredBoard['id'])
+            : $actionableColumns)->pluck('id')->all();
         $preferredColumn = collect($preferredBoard['columns'] ?? [])->first(fn (array $c) => ! $c['done']);
         $defaultColumnId = $preferredColumn['id']
             ?? ($actionableColumns->first()['id'] ?? null);
@@ -1756,6 +1764,48 @@ class OkrAiService
             preg_split('/\s+/u', $name) ?: [],
             fn (string $token) => mb_strlen($token) >= 3 && ! in_array($token, ['admin', 'super', 'skinku'], true),
         ));
+        // Papan dipilih user → cari HANYA di papan itu; belum ada kolom orangnya →
+        // buatkan "To Do List X" + "Done X" (konvensi KPI Kanban) di papan itu.
+        if ($preferredBoardId > 0 && Board::whereKey($preferredBoardId)->exists()) {
+            $columns = array_values(array_filter(
+                [...$columns, ...$this->createdColumns],
+                fn (array $c) => (int) ($c['board_id'] ?? 0) === $preferredBoardId && ! ($c['done'] ?? false),
+            ));
+
+            return $this->bestColumn($name, $tokens, $columns, $preferredBoardId)
+                ?? $this->createPersonColumns($preferredBoardId, $assigneeName, $tokens);
+        }
+
+        return $this->bestColumn($name, $tokens, $columns, $preferredBoardId);
+    }
+
+    /**
+     * Buat pasangan kolom orang di papan pilihan. Nama diambil dari kata pertama
+     * yang berarti (bukan admin/super/skinku), mengikuti "To Do List Freddie".
+     *
+     * @param  array<int,string>  $tokens
+     */
+    private function createPersonColumns(int $boardId, string $assigneeName, array $tokens): ?int
+    {
+        if ($tokens === []) {
+            return null;
+        }
+        $label = collect(preg_split('/\s+/u', trim($assigneeName)) ?: [])
+            ->first(fn (string $w) => $this->normalise($w) === $tokens[0]) ?? ucfirst($tokens[0]);
+        $position = (int) BoardColumn::where('board_id', $boardId)->max('position');
+        $todo = BoardColumn::create(['board_id' => $boardId, 'name' => "To Do List {$label}", 'position' => $position + 1]);
+        BoardColumn::create(['board_id' => $boardId, 'name' => "Done {$label}", 'position' => $position + 2]);
+        $this->createdColumns[] = ['id' => $todo->id, 'board_id' => $boardId, 'name' => $todo->name, 'done' => false];
+
+        return $todo->id;
+    }
+
+    /**
+     * @param  array<int,string>  $tokens
+     * @param  array<int,array<string,mixed>>  $columns
+     */
+    private function bestColumn(string $name, array $tokens, array $columns, int $preferredBoardId): ?int
+    {
 
         $best = null;
         $bestScore = 0;
