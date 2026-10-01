@@ -441,6 +441,15 @@ Satu view `marketplace-stock.form` (kontainer `max-w-3xl`) dipakai `create` (mas
 - **Flash pesan**: `session('status')` ("Foto dihapus.", "Foto utama diperbarui.") ditampilkan oleh `layouts.app`; view form TIDAK mengulangnya (jaga: `test_form_edit_flash_status_tampil_sekali`, kalau tidak banner muncul dobel tiap habis Hapus/Jadikan Utama).
 - **Tes**: `CreateEditMasterTest` (store/update field lengkap, foto banyak + batas 9, render form Tambah & Ubah, galeri, guard form-bersarang & banner dobel) dan `FotoMasterTest` (hapus/jadikan utama, IDOR master lain/koleksi lain, non-izin 403), `FotoUrutanTest` (simpan urutan geser, tolak himpunan tak cocok/IDOR, 403, urutan campuran foto Baru saat Simpan/Tambah). Skrip geser diverifikasi di Chromium (mouse, sentuh via ⠿, klik biasa tak menyimpan, 422 & sesi habis tampil "Gagal").
 
+### Stok Bundle Otomatis (Fase 6)
+
+- **Resep** di tabel `marketplace_bundle_items` (migrasi **`000156`**: `bundle_id`, `component_id`, `qty`; unik per pasangan; FK cascade) — model `MarketplaceBundleItem`, relasi `MarketplaceMaster::bundleItems()` / `dipakaiBundle()`.
+- **Stok bundle ber-resep DIHITUNG**: `effectiveStock(bundle, ch)` = `min(floor(effectiveStock(komponen, ch) / qty))` (override channel komponen ikut; komponen tanpa stok → null = tak di-push). `base_stock` bundle diabaikan selama ada resep; setel stok manual bundle ditolak.
+- **Order**: `applyOrderDelta` listing bundle → `applyDeltaMaster` ke tiap komponen dgn `qty × delta` (guard `seeded_at` komponen; batal/retur = delta positif). Cron `marketplace:push-stock` menyusul lewat diff-guard; ubah stok komponen (inline & Simpan) langsung `pushBundleTerkait()`.
+- **Form**: kartu "Isi Bundling" (tampil bila Tipe = Bundle; flag `isi_bundle_ada`; himpunan lengkap) — komponen = unit jual (`komponenOpsi`: bukan induk bervarian, bukan bundle ber-resep, bukan diri sendiri; disaring lagi di `simpanIsiBundle`, duplikat dijumlah). Tipe Satuan → resep dikosongkan. Perkiraan stok tampil live; input Stok manual disembunyikan bila ada isi.
+- **Katalog**: kolom Stok bundle ber-resep = angka hitungan + label "otomatis" (bukan form). Hapus master yang masih jadi isi bundling ditolak.
+- Belum: resep untuk opsi VARIAN (mis. varian "3 Pcs" = 3 × "1 Pcs") — sementara pakai master bundle terpisah. Tes: `BundleStokTest`.
+
 ### Varian Produk Master ala Desty (Fase 5)
 
 - **Model**: varian = master ANAK (`marketplace_masters.parent_id`, migrasi **`000155`**; `variant_type` di induk mis. "Qty", `variant_name` di anak mis. "Scrub 3 Pcs"; FK `cascadeOnDelete` — hapus induk = hapus variannya, listing varian jadi tak tertaut via FK lama). Anak = baris master biasa → **stok/harga/cermin order/cron tak berubah** (semua lewat `listing.master_id`).
