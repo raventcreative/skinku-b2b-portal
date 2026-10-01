@@ -83,7 +83,7 @@
                 <input type="text" name="name" value="{{ old('name', $master->name) }}" required class="w-full px-3 py-2 border border-stone-200 rounded-lg">
             </div>
             <div>
-                <label class="block text-sm font-medium text-stone-700 mb-1">Kategori</label>
+                <label class="block text-sm font-medium text-stone-700 mb-1">Kategori <span class="text-xs font-normal text-stone-400">(catatan internal — kategori TikTok/Shopee dipilih di kartu Kategori Marketplace)</span></label>
                 <input type="text" name="category" value="{{ old('category', $master->category) }}" placeholder="mis. Perawatan Wajah / BB Cream" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
             </div>
             <div>
@@ -146,11 +146,48 @@
             </div>
         </div>
 
+        {{-- Kategori marketplace: pohon & ID TikTok ≠ Shopee → pemilih terpisah dari API + atribut wajib kategori itu.
+             Nilai dikirim lewat input tersembunyi (JSON diisi skrip saat submit); disaring kategoriAttributes() di controller. --}}
+        <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-4" id="kategoriMarketplace"
+             data-cari-url="{{ route('marketplace-stock.kategori.cari', '__CH__') }}"
+             data-atribut-url="{{ route('marketplace-stock.kategori.atribut', ['__CH__', '__ID__']) }}">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <h3 class="font-semibold text-stone-800">Kategori Marketplace</h3>
+                @if($master->exists && $master->listings()->whereNotNull('item_id')->exists())
+                    <button type="submit" form="tarikKategoriForm" class="text-xs px-3 py-1.5 rounded-lg bg-stone-100 text-stone-700 hover:bg-stone-200 font-semibold" title="Isi kategori & atribut dari yang sekarang terpasang di TikTok/Shopee">Ambil dari listing marketplace</button>
+                @endif
+            </div>
+            <p class="text-[11px] text-stone-500 leading-relaxed">Pilih kategori resmi tiap marketplace lalu isi atributnya (<span class="text-rose-600 font-semibold">*</span> = wajib). Ikut terkirim saat Simpan (listing yang sudah pernah didorong) / tombol Dorong. <b>⚠️ Ganti kategori di TikTok = produk direview ulang</b>, dan atribut lama terhapus — jadi lengkapi atributnya. Belum yakin? Klik <b>Ambil dari listing marketplace</b> dulu supaya mulai dari kategori yang sekarang terpasang.</p>
+            @foreach(['tiktok' => 'TikTok Shop', 'shopee' => 'Shopee'] as $ch => $label)
+                @php
+                    $attrsLama = $master->{$ch.'_attributes'} ?? [];
+                    $brandLama = $ch === 'shopee' ? $master->shopee_brand : null;
+                @endphp
+                <div class="mp-kat border border-stone-200 rounded-xl p-4 space-y-2" data-channel="{{ $ch }}">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-sm font-semibold text-stone-700">{{ $label }}</span>
+                        <button type="button" class="mp-kat-hapus text-[11px] text-rose-600 hover:underline" @if(! $master->{$ch.'_category_id'}) hidden @endif>Kosongkan</button>
+                    </div>
+                    <div class="mp-kat-terpilih text-xs text-stone-600">{{ $master->{$ch.'_category_name'} ?: 'Belum dipilih — kategori di marketplace tidak diubah.' }}</div>
+                    <input type="text" class="mp-kat-cari w-full px-3 py-2 border border-stone-200 rounded-lg text-sm" placeholder="Cari kategori {{ $label }}… (mis. mouth spray)" autocomplete="off">
+                    <div class="mp-kat-hasil" hidden style="max-height:14rem;overflow:auto;border:1px solid #e7e5e4;border-radius:.5rem"></div>
+                    <div class="mp-kat-atribut space-y-2"></div>
+                    <input type="hidden" name="{{ $ch }}_category_id" value="{{ $master->{$ch.'_category_id'} }}">
+                    <input type="hidden" name="{{ $ch }}_category_name" value="{{ $master->{$ch.'_category_name'} }}">
+                    <input type="hidden" name="{{ $ch }}_attributes" value="{{ json_encode($attrsLama) }}">
+                    @if($ch === 'shopee')<input type="hidden" name="shopee_brand" value="{{ $brandLama ? json_encode($brandLama) : '' }}">@endif
+                </div>
+            @endforeach
+        </div>
+
         <div class="flex flex-wrap gap-2">
             <button class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-700 text-white rounded-lg hover:bg-red-800 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg>Simpan produk</button>
             <a href="{{ route('marketplace-stock.index') }}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 font-semibold"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>Batal</a>
         </div>
     </form>
+    @if($master->exists)
+        <form id="tarikKategoriForm" method="POST" action="{{ route('marketplace-stock.master.kategori.tarik', $master) }}" onsubmit="return confirm('Isi kategori & atribut dari yang sekarang terpasang di TikTok/Shopee? Pilihan kategori yang belum disimpan akan diganti.')">@csrf</form>
+    @endif
 
     @if($master->exists)
         {{-- DORONG KONTEN — <form> SENDIRI, WAJIB DI LUAR form Simpan di atas (HTML larang <form> nested; dijaga tes kedalaman-form).
@@ -395,6 +432,186 @@
             status('Gagal menyimpan urutan — muat ulang halaman lalu coba lagi.', true);
         });
     }
+})();
+(function(){
+    // Pemilih kategori marketplace (TikTok & Shopee terpisah) + atribut kategori. Nilai diserialisasi ke input
+    // tersembunyi SETIAP kali berubah (bukan saat submit: form bisa dikirim lewat form.submit() oleh skrip kompres
+    // foto, yang tak memicu event submit). Atribut gagal dimuat → nilai lama tak disentuh.
+    var root = document.getElementById('kategoriMarketplace');
+    if (!root) return;
+    var form = root.closest('form');
+    var cariUrl = root.getAttribute('data-cari-url'), atributUrl = root.getAttribute('data-atribut-url');
+    var semua = [];
+
+    function getJSON(url){
+        return fetch(url, { headers: { 'Accept': 'application/json' } }).then(function(r){
+            if (r.redirected) throw new Error('sesi habis — muat ulang halaman');
+            return r.json().then(function(j){ if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status)); return j.data; });
+        });
+    }
+    function parse(v){ try { return JSON.parse(v); } catch (e) { return null; } }
+    function make(tag, attrs, text){
+        var e = document.createElement(tag);
+        Object.keys(attrs || {}).forEach(function(k){ e.setAttribute(k, attrs[k]); });
+        if (text != null) e.textContent = text;
+        return e;
+    }
+    var KELAS = 'w-full px-3 py-2 border border-stone-200 rounded-lg text-sm';
+
+    root.querySelectorAll('.mp-kat').forEach(function(box){
+        var ch = box.getAttribute('data-channel');
+        var inId = box.querySelector('[name="' + ch + '_category_id"]');
+        var inName = box.querySelector('[name="' + ch + '_category_name"]');
+        var inAttr = box.querySelector('[name="' + ch + '_attributes"]');
+        var inBrand = box.querySelector('[name="shopee_brand"]');
+        var cari = box.querySelector('.mp-kat-cari'), hasil = box.querySelector('.mp-kat-hasil');
+        var wadah = box.querySelector('.mp-kat-atribut'), terpilih = box.querySelector('.mp-kat-terpilih');
+        var hapus = box.querySelector('.mp-kat-hapus');
+        var lama = parse(inAttr.value) || [];
+        var lamaBrand = inBrand ? parse(inBrand.value) : null;
+        var meta = null, timer = null;
+
+        function nilaiLama(id){ var a = lama.filter(function(x){ return String(x.id) === String(id); })[0]; return a ? (a.values || []) : []; }
+
+        cari.addEventListener('keydown', function(e){ if (e.key === 'Enter') e.preventDefault(); });
+        cari.addEventListener('input', function(){
+            clearTimeout(timer);
+            var q = cari.value.trim();
+            if (q.length < 2) { hasil.hidden = true; return; }
+            timer = setTimeout(function(){
+                hasil.hidden = false; hasil.textContent = 'Mencari…';
+                getJSON(cariUrl.replace('__CH__', ch) + '?q=' + encodeURIComponent(q)).then(function(list){
+                    hasil.innerHTML = '';
+                    if (!list.length) { hasil.textContent = 'Tidak ketemu — coba kata lain.'; return; }
+                    list.forEach(function(k){
+                        var b = make('button', { type: 'button', style: 'display:block;width:100%;text-align:left;padding:.4rem .6rem;font-size:12px;border-bottom:1px solid #f5f5f4' }, k.path);
+                        b.addEventListener('click', function(){ pilih(k.id, k.path); });
+                        hasil.appendChild(b);
+                    });
+                }).catch(function(e){ hasil.textContent = 'Gagal mencari: ' + e.message; });
+            }, 300);
+        });
+
+        function pilih(id, path){
+            inId.value = id; inName.value = path; terpilih.textContent = path;
+            hapus.hidden = false; hasil.hidden = true; cari.value = '';
+            muat(id);
+        }
+
+        hapus.addEventListener('click', function(){
+            inId.value = ''; inName.value = ''; inAttr.value = '[]'; if (inBrand) inBrand.value = '';
+            meta = null; wadah.innerHTML = ''; hapus.hidden = true;
+            terpilih.textContent = 'Belum dipilih — kategori di marketplace tidak diubah.';
+        });
+
+        function muat(id){
+            meta = null; wadah.textContent = 'Memuat atribut…';
+            getJSON(atributUrl.replace('__CH__', ch).replace('__ID__', id)).then(function(d){ meta = d; render(d); simpan(); })
+                .catch(function(e){ wadah.textContent = 'Gagal memuat atribut (' + e.message + ') — atribut tersimpan tidak diubah.'; });
+        }
+
+        function render(d){
+            wadah.innerHTML = '';
+            var attrs = d.attributes.slice().sort(function(a, b){ return (b.required ? 1 : 0) - (a.required ? 1 : 0); });
+            if (d.brands) {
+                var row = make('div', { 'class': 'mp-brand' });
+                row.appendChild(make('label', { 'class': 'block text-xs font-medium text-stone-700 mb-1' }, 'Merek' + (d.brand_required ? ' *' : '')));
+                var sel = make('select', { 'class': KELAS });
+                sel.appendChild(make('option', { value: '' }, '— tidak diubah —'));
+                sel.appendChild(make('option', { value: '0', 'data-name': 'NoBrand' }, 'Tanpa merek (NoBrand)'));
+                d.brands.forEach(function(b){ var o = make('option', { value: b.id, 'data-name': b.name }, b.name); sel.appendChild(o); });
+                if (lamaBrand && lamaBrand.brand_id != null) sel.value = String(lamaBrand.brand_id);
+                row.appendChild(sel);
+                wadah.appendChild(row);
+            }
+            if (!attrs.length) { wadah.appendChild(make('p', { 'class': 'text-[11px] text-stone-400' }, 'Kategori ini tak punya atribut produk.')); return; }
+            attrs.forEach(function(a){
+                var row = make('div', { 'class': 'mp-attr', 'data-id': a.id });
+                var lab = make('label', { 'class': 'block text-xs font-medium text-stone-700 mb-1' }, a.name);
+                if (a.required) { var bintang = make('span', { 'class': 'text-rose-600' }, ' *'); lab.appendChild(bintang); }
+                row.appendChild(lab);
+                var lamaV = nilaiLama(a.id);
+                var ctl;
+                if (a.values.length && !a.custom) {
+                    ctl = make('select', { 'class': KELAS });
+                    if (a.multi) { ctl.multiple = true; ctl.size = Math.min(5, a.values.length); }
+                    else ctl.appendChild(make('option', { value: '' }, '— pilih —'));
+                    a.values.forEach(function(v){
+                        var o = make('option', { value: v.id }, v.name);
+                        if (lamaV.some(function(x){ return String(x.id) === String(v.id); })) o.selected = true;
+                        ctl.appendChild(o);
+                    });
+                } else {
+                    var listId = 'dl-' + ch + '-' + a.id;
+                    ctl = make('input', { type: 'text', 'class': KELAS, placeholder: a.multi ? 'Pisahkan dengan koma' : '' });
+                    if (a.values.length) {
+                        var dl = make('datalist', { id: listId });
+                        a.values.forEach(function(v){ dl.appendChild(make('option', { value: v.name })); });
+                        row.appendChild(dl); ctl.setAttribute('list', listId);
+                    }
+                    ctl.value = lamaV.map(function(x){ return x.name; }).join(', ');
+                }
+                ctl.className += ' mp-attr-nilai';
+                row.appendChild(ctl);
+                if (a.units && a.units.length) {
+                    var u = make('select', { 'class': 'mp-attr-unit mt-1 px-2 py-1 border border-stone-200 rounded text-xs' });
+                    a.units.forEach(function(x){ u.appendChild(make('option', { value: x }, x)); });
+                    if (lamaV[0] && lamaV[0].unit) u.value = lamaV[0].unit;
+                    row.appendChild(u);
+                }
+                wadah.appendChild(row);
+            });
+        }
+
+        // Baca isian → JSON [{id, values:[{id,name,unit?}]}] ke input tersembunyi (+ merek Shopee).
+        function simpan(){
+            if (!meta) return;
+            var out = [];
+            meta.attributes.forEach(function(a){
+                var row = wadah.querySelector('.mp-attr[data-id="' + a.id + '"]');
+                if (!row) return;
+                var ctl = row.querySelector('.mp-attr-nilai'), unitEl = row.querySelector('.mp-attr-unit');
+                var unit = unitEl ? unitEl.value : '';
+                var vals = [];
+                if (ctl.tagName === 'SELECT') {
+                    Array.prototype.forEach.call(ctl.selectedOptions, function(o){ if (o.value !== '') vals.push({ id: o.value, name: o.textContent }); });
+                } else {
+                    (a.multi ? ctl.value.split(',') : [ctl.value]).map(function(x){ return x.trim(); }).filter(Boolean).forEach(function(nama){
+                        var cocok = a.values.filter(function(v){ return v.name.toLowerCase() === nama.toLowerCase(); })[0];
+                        vals.push(cocok ? { id: cocok.id, name: cocok.name } : { id: '', name: nama });
+                    });
+                }
+                if (unit) vals.forEach(function(v){ v.unit = unit; });
+                if (vals.length) out.push({ id: a.id, values: vals });
+            });
+            inAttr.value = JSON.stringify(out);
+            if (inBrand) {
+                var b = wadah.querySelector('.mp-brand select');
+                var o = b && b.selectedOptions[0];
+                inBrand.value = o && o.value !== '' ? JSON.stringify({ brand_id: parseInt(o.value, 10), original_brand_name: o.getAttribute('data-name') || '' }) : '';
+            }
+        }
+        wadah.addEventListener('change', simpan);
+        wadah.addEventListener('input', simpan);
+
+        // Atribut wajib kosong → peringatan (marketplace bisa menolak), bukan blokir.
+        function kurang(){
+            if (!meta || !inId.value) return [];
+            var isi = (parse(inAttr.value) || []).map(function(x){ return String(x.id); });
+            return meta.attributes.filter(function(a){ return a.required && isi.indexOf(String(a.id)) < 0; }).map(function(a){ return a.name; });
+        }
+        semua.push(kurang);
+
+        if (inId.value) muat(inId.value);
+    });
+
+    if (form) form.addEventListener('submit', function(e){
+        var k = [];
+        semua.forEach(function(f){ k = k.concat(f()); });
+        if (k.length && !confirm('Atribut wajib belum diisi: ' + k.join(', ') + '.\nMarketplace bisa menolak perubahan kategori. Tetap simpan?')) {
+            e.preventDefault(); e.stopImmediatePropagation();
+        }
+    }, true);
 })();
 </script>
 @endpush

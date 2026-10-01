@@ -15,7 +15,8 @@ class MarketplaceMaster extends Model
     /** File collection name for the manually-uploaded master photo. */
     public const MASTER_IMAGE = 'master_image';
 
-    protected $fillable = ['master_sku', 'name', 'name_key', 'is_bundle', 'image_url', 'product_id', 'base_stock', 'base_price', 'seeded_at', 'category', 'description', 'weight_g', 'length_cm', 'width_cm', 'height_cm', 'barcode'];
+    protected $fillable = ['master_sku', 'name', 'name_key', 'is_bundle', 'image_url', 'product_id', 'base_stock', 'base_price', 'seeded_at', 'category', 'description', 'weight_g', 'length_cm', 'width_cm', 'height_cm', 'barcode',
+        'tiktok_category_id', 'tiktok_category_name', 'tiktok_attributes', 'shopee_category_id', 'shopee_category_name', 'shopee_attributes', 'shopee_brand'];
 
     protected function casts(): array
     {
@@ -24,6 +25,9 @@ class MarketplaceMaster extends Model
             'base_stock' => 'integer',
             'base_price' => 'decimal:2',
             'seeded_at' => 'datetime',
+            'tiktok_attributes' => 'array',
+            'shopee_attributes' => 'array',
+            'shopee_brand' => 'array',
         ];
     }
 
