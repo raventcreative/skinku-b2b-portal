@@ -30,7 +30,7 @@ class PushContentActionTest extends TestCase
     use RefreshDatabase;
 
     /** Teks konfirmasi tombol — sama persis di halaman Ubah & menu Atur (& di-escape jadi &amp; di atribut HTML). */
-    private const KONFIRMASI = 'Kirim &amp; timpa deskripsi/berat/dimensi di TikTok &amp; Shopee. FOTO: dorong pertama ke tiap listing MENGGANTI SEMUA fotonya dengan foto master (setelah itu hanya bila foto master berubah). Lanjut?';
+    private const KONFIRMASI = 'Dorong SEMUA ke TikTok &amp; Shopee: stok, harga, nama, deskripsi, berat, dimensi, barcode &amp; FOTO. Isi listing DITIMPA dan SEMUA foto listing DIGANTI foto master. Setelah ini, tiap Simpan menyinkronkan otomatis. Lanjut?';
 
     // ---- helper ----
 
@@ -209,10 +209,12 @@ class PushContentActionTest extends TestCase
         Http::fake();
         $m = $this->masterKosong();
         $l = $this->tiktokListing($m);
+        // Produk bervarian (ada SKU lain di item yang sama) → nama tak dikirim; selain nama semua kosong.
+        MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'K-2', 'item_id' => $l->item_id, 'variation_id' => 'SKU2']);
 
         $this->actingAs($this->admin())->post(route('marketplace-stock.master.konten', $m))
             ->assertRedirect()
-            ->assertSessionHas('status', 'Tak ada yang dikirim untuk "Kosong" — deskripsi, berat, dan dimensi masih kosong, dan foto belum ada atau tak berubah sejak dorong terakhir (1 dilewati)')
+            ->assertSessionHas('status', 'Konten & foto "Kosong" tak dikirim — nama/deskripsi/berat/dimensi/barcode kosong (atau produk bervarian) dan foto belum ada (1 dilewati)')
             ->assertSessionMissing('error');
 
         Http::assertNothingSent();

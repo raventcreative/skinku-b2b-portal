@@ -73,7 +73,7 @@ class PushPhotosTest extends TestCase
     /** Master TANPA konten (deskripsi/berat/dimensi kosong) → pushContent skip tanpa HTTP; yang diuji murni foto. */
     private function master(array $over = []): MarketplaceMaster
     {
-        return MarketplaceMaster::create(array_merge(['master_sku' => 'SX-1', 'name' => 'Serum X'], $over));
+        return MarketplaceMaster::create(array_merge(['master_sku' => 'SX-1', 'name' => ''], $over));
     }
 
     /** Foto master lewat jalur upload asli (ImageService); ukuran beda-beda supaya byte tiap foto unik. */
@@ -753,17 +753,18 @@ class PushPhotosTest extends TestCase
         $this->tiktokConn();
         $this->fakeMarketplace();
         $m = $this->masterBerfoto(2);
-        $this->tiktokListing($m, ['photo_hash' => $this->svc()->photoHash($m)]); // set foto ini sudah terpasang
+        $this->tiktokListing($m, ['photo_hash' => $this->svc()->photoHash($m), 'last_photo_pushed_at' => now()]); // set foto ini sudah terpasang
 
-        $this->assertSame(['pushed' => 0, 'skipped' => 1, 'failed' => 0], $this->svc()->pushMasterContent($m));
+        // Mode otomatis (Simpan) = diff-guard: konten kosong + foto tak berubah → skipped, tanpa HTTP.
+        $this->assertSame(['pushed' => 0, 'skipped' => 1, 'failed' => 0], $this->svc()->pushMasterContent($m, false, true));
 
         Http::assertNothingSent();
     }
 
-    public function test_force_true_kirim_ulang_konten_tapi_foto_tetap_lewat_diff_guard(): void
+    public function test_manual_paksa_foto_otomatis_lewat_diff_guard(): void
     {
-        // Tombol "Dorong konten" = pushMasterContent(force=true): konten SELALU dikirim ulang, tapi foto hanya bila set
-        // foto master berubah — klik berulang utk update teks TIDAK terus meng-upload & mengganti foto (pengaman #2).
+        // Tombol "Dorong" = pushMasterContent(force=true): konten & foto SELALU dikirim ulang (manual = semua terdorong).
+        // Mode otomatis (Simpan): foto hanya bila set foto master berubah — Simpan berulang tak terus meng-upload.
         $this->tiktokConn();
         $this->fakeMarketplace();
         $m = $this->masterBerfoto(2, ['description' => 'Serum X']);
@@ -771,32 +772,44 @@ class PushPhotosTest extends TestCase
         $svc = $this->svc();
 
         $this->assertSame(['pushed' => 1, 'skipped' => 0, 'failed' => 0], $svc->pushMasterContent($m, true));
-        $this->assertSame(['pushed' => 1, 'skipped' => 0, 'failed' => 0], $svc->pushMasterContent($m, true)); // konten ok + foto skip
-        $this->assertSame(['tt-konten', 'tt-upload', 'tt-upload', 'tt-set-foto', 'tt-konten'], $this->jejak());
+        $this->assertSame(['pushed' => 1, 'skipped' => 0, 'failed' => 0], $svc->pushMasterContent($m, true)); // paksa: foto lagi
+        $this->assertSame(['tt-konten', 'tt-upload', 'tt-upload', 'tt-set-foto', 'tt-konten', 'tt-upload', 'tt-upload', 'tt-set-foto'], $this->jejak());
 
-        // Set foto master berubah → klik berikutnya baru meng-upload & mengganti lagi.
+        $this->assertSame(['pushed' => 0, 'skipped' => 1, 'failed' => 0], $svc->pushMasterContent($m, false, true)); // otomatis: tak berubah
+        $this->assertCount(8, $this->jejak());
+
+        // Set foto master berubah → otomatis meng-upload & mengganti lagi (konten tak berubah → tak dikirim).
         $this->tambahFoto($m);
-        $svc->pushMasterContent($m, true);
-        $this->assertSame(
-            ['tt-konten', 'tt-upload', 'tt-upload', 'tt-set-foto', 'tt-konten', 'tt-konten', 'tt-upload', 'tt-upload', 'tt-upload', 'tt-set-foto'],
-            $this->jejak(),
-        );
+        $svc->pushMasterContent($m, false, true);
+        $this->assertSame(['tt-upload', 'tt-upload', 'tt-upload', 'tt-set-foto'], array_slice($this->jejak(), 8));
         $this->assertSame($svc->photoHash($m), $l->fresh()->photo_hash);
     }
 
-    public function test_tombol_dorong_konten_klik_ulang_tak_mengganti_foto_yang_tak_berubah(): void
+    public function test_simpan_sinkron_otomatis_hanya_yang_berubah_setelah_dorong_manual(): void
     {
-        // Kabel asli: route tombol → controller → pushMasterContent. Sama dgn tes di atas, lewat HTTP sungguhan.
+        // Kabel asli: tombol Dorong (manual) → lalu form Simpan (update) menyinkronkan otomatis yang berubah saja.
         $this->tiktokConn();
         $this->fakeMarketplace();
-        $m = $this->masterBerfoto(2, ['description' => 'Serum X']);
+        $m = $this->masterBerfoto(2, ['name' => 'Serum X', 'description' => 'Serum X']);
         $l = $this->tiktokListing($m);
         $admin = $this->admin();
+        $form = fn (array $over = []) => array_merge(['name' => 'Serum X', 'master_sku' => 'SX-1', 'description' => 'Serum X'], $over);
+
+        // Sebelum pernah didorong manual: Simpan TIDAK mengirim konten/foto (dorong pertama menimpa → wajib disengaja).
+        $this->actingAs($admin)->put(route('marketplace-stock.update', $m), $form())->assertRedirect()->assertSessionMissing('error');
+        $this->assertSame([], $this->jejak());
 
         $this->actingAs($admin)->post(route('marketplace-stock.master.konten', $m))->assertRedirect()->assertSessionMissing('error');
-        $this->actingAs($admin)->post(route('marketplace-stock.master.konten', $m))->assertRedirect()->assertSessionMissing('error');
+        $this->assertSame(['tt-konten', 'tt-upload', 'tt-upload', 'tt-set-foto'], $this->jejak());
 
-        $this->assertSame(['tt-konten', 'tt-upload', 'tt-upload', 'tt-set-foto', 'tt-konten'], $this->jejak());
+        // Simpan tanpa perubahan → tak ada HTTP konten/foto baru.
+        $this->actingAs($admin)->put(route('marketplace-stock.update', $m), $form())->assertRedirect()->assertSessionMissing('error');
+        $this->assertCount(4, $this->jejak());
+
+        // Deskripsi berubah → hanya konten terkirim; foto tak berubah → tak di-upload ulang.
+        $this->actingAs($admin)->put(route('marketplace-stock.update', $m), $form(['description' => 'Serum X baru']))
+            ->assertSessionHas('status', fn (string $s) => str_contains($s, 'tersinkron ke 1 listing'));
+        $this->assertSame(['tt-konten'], array_slice($this->jejak(), 4));
         $this->assertSame('ok', $l->fresh()->last_photo_status);
     }
 
@@ -896,7 +909,7 @@ class PushPhotosTest extends TestCase
         $this->assertSame($hash, $l2->fresh()->photo_hash);
 
         $sebelum = count($this->jejak());
-        $r = $this->svc()->pushMasterContent($m);
+        $r = $this->svc()->pushMasterContent($m, false, true); // Simpan berikutnya (otomatis, diff-guard)
 
         $this->assertSame(['pushed' => 0, 'skipped' => 2, 'failed' => 0], $r);
         $this->assertCount($sebelum, $this->jejak()); // tanpa HTTP baru
@@ -940,16 +953,16 @@ class PushPhotosTest extends TestCase
     {
         $this->tiktokConn();
         $this->fakeMarketplace();
-        $m = $this->masterBerfoto(1, ['description' => 'Serum wajah']);
+        $m = $this->masterBerfoto(1, ['name' => 'Serum X', 'description' => 'Serum wajah']);
         $this->tiktokListing($m);
         $admin = $this->admin();
 
         $this->actingAs($admin)->post(route('marketplace-stock.master.konten', $m))
             ->assertSessionHas('status', 'Dorong konten & foto "Serum X" — foto diganti di 1 listing (1 sinkron OK)');
 
-        // Klik ulang (detik yang sama pun): konten dikirim lagi, foto tak berubah → tak disebut "diganti".
+        // Klik ulang (detik yang sama pun): manual = paksa → foto diganti lagi & tetap terhitung.
         $this->actingAs($admin)->post(route('marketplace-stock.master.konten', $m))
-            ->assertSessionHas('status', 'Dorong konten & foto "Serum X" (1 sinkron OK)');
+            ->assertSessionHas('status', 'Dorong konten & foto "Serum X" — foto diganti di 1 listing (1 sinkron OK)');
     }
 
     public function test_mask_secrets_menyamarkan_kredensial_tanpa_mengubah_teks_lain(): void
