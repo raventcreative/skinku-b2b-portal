@@ -1242,4 +1242,20 @@ class OkrTest extends TestCase
         $this->assertEquals(300_000, $facts['cmo.penjualan_bulan_selesai.rata_rata_3_bulan.semua_channel']['value']); // (0+300rb+600rb)/3
         $this->assertEquals(0, $facts['cmo.omzet_ecommerce_bulan']['value']); // MTD Oktober tetap jujur 0
     }
+
+    public function test_papan_dihapus_setelah_draf_tidak_bikin_halaman_error_dan_approve_ditolak(): void
+    {
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrhapuspapan');
+        $member = $this->user(User::ROLE_ADMIN, 'hapuspic');
+        [$board, $todo] = $this->board($super);
+        $this->app->instance(AiProvider::class, $this->fakeDraft($member, $todo->id));
+        $this->actingAs($super)->post(route('okr.generate'), $this->generatePayload($board->id))->assertRedirect();
+        $cycle = OkrCycle::firstOrFail();
+
+        $board->delete(); // soft delete: kolomnya tetap ada tapi papannya hilang
+
+        $this->actingAs($super)->get(route('okr.show', $cycle))->assertOk();
+        $this->actingAs($super)->post(route('okr.approve', $cycle))->assertSessionHasErrors('okr');
+        $this->assertSame(0, BoardCard::count());
+    }
 }
