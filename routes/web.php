@@ -433,6 +433,7 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::middleware('permission:kol.affiliate.manage')->group(function () {
                 Route::post('/kol-affiliate/match', [KolAffiliateController::class, 'match'])->name('kol-affiliate.match');
                 Route::post('/kol-affiliate/promote', [KolAffiliateController::class, 'promote'])->name('kol-affiliate.promote');
+                Route::post('/kol-affiliate/promote-all', [KolAffiliateController::class, 'promoteAll'])->name('kol-affiliate.promote-all');
                 Route::get('/kol-affiliate/import', [KolAffiliateController::class, 'importForm'])->name('kol-affiliate.import');
                 Route::post('/kol-affiliate/import', [KolAffiliateController::class, 'importStore'])->name('kol-affiliate.import.store');
                 // Wizard pemetaan kolom (preview → commit) — mapping tersimpan + dateOrder.

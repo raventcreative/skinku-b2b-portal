@@ -7,7 +7,6 @@ use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
 use App\Models\KolImportBatch;
 use App\Models\KolMonthlyTarget;
-use App\Models\KolUsernameAlias;
 use App\Models\KolWeeklyStat;
 use App\Services\AuditService;
 use App\Services\KolAffiliateService;
@@ -150,24 +149,27 @@ class KolAffiliateController extends Controller
     public function promote(Request $request, KolAffiliateService $svc): RedirectResponse
     {
         $data = $request->validate(['raw_username' => ['required', 'string', 'max:150']]);
-        $norm = KolUsernameAlias::norm($data['raw_username']);
-        if ($norm === '') {
+        $r = $svc->promote($data['raw_username'], $request->user()->id);
+        if ($r === null) {
             return back()->withErrors(['raw_username' => 'Username kosong.']);
         }
-
-        $kol = Kol::whereRaw('LOWER(tiktok_username) = ?', [$norm])->first();
-        $baru = $kol === null;
-        if ($baru) {
-            $kol = Kol::create(['tiktok_username' => $norm, 'role' => 'affiliate', 'followers' => 0]);
-        }
-        $n = $svc->matchUsername($data['raw_username'], $kol->id, $request->user()->id);
+        ['kol' => $kol, 'baru' => $baru, 'orders' => $n] = $r;
 
         AuditService::log(action: 'promote_affiliate_to_kol', targetType: 'kol', targetId: $kol->id,
-            after: ['username' => $norm, 'baru' => $baru, 'orders' => $n]);
+            after: ['username' => $kol->tiktok_username, 'baru' => $baru, 'orders' => $n]);
 
         return back()->with('status', $baru
-            ? "@{$norm} ditambahkan ke Database KOL (peran: affiliate) — {$n} order tertaut."
-            : "@{$norm} sudah ada di Database KOL — {$n} order tertaut.");
+            ? "@{$kol->tiktok_username} ditambahkan ke Database KOL (peran: affiliate) — {$n} order tertaut."
+            : "@{$kol->tiktok_username} sudah ada di Database KOL — {$n} order tertaut.");
+    }
+
+    /** Semua username "Belum Cocok" sekaligus → Database KOL (peran affiliate). */
+    public function promoteAll(Request $request, KolAffiliateService $svc): RedirectResponse
+    {
+        $r = $svc->promoteAllUnmatched($request->user()->id);
+        AuditService::log(action: 'promote_all_affiliates_to_kol', targetType: 'kol', targetId: null, after: $r);
+
+        return back()->with('status', "{$r['baru']} affiliate baru masuk Database KOL, {$r['tertaut']} ditautkan ke KOL yang sudah ada — {$r['orders']} order tertaut. Profil TikTok-nya terisi lewat sync otomatis.");
     }
 
     public function saveGmvTarget(Request $request): RedirectResponse

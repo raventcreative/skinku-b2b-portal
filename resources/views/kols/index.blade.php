@@ -71,9 +71,8 @@
             <option value="1" @selected(($filters['gapok'] ?? '') === '1')>Gapok saja</option>
         </select>
         @if($canAffiliate)
-            {{-- Periode GMV SKINKU. 30 hari = sejajar GMV Asli TikTok → Porsi SKINKU terhitung. --}}
-            <select name="gmv_periode" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg" title="Periode kolom GMV SKINKU">
-                <option value="30h" @selected($gmvPeriode === '30h')>GMV SKINKU: 30 hari</option>
+            {{-- Periode kolom "GMV SKINKU" kalender (kolom 30 hari & Porsi selalu tampil). --}}
+            <select name="gmv_periode" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg" title="Periode kolom GMV SKINKU kalender">
                 <option value="bulan_ini" @selected($gmvPeriode === 'bulan_ini')>GMV SKINKU: bulan ini</option>
                 <option value="bulan_lalu" @selected($gmvPeriode === 'bulan_lalu')>GMV SKINKU: bulan lalu</option>
             </select>
@@ -190,8 +189,9 @@
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari views MEDIAN (tengah) — ACUAN UTAMA, tahan dari 1 video viral">{!! $sortLink('verdict', 'Penilaian Median') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV = median views × 1,2% konversi × Rp38rb order rata-rata — hitungan sistem, BUKAN data asli">{!! $sortLink('gmv', 'GMV Estimasi · Viral · Fake') !!}</th>
                 <th rowspan="2" class="text-right align-bottom" title="GMV Asli = total jualan kreator ini 30 hari terakhir untuk SEMUA brand (dari TikTok), atau isian manual screening. Menunjukkan seberapa jago dia jualan secara umum.">GMV Asli<span class="block normal-case font-normal text-stone-400">30 hr · semua brand</span></th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="GMV SKINKU = penjualan produk SKINKU lewat kreator ini (order affiliate asli, sama sumber dgn menu Affiliate & GMV). Periode bisa diganti di filter.">{!! $sortLink('gmv_real', 'GMV SKINKU') !!}<span class="block normal-case font-normal text-stone-400">{{ $gmvLabel }}</span></th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="Porsi SKINKU = GMV SKINKU 30 hari ÷ GMV Asli 30 hari (semua brand). Berapa persen jualan kreator ini yang masuk ke SKINKU. Hanya dihitung untuk periode 30 hari.">{!! $sortLink('share', 'Porsi SKINKU') !!}<span class="block normal-case font-normal text-stone-400">dari total</span></th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="GMV SKINKU 30 hari terakhir — order affiliate asli SKINKU, jendela SAMA dengan GMV Asli → dasar Porsi SKINKU.">{!! $sortLink('gmv_30', 'GMV SKINKU') !!}<span class="block normal-case font-normal text-stone-400">30 hari</span></th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="Porsi SKINKU = GMV SKINKU 30 hari ÷ GMV Asli 30 hari (semua brand). >100% = data GMV Asli TikTok lebih lama/beda hitungan — perbarui performa KOL-nya.">{!! $sortLink('share', 'Porsi SKINKU') !!}<span class="block normal-case font-normal text-stone-400">dari total</span></th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="GMV SKINKU per bulan kalender (ganti di filter) — pantau pencapaian bulan berjalan.">{!! $sortLink('gmv_real', 'GMV SKINKU') !!}<span class="block normal-case font-normal text-stone-400">{{ $gmvLabel }}</span></th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="Rata-rata views video jualan 30 hari — dari TikTok (otomatis, bukan isian screening)">Avg Views</th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="Engagement rate video jualan 30 hari — dari TikTok">Engagement</th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="GPM = GMV per 1.000 views (Rupiah) — makin tinggi, makin jago jualan per penonton">GPM</th>
@@ -280,9 +280,20 @@
                         </td>
                     @endif
                     @php $gmvB = $gmvMap->get($kol->id)?->gmv; $apsS = $apsMap->get($kol->id); $kssS = $kssMap->get($kol->id); @endphp
+                    @php
+                        $gmv30 = $gmv30Map->get($kol->id)?->gmv;
+                        $porsi = $canAffiliate ? \App\Http\Controllers\KolController::porsiSkinku($kol, $gmv30Map) : null;
+                    @endphp
+                    <td class="text-right px-2 text-stone-600">{{ $canAffiliate && $gmv30 ? $rp($gmv30) : '—' }}</td>
+                    <td class="text-right px-2 font-semibold whitespace-nowrap">
+                        @if($porsi === null) <span class="text-stone-400">—</span>
+                        @elseif($porsi > 100)
+                            <span class="text-amber-600" title="GMV SKINKU 30 hari lebih besar dari GMV Asli TikTok (sync {{ $kol->tiktokProfile?->performance_synced_at?->format('d M') ?? $kol->tiktokProfile?->synced_at?->format('d M') ?? '—' }}). Data TikTok belum mutakhir atau beda cara hitung — klik Perbarui performa di detail KOL.">100%+ ⚠</span>
+                        @else
+                            <span class="{{ $porsi >= 20 ? 'text-emerald-700' : 'text-stone-700' }}">{{ number_format($porsi, 1, ',', '.') }}%</span>
+                        @endif
+                    </td>
                     <td class="text-right px-2 text-stone-600">{{ $canAffiliate && $gmvB ? $rp($gmvB) : '—' }}</td>
-                    @php $porsi = $canAffiliate ? \App\Http\Controllers\KolController::porsiSkinku($kol, $gmvMap, $gmvPeriode === '30h') : null; @endphp
-                    <td class="text-right px-2 font-semibold {{ $porsi !== null && $porsi >= 20 ? 'text-emerald-700' : 'text-stone-700' }}">{{ $porsi !== null ? number_format(min($porsi, 999), 1, ',', '.').'%' : '—' }}</td>
                     @php $tpp = $kol->tiktokProfile; @endphp
                     <td class="text-right px-2 text-stone-700">{{ $tpp?->avg_video_views ? number_format($tpp->avg_video_views, 0, ',', '.') : '—' }}</td>
                     <td class="text-right px-2 text-stone-700">{{ $tpp?->video_engagement_pct !== null ? number_format($tpp->video_engagement_pct, 1, ',', '.').'%' : '—' }}</td>
@@ -299,7 +310,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="36" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
+                <tr><td colspan="37" class="px-4 py-8 text-center text-stone-400">Belum ada KOL. Klik <b>+ Tambah KOL</b> untuk mulai.</td></tr>
             @endforelse
         </tbody>
     </table>

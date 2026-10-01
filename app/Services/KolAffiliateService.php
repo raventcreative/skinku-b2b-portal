@@ -181,6 +181,47 @@ class KolAffiliateService
 
     /** Tautkan semua transaksi sebuah username ke KOL + simpan alias (auto-cocok
      *  import berikutnya). Return jumlah baris tertaut. */
+    /**
+     * Username affiliate (dari order) → KOL: pakai yang sudah ada (case-insensitive)
+     * atau buat baru peran affiliate, lalu tautkan semua order-nya.
+     *
+     * @return array{kol:Kol,baru:bool,orders:int}|null null bila username kosong
+     */
+    public function promote(string $rawUsername, ?int $actorId = null): ?array
+    {
+        $norm = KolUsernameAlias::norm($rawUsername);
+        if ($norm === '') {
+            return null;
+        }
+        $kol = Kol::whereRaw('LOWER(tiktok_username) = ?', [$norm])->first();
+        $baru = $kol === null;
+        if ($baru) {
+            $kol = Kol::create(['tiktok_username' => $norm, 'role' => 'affiliate', 'followers' => 0]);
+        }
+
+        return ['kol' => $kol, 'baru' => $baru, 'orders' => $this->matchUsername($rawUsername, $kol->id, $actorId)];
+    }
+
+    /**
+     * Semua username "Belum Cocok" sekaligus → Database KOL (lihat promote()).
+     *
+     * @return array{baru:int,tertaut:int,orders:int}
+     */
+    public function promoteAllUnmatched(?int $actorId = null): array
+    {
+        $out = ['baru' => 0, 'tertaut' => 0, 'orders' => 0];
+        foreach ($this->unmatched() as $row) {
+            $r = $this->promote((string) $row->raw_username, $actorId);
+            if ($r === null) {
+                continue;
+            }
+            $out[$r['baru'] ? 'baru' : 'tertaut']++;
+            $out['orders'] += $r['orders'];
+        }
+
+        return $out;
+    }
+
     public function matchUsername(string $rawUsername, int $kolId, ?int $actorId = null): int
     {
         $norm = KolUsernameAlias::norm($rawUsername);
