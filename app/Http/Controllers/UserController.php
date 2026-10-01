@@ -321,6 +321,53 @@ class UserController extends Controller
         return back()->with('status', "Akun {$user->fullname} dipulihkan & diaktifkan kembali.");
     }
 
+    /**
+     * Hapus PERMANEN akun yang sudah di-soft-delete — utk salah input (mis. member dibuat manual padahal harus lewat
+     * Onboarding Paket) supaya email/username bisa dipakai lagi. HANYA Super Admin, HANYA akun terhapus, dan DITOLAK
+     * bila akun punya riwayat bisnis (PO, join, komisi, penarikan, penjualan mitra, stok/mutasi mitra) atau masih
+     * jadi upline/sponsor — riwayat itu tak boleh hilang (pakai soft delete saja).
+     */
+    public function forceDestroy(Request $request, User $user): RedirectResponse
+    {
+        $actor = $request->user();
+        if (! $actor->isSuperAdmin()) {
+            abort(403, 'Hanya Super Admin yang dapat menghapus permanen.');
+        }
+        if (! $user->trashed()) {
+            return back()->withErrors(['user' => 'Hapus (soft delete) akun ini dulu sebelum menghapus permanen.']);
+        }
+        if ($user->isSuperAdmin() || $user->id === $actor->id) {
+            return back()->withErrors(['user' => 'Akun ini tidak dapat dihapus permanen.']);
+        }
+
+        $riwayat = array_filter([
+            'purchase order' => DB::table('purchase_orders')->where('user_id', $user->id)->orWhere('seller_id', $user->id)->exists(),
+            'transaksi paket join' => DB::table('join_transactions')->where('user_id', $user->id)->orWhere('inviter_id', $user->id)->exists(),
+            'komisi' => DB::table('commissions')->where('user_id', $user->id)->orWhere('source_user_id', $user->id)->exists(),
+            'penarikan dana' => DB::table('withdrawals')->where('user_id', $user->id)->exists(),
+            'penjualan mitra' => DB::table('partner_sales')->where('user_id', $user->id)->exists(),
+            'stok/mutasi mitra' => DB::table('inventory')->where('user_id', $user->id)->exists() || DB::table('stock_movements')->where('user_id', $user->id)->exists(),
+            'downline/rekrutan' => User::withTrashed()->where('upline_id', $user->id)->orWhere('sponsor_id', $user->id)->exists(),
+        ]);
+        if ($riwayat !== []) {
+            return back()->withErrors(['user' => "{$user->fullname} tidak bisa dihapus permanen karena punya riwayat: ".implode(', ', array_keys($riwayat)).'. Biarkan sebagai akun terhapus.']);
+        }
+
+        $before = $user->only(['fullname', 'username', 'email', 'role', 'member_id']);
+        AuditService::log(
+            action: 'force_delete_user',
+            targetType: 'user',
+            targetId: $user->id,
+            before: $before,
+            after: ['permanen' => true],
+            targetUserId: $user->id,
+            targetEmail: $user->email,
+        );
+        $user->forceDelete();
+
+        return back()->with('status', "Akun {$before['fullname']} dihapus permanen. Email & username-nya kini bisa dipakai lagi.");
+    }
+
     /* ----------------------- privilege helpers ----------------------- */
 
     private function assertCanAssignRole(User $actor, string $role): void
