@@ -241,6 +241,21 @@ class TikTokAffiliateTest extends TestCase
             ->assertOk()->assertSee('26.660.884');
     }
 
+    public function test_gmv_asli_nol_rentang_dan_tanpa_data_dibedakan(): void
+    {
+        $nol = Kol::create(['tiktok_username' => 'gmvnol', 'followers' => 1_000]);
+        KolTiktokProfile::create(['kol_id' => $nol->id, 'gmv_idr' => 0]);
+        $rentang = Kol::create(['tiktok_username' => 'gmvrentang', 'followers' => 1_000]);
+        KolTiktokProfile::create(['kol_id' => $rentang->id, 'gmv_range' => 'Rp1JT-Rp5JT']);
+        $kosong = Kol::create(['tiktok_username' => 'gmvkosong', 'followers' => 1_000]);
+        KolTiktokProfile::create(['kol_id' => $kosong->id, 'gender' => 'FEMALE', 'gender_pct' => 76.6]);
+
+        $this->actingAs($this->user('kol_specialist', 'sp16'))->get(route('kols.index'))->assertOk()
+            ->assertSee('Rp 0')
+            ->assertSee('Rp1JT-Rp5JT')
+            ->assertSee('tak ada data');
+    }
+
     public function test_baris_belum_discreening_tetap_sejajar_saat_kolom_views_disembunyikan(): void
     {
         $kol = Kol::create(['tiktok_username' => 'belumscreen', 'followers' => 1_000]);
