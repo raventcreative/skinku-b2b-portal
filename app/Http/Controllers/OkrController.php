@@ -122,7 +122,8 @@ class OkrController extends Controller
         return view('okr.show', [
             'okr' => $okr,
             'members' => $this->members(),
-            'columns' => BoardColumn::query()->with('board')->orderBy('board_id')->orderBy('position')->get(),
+            // Hanya kolom dari papan yang masih ada (papan soft-deleted → kolomnya yatim).
+            'columns' => BoardColumn::query()->whereHas('board')->with('board')->orderBy('board_id')->orderBy('position')->get(),
             'delegationWarnings' => $okr->isDraft() ? $this->okr->delegationWarnings($okr) : [],
         ]);
     }
@@ -345,6 +346,9 @@ class OkrController extends Controller
                         $errors[] = "Penerima tugas \"{$task->title}\" bukan anggota internal aktif.";
                     }
                     $column = BoardColumn::find($row['board_column_id']);
+                    if ($column && ! $column->board) {
+                        $errors[] = "Tugas \"{$task->title}\" diarahkan ke papan Kanban yang sudah dihapus. Pilih kolom lain.";
+                    }
                     if ($column?->isDone()) {
                         $errors[] = "Tugas \"{$task->title}\" tidak boleh dimulai di kolom Done/Selesai.";
                     }
