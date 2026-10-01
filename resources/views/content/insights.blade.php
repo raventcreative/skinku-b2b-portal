@@ -46,7 +46,11 @@
 
     @foreach($syncErrors as $error)
         <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            <strong>{{ strtoupper($error['platform']) }}:</strong> {{ $error['message'] }}
+            @if($error['platform'] === 'tiktok' && str_contains($error['message'], 'scope_not_authorized'))
+                <strong>TIKTOK:</strong> Data insight belum tersedia karena izin membaca video publik (<code>video.list</code>) belum aktif di akun. Setelah izin disetujui TikTok, hubungkan ulang akun agar metrik TikTok bisa ditarik.
+            @else
+                <strong>{{ strtoupper($error['platform']) }}:</strong> {{ $error['message'] }}
+            @endif
             <a href="{{ route('social.index') }}" class="ml-1 font-semibold underline">Periksa koneksi akun</a>
         </div>
     @endforeach
