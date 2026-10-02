@@ -32,30 +32,30 @@ class AccountingAccountTest extends TestCase
         $this->actingAs($admin)->get('/accounting/coa')->assertOk();
 
         $this->actingAs($admin)->post('/accounting/coa', [
-            'code' => '6014', 'name' => 'Beban Internet', 'type' => 'expense',
+            'code' => '6099', 'name' => 'Beban Internet', 'type' => 'expense',
             'subtype' => 'operating', 'normal_balance' => 'debit', 'is_active' => 1,
         ])->assertSessionHasNoErrors()->assertRedirect();
 
-        $this->assertDatabaseHas('acc_accounts', ['code' => '6014', 'name' => 'Beban Internet', 'type' => 'expense', 'subtype' => 'operating']);
+        $this->assertDatabaseHas('acc_accounts', ['code' => '6099', 'name' => 'Beban Internet', 'type' => 'expense', 'subtype' => 'operating']);
     }
 
     public function test_duplicate_code_rejected(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);
-        AccAccount::create(['code' => '6014', 'name' => 'X', 'type' => 'expense', 'subtype' => 'operating', 'normal_balance' => 'debit']);
+        AccAccount::create(['code' => '6099', 'name' => 'X', 'type' => 'expense', 'subtype' => 'operating', 'normal_balance' => 'debit']);
 
         $this->actingAs($admin)->post('/accounting/coa', [
-            'code' => '6014', 'name' => 'Y', 'type' => 'expense', 'normal_balance' => 'debit',
+            'code' => '6099', 'name' => 'Y', 'type' => 'expense', 'normal_balance' => 'debit',
         ])->assertSessionHasErrors('code');
     }
 
     public function test_admin_can_update_account(): void
     {
         $admin = $this->user(User::ROLE_ADMIN);
-        $a = AccAccount::create(['code' => '6014', 'name' => 'Beban Internet', 'type' => 'expense', 'subtype' => 'operating', 'normal_balance' => 'debit']);
+        $a = AccAccount::create(['code' => '6099', 'name' => 'Beban Internet', 'type' => 'expense', 'subtype' => 'operating', 'normal_balance' => 'debit']);
 
         $this->actingAs($admin)->put('/accounting/coa/'.$a->id, [
-            'code' => '6014', 'name' => 'Beban Internet & Data', 'type' => 'expense', 'subtype' => 'operating', 'normal_balance' => 'debit',
+            'code' => '6099', 'name' => 'Beban Internet & Data', 'type' => 'expense', 'subtype' => 'operating', 'normal_balance' => 'debit',
         ])->assertRedirect();
 
         $this->assertEquals('Beban Internet & Data', $a->fresh()->name);
