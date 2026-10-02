@@ -82,6 +82,14 @@ class ContentTikTokTest extends TestCase
         return ContentPost::latest('id')->first();
     }
 
+    public function test_simpan_draft_tiktok_tanpa_centang_consent_tidak_error(): void
+    {
+        // Checkbox tak tercentang = field tidak terkirim; 'accepted' implisit dulu tetap gagal.
+        $this->actingAs($this->user(User::ROLE_ADMIN, 'tdraft'))->post(route('content.store'), [
+            'title' => 'Serum', 'type' => 'video', 'intent' => 'draft', 'platforms' => ['tiktok'],
+        ])->assertSessionHasNoErrors();
+    }
+
     public function test_pembagian_potongan_upload_sesuai_aturan_tiktok(): void
     {
         $mb = 1024 * 1024;
