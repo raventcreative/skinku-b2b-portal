@@ -162,12 +162,22 @@ class ContentPostService
                     if (! array_key_exists($tiktok['privacy_level'], \App\Services\Social\TikTokContentClient::PRIVACY_LABELS)) {
                         throw ValidationException::withMessages(['tiktok.privacy_level' => 'Pilihan privasi TikTok tidak valid.']);
                     }
+                    $disclose = ! empty($tiktok['disclose']);
+                    $organic = $disclose && ! empty($tiktok['brand_organic']);
+                    $branded = $disclose && ! empty($tiktok['brand_content']);
+                    if ($disclose && ! $organic && ! $branded) {
+                        throw ValidationException::withMessages(['tiktok' => 'Pilih jenis konten komersial: Brand sendiri dan/atau Branded content.']);
+                    }
+                    if ($branded && $tiktok['privacy_level'] === 'SELF_ONLY') {
+                        throw ValidationException::withMessages(['tiktok.privacy_level' => 'Branded content tidak dapat diposting dengan privasi Hanya saya.']);
+                    }
                     $target->options = [
                         'privacy_level' => $tiktok['privacy_level'],
                         'allow_comment' => ! empty($tiktok['allow_comment']),
                         'allow_duet' => ! empty($tiktok['allow_duet']),
                         'allow_stitch' => ! empty($tiktok['allow_stitch']),
-                        'brand_organic' => ! empty($tiktok['brand_organic']),
+                        'brand_organic' => $organic,
+                        'brand_content' => $branded,
                         'music_usage_consent_at' => now()->toIso8601String(),
                     ];
                 }

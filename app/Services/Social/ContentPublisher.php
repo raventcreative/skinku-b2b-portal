@@ -103,6 +103,7 @@ class ContentPublisher
                     'disable_duet' => empty($opt['allow_duet']),
                     'disable_stitch' => empty($opt['allow_stitch']),
                     'brand_organic_toggle' => ! empty($opt['brand_organic']),
+                    'brand_content_toggle' => ! empty($opt['brand_content']),
                 ], Storage::disk($file->disk ?: 'public')->path($file->path), str_starts_with((string) $file->mime_type, 'video/') ? $file->mime_type : 'video/mp4');
             } else {
                 // Foto: judul maks 90, deskripsi maks 4000 (UTF-16).
@@ -112,6 +113,8 @@ class ContentPublisher
                     'privacy_level' => $opt['privacy_level'],
                     'disable_comment' => empty($opt['allow_comment']),
                     'auto_add_music' => true,
+                    'brand_organic_toggle' => ! empty($opt['brand_organic']),
+                    'brand_content_toggle' => ! empty($opt['brand_content']),
                 ], $urls);
             }
             $target->update(['container_id' => $publishId]);

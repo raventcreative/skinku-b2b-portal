@@ -90,6 +90,26 @@ class ContentTikTokTest extends TestCase
         ])->assertSessionHasNoErrors();
     }
 
+    public function test_disclosure_konten_komersial_divalidasi_dan_tersimpan(): void
+    {
+        $this->connect();
+        $this->fakeTikTok();
+        $admin = $this->user(User::ROLE_ADMIN, 'tdisc');
+        $kirim = fn (array $tiktok) => $this->actingAs($admin)->post(route('content.store'), [
+            'title' => 'Serum', 'type' => 'video', 'intent' => 'publish', 'caption' => 'Glow #skinku', 'platforms' => ['tiktok'],
+            'media' => [UploadedFile::fake()->createWithContent('v.mp4', self::mp4Bytes())],
+            'tiktok' => $tiktok + ['consent' => '1', 'disclose' => '1'],
+        ]);
+
+        $kirim(['privacy_level' => 'PUBLIC_TO_EVERYONE'])->assertSessionHasErrors('tiktok');
+        $kirim(['privacy_level' => 'SELF_ONLY', 'brand_content' => '1'])->assertSessionHasErrors('tiktok.privacy_level');
+        $kirim(['privacy_level' => 'PUBLIC_TO_EVERYONE', 'brand_content' => '1'])->assertSessionHasNoErrors();
+
+        $opt = ContentPostTarget::where('platform', 'tiktok')->where('status', '!=', 'draft')->latest('id')->first()->options;
+        $this->assertTrue($opt['brand_content']);
+        $this->assertFalse($opt['brand_organic']);
+    }
+
     public function test_pembagian_potongan_upload_sesuai_aturan_tiktok(): void
     {
         $mb = 1024 * 1024;
