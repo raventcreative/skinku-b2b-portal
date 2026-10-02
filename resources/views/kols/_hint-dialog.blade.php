@@ -1,4 +1,4 @@
-{{-- Isi penjelasan untuk tombol (?) (kols._hint). Satu dialog dipakai bergantian. --}}
+{{-- Isi penjelasan untuk tombol (?) (kols._hint). Satu catatan dipakai bergantian. --}}
 <template id="hint-aps">
     <p class="font-bold text-stone-800 mb-1">APS — Affiliate Potential Score (0–100)</p>
     <p class="mb-2">Menilai <b>affiliate yang SUDAH jualan SKINKU</b>: layak dibina atau cukup dipantau. Dihitung dari 4 minggu terakhir.</p>
@@ -32,17 +32,33 @@
     <p>≥20% (hijau) = sudah loyal. Kecil tapi GMV Asli besar = jago jualan brand lain → peluang push SKINKU. <b>100%+ ⚠</b> = data GMV Asli TikTok sudah lama → Perbarui performa di detail KOL.</p>
 </template>
 
-<dialog id="kolHintDlg" class="rounded-2xl p-0 w-[min(92vw,26rem)] backdrop:bg-black/30" onclick="if (event.target === this) this.close()">
-    <div class="p-5 text-[13px] text-stone-600 leading-relaxed">
-        <div id="kolHintBody"></div>
-        <button type="button" onclick="document.getElementById('kolHintDlg').close()" class="mt-4 w-full px-4 py-2 rounded-lg bg-stone-800 text-white text-xs font-semibold">Mengerti</button>
-    </div>
-</dialog>
+{{-- Catatan ala comment Excel: menempel di samping tombol (?), tanpa menutupi halaman.
+     Tutup: klik di luar, Esc, atau scroll. --}}
+<div id="kolHintPop" role="tooltip" class="hidden fixed z-[1000] w-80 max-w-[90vw] rounded-lg border border-amber-300 bg-amber-50 shadow-lg p-3 text-[12px] text-stone-700 leading-relaxed normal-case font-normal text-left tracking-normal">
+    <button type="button" onclick="kolHintClose()" class="absolute top-1 right-2 text-stone-400 hover:text-stone-700 text-sm" aria-label="Tutup">×</button>
+    <div id="kolHintBody" class="pr-3"></div>
+</div>
 <script>
-    function kolHint(key) {
-        var t = document.getElementById('hint-' + key), d = document.getElementById('kolHintDlg');
-        if (!t || !d) return;
+    var kolHintFor = null;
+    function kolHintClose() { document.getElementById('kolHintPop').classList.add('hidden'); kolHintFor = null; }
+    function kolHint(key, btn) {
+        var t = document.getElementById('hint-' + key), pop = document.getElementById('kolHintPop');
+        if (!t || !pop) return;
+        if (kolHintFor === btn) { kolHintClose(); return; } // klik (?) yang sama = tutup
         document.getElementById('kolHintBody').innerHTML = t.innerHTML;
-        d.showModal();
+        pop.classList.remove('hidden');
+        // Posisi: kanan tombol; kalau mentok kanan layar → kiri tombol. Jaga tetap di layar.
+        var r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight, gap = 8;
+        var left = r.right + gap;
+        if (left + w > window.innerWidth - gap) left = Math.max(gap, r.left - w - gap);
+        var top = Math.min(Math.max(gap, r.top - 8), window.innerHeight - h - gap);
+        pop.style.left = left + 'px'; pop.style.top = Math.max(gap, top) + 'px';
+        kolHintFor = btn;
     }
+    document.addEventListener('click', function (e) {
+        var pop = document.getElementById('kolHintPop');
+        if (kolHintFor && pop && !pop.contains(e.target)) kolHintClose();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') kolHintClose(); });
+    window.addEventListener('scroll', function () { if (kolHintFor) kolHintClose(); }, true);
 </script>
