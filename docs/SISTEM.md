@@ -596,6 +596,7 @@ Docblock: *"Semua laporan berbasis agregat SQL — tak pernah mock. 'Sales' = PO
 | `salesTrend(granularity, points, ?User, ?month)` | Total sales per bucket waktu (hari/minggu/bulan); zero-fill hari saat 1 bulan dipilih. |
 | `salesByProduct(limit, ?User, ?month)` | Produk teratas by revenue. |
 | `ProdukTerlarisService::report(month)` *(service terpisah)* | Panel **Produk Terlaris** dashboard (staff): unit terjual per channel (Semua/Reseller-PO/TikTok/Shopee), order berbayar (selesai+berjalan), SKU marketplace di-resolve lewat peta SKU/bundle (isi × qty), SKU belum dipetakan tetap tampil bertanda; ▲▼ vs bulan lalu. Ikut `?bulan` dashboard. |
+| `BusinessReportService` *(menu Laporan → Generate Report, `/laporan-bisnis`)* | Laporan Mingguan/Bulanan/Kuartal/Tahunan/Custom vs periode sebelumnya (periode berjalan dipotong s/d hari ini). Merangkai channelSales, ProdukTerlaris, mitra/PO (top, tidak order, retur), stok vs laju jual, KOL (izin `kol.affiliate.view`), laba rugi (izin `view_accounting`). PDF = print browser (grafik Chart.js), Excel = `XlsxWriter` multi-sheet, analisis AI via `ReportAi::analyze` (AJAX, cache 12 jam, audit `generate_business_report_ai`). Staff + `view_reports`. |
 | `partnerSalesDetail(?month)` | Detail penjualan per-mitra (grup `company_name`). |
 | `salesByPartner(role, limit, ?month)` | Penjualan per-mitra dalam 1 role. HQ-only. |
 | `omzetPerMitra(?month)` | Gabung 2 jalur sebagai seller: PO ke downline + `PartnerSale` ke end-customer. |

@@ -32,15 +32,15 @@ class ProdukTerlarisService
      *
      * @return array{label:string, prev_label:string, channels: array<string, array{total:int, rows: array<int, array{label:string, qty:int, prev:int, unmapped:bool}>}>}
      */
-    public function report(Carbon $month, int $limit = 10, ?Carbon $from = null, ?Carbon $to = null): array
+    public function report(Carbon $month, int $limit = 10, ?Carbon $from = null, ?Carbon $to = null, ?Carbon $prevFrom = null, ?Carbon $prevTo = null): array
     {
         if ($from && $to) {
-            // Rentang bebas → dibanding rentang sepanjang sama tepat sebelumnya.
+            // Rentang bebas → dibanding rentang sepanjang sama tepat sebelumnya (atau pembanding eksplisit).
             $start = $from->copy()->startOfDay();
             $end = $to->copy()->endOfDay();
             $days = (int) $start->diffInDays($to->copy()->startOfDay()) + 1;
-            $prevEnd = $start->copy()->subDay()->endOfDay();
-            $prevStart = $start->copy()->subDays($days);
+            $prevEnd = $prevTo ? $prevTo->copy()->endOfDay() : $start->copy()->subDay()->endOfDay();
+            $prevStart = $prevFrom ? $prevFrom->copy()->startOfDay() : $start->copy()->subDays($days);
             $label = $this->rangeLabel($start, $end);
             $prevLabel = $this->rangeLabel($prevStart, $prevEnd);
         } else {
