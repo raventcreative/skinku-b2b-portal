@@ -25,7 +25,8 @@ class KolController extends Controller
         // Arah & kolom sort divalidasi ke daftar putih — nilai ngawur jatuh ke default.
         $sortable = ['username', 'followers', 'level', 'kategori', 'status', 'agency',
             'ratecard', 'total', 'avg', 'median', 'ratio', 'cpm_mean', 'cpm', 'cpv', 'rank',
-            'verdict_mean', 'verdict', 'gmv', 'gmv_real', 'gmv_30', 'share'];
+            'verdict_mean', 'verdict', 'gmv', 'gmv_real', 'gmv_30', 'share',
+            'gmv_asli', 'avg_views', 'engagement', 'gpm', 'gmv_video'];
         $sort = in_array($request->query('sort'), $sortable, true)
             ? $request->query('sort') : 'username';
         $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
@@ -180,6 +181,12 @@ class KolController extends Controller
             // GMV Bln = GMV affiliate REAL bulan ini (dari $gmvMap), bukan estimasi screening.
             'gmv_real' => fn (Kol $k) => $gmvMap?->get($k->id)?->gmv,
             'gmv_30' => fn (Kol $k) => $gmv30Map?->get($k->id)?->gmv,
+            // Kolom data TikTok — yang belum tersinkron (null) tetap tenggelam ke bawah.
+            'gmv_asli' => fn (Kol $k) => $k->tiktokProfile?->gmv_idr ?? $k->latestScreening?->gmv,
+            'avg_views' => fn (Kol $k) => $k->tiktokProfile?->avg_video_views ?: null,
+            'engagement' => fn (Kol $k) => $k->tiktokProfile?->video_engagement_pct,
+            'gpm' => fn (Kol $k) => $k->tiktokProfile?->gpm_idr,
+            'gmv_video' => fn (Kol $k) => $k->tiktokProfile?->video_gmv_idr,
             'share' => fn (Kol $k) => self::porsiSkinku($k, $gmv30Map),
             // Indikator/CPM Mean pakai CPM rata sebagai nilai sort-nya.
             'cpm_mean', 'verdict_mean' => fn (Kol $k) => $k->latestScreening?->cpm_rata,

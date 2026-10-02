@@ -229,4 +229,21 @@ class KolPerformanceTrackerTest extends TestCase
         $this->assertSame(2, substr_count($html, 'font-semibold">KOL</span>'));      // kol + both
         $this->assertSame(1, substr_count($html, 'text-sky-700">Affiliate</span>')); // both
     }
+
+    public function test_kolom_tiktok_bisa_diurutkan_dan_status_sync_dibedakan(): void
+    {
+        $a = $this->kol('gpmkecil');
+        $a->tiktokProfile->update(['gpm_idr' => 1_000]);
+        $b = $this->kol('gpmbesar');
+        $b->tiktokProfile->update(['gpm_idr' => 50_000]);
+        Kol::create(['tiktok_username' => 'belumdicek', 'followers' => 0]);
+        Kol::create(['tiktok_username' => 'takada', 'followers' => 0, 'tiktok_checked_at' => now()]);
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'sasort');
+
+        $html = $this->actingAs($super)->get(route('kols.index', ['sort' => 'gpm', 'dir' => 'desc']))->assertOk()->getContent();
+        $this->assertTrue(strpos($html, '@gpmbesar') < strpos($html, '@gpmkecil'));
+        $this->assertTrue(strpos($html, '@gpmkecil') < strpos($html, '@belumdicek')); // tanpa data → bawah
+        $this->assertStringContainsString('antre sync', $html);
+        $this->assertStringContainsString('tak ada di TikTok', $html);
+    }
 }
