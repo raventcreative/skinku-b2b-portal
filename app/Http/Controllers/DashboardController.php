@@ -72,7 +72,9 @@ class DashboardController extends Controller
         $yearlyOmzet = $user->isStaff() ? $this->reports->yearlyOmzet($bulan) : null;
 
         // Produk terlaris bulan ini per channel (unit) — data HQ, hanya staff.
-        $produkTerlaris = $user->isStaff() ? app(\App\Services\ProdukTerlarisService::class)->report($bulan) : null;
+        // ?pt_bulan = pilihan bulan khusus panel ini (default ikut ?bulan dashboard).
+        $ptBulan = $request->filled('pt_bulan') ? $this->parseMonth($request->query('pt_bulan')) : $bulan;
+        $produkTerlaris = $user->isStaff() ? app(\App\Services\ProdukTerlarisService::class)->report($ptBulan) : null;
 
         // Recent POs visible to this user.
         $recentPo = PurchaseOrder::query()
@@ -121,7 +123,7 @@ class DashboardController extends Controller
                 ->get()
             : collect();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'trendByChannel', 'channelSales', 'yearlyOmzet', 'produkTerlaris', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'trendByChannel', 'channelSales', 'yearlyOmzet', 'produkTerlaris', 'ptBulan', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
     }
 
     /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */
