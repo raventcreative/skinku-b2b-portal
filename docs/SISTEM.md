@@ -705,6 +705,11 @@ Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/spec
 
 **Izin baru:** `kol.affiliate.view`, `kol.affiliate.manage`.
 
+### KSS setengah otomatis + filter skor
+- `KolScoringService::kssPrefill(Kol)` — tebak isian KSS dari data yang ada: ratecard (screening), median (screening → fallback avg views TikTok), ER (TikTok), niche (kategori Skinfluencer/Makeup → beauty), riwayat (verdict deal selesai; tanpa deal → "belum pernah"), kesiapan (jumlah video+LIVE jualan 30 hari ≥8 aktif / >0 jarang / 0 tidak). null = isi manual. Kalkulator (`kol-skor.kss?kol={id}`) mengisi otomatis + menampilkan sumber tiap isian; tombol "hitung" di kolom KSS Database KOL.
+- Database KOL: filter & urut **APS** (bina_intensif/pantau/nurture/new/belum, gated `kol.affiliate.view`) dan **KSS** (shortlist/nego/tolak/belum) dari skor terakhir `kol_scores`.
+- Tombol **(?)** penjelasan istilah (APS, KSS, GPM, Porsi SKINKU): partial `kols._hint` + `kols._hint-dialog` (satu `<dialog>` per halaman). Test: `tests/Feature/KolKssOtomatisTest.php`.
+
 ### Tracker performa TikTok (migrasi `000157`)
 - Sumber: TikTok Creator Marketplace `GET /affiliate_seller/202608/marketplace_creators/{open_id}` (`TikTokClient::getMarketplaceCreatorPerformance`) — **ringkasan 30 hari saja** (avg views video jualan, jumlah video/LIVE, engagement, GMV + split video/LIVE, GPM, unit terjual, kolaborasi brand, komisi). **Tidak** ada views per video / tren harian di API ini.
 - `TikTokAffiliateService::mapCreatorPerformance()` (murni, dites dgn JSON probe asli): **semua uang Rupiah** (USD × `services.tiktok_affiliate.usd_idr_rate`), rate/persen TikTok basis 10.000 (250 = 2,5%). `applyPerformanceToKol()` → `kol_tiktok_profiles` (angka terbaru, kolom baru + `performance_synced_at`) + `kol_tiktok_snapshots` (1 baris/KOL/hari, unik `kol_id+captured_on`).
