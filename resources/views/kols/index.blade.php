@@ -174,7 +174,7 @@
                 <th rowspan="2" class="text-left align-bottom">{!! $sortLink('kategori', 'Kategori') !!}</th>
                 <th rowspan="2" class="text-left align-bottom">{!! $sortLink('status', 'Status') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Agency / Non-Agency">{!! $sortLink('agency', 'Agency') !!}</th>
-                <th rowspan="2" class="text-left align-bottom" title="Demografi audiens TikTok (gender mayoritas + umur dominan) — dari Cek Performa TikTok. Kosong = belum disimpan.">Demografi</th>
+                <th rowspan="2" class="text-left align-bottom" title="Demografi audiens TikTok (gender mayoritas + umur dominan). &quot;antre sync&quot; = belum dicek; &quot;tak ada di TikTok&quot; = sudah dicek, datanya memang tidak tersedia.">Demografi</th>
                 {{-- SEMUA kolom angka bisa diurutkan, seperti Excel. Yang belum
                      discreening selalu tenggelam ke bawah apa pun arahnya. --}}
                 <th rowspan="2" class="text-right align-bottom" title="Harga kerjasama yang diminta (screening terakhir)">{!! $sortLink('ratecard', 'Ratecard') !!}</th>
@@ -190,14 +190,14 @@
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari RATA-RATA views — bisa terangkat 1 video viral, jadi pembanding saja">{!! $sortLink('verdict_mean', 'Penilaian Rata-rata') !!}</th>
                 <th rowspan="2" class="text-left px-3 align-bottom" title="Penilaian layak/tidak dari views MEDIAN (tengah) — ACUAN UTAMA, tahan dari 1 video viral">{!! $sortLink('verdict', 'Penilaian Median') !!}</th>
                 <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV = median views × 1,2% konversi × Rp38rb order rata-rata — hitungan sistem, BUKAN data asli">{!! $sortLink('gmv', 'GMV Estimasi · Viral · Fake') !!}</th>
-                <th rowspan="2" class="text-right align-bottom" title="GMV Asli = total jualan kreator ini 30 hari terakhir untuk SEMUA brand (dari TikTok), atau isian manual screening. Menunjukkan seberapa jago dia jualan secara umum.">GMV Asli<span class="block normal-case font-normal text-stone-400">30 hr · semua brand</span></th>
+                <th rowspan="2" class="text-right align-bottom" title="GMV Asli = total jualan kreator ini 30 hari terakhir untuk SEMUA brand (dari TikTok), atau isian manual screening. Menunjukkan seberapa jago dia jualan secara umum.">{!! $sortLink('gmv_asli', 'GMV Asli') !!}<span class="block normal-case font-normal text-stone-400">30 hr · semua brand</span></th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="GMV SKINKU 30 hari terakhir — order affiliate asli SKINKU, jendela SAMA dengan GMV Asli → dasar Porsi SKINKU.">{!! $sortLink('gmv_30', 'GMV SKINKU') !!}<span class="block normal-case font-normal text-stone-400">30 hari</span></th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="Porsi SKINKU = GMV SKINKU 30 hari ÷ GMV Asli 30 hari (semua brand). >100% = data GMV Asli TikTok lebih lama/beda hitungan — perbarui performa KOL-nya.">{!! $sortLink('share', 'Porsi SKINKU') !!}<span class="block normal-case font-normal text-stone-400">dari total</span></th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="GMV SKINKU per bulan kalender (ganti di filter) — pantau pencapaian bulan berjalan.">{!! $sortLink('gmv_real', 'GMV SKINKU') !!}<span class="block normal-case font-normal text-stone-400">{{ $gmvLabel }}</span></th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="Rata-rata views video jualan 30 hari — dari TikTok (otomatis, bukan isian screening)">Avg Views</th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="Engagement rate video jualan 30 hari — dari TikTok">Engagement</th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="GPM = GMV per 1.000 views (Rupiah) — makin tinggi, makin jago jualan per penonton">GPM</th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="GMV 30 hari dari video vs LIVE (Rupiah)">GMV Video · LIVE</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="Rata-rata views video jualan 30 hari — dari TikTok (otomatis, bukan isian screening)">{!! $sortLink('avg_views', 'Avg Views') !!}</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="Engagement rate video jualan 30 hari — dari TikTok">{!! $sortLink('engagement', 'Engagement') !!}</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="GPM = GMV per 1.000 views (Rupiah) — makin tinggi, makin jago jualan per penonton">{!! $sortLink('gpm', 'GPM') !!}</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="GMV 30 hari dari video vs LIVE (Rupiah)">{!! $sortLink('gmv_video', 'GMV Video · LIVE') !!}</th>
                 <th rowspan="2" class="text-center px-2 align-bottom" title="Skor APS terakhir (jejak)">APS</th>
                 <th rowspan="2" class="text-center px-2 align-bottom" title="Skor KSS terakhir (jejak)">KSS</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
@@ -242,8 +242,10 @@
                         @if($tpp && ($genderLine || $tpp->age_ranges))
                             @if($genderLine)<span class="text-sm font-bold text-stone-800" title="Gender mayoritas audiens">{{ $genderLine }}</span>@endif
                             @if($tpp->age_ranges)<span class="block text-[11px] font-semibold text-stone-500" title="Umur dominan">{{ $tpp->age_ranges }} th</span>@endif
+                        @elseif($kol->tiktok_checked_at)
+                            <span class="text-[10px] text-stone-400" title="Sudah dicek {{ $kol->tiktok_checked_at->format('d M') }} — username ini tidak ditemukan / tak punya data di TikTok Creator Marketplace (biasanya kreator kecil). Dicek ulang otomatis tiap 30 hari.">tak ada di TikTok</span>
                         @else
-                            <span class="text-stone-300">—</span>
+                            <span class="text-[10px] text-amber-600" title="Belum dicek ke TikTok — terisi otomatis lewat sync harian (07:30) atau jalankan isi otomatis.">antre sync</span>
                         @endif
                     </td>
                     @php $ls = $kol->latestScreening; @endphp
