@@ -18,7 +18,7 @@ use Illuminate\Validation\Rule;
 
 class KolController extends Controller
 {
-    public function index(Request $request, KolAffiliateService $aff)
+    public function index(Request $request, KolAffiliateService $aff, KolScoringService $scoring)
     {
         $filters = $request->only(['level', 'kategori', 'status', 'verdict', 'platform', 'role', 'q', 'gapok', 'gmv_periode', 'aps', 'kss']);
 
@@ -33,7 +33,7 @@ class KolController extends Controller
 
         $q = trim((string) ($filters['q'] ?? ''));
         $kols = Kol::query()
-            ->with(['latestScreening', 'tiktokProfile'])
+            ->with(['latestScreening', 'tiktokProfile', 'deals'])
             ->when($filters['kategori'] ?? null, fn ($qr, $v) => $qr->where('kategori', $v))
             ->when($filters['status'] ?? null, fn ($qr, $v) => $qr->where('status', $v))
             ->when($filters['platform'] ?? null, fn ($qr, $v) => $qr->where('platform', $v))
@@ -72,6 +72,10 @@ class KolController extends Controller
         $scores = KolScore::whereIn('type', ['aps', 'kss'])->latest('captured_on')->latest('id')->get();
         $apsMap = $scores->where('type', 'aps')->unique('kol_id')->keyBy('kol_id');
         $kssMap = $scores->where('type', 'kss')->unique('kol_id')->keyBy('kol_id');
+        // KSS otomatis (estimasi) untuk yang belum punya skor tersimpan → filter/urut ikut memakainya.
+        $kssAuto = $kols->reject(fn (Kol $k) => $kssMap->has($k->id))
+            ->mapWithKeys(fn (Kol $k) => [$k->id => $scoring->kssAuto($k)])->filter();
+        $kssLabel = fn (Kol $k) => $kssMap->get($k->id)?->label ?? ($kssAuto->get($k->id)['decision'] ?? 'belum');
 
         // Filter skor: label terakhir (APS: bina_intensif/pantau/nurture/new; KSS:
         // shortlist/nego/tolak) atau "belum" = belum pernah dinilai. APS = angka uang
@@ -80,10 +84,10 @@ class KolController extends Controller
             $kols = $kols->filter(fn (Kol $k) => ($apsMap->get($k->id)?->label ?? 'belum') === $f);
         }
         if ($f = $filters['kss'] ?? null) {
-            $kols = $kols->filter(fn (Kol $k) => ($kssMap->get($k->id)?->label ?? 'belum') === $f);
+            $kols = $kols->filter(fn (Kol $k) => $kssLabel($k) === $f);
         }
 
-        $kols = $this->sorted($kols, $sort, $dir, $gmvMap, $gmv30Map, $canAffiliate ? $apsMap : collect(), $kssMap)->values();
+        $kols = $this->sorted($kols, $sort, $dir, $gmvMap, $gmv30Map, $canAffiliate ? $apsMap : collect(), $kssMap, $kssAuto)->values();
 
         return view('kols.index', [
             'kols' => $kols,
@@ -104,6 +108,7 @@ class KolController extends Controller
             'gmvLabel' => $gmvLabel,
             'apsMap' => $apsMap,
             'kssMap' => $kssMap,
+            'kssAuto' => $kssAuto,
             // Rank global (kolom Z Excel) — daftar menampilkan rank milik
             // screening terakhir tiap KOL.
             'ranks' => $this->ranks(),
@@ -175,7 +180,7 @@ class KolController extends Controller
         return round($skinku / $total * 100, 1);
     }
 
-    private function sorted($kols, string $sort, string $dir, $gmvMap = null, $gmv30Map = null, $apsMap = null, $kssMap = null)
+    private function sorted($kols, string $sort, string $dir, $gmvMap = null, $gmv30Map = null, $apsMap = null, $kssMap = null, $kssAuto = null)
     {
         // Kolom turunan screening — SEMUA header angka bisa diurutkan, seperti
         // Excel. Yang belum discreening SELALU di bawah, apa pun arahnya:
@@ -199,7 +204,7 @@ class KolController extends Controller
             'gpm' => fn (Kol $k) => $k->tiktokProfile?->gpm_idr,
             'gmv_video' => fn (Kol $k) => $k->tiktokProfile?->video_gmv_idr,
             'aps' => fn (Kol $k) => $apsMap?->get($k->id)?->score,
-            'kss' => fn (Kol $k) => $kssMap?->get($k->id)?->score,
+            'kss' => fn (Kol $k) => $kssMap?->get($k->id)?->score ?? ($kssAuto?->get($k->id)['score'] ?? null),
             'share' => fn (Kol $k) => self::porsiSkinku($k, $gmv30Map),
             // Indikator/CPM Mean pakai CPM rata sebagai nilai sort-nya.
             'cpm_mean', 'verdict_mean' => fn (Kol $k) => $k->latestScreening?->cpm_rata,

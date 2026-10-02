@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\File;
 use App\Models\MarketplaceListing;
 use App\Models\MarketplaceMaster;
+use App\Models\Product;
 use App\Models\ShopeeConnection;
 use App\Models\TiktokConnection;
 use App\Services\ImageService;
@@ -12,6 +13,7 @@ use App\Services\MarketplaceMasterService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -31,7 +33,7 @@ class MarketplaceStockController extends Controller
         $tab = in_array($request->query('tab'), ['satuan', 'bundle'], true) ? $request->query('tab') : 'semua';
 
         // Hanya master teratas (induk/tunggal); varian ditampilkan menempel di bawah induknya.
-        $q = MarketplaceMaster::whereNull('parent_id')->with(['listings:id,master_id,channel', 'variants.listings:id,master_id,channel', 'bundleItems.component.channels', 'variants.bundleItems']);
+        $q = MarketplaceMaster::whereNull('parent_id')->with(['listings:id,master_id,channel', 'variants.listings:id,master_id,channel', 'bundleItems.component.channels', 'variants.bundleItems.component.channels']);
         if ($tab === 'satuan') {
             $q->where('is_bundle', false);
         } elseif ($tab === 'bundle') {
@@ -41,9 +43,11 @@ class MarketplaceStockController extends Controller
         $masters = $q->orderBy('name')->get();
         // Stok bundle ber-resep = hitungan dari komponen (stok dasar, tanpa override channel) utk ditampilkan.
         $svc = app(MarketplaceMasterService::class);
-        $stokBundle = $masters->filter(fn ($m) => $m->bundleItems->isNotEmpty())->mapWithKeys(fn ($m) => [$m->id => $svc->effectiveStock($m, '')]);
+        // Induk + varian (varian bisa ber-isi, mis. "3 Pcs" = Scrub-1 × 3).
+        $semua = $masters->concat($masters->flatMap(fn ($m) => $m->variants));
+        $stokBundle = $semua->filter(fn ($m) => $m->bundleItems->isNotEmpty())->mapWithKeys(fn ($m) => [$m->id => $svc->effectiveStock($m, '')]);
         // Bundle yg stoknya tak bisa dihitung: sebut isi mana yg stoknya belum diisi.
-        $isiKosong = $masters->filter(fn ($m) => $m->bundleItems->isNotEmpty() && $stokBundle[$m->id] === null)
+        $isiKosong = $semua->filter(fn ($m) => $m->bundleItems->isNotEmpty() && $stokBundle[$m->id] === null)
             ->mapWithKeys(fn ($m) => [$m->id => $m->bundleItems->filter(fn ($it) => $it->component && $svc->effectiveStock($it->component, '') === null)->map(fn ($it) => $it->component->master_sku)->implode(', ')]);
 
         return view('marketplace-stock.index', [
@@ -154,6 +158,9 @@ class MarketplaceStockController extends Controller
             'varian.*.price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'varian.*.stock' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'varian.*.barcode' => ['nullable', 'string', 'max:255'],
+            // Isi varian (mis. "3 Pcs" = SKU Scrub-1 × 3) → stok varian dihitung otomatis.
+            'varian.*.isi_sku' => ['nullable', 'string', 'max:255'],
+            'varian.*.isi_qty' => ['nullable', 'integer', 'min:1', 'max:999'],
             'isi_bundle' => ['nullable', 'array', 'max:20'],
             'isi_bundle.*.component_id' => ['required', 'integer', 'exists:marketplace_masters,id'],
             'isi_bundle.*.qty' => ['required', 'integer', 'min:1', 'max:999'],
@@ -325,11 +332,14 @@ class MarketplaceStockController extends Controller
             if (($row['price'] ?? '') !== '' && (float) $row['price'] !== (float) $anak->base_price) {
                 $svc->setMasterPrice($anak, (float) $row['price']);
             }
-            if (($row['stock'] ?? '') !== '' && (int) $row['stock'] !== $anak->base_stock) {
+            // Varian ber-isi: stok dihitung dari isinya → isian stok manual diabaikan.
+            $punyaIsi = trim((string) ($row['isi_sku'] ?? '')) !== '';
+            if (! $punyaIsi && ($row['stock'] ?? '') !== '' && (int) $row['stock'] !== $anak->base_stock) {
                 $svc->setMasterStock($anak, (int) $row['stock']);
             }
             $simpan[] = $anak;
         }
+        $this->simpanIsiVarian($rows, $simpan);
 
         $ids = array_map(fn ($a) => $a->id, $simpan);
         $ada->reject(fn ($a) => in_array($a->id, $ids, true))->each->delete();
@@ -351,6 +361,32 @@ class MarketplaceStockController extends Controller
         }
 
         return $pindah;
+    }
+
+    /**
+     * Resep per varian (kolom "Isi"): SKU isi × qty, mis. varian "3 Pcs" = Scrub-1 × 3 → stok varian
+     * = floor(stok Scrub-1 / 3) dan order varian memotong stok Scrub-1 ×3 (mesin bundle yang sama).
+     * SKU dicari dulu di antara saudara varian (boleh yang baru dibuat di simpan yang sama), lalu
+     * master lain yang bukan induk bervarian & bukan bundle ber-resep. Isi kosong → resep dihapus.
+     *
+     * @param  array<int,array<string,mixed>>  $rows
+     * @param  array<int,MarketplaceMaster>  $simpan  varian tersimpan, urutan sama dengan $rows
+     */
+    private function simpanIsiVarian(array $rows, array $simpan): void
+    {
+        foreach ($simpan as $i => $anak) {
+            $sku = mb_strtolower(trim((string) ($rows[$i]['isi_sku'] ?? '')));
+            $anak->bundleItems()->delete();
+            if ($sku === '') {
+                continue;
+            }
+            $komponen = collect($simpan)->first(fn ($s) => $s->id !== $anak->id && mb_strtolower((string) $s->master_sku) === $sku)
+                ?? MarketplaceMaster::whereRaw('LOWER(master_sku) = ?', [$sku])->where('id', '!=', $anak->id)
+                    ->whereDoesntHave('variants')->orderBy('id')->first();
+            if ($komponen && ! $komponen->bundleItems()->exists()) {
+                $anak->bundleItems()->create(['component_id' => $komponen->id, 'qty' => max(1, (int) ($rows[$i]['isi_qty'] ?? 1))]);
+            }
+        }
     }
 
     /**
@@ -379,9 +415,9 @@ class MarketplaceStockController extends Controller
     }
 
     /** Daftar produk HQ utk penanda "Produk HQ" (hanya dibaca). */
-    private function produkHq(): \Illuminate\Support\Collection
+    private function produkHq(): Collection
     {
-        return \App\Models\Product::orderBy('name')->get(['id', 'name', 'sku']);
+        return Product::orderBy('name')->get(['id', 'name', 'sku']);
     }
 
     /** Pilihan komponen bundling: unit jual (bukan induk bervarian, bukan bundle ber-resep, bukan diri sendiri). */
@@ -390,7 +426,7 @@ class MarketplaceStockController extends Controller
         return MarketplaceMaster::whereDoesntHave('variants')->whereDoesntHave('bundleItems')
             ->when($kecuali, fn ($q) => $q->where('id', '!=', $kecuali->id))
             ->orderBy('name')->get(['id', 'name', 'master_sku', 'base_stock'])
-            ->map(fn ($m) => ['id' => $m->id, 'label' => $m->name.' ('.$m->master_sku.')', 'stok' => $m->base_stock])->all();
+            ->map(fn ($m) => ['id' => $m->id, 'sku' => $m->master_sku, 'label' => $m->name.' ('.$m->master_sku.')', 'stok' => $m->base_stock])->all();
     }
 
     /** Dorong stok & harga induk + semua variannya. @return array{pushed:int,skipped:int,failed:int} */

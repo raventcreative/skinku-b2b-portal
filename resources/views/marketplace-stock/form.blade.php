@@ -176,7 +176,8 @@
         {{-- VARIAN ala Desty: opsi varian = master anak (SKU/harga/stok/barcode + listing sendiri). Nama/foto/deskripsi/
              kategori tetap di produk ini (induk). Daftar terkirim = himpunan lengkap (lihat simpanVarian()). --}}
         @php
-            $varianRows = old('varian', $master->exists ? $master->variants->map(fn ($v) => ['id' => $v->id, 'name' => $v->variant_name, 'sku' => $v->master_sku, 'price' => $v->base_price, 'stock' => $v->base_stock, 'barcode' => $v->barcode, 'listing' => $v->listings->count()])->all() : []);
+            $varianRows = old('varian', $master->exists ? $master->variants->map(fn ($v) => ['id' => $v->id, 'name' => $v->variant_name, 'sku' => $v->master_sku, 'price' => $v->base_price, 'stock' => $v->base_stock, 'barcode' => $v->barcode, 'listing' => $v->listings->count(),
+                'isi_sku' => $v->bundleItems->first()?->component?->master_sku, 'isi_qty' => $v->bundleItems->first()?->qty])->all() : []);
         @endphp
         <div class="bg-white rounded-2xl border border-stone-200 p-6 space-y-4" id="varianCard">
             <input type="hidden" name="varian_ada" value="1">
@@ -200,7 +201,7 @@
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm" id="varianTabel">
-                    <thead><tr class="text-left text-xs text-stone-500"><th class="py-1 pr-2">Nama opsi *</th><th class="py-1 pr-2">SKU *</th><th class="py-1 pr-2">Harga</th><th class="py-1 pr-2">Stok</th><th class="py-1 pr-2">Barcode</th><th class="py-1 pr-2">Tautan</th><th></th></tr></thead>
+                    <thead><tr class="text-left text-xs text-stone-500"><th class="py-1 pr-2">Nama opsi *</th><th class="py-1 pr-2">SKU *</th><th class="py-1 pr-2">Harga</th><th class="py-1 pr-2">Stok</th><th class="py-1 pr-2">Barcode</th><th class="py-1 pr-2" title="Varian berisi beberapa pcs produk lain/saudara (mis. 3 Pcs = SKU Scrub-1 × 3) → stok varian dihitung otomatis & order memotong stok isinya">Isi (SKU × qty) <span class="font-normal text-stone-400">opsional</span></th><th class="py-1 pr-2">Tautan</th><th></th></tr></thead>
                     <tbody>
                         @foreach($varianRows as $i => $v)
                             <tr class="mp-var">
@@ -209,6 +210,7 @@
                                 <td class="py-1 pr-2"><input type="number" step="0.01" min="0" name="varian[{{ $i }}][price]" value="{{ $v['price'] ?? '' }}" class="mp-var-harga w-28 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
                                 <td class="py-1 pr-2"><input type="number" min="0" name="varian[{{ $i }}][stock]" value="{{ $v['stock'] ?? '' }}" class="mp-var-stok w-20 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
                                 <td class="py-1 pr-2"><input type="text" name="varian[{{ $i }}][barcode]" value="{{ $v['barcode'] ?? '' }}" maxlength="255" class="w-32 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
+                                <td class="py-1 pr-2 whitespace-nowrap"><input type="text" name="varian[{{ $i }}][isi_sku]" value="{{ $v['isi_sku'] ?? '' }}" maxlength="255" list="mpSkuIsi" placeholder="SKU isi" class="mp-var-isi w-24 px-2 py-1.5 border border-stone-200 rounded-lg"> × <input type="number" min="1" max="999" name="varian[{{ $i }}][isi_qty]" value="{{ $v['isi_qty'] ?? '' }}" placeholder="qty" class="w-14 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
                                 <td class="py-1 pr-2 text-xs text-stone-500" data-listing="{{ $v['listing'] ?? 0 }}">{{ ($v['listing'] ?? 0) ? $v['listing'].' listing' : '—' }}</td>
                                 <td class="py-1"><button type="button" class="mp-var-hapus text-xs text-rose-600 hover:underline">Hapus</button></td>
                             </tr>
@@ -216,6 +218,8 @@
                     </tbody>
                 </table>
             </div>
+            <datalist id="mpSkuIsi">@foreach($komponenOpsi ?? [] as $k)<option value="{{ $k['sku'] }}">{{ $k['label'] }}</option>@endforeach</datalist>
+            <p class="text-[11px] text-stone-500">💡 Varian isi banyak (mis. <b>3 Pcs</b>): isi kolom <b>Isi</b> dengan SKU varian satuannya (mis. <code>Scrub-1</code>) × <b>3</b>. Stok varian itu jadi otomatis = stok satuan ÷ 3, dan tiap order memotong stok satuan ×3. Kolom Stok-nya tak perlu diisi.</p>
             <button type="button" id="varTambah" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-dashed border-stone-300 text-stone-600 hover:border-indigo-400 hover:text-indigo-700">+ Tambah opsi varian</button>
             @if($master->exists && $master->variants->isEmpty() && $master->listings()->exists())
                 <p class="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2">Produk ini sudah tertaut ke listing marketplace. Saat varian pertama disimpan, listing itu <b>dipindah ke varian pertama</b> (harga/stok ikut bila varian belum diisi) — tautkan ulang per varian bila perlu.</p>
@@ -806,6 +810,11 @@
         tr.appendChild(sel('varian[' + i + '][price]', 'mp-var-harga w-28', { type: 'number', step: '0.01', min: '0' }));
         tr.appendChild(sel('varian[' + i + '][stock]', 'mp-var-stok w-20', { type: 'number', min: '0' }));
         tr.appendChild(sel('varian[' + i + '][barcode]', 'w-32', { type: 'text', maxlength: '255' }));
+        var tdIsi = sel('varian[' + i + '][isi_sku]', 'mp-var-isi w-24', { type: 'text', maxlength: '255', list: 'mpSkuIsi', placeholder: 'SKU isi' });
+        tdIsi.className += ' whitespace-nowrap'; tdIsi.appendChild(document.createTextNode(' × '));
+        var q = document.createElement('input'); q.type = 'number'; q.min = '1'; q.max = '999'; q.placeholder = 'qty';
+        q.name = 'varian[' + i + '][isi_qty]'; q.className = 'w-14 px-2 py-1.5 border border-stone-200 rounded-lg'; tdIsi.appendChild(q);
+        tr.appendChild(tdIsi);
         var tdL = document.createElement('td'); tdL.className = 'py-1 pr-2 text-xs text-stone-500'; tdL.setAttribute('data-listing', '0'); tdL.textContent = 'baru'; tr.appendChild(tdL);
         var tdH = document.createElement('td'); tdH.className = 'py-1';
         var b = document.createElement('button'); b.type = 'button'; b.className = 'mp-var-hapus text-xs text-rose-600 hover:underline'; b.textContent = 'Hapus';

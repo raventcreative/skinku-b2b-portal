@@ -331,8 +331,13 @@
                     @php $skorWarna = ['bina_intensif' => 'text-emerald-700', 'shortlist' => 'text-emerald-700', 'pantau' => 'text-amber-600', 'nego' => 'text-amber-600', 'nurture' => 'text-rose-600', 'tolak' => 'text-rose-600']; @endphp
                     <td class="text-center px-2 font-semibold {{ $skorWarna[$apsS?->label] ?? 'text-stone-700' }}">{{ $canAffiliate && $apsS && $apsS->score !== null ? $skorFmt($apsS->score) : '—' }}</td>
                     <td class="text-center px-2 font-semibold {{ $skorWarna[$kssS?->label] ?? 'text-stone-700' }}">
+                        @php $ka = $kssAuto->get($kol->id); @endphp
                         @if($kssS && $kssS->score !== null){{ $skorFmt($kssS->score) }}
-                        @else<a href="{{ route('kol-skor.kss', ['kol' => $kol->id]) }}" class="text-[10px] font-normal text-indigo-600 hover:underline" title="Hitung KSS — isian terisi otomatis">hitung</a>@endif
+                        @elseif($ka)
+                            {{-- Estimasi otomatis (belum disimpan) — klik untuk cek & simpan versi final. --}}
+                            <a href="{{ route('kol-skor.kss', ['kol' => $kol->id]) }}" class="italic font-normal {{ $skorWarna[$ka['decision']] ?? 'text-stone-600' }} hover:underline"
+                                title="KSS otomatis (estimasi){{ $ka['asumsi'] ? ' — asumsi: '.implode(', ', $ka['asumsi']) : '' }}. Klik untuk cek & simpan.">≈{{ $skorFmt($ka['score']) }}</a>
+                        @else<a href="{{ route('kol-skor.kss', ['kol' => $kol->id]) }}" class="text-[10px] font-normal text-indigo-600 hover:underline" title="Belum bisa otomatis — butuh ratecard (screening), views, dan engagement TikTok. Klik untuk isi manual.">hitung</a>@endif
                     </td>
                     <td class="text-right px-4">
                         <a href="{{ route('kols.show', $kol) }}" class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap">detail →</a>
