@@ -156,6 +156,14 @@
 
 <style>
     #kolTable .v7col { display: none; }
+    /* Freeze panes: header atas + kolom No & Username kiri. */
+    #kolTable thead th { position: sticky; top: 0; z-index: 3; background: #fafaf9; box-shadow: inset 0 -1px 0 #e7e5e4; }
+    #kolTable thead tr:nth-child(2) th { top: var(--kol-h1, 28px); }
+    #kolTable tbody td:nth-child(-n+2) { position: sticky; z-index: 2; background: #fff; }
+    #kolTable tbody tr:hover td:nth-child(-n+2) { background: #fafaf9; }
+    #kolTable tbody td:nth-child(1), #kolTable thead tr:first-child th:nth-child(1) { left: 0; }
+    #kolTable tbody td:nth-child(2), #kolTable thead tr:first-child th:nth-child(2) { left: var(--kol-w1, 36px); box-shadow: inset -1px 0 0 #e7e5e4; }
+    #kolTable thead tr:first-child th:nth-child(-n+2) { z-index: 4; }
     #kolTable.show-v7 .v7col { display: table-cell; }
 </style>
 <div class="flex items-center gap-2 mb-2">
@@ -167,7 +175,9 @@
 </div>
 
 <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
-    <div class="overflow-x-auto">
+    {{-- Area tabel setinggi layar: scrollbar geser kanan-kiri selalu terlihat di bawah layar,
+         header beku di atas, No + Username beku di kiri (seperti Freeze Panes Excel). --}}
+    <div id="kolScroll" class="overflow-auto" style="max-height: calc(100vh - 7rem)">
     <table id="kolTable" class="w-full text-xs whitespace-nowrap">
         @php
             // Header = tautan sort. Klik pertama asc, klik lagi balik arah;
@@ -429,6 +439,19 @@
             var lbl = document.getElementById('v7label');
             if (lbl) lbl.textContent = '▾ Sembunyikan 7 kolom views';
         }
+    })();
+</script>
+<script>
+    // Freeze panes: posisi baris header ke-2 & kolom Username mengikuti ukuran nyata.
+    (function () {
+        var t = document.getElementById('kolTable'); if (!t) return;
+        function ukur() {
+            var r1 = t.querySelector('thead tr'), c1 = t.querySelector('thead th');
+            if (r1) t.style.setProperty('--kol-h1', r1.getBoundingClientRect().height + 'px');
+            if (c1) t.style.setProperty('--kol-w1', c1.getBoundingClientRect().width + 'px');
+        }
+        ukur(); window.addEventListener('resize', ukur);
+        document.addEventListener('click', function () { setTimeout(ukur, 0); }); // tombol 7 kolom views
     })();
 </script>
 @include('kols._hint-dialog')
