@@ -65,6 +65,12 @@ class BusinessReportTest extends TestCase
         $this->assertSame(['2026-04-01', '2026-06-30', '2026-01-01', '2026-03-31'],
             [$p['from']->toDateString(), $p['to']->toDateString(), $p['prevFrom']->toDateString(), $p['prevTo']->toDateString()]);
 
+        $this->po(1, 'completed', 100, '2026-03-15');
+        $p = $svc->period('semua', null);                          // sejak transaksi pertama s/d hari ini, tanpa pembanding
+        $this->assertSame(['2026-03-15', '2026-10-02'], [$p['from']->toDateString(), $p['to']->toDateString()]);
+        $this->assertFalse($p['compare']);
+        $this->assertTrue($svc->period('bulanan', '2026-09')['compare']);
+
         $p = $svc->period('custom', null, '2026-09-11', '2026-09-20');   // 10 hari → 10 hari sebelumnya
         $this->assertSame(['2026-09-01', '2026-09-10'], [$p['prevFrom']->toDateString(), $p['prevTo']->toDateString()]);
     }
@@ -89,6 +95,10 @@ class BusinessReportTest extends TestCase
             ->assertSee('Toko '.$mitra->id)
             ->assertSee('tokob')                      // mitra tidak order
             ->assertSee('Analisis &amp; Rekomendasi AI', false);
+
+        $this->actingAs($admin)->get(route('reports.business', ['jenis' => 'semua']))->assertOk()
+            ->assertSee('Laporan Bisnis Semua Periode')->assertSee('seluruh data sejak transaksi pertama')->assertDontSee('dibanding');
+        $this->actingAs($admin)->get(route('reports.business.excel', ['jenis' => 'semua']))->assertOk();
 
         $this->actingAs($admin)->get(route('reports.business.excel', $q))->assertOk()
             ->assertHeader('content-disposition', 'attachment; filename=laporan-bisnis-bulanan-20260901-20260930.xlsx');
