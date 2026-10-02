@@ -190,4 +190,33 @@ class EcomChatSyncTest extends TestCase
         $this->assertSame('bot', $by['MBOT']->via);
         $this->assertStringContainsString('Seller Center', $by['MBOT']->text);
     }
+
+    public function test_status_dihitung_ulang_balasan_bot_bukan_dibalas_staf(): void
+    {
+        $mk = function (string $id, array $msgs, string $status = 'replied', string $via = 'staff') {
+            $c = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => $id, 'buyer_name' => 'X', 'status' => $status, 'last_reply_via' => $via]);
+            foreach ($msgs as $i => [$sender, $mvia, $type]) {
+                $c->messages()->create(['channel' => 'tiktok', 'external_message_id' => $id.$i, 'sender' => $sender, 'via' => $mvia, 'type' => $type, 'text' => 'x', 'sent_at' => now()->addMinutes($i)]);
+            }
+
+            return $c;
+        };
+        $svc = app(EcomChatService::class);
+
+        // Data lama: notifikasi pesanan (OTHER dari toko) tersimpan sbg staf → jadi "Dibalas bot".
+        $notif = $mk('N1', [['seller', 'staff', 'other']]);
+        $svc->refreshReplyState($notif);
+        $this->assertSame(['replied', 'bot'], [$notif->fresh()->status, $notif->fresh()->last_reply_via]);
+        $this->assertSame('bot', $notif->messages()->first()->via);
+
+        // Pembeli bertanya, yang membalas hanya bot → kembali "Baru" (perlu dibalas).
+        $tanya = $mk('N2', [['buyer', 'buyer', 'text'], ['seller', 'bot', 'other']]);
+        $svc->refreshReplyState($tanya);
+        $this->assertSame('open', $tanya->fresh()->status);
+
+        // Dibalas AI setelah bot → "Dibalas AI".
+        $ai = $mk('N3', [['buyer', 'buyer', 'text'], ['seller', 'bot', 'other'], ['seller', 'ai', 'text']], 'open', '');
+        $svc->refreshReplyState($ai);
+        $this->assertSame(['replied', 'ai'], [$ai->fresh()->status, $ai->fresh()->last_reply_via]);
+    }
 }

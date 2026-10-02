@@ -2,9 +2,11 @@
     // Badge status; untuk "replied" bedakan sumber balasan: AI vs staf.
     $badgeFor = function ($status, $via) {
         if ($status === 'replied') {
-            return $via === 'ai'
-                ? ['Dibalas AI', 'bg-violet-100 text-violet-800']
-                : ['Dibalas staf', 'bg-emerald-100 text-emerald-800'];
+            return match ($via) {
+                'ai' => ['Dibalas AI', 'bg-violet-100 text-violet-800'],
+                'bot' => ['Dibalas bot TikTok', 'bg-sky-100 text-sky-800'],
+                default => ['Dibalas staf', 'bg-emerald-100 text-emerald-800'],
+            };
         }
 
         return [

@@ -39,6 +39,7 @@
         open: ['Baru', 'bg-sky-100 text-sky-800'],
         replied_ai: ['Dibalas AI', 'bg-violet-100 text-violet-800'],
         replied_staff: ['Dibalas staf', 'bg-emerald-100 text-emerald-800'],
+        replied_bot: ['Dibalas bot TikTok', 'bg-sky-100 text-sky-800'],
         closed: ['Selesai', 'bg-stone-100 text-stone-600'],
     };
 
@@ -54,7 +55,7 @@
         if (!st || !activeItem) return;
         var status = st.getAttribute('data-thread-status');
         var via = st.getAttribute('data-thread-via');
-        var key = status === 'replied' ? ('replied_' + (via === 'ai' ? 'ai' : 'staff')) : status;
+        var key = status === 'replied' ? ('replied_' + (via === 'ai' || via === 'bot' ? via : 'staff')) : status;
         var m = badgeMap[key];
         var badge = activeItem.querySelector('[data-conv-badge]');
         if (m && badge) {

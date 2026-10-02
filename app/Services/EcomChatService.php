@@ -272,6 +272,7 @@ class EcomChatService
                         $msgCount++;
                     }
                 }
+                $this->refreshReplyState($conv);
             }
 
             $pageToken = (string) ($data['next_page_token'] ?? '');
@@ -296,6 +297,45 @@ class EcomChatService
         foreach (array_reverse($msgData['messages'] ?? []) as $m) {
             $this->storeSyncedMessage($conv, $m);
         }
+        $this->refreshReplyState($conv);
+    }
+
+    /**
+     * Hitung ulang status balasan dari pesan yang tersimpan (memperbaiki data lama yang
+     * menganggap auto-reply bot TikTok sebagai "Dibalas staf"):
+     *  - ada balasan AI/staf setelah pesan pembeli terakhir → replied (via balasan terakhir)
+     *  - hanya bot TikTok yang membalas pesan pembeli → kembali "Baru" (perlu dibalas)
+     *  - tanpa pesan pembeli sama sekali, hanya pesan bot (mis. notifikasi pesanan) → "Dibalas bot"
+     * Percakapan "closed" & yang belum dibalas siapa pun tidak disentuh.
+     */
+    public function refreshReplyState(EcomChatConversation $conv): void
+    {
+        // Repair data lama: pesan OTHER dari sisi toko dulu tersimpan sebagai "staf" + placeholder lama.
+        $conv->messages()->where('type', 'other')->where('sender', '!=', EcomChatMessage::SENDER_BUYER)
+            ->where('via', EcomChatMessage::VIA_STAFF)
+            ->update(['via' => EcomChatMessage::VIA_BOT, 'text' => '📎 Pesan tipe lain — isinya hanya terlihat di TikTok Seller Center']);
+
+        if ($conv->status === EcomChatConversation::STATUS_CLOSED) {
+            return;
+        }
+        $lastBuyer = $conv->messages()->where('sender', EcomChatMessage::SENDER_BUYER)->max('sent_at');
+        $after = $conv->messages()->where('sender', '!=', EcomChatMessage::SENDER_BUYER)
+            ->when($lastBuyer, fn ($q) => $q->where('sent_at', '>', $lastBuyer))
+            ->orderByDesc('sent_at')->orderByDesc('id')->get(['via']);
+        if ($after->isEmpty()) {
+            return;
+        }
+        $human = $after->first(fn ($m) => $m->via !== EcomChatMessage::VIA_BOT);
+        if ($human) {
+            $conv->status = EcomChatConversation::STATUS_REPLIED;
+            $conv->last_reply_via = $human->via === EcomChatMessage::VIA_AI ? 'ai' : 'staff';
+        } elseif ($lastBuyer === null) {
+            $conv->status = EcomChatConversation::STATUS_REPLIED;
+            $conv->last_reply_via = 'bot';
+        } elseif ($conv->status === EcomChatConversation::STATUS_REPLIED) {
+            $conv->status = EcomChatConversation::STATUS_OPEN;
+        }
+        $conv->save();
     }
 
     /**
