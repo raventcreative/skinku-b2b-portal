@@ -250,7 +250,7 @@
 
             @php
                 // Grup accordion "Laporan": Penjualan/Pembelian + Omzet Mitra + Komisi.
-                $laporanGroupOpen = request()->routeIs('reports.index') || request()->routeIs('reports.downline-sales') || request()->routeIs('reports.omzet-mitra') || request()->routeIs('reports.komisi');
+                $laporanGroupOpen = request()->routeIs('reports.index') || request()->routeIs('reports.business') || request()->routeIs('reports.downline-sales') || request()->routeIs('reports.omzet-mitra') || request()->routeIs('reports.komisi');
             @endphp
             @if($u->canDo('view_reports') || $u->canDo('view_commission_report'))
                 <button type="button" onclick="toggleNavGroup('grpLaporan')"
@@ -266,6 +266,7 @@
                         @endif
                         @if($u->isStaff())
                             {!! navItem('reports.omzet-mitra', 'Omzet Mitra', 'reports.omzet-mitra') !!}
+                            {!! navItem('reports.business', 'Generate Report', 'reports.business', [], null, 'reports.index') !!}
                         @endif
                     @endif
                     @if($u->canDo('view_commission_report'))

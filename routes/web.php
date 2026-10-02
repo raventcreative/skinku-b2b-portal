@@ -54,6 +54,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RecruitController;
+use App\Http\Controllers\BusinessReportController;
 use App\Http\Controllers\ReportBotAdminController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReturController;
@@ -301,6 +302,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/reports/omzet-mitra', [ReportController::class, 'omzetMitra'])->name('reports.omzet-mitra');
         Route::get('/reports/export', [ExportController::class, 'penjualan'])->name('reports.export');
         Route::get('/reports/chart-data', [ReportController::class, 'chartData'])->name('reports.chart-data');
+        Route::get('/laporan-bisnis', [BusinessReportController::class, 'index'])->name('reports.business');
+        Route::post('/laporan-bisnis/ai', [BusinessReportController::class, 'insight'])->name('reports.business.ai');
+        Route::get('/laporan-bisnis/excel', [BusinessReportController::class, 'export'])->name('reports.business.excel');
     });
 
     // Laporan Komisi: izin sendiri (view_commission_report), TERPISAH dari
