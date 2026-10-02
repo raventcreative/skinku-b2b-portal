@@ -253,7 +253,7 @@ class ContentPostController extends Controller
             'creator_note' => ['nullable', 'string', 'max:2000'],
             'tiktok' => ['nullable', 'array'],
             'tiktok.privacy_level' => ['nullable', Rule::in(array_keys(TikTokContentClient::PRIVACY_LABELS))],
-            'tiktok.consent' => ['nullable', 'accepted'],
+            'tiktok.consent' => ['sometimes', 'accepted'],
             'tiktok.allow_comment' => ['nullable', 'boolean'],
             'tiktok.allow_duet' => ['nullable', 'boolean'],
             'tiktok.allow_stitch' => ['nullable', 'boolean'],
@@ -264,6 +264,7 @@ class ContentPostController extends Controller
             'media.*.mimetypes' => 'Media harus JPG/PNG/WEBP atau video MP4/MOV.',
             'media.*.max' => 'File media terlalu besar.',
             'scheduled_at.after' => 'Jadwal terbit harus di masa depan.',
+            'tiktok.consent.accepted' => 'Centang Music Usage Confirmation pada form konten.',
         ]);
 
         $data['platforms'] = array_values(array_unique($data['platforms'] ?? []));
