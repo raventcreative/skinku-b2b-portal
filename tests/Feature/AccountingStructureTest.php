@@ -76,4 +76,15 @@ class AccountingStructureTest extends TestCase
         AccJournalLine::create(['journal_id' => $journal->id, 'account_id' => $sales->id, 'branch_id' => $branch->id, 'debit' => 0, 'credit' => 5000]);
         $this->assertFalse($journal->load('lines')->isBalanced());
     }
+
+    public function test_akun_beban_affiliate_tersedia_untuk_legacy_6002(): void
+    {
+        // Migration 000159 sudah menyisipkan; seeder (sync) tidak boleh menggandakan.
+        $this->seed(ChartOfAccountSeeder::class);
+
+        $akun = AccAccount::where('legacy_code', '6002')->get();
+        $this->assertCount(1, $akun);
+        $this->assertSame('6014', $akun->first()->code);
+        $this->assertSame('expense', $akun->first()->type);
+    }
 }

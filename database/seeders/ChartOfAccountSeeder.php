@@ -87,6 +87,7 @@ class ChartOfAccountSeeder extends Seeder
             ['6011', 'Beban Penyusutan Gedung',        'expense', 'operating',     'debit',  '6019'],
             ['6012', 'Beban Sample',                   'expense', 'operating',     'debit',  '6020'],
             ['6013', 'Beban Lain-lain',                'expense', 'operating',     'debit',  '6011'],
+            ['6014', 'Beban Gaji / Komisi Affiliate',  'expense', 'operating',     'debit',  '6002'],
 
             // NON-OPERASIONAL
             ['7001', 'Beban Bunga',                    'expense', 'non_operating', 'debit',  '6010/6012'], // 6012=Beban Hutang Bank (bunga pinjaman, dipakai sejak Apr)
