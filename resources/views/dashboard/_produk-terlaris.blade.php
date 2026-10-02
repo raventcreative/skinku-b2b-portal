@@ -10,7 +10,7 @@
 @endphp
 <div id="produkTerlaris" class="bg-white rounded-2xl border border-stone-200 p-5 mb-6 scroll-mt-20">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h3 class="text-sm font-bold text-stone-800">Produk Terlaris — {{ $ptBulan->translatedFormat('F Y') }}</h3>
+        <h3 class="text-sm font-bold text-stone-800">Produk Terlaris — {{ $produkTerlaris['label'] }}</h3>
         <form method="GET" action="{{ route('dashboard') }}#produkTerlaris" class="flex items-center gap-2 text-xs">
             @foreach(request()->except('pt_bulan') as $k => $v)
                 @if(is_string($v))<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endif

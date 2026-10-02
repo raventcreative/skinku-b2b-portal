@@ -51,30 +51,38 @@ class DashboardController extends Controller
             return view('dashboard.index', ['user' => $user, 'limited' => true] + $announce);
         }
 
-        // ?bulan=YYYY-MM berlaku untuk SELURUH dashboard; default bulan berjalan.
-        $bulan = $this->parseMonth($request->query('bulan'));
+        // Periode berlaku untuk SELURUH dashboard: ?bulan=YYYY-MM (default bulan berjalan)
+        // atau rentang ?dari & ?sampai (preset Hari ini / Kemarin / 7 hari / custom).
+        // Rentang menang; $bulan lalu = bulan tanggal awal rentang (dipakai omzet setahun).
+        [$chFrom, $chSampai] = $this->parseChannelDates($request);
+        $bulan = $chFrom ? $chFrom->copy()->startOfMonth() : $this->parseMonth($request->query('bulan'));
+        $periodeLabel = $chFrom
+            ? ($chFrom->isSameDay($chSampai) ? $chFrom->translatedFormat('d M Y') : $chFrom->translatedFormat('d M').' – '.$chSampai->translatedFormat('d M Y'))
+            : $bulan->translatedFormat('F Y');
 
         // Dashboard = lintas channel; Laporan Penjualan = khusus PO.
-        $summary = $this->reports->summary($user, $bulan, allChannels: true);
-        $poStatus = $this->reports->poStatusDistribution($user, $bulan);
-        $salesTrend = $this->reports->salesTrend('day', 31, $user, $bulan);
+        $summary = $this->reports->summary($user, $bulan, true, $chFrom, $chSampai);
+        $poStatus = $this->reports->poStatusDistribution($user, $bulan, $chFrom, $chSampai);
+        $salesTrend = $this->reports->salesTrend('day', 31, $user, $bulan, $chFrom, $chSampai);
 
         // Penjualan per channel — data HQ, hanya untuk staff (mitra lihat PO sendiri).
-        // Filter tanggal KHUSUS section ini (?ch_dari & ?ch_sampai) — lihat parseChannelDates.
-        [$chFrom, $chSampai] = $this->parseChannelDates($request);
         $channelSales = $user->isStaff() ? $this->reports->channelSales($bulan, $chFrom, $chSampai) : null;
 
         // Tren penjualan per channel untuk grafik — HANYA staff/HQ. Mitra dapat null
         // → grafik jatuh ke garis tunggal miliknya (salesTrend), tanpa bocor TikTok/Shopee.
-        $trendByChannel = $user->isStaff() ? $this->reports->salesTrendByChannel($bulan) : null;
+        $trendByChannel = $user->isStaff() ? $this->reports->salesTrendByChannel($bulan, $chFrom, $chSampai) : null;
 
         // Grand Total omzet SETAHUN (semua channel) — hanya staff.
         $yearlyOmzet = $user->isStaff() ? $this->reports->yearlyOmzet($bulan) : null;
 
         // Produk terlaris bulan ini per channel (unit) — data HQ, hanya staff.
         // ?pt_bulan = pilihan bulan khusus panel ini (default ikut ?bulan dashboard).
-        $ptBulan = $request->filled('pt_bulan') ? $this->parseMonth($request->query('pt_bulan')) : $bulan;
-        $produkTerlaris = $user->isStaff() ? app(\App\Services\ProdukTerlarisService::class)->report($ptBulan) : null;
+        // ?pt_bulan = pilihan bulan khusus panel (menang); selain itu ikut Periode dashboard.
+        $ptOwn = $request->filled('pt_bulan');
+        $ptBulan = $ptOwn ? $this->parseMonth($request->query('pt_bulan')) : $bulan;
+        $produkTerlaris = $user->isStaff()
+            ? app(\App\Services\ProdukTerlarisService::class)->report($ptBulan, 10, $ptOwn ? null : $chFrom, $ptOwn ? null : $chSampai)
+            : null;
 
         // Recent POs visible to this user.
         $recentPo = PurchaseOrder::query()
@@ -123,7 +131,7 @@ class DashboardController extends Controller
                 ->get()
             : collect();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'trendByChannel', 'channelSales', 'yearlyOmzet', 'produkTerlaris', 'ptBulan', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'trendByChannel', 'channelSales', 'yearlyOmzet', 'produkTerlaris', 'ptBulan', 'periodeLabel', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
     }
 
     /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */
@@ -148,11 +156,16 @@ class DashboardController extends Controller
      */
     private function parseChannelDates(Request $request): array
     {
+        // ?dari/?sampai = filter Periode global; ?ch_dari/?ch_sampai = nama lama (link tersimpan).
         $re = '/^\d{4}-\d{2}-\d{2}$/';
-        $from = preg_match($re, (string) $request->query('ch_dari')) ? Carbon::parse($request->query('ch_dari'))->startOfDay() : null;
-        $to = preg_match($re, (string) $request->query('ch_sampai')) ? Carbon::parse($request->query('ch_sampai'))->startOfDay() : null;
+        $get = fn ($a, $b) => $request->query($a) ?? $request->query($b);
+        $from = preg_match($re, (string) $get('dari', 'ch_dari')) ? Carbon::parse($get('dari', 'ch_dari'))->startOfDay() : null;
+        $to = preg_match($re, (string) $get('sampai', 'ch_sampai')) ? Carbon::parse($get('sampai', 'ch_sampai'))->startOfDay() : null;
         $from ??= $to?->copy();
         $to ??= $from?->copy();
+        if ($from && $to && $from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
 
         return [$from, $to];
     }

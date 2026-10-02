@@ -30,19 +30,34 @@ class ProdukTerlarisService
      * Bulan berjalan dibandingkan dengan PERIODE YANG SAMA bulan lalu (mis. 1–2 Okt vs
      * 1–2 Sep), bukan sebulan penuh — kalau tidak, awal bulan selalu tampak "turun".
      *
-     * @return array{prev_label:string, channels: array<string, array{total:int, rows: array<int, array{label:string, qty:int, prev:int, unmapped:bool}>}>}
+     * @return array{label:string, prev_label:string, channels: array<string, array{total:int, rows: array<int, array{label:string, qty:int, prev:int, unmapped:bool}>}>}
      */
-    public function report(Carbon $month, int $limit = 10): array
+    public function report(Carbon $month, int $limit = 10, ?Carbon $from = null, ?Carbon $to = null): array
     {
-        $start = $month->copy()->startOfMonth()->startOfDay();
-        $end = $month->copy()->endOfMonth()->endOfDay();
-        $prevStart = $start->copy()->subMonthNoOverflow();
-        $prevEnd = $prevStart->copy()->endOfMonth()->endOfDay();
+        if ($from && $to) {
+            // Rentang bebas → dibanding rentang sepanjang sama tepat sebelumnya.
+            $start = $from->copy()->startOfDay();
+            $end = $to->copy()->endOfDay();
+            $days = (int) $start->diffInDays($to->copy()->startOfDay()) + 1;
+            $prevEnd = $start->copy()->subDay()->endOfDay();
+            $prevStart = $start->copy()->subDays($days);
+            $label = $this->rangeLabel($start, $end);
+            $prevLabel = $this->rangeLabel($prevStart, $prevEnd);
+        } else {
+            $start = $month->copy()->startOfMonth()->startOfDay();
+            $end = $month->copy()->endOfMonth()->endOfDay();
+            $prevStart = $start->copy()->subMonthNoOverflow();
+            $prevEnd = $prevStart->copy()->endOfMonth()->endOfDay();
 
-        $berjalan = now()->between($start, $end);
-        if ($berjalan) {
-            $end = now()->copy()->endOfDay();
-            $prevEnd = $prevStart->copy()->addDays($end->day - 1)->endOfDay()->min($prevEnd);
+            $berjalan = now()->between($start, $end);
+            if ($berjalan) {
+                $end = now()->copy()->endOfDay();
+                $prevEnd = $prevStart->copy()->addDays($end->day - 1)->endOfDay()->min($prevEnd);
+            }
+            $label = $start->translatedFormat('F Y');
+            $prevLabel = $berjalan
+                ? $prevStart->day.'–'.$prevEnd->day.' '.$prevStart->translatedFormat('M Y')
+                : $prevStart->translatedFormat('M Y');
         }
 
         $now = $this->tally($start, $end);
@@ -56,11 +71,12 @@ class ProdukTerlarisService
             $out[$ch] = ['total' => (int) $rows->sum('qty'), 'rows' => $rows->take($limit)->all()];
         }
 
-        $prevLabel = $berjalan
-            ? $prevStart->day.'–'.$prevEnd->day.' '.$prevStart->translatedFormat('M Y')
-            : $prevStart->translatedFormat('M Y');
+        return ['label' => $label, 'prev_label' => $prevLabel, 'channels' => $out];
+    }
 
-        return ['prev_label' => $prevLabel, 'channels' => $out];
+    private function rangeLabel(Carbon $a, Carbon $b): string
+    {
+        return $a->isSameDay($b) ? $a->translatedFormat('d M Y') : $a->translatedFormat('d M').' – '.$b->translatedFormat('d M Y');
     }
 
     /** @return array<string, array<string, array{label:string, qty:int, unmapped:bool}>> */
