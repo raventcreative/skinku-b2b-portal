@@ -18,6 +18,7 @@ use App\Services\EcomChat\TikTokChatSender;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
@@ -308,6 +309,51 @@ class EcomChatService
      *  - tanpa pesan pembeli sama sekali, hanya pesan bot (mis. notifikasi pesanan) → "Dibalas bot"
      * Percakapan "closed" & yang belum dibalas siapa pun tidak disentuh.
      */
+    /**
+     * Repair label AI yang dulu tertimpa jadi "staf" oleh sync lama: balasan toko yang
+     * teksnya PERSIS draft auto-send AI terakhir = kiriman AI SKINKU. (TikTok & Shopee)
+     */
+    public function repairAiLabels(EcomChatConversation $conv): void
+    {
+        if ($conv->ai_decision !== 'auto_send' || trim((string) $conv->ai_draft) === '') {
+            return;
+        }
+        $n = $conv->messages()->where('sender', '!=', EcomChatMessage::SENDER_BUYER)
+            ->where('via', EcomChatMessage::VIA_STAFF)->where('text', $conv->ai_draft)
+            ->update(['via' => EcomChatMessage::VIA_AI]);
+        // Balasan terakhir toko ternyata AI → badge daftar ikut "Dibalas AI".
+        if ($n > 0 && $conv->status === EcomChatConversation::STATUS_REPLIED
+            && $conv->messages()->where('sender', '!=', EcomChatMessage::SENDER_BUYER)->orderByDesc('sent_at')->orderByDesc('id')->value('via') === EcomChatMessage::VIA_AI) {
+            $conv->update(['last_reply_via' => 'ai']);
+        }
+    }
+
+    /**
+     * ponytail: pencatat SEMENTARA — cari tahu apakah API Shopee menandai balasan otomatis
+     * (Auto Reply / Chatbot Shopee) di pesan toko. Mencatat field metadata saja (TANPA isi
+     * chat & data pembeli) ke storage/logs/shopee-chat-source.log, sekali per message_id.
+     * Hapus setelah tanda bot Shopee diketahui & deteksi dibuat (lihat docs/SISTEM.md §24).
+     */
+    private function logShopeeSource(array $m): void
+    {
+        $id = (string) ($m['message_id'] ?? '');
+        if ($id === '' || ! Cache::add('shopee-src-log:'.$id, 1, now()->addDays(30))) {
+            return;
+        }
+        $sc = $m['source_content'] ?? null;
+        Log::build(['driver' => 'single', 'path' => storage_path('logs/shopee-chat-source.log')])->info('seller_msg', [
+            'message_id' => $id,
+            'waktu' => isset($m['created_timestamp']) ? Carbon::createFromTimestamp((int) $m['created_timestamp'], config('app.timezone'))->toDateTimeString() : null,
+            'conversation_id' => (string) ($m['conversation_id'] ?? ''),
+            'message_type' => $m['message_type'] ?? null,
+            'source' => $m['source'] ?? null,
+            'message_option' => $m['message_option'] ?? null,
+            'status' => $m['status'] ?? null,
+            'source_content_keys' => is_array($sc) ? array_keys($sc) : $sc,
+            'field' => array_keys($m),
+        ]);
+    }
+
     public function refreshReplyState(EcomChatConversation $conv): void
     {
         // Repair data lama: kartu OTHER dari sisi toko dulu tersimpan sebagai "staf" + placeholder lama.
@@ -315,13 +361,7 @@ class EcomChatService
             ->where(fn ($q) => $q->where('via', EcomChatMessage::VIA_STAFF)->orWhere('text', 'like', '📎%'))
             ->update(['via' => EcomChatMessage::VIA_BOT, 'text' => EcomChatMessage::BOT_CARD_TEXT]);
 
-        // Repair label AI yang dulu tertimpa jadi "staf" oleh sync lama: balasan toko yang
-        // teksnya PERSIS draft auto-send AI terakhir = kiriman AI SKINKU.
-        if ($conv->ai_decision === 'auto_send' && trim((string) $conv->ai_draft) !== '') {
-            $conv->messages()->where('sender', '!=', EcomChatMessage::SENDER_BUYER)
-                ->where('via', EcomChatMessage::VIA_STAFF)->where('text', $conv->ai_draft)
-                ->update(['via' => EcomChatMessage::VIA_AI]);
-        }
+        $this->repairAiLabels($conv);
 
         if ($conv->status === EcomChatConversation::STATUS_CLOSED) {
             return;
@@ -392,6 +432,9 @@ class EcomChatService
         $newBuyer = false;
         foreach ($rows as $m) {
             $n = $parser->normalize($m, $shopId);
+            if ($n['sender'] === 'seller') {
+                $this->logShopeeSource($m);
+            }
             if ($n['type'] === 'product_card') {
                 $this->enrichShopeeProduct($access, (string) $shopId, (string) ($n['meta']['product_id'] ?? ''));
             }
@@ -399,6 +442,8 @@ class EcomChatService
                 $newBuyer = true;
             }
         }
+
+        $this->repairAiLabels($conv);
 
         if ($draft && $newBuyer && $conv->fresh()->status !== EcomChatConversation::STATUS_REPLIED) {
             $this->processDraft($conv->fresh());
