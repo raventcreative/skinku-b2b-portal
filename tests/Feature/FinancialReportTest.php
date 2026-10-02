@@ -408,4 +408,23 @@ class FinancialReportTest extends TestCase
         $is = app(FinancialReportService::class)->incomeStatement('2026-06');
         $this->assertEquals(100_000_000, $is['penjualan_bersih']); // Juli dikecualikan
     }
+
+    public function test_banding_menampilkan_rincian_per_akun_urut_selisih(): void
+    {
+        $a = fn ($code) => $this->acc[$code]->id;
+        $this->je('2026-05-10', $a('6001'), $a('1002'), 1_000_000);
+        $this->je('2026-06-10', $a('6001'), $a('1002'), 4_000_000);
+        $this->je('2026-06-12', $a('7001'), $a('1002'), 500_000);
+
+        $res = $this->actingAs($this->user(User::ROLE_ADMIN))->get('/accounting/banding?a=2026-06&b=2026-05');
+
+        $res->assertOk()
+            ->assertSee('toggleRincian(', false)
+            ->assertSee('6001 · Beban Iklan')
+            ->assertSee('7001 · Beban Bunga')
+            ->assertSee('3.000.000');           // selisih Beban Iklan Jun vs Mei
+
+        // Biaya naik → merah (bukan hijau).
+        $this->assertMatchesRegularExpression('/6001 · Beban Iklan.*?text-rose-600/s', $res->getContent());
+    }
 }
