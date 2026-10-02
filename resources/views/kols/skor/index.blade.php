@@ -18,9 +18,9 @@
     {{-- Tab switch --}}
     <div class="flex gap-1 border-b border-stone-200">
         @if($canAffiliate)
-            <button type="button" data-tab="aps" onclick="showSkorTab('aps')" class="skor-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'aps' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}"> Ranking APS</button>
+            <button type="button" data-tab="aps" onclick="showSkorTab('aps')" class="skor-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'aps' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}"> Ranking APS</button>@include('kols._hint', ['key' => 'aps'])
         @endif
-        <button type="button" data-tab="kss" onclick="showSkorTab('kss')" class="skor-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'kss' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}"> Kalkulator KSS</button>
+        <button type="button" data-tab="kss" onclick="showSkorTab('kss')" class="skor-tab px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition {{ $tab === 'kss' ? 'border-red-600 text-red-700' : 'border-transparent text-stone-400 hover:text-stone-600' }}"> Kalkulator KSS</button>@include('kols._hint', ['key' => 'kss'])
     </div>
 
     {{-- ===================== TAB: Ranking APS ===================== --}}
@@ -126,7 +126,7 @@
 
     {{-- ===================== TAB: Kalkulator KSS ===================== --}}
     <section data-panel="kss" class="{{ $tab === 'kss' ? '' : 'hidden' }} space-y-4">
-        <p class="text-sm text-stone-500">Nilai calon KOL baru: layak <b>shortlist</b>, <b>nego</b>, atau <b>tolak</b>. Pilih KOL → rate &amp; median auto-isi dari screening. Skor terhitung langsung saat mengetik.</p>
+        <p class="text-sm text-stone-500">Nilai calon KOL baru: layak <b>shortlist</b>, <b>nego</b>, atau <b>tolak</b>. Pilih KOL → ratecard, median views, engagement, niche, riwayat &amp; kesiapan <b>terisi otomatis</b> dari screening, data TikTok, dan riwayat deal. Skor terhitung langsung saat mengetik.</p>
 
         <details class="bg-white rounded-2xl border border-stone-200 p-4">
             <summary class="cursor-pointer text-xs font-semibold text-stone-600">Cara KSS dihitung (rubrik)</summary>
@@ -142,9 +142,12 @@
                 <form id="kssForm" method="POST" action="{{ route('kol-skor.kss') }}" class="space-y-3 text-sm">
                     @csrf
                     <label class="block">
-                        <span class="text-xs font-semibold text-stone-600">KOL (opsional — auto-isi rate &amp; median, skor disimpan ke riwayat)</span>
-                        @include('kols._kol-combo', ['kols' => $kols, 'name' => 'kol_id', 'id' => 'kssKolCombo', 'placeholder' => '🔎 ketik / pilih (opsional)…'])
+                        <span class="text-xs font-semibold text-stone-600">KOL (opsional — semua isian terisi otomatis, skor disimpan ke riwayat)</span>
+                        @include('kols._kol-combo', ['kols' => $kols, 'name' => 'kol_id', 'id' => 'kssKolCombo', 'placeholder' => '🔎 ketik / pilih (opsional)…',
+                            'selected' => $preKol?->id, 'selectedLabel' => $preKol ? '@'.$preKol->tiktok_username : null])
                     </label>
+                    {{-- Diisi JS saat KOL dipilih: asal tiap isian otomatis (bisa diubah sebelum simpan). --}}
+                    <div id="kssAuto" class="hidden rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-[11px] text-emerald-800"></div>
                     <div class="grid grid-cols-2 gap-3">
                         <label class="block"><span class="text-xs font-semibold text-stone-600">Ratecard (Rp)</span><input type="number" id="kssRate" name="rate" min="0" value="{{ old('rate', $old['rate'] ?? '') }}" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg"></label>
                         <label class="block"><span class="text-xs font-semibold text-stone-600">Median views 10-20 video</span><input type="number" id="kssMedian" name="median_views" min="0" value="{{ old('median_views', $old['median_views'] ?? '') }}" class="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg"></label>
@@ -242,12 +245,29 @@
         // Prefill kaya: pilih KOL → isi median + rate dari screening.
         var combo = document.getElementById('kssKolCombo');
         var med = document.getElementById('kssMedian'), rate = document.getElementById('kssRate');
-        if (combo) combo.addEventListener('combo:select', function (e) {
-            var m = parseInt(e.detail.option.getAttribute('data-median') || '0', 10);
-            var r = parseInt(e.detail.option.getAttribute('data-rate') || '0', 10);
-            if (m > 0) med.value = m;
-            if (r > 0) rate.value = r;
+        // KSS setengah otomatis: semua isian yang datanya ada diisi dari sistem.
+        var PREFILL = @json($kssPrefill);
+        var LABEL = { rate: 'Ratecard', median: 'Median views', er: 'Engagement', niche: 'Niche', history: 'Riwayat brand', readiness: 'Kesiapan komersial' };
+        function prefill(id) {
+            var p = PREFILL[id]; if (!p) return;
+            if (p.rate) rate.value = p.rate;
+            if (p.median) med.value = p.median;
+            if (p.er !== null) document.getElementById('kssEr').value = p.er;
+            if (p.niche) document.getElementById('kssNiche').value = p.niche;
+            if (p.history) document.getElementById('kssHistory').value = p.history;
+            if (p.readiness) document.getElementById('kssReadiness').value = p.readiness;
+            var box = document.getElementById('kssAuto'), rows = [], kosong = [];
+            Object.keys(LABEL).forEach(function (k) {
+                if (p.sumber[k]) rows.push('✓ <b>' + LABEL[k] + '</b>: ' + p.sumber[k]);
+                else kosong.push(LABEL[k]);
+            });
+            box.innerHTML = '<b>Terisi otomatis</b> — cek & ubah bila perlu:<br>' + rows.join('<br>')
+                + (kosong.length ? '<br><span class="text-amber-700">✎ Isi manual: ' + kosong.join(', ') + '</span>' : '');
+            box.classList.remove('hidden');
             liveCalc();
+        }
+        if (combo) combo.addEventListener('combo:select', function (e) {
+            prefill(e.detail.option.getAttribute('data-value'));
         });
 
         // Live-calc: port rumus KSS (harus sama dgn KolScoringService).
@@ -275,7 +295,11 @@
             prev.classList.remove('hidden'); prev.classList.add('flex');
         }
         if (f) f.addEventListener('input', liveCalc);
+        @if($preKol && ! $result)
+            prefill('{{ $preKol->id }}'); // datang dari tombol "Hitung KSS" di Database KOL
+        @endif
         liveCalc();
     })();
 </script>
+@include('kols._hint-dialog')
 @endsection

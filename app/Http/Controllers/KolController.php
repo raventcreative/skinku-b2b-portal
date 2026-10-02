@@ -20,13 +20,13 @@ class KolController extends Controller
 {
     public function index(Request $request, KolAffiliateService $aff)
     {
-        $filters = $request->only(['level', 'kategori', 'status', 'verdict', 'platform', 'role', 'q', 'gapok', 'gmv_periode']);
+        $filters = $request->only(['level', 'kategori', 'status', 'verdict', 'platform', 'role', 'q', 'gapok', 'gmv_periode', 'aps', 'kss']);
 
         // Arah & kolom sort divalidasi ke daftar putih — nilai ngawur jatuh ke default.
         $sortable = ['username', 'followers', 'level', 'kategori', 'status', 'agency',
             'ratecard', 'total', 'avg', 'median', 'ratio', 'cpm_mean', 'cpm', 'cpv', 'rank',
             'verdict_mean', 'verdict', 'gmv', 'gmv_real', 'gmv_30', 'share',
-            'gmv_asli', 'avg_views', 'engagement', 'gpm', 'gmv_video'];
+            'gmv_asli', 'avg_views', 'engagement', 'gpm', 'gmv_video', 'aps', 'kss'];
         $sort = in_array($request->query('sort'), $sortable, true)
             ? $request->query('sort') : 'username';
         $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
@@ -69,10 +69,21 @@ class KolController extends Controller
         $gmvMap = $canAffiliate ? $aff->between($gmvFrom, $gmvTo)->keyBy('kol_id') : collect();
         $gmv30Map = $canAffiliate ? $aff->between(now()->subDays(30)->startOfDay(), now()->endOfDay())->keyBy('kol_id') : collect();
 
-        $kols = $this->sorted($kols, $sort, $dir, $gmvMap, $gmv30Map)->values();
         $scores = KolScore::whereIn('type', ['aps', 'kss'])->latest('captured_on')->latest('id')->get();
         $apsMap = $scores->where('type', 'aps')->unique('kol_id')->keyBy('kol_id');
         $kssMap = $scores->where('type', 'kss')->unique('kol_id')->keyBy('kol_id');
+
+        // Filter skor: label terakhir (APS: bina_intensif/pantau/nurture/new; KSS:
+        // shortlist/nego/tolak) atau "belum" = belum pernah dinilai. APS = angka uang
+        // affiliate → hanya untuk pemegang kol.affiliate.view.
+        if (($f = $filters['aps'] ?? null) && $canAffiliate) {
+            $kols = $kols->filter(fn (Kol $k) => ($apsMap->get($k->id)?->label ?? 'belum') === $f);
+        }
+        if ($f = $filters['kss'] ?? null) {
+            $kols = $kols->filter(fn (Kol $k) => ($kssMap->get($k->id)?->label ?? 'belum') === $f);
+        }
+
+        $kols = $this->sorted($kols, $sort, $dir, $gmvMap, $gmv30Map, $canAffiliate ? $apsMap : collect(), $kssMap)->values();
 
         return view('kols.index', [
             'kols' => $kols,
@@ -164,7 +175,7 @@ class KolController extends Controller
         return round($skinku / $total * 100, 1);
     }
 
-    private function sorted($kols, string $sort, string $dir, $gmvMap = null, $gmv30Map = null)
+    private function sorted($kols, string $sort, string $dir, $gmvMap = null, $gmv30Map = null, $apsMap = null, $kssMap = null)
     {
         // Kolom turunan screening — SEMUA header angka bisa diurutkan, seperti
         // Excel. Yang belum discreening SELALU di bawah, apa pun arahnya:
@@ -187,6 +198,8 @@ class KolController extends Controller
             'engagement' => fn (Kol $k) => $k->tiktokProfile?->video_engagement_pct,
             'gpm' => fn (Kol $k) => $k->tiktokProfile?->gpm_idr,
             'gmv_video' => fn (Kol $k) => $k->tiktokProfile?->video_gmv_idr,
+            'aps' => fn (Kol $k) => $apsMap?->get($k->id)?->score,
+            'kss' => fn (Kol $k) => $kssMap?->get($k->id)?->score,
             'share' => fn (Kol $k) => self::porsiSkinku($k, $gmv30Map),
             // Indikator/CPM Mean pakai CPM rata sebagai nilai sort-nya.
             'cpm_mean', 'verdict_mean' => fn (Kol $k) => $k->latestScreening?->cpm_rata,

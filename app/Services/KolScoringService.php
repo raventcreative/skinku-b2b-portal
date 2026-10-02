@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Kol;
+use App\Models\KolDeal;
 use App\Support\KolMetrics;
 
 /**
@@ -87,6 +89,69 @@ class KolScoringService
         $label = $score >= 75 ? 'bina_intensif' : ($score >= 50 ? 'pantau' : 'nurture');
 
         return ['status' => 'scored', 'score' => $score, 'label' => $label, 'capped' => $capped, 'components' => $components];
+    }
+
+    /**
+     * KSS setengah otomatis: tebakan isian dari data yang SUDAH ada (screening,
+     * profil TikTok, riwayat deal, kategori). null = tak ada data → user isi manual.
+     * `sumber` menjelaskan asal tiap isian supaya bisa dicek sebelum disimpan.
+     *
+     * @return array{rate:?int,median:?int,er:?float,niche:?string,history:?string,readiness:?string,sumber:array<string,string>}
+     */
+    public function kssPrefill(Kol $k): array
+    {
+        $ls = $k->latestScreening;
+        $tp = $k->tiktokProfile;
+        $src = [];
+
+        $rate = $ls?->ratecard ? (int) $ls->ratecard : null;
+        if ($rate) {
+            $src['rate'] = 'ratecard screening terakhir';
+        }
+        $median = $ls?->median_views ? (int) $ls->median_views : null;
+        if ($median) {
+            $src['median'] = 'median 7 video screening';
+        } elseif ($tp?->avg_video_views) {
+            $median = (int) $tp->avg_video_views;
+            $src['median'] = 'rata-rata views video jualan TikTok (30 hari)';
+        }
+        $er = $tp?->video_engagement_pct;
+        if ($er !== null) {
+            $src['er'] = 'engagement video TikTok (30 hari)';
+        }
+
+        $niche = match ($k->kategori) {
+            'Skinfluencer', 'Makeup' => 'beauty_majority',
+            'Lifestyle' => 'lifestyle_some',
+            'Lainnya' => 'general',
+            default => null,
+        };
+        if ($niche) {
+            $src['niche'] = 'kategori KOL: '.$k->kategori;
+        }
+
+        // Riwayat: verdict deal selesai (ROMI/CPM). Ada yang jelek → buruk; ada bagus → bagus.
+        $verdicts = $k->deals->where('status', 'selesai')->map(fn ($d) => $d->hasil_verdict);
+        $history = match (true) {
+            $verdicts->contains(KolDeal::VERDICT_JELEK) => 'bad',
+            $verdicts->contains(KolDeal::VERDICT_BAGUS) => 'good',
+            $verdicts->contains(KolDeal::VERDICT_CUKUP) => 'medium',
+            $k->deals->isEmpty() => 'none',
+            default => null, // deal ada tapi belum ada hasil → biar user yang menilai
+        };
+        if ($history) {
+            $src['history'] = $k->deals->isEmpty() ? 'belum ada deal tercatat' : 'hasil deal selesai';
+        }
+
+        // Kesiapan: jumlah video + LIVE jualan 30 hari dari TikTok.
+        $readiness = null;
+        if ($tp?->performance_synced_at) {
+            $n = (int) $tp->video_count + (int) $tp->live_count;
+            $readiness = $n >= 8 ? 'active' : ($n > 0 ? 'rare' : 'none');
+            $src['readiness'] = "{$n} video/LIVE jualan 30 hari (TikTok)";
+        }
+
+        return compact('rate', 'median', 'er', 'niche', 'history', 'readiness') + ['sumber' => $src];
     }
 
     /**

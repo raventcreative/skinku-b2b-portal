@@ -72,8 +72,16 @@ class KolScoringController extends Controller
             $kssHistory = KolScore::where('type', 'kss')->with('kol')->latest('id')->limit(20)->get();
         }
 
+        $kols = Kol::with(['latestScreening', 'tiktokProfile', 'deals'])->orderBy('tiktok_username')
+            ->get(['id', 'tiktok_username', 'followers', 'kategori']);
+        // KSS setengah otomatis: tebakan isian per KOL (dipakai JS saat KOL dipilih).
+        $kssPrefill = $kols->mapWithKeys(fn (Kol $k) => [$k->id => $svc->kssPrefill($k)]);
+        $preKol = $kols->firstWhere('id', (int) $request->query('kol'));
+
         return view('kols.skor.index', [
-            'kols' => Kol::with('latestScreening')->orderBy('tiktok_username')->get(['id', 'tiktok_username', 'followers']),
+            'kols' => $kols,
+            'kssPrefill' => $kssPrefill,
+            'preKol' => $preKol,
             'result' => $result,
             'old' => $input,
             'nicheOpts' => KolScoringService::NICHE_LABEL,
@@ -86,7 +94,7 @@ class KolScoringController extends Controller
             'kssHistory' => $kssHistory,
             'apsLabels' => KolScoringService::APS_LABEL,
             // Default tab: KSS bila baru submit form; selain itu Ranking APS (bila ada).
-            'tab' => $result ? 'kss' : ($canAffiliate ? 'aps' : 'kss'),
+            'tab' => ($result || $preKol || $request->query('tab') === 'kss') ? 'kss' : ($canAffiliate ? 'aps' : 'kss'),
         ]);
     }
 

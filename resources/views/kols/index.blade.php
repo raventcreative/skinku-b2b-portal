@@ -70,6 +70,24 @@
             <option value="">Semua anggota</option>
             <option value="1" @selected(($filters['gapok'] ?? '') === '1')>Gapok saja</option>
         </select>
+        {{-- Filter skor (label terakhir). --}}
+        @if($canAffiliate)
+            <select name="aps" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg" title="Filter skor APS (affiliate)">
+                <option value="">Semua APS</option>
+                <option value="bina_intensif" @selected(($filters['aps'] ?? '') === 'bina_intensif')>APS: Bina intensif (≥75)</option>
+                <option value="pantau" @selected(($filters['aps'] ?? '') === 'pantau')>APS: Pantau (50–74)</option>
+                <option value="nurture" @selected(($filters['aps'] ?? '') === 'nurture')>APS: Nurture (&lt;50)</option>
+                <option value="new" @selected(($filters['aps'] ?? '') === 'new')>APS: New (data &lt;4 minggu)</option>
+                <option value="belum" @selected(($filters['aps'] ?? '') === 'belum')>APS: belum dinilai</option>
+            </select>
+        @endif
+        <select name="kss" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg" title="Filter skor KSS (seleksi KOL)">
+            <option value="">Semua KSS</option>
+            <option value="shortlist" @selected(($filters['kss'] ?? '') === 'shortlist')>KSS: Shortlist (≥70)</option>
+            <option value="nego" @selected(($filters['kss'] ?? '') === 'nego')>KSS: Nego (50–69)</option>
+            <option value="tolak" @selected(($filters['kss'] ?? '') === 'tolak')>KSS: Tolak (&lt;50)</option>
+            <option value="belum" @selected(($filters['kss'] ?? '') === 'belum')>KSS: belum dihitung</option>
+        </select>
         @if($canAffiliate)
             {{-- Periode kolom "GMV SKINKU" kalender (kolom 30 hari & Porsi selalu tampil). --}}
             <select name="gmv_periode" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg" title="Periode kolom GMV SKINKU kalender">
@@ -192,14 +210,14 @@
                 <th rowspan="2" class="text-left align-bottom" title="Estimasi GMV = median views × 1,2% konversi × Rp38rb order rata-rata — hitungan sistem, BUKAN data asli">{!! $sortLink('gmv', 'GMV Estimasi · Viral · Fake') !!}</th>
                 <th rowspan="2" class="text-right align-bottom" title="GMV Asli = total jualan kreator ini 30 hari terakhir untuk SEMUA brand (dari TikTok), atau isian manual screening. Menunjukkan seberapa jago dia jualan secara umum.">{!! $sortLink('gmv_asli', 'GMV Asli') !!}<span class="block normal-case font-normal text-stone-400">30 hr · semua brand</span></th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="GMV SKINKU 30 hari terakhir — order affiliate asli SKINKU, jendela SAMA dengan GMV Asli → dasar Porsi SKINKU.">{!! $sortLink('gmv_30', 'GMV SKINKU') !!}<span class="block normal-case font-normal text-stone-400">30 hari</span></th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="Porsi SKINKU = GMV SKINKU 30 hari ÷ GMV Asli 30 hari (semua brand). >100% = data GMV Asli TikTok lebih lama/beda hitungan — perbarui performa KOL-nya.">{!! $sortLink('share', 'Porsi SKINKU') !!}<span class="block normal-case font-normal text-stone-400">dari total</span></th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="Porsi SKINKU = GMV SKINKU 30 hari ÷ GMV Asli 30 hari (semua brand). >100% = data GMV Asli TikTok lebih lama/beda hitungan — perbarui performa KOL-nya.">{!! $sortLink('share', 'Porsi SKINKU') !!}@include('kols._hint', ['key' => 'porsi'])<span class="block normal-case font-normal text-stone-400">dari total</span></th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="GMV SKINKU per bulan kalender (ganti di filter) — pantau pencapaian bulan berjalan.">{!! $sortLink('gmv_real', 'GMV SKINKU') !!}<span class="block normal-case font-normal text-stone-400">{{ $gmvLabel }}</span></th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="Rata-rata views video jualan 30 hari — dari TikTok (otomatis, bukan isian screening)">{!! $sortLink('avg_views', 'Avg Views') !!}</th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="Engagement rate video jualan 30 hari — dari TikTok">{!! $sortLink('engagement', 'Engagement') !!}</th>
-                <th rowspan="2" class="text-right px-2 align-bottom" title="GPM = GMV per 1.000 views (Rupiah) — makin tinggi, makin jago jualan per penonton">{!! $sortLink('gpm', 'GPM') !!}</th>
+                <th rowspan="2" class="text-right px-2 align-bottom" title="GPM = GMV per 1.000 views (Rupiah) — makin tinggi, makin jago jualan per penonton">{!! $sortLink('gpm', 'GPM') !!}@include('kols._hint', ['key' => 'gpm'])</th>
                 <th rowspan="2" class="text-right px-2 align-bottom" title="GMV 30 hari dari video vs LIVE (Rupiah)">{!! $sortLink('gmv_video', 'GMV Video · LIVE') !!}</th>
-                <th rowspan="2" class="text-center px-2 align-bottom" title="Skor APS terakhir (jejak)">APS</th>
-                <th rowspan="2" class="text-center px-2 align-bottom" title="Skor KSS terakhir (jejak)">KSS</th>
+                <th rowspan="2" class="text-center px-2 align-bottom whitespace-nowrap" title="Skor APS terakhir (jejak)">{!! $sortLink('aps', 'APS') !!}@include('kols._hint', ['key' => 'aps'])</th>
+                <th rowspan="2" class="text-center px-2 align-bottom whitespace-nowrap" title="Skor KSS terakhir (jejak)">{!! $sortLink('kss', 'KSS') !!}@include('kols._hint', ['key' => 'kss'])</th>
                 <th rowspan="2" class="text-right px-4 align-bottom"></th>
             </tr>
             <tr>
@@ -310,8 +328,12 @@
                             {{ $tpp->video_gmv_idr !== null ? $rp($tpp->video_gmv_idr) : '—' }}<span class="block text-stone-400">LIVE {{ $tpp->live_gmv_idr !== null ? $rp($tpp->live_gmv_idr) : '—' }}</span>
                         @else — @endif
                     </td>
-                    <td class="text-center px-2 font-semibold text-stone-700">{{ $canAffiliate && $apsS && $apsS->score !== null ? $skorFmt($apsS->score) : '—' }}</td>
-                    <td class="text-center px-2 font-semibold text-stone-700">{{ $kssS && $kssS->score !== null ? $skorFmt($kssS->score) : '—' }}</td>
+                    @php $skorWarna = ['bina_intensif' => 'text-emerald-700', 'shortlist' => 'text-emerald-700', 'pantau' => 'text-amber-600', 'nego' => 'text-amber-600', 'nurture' => 'text-rose-600', 'tolak' => 'text-rose-600']; @endphp
+                    <td class="text-center px-2 font-semibold {{ $skorWarna[$apsS?->label] ?? 'text-stone-700' }}">{{ $canAffiliate && $apsS && $apsS->score !== null ? $skorFmt($apsS->score) : '—' }}</td>
+                    <td class="text-center px-2 font-semibold {{ $skorWarna[$kssS?->label] ?? 'text-stone-700' }}">
+                        @if($kssS && $kssS->score !== null){{ $skorFmt($kssS->score) }}
+                        @else<a href="{{ route('kol-skor.kss', ['kol' => $kol->id]) }}" class="text-[10px] font-normal text-indigo-600 hover:underline" title="Hitung KSS — isian terisi otomatis">hitung</a>@endif
+                    </td>
                     <td class="text-right px-4">
                         <a href="{{ route('kols.show', $kol) }}" class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap">detail →</a>
                     </td>
@@ -403,4 +425,5 @@
         }
     })();
 </script>
+@include('kols._hint-dialog')
 @endsection
