@@ -163,4 +163,31 @@ class EcomChatSyncTest extends TestCase
         $this->assertSame(0, $second['messages']); // dedupe by external_message_id
         $this->assertSame(1, EcomChatConversation::where('external_conversation_id', 'CONV1')->first()->messages()->count());
     }
+
+    public function test_label_sumber_balasan_bot_tiktok_ai_skinku_dan_staf(): void
+    {
+        $this->connect();
+        $conv = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'CONV9', 'buyer_name' => 'Budi', 'status' => 'open']);
+        // Pesan yang dulu dikirim AI SKINKU (id dari API) — saat ditarik ulang tetap berlabel AI.
+        $conv->messages()->create(['channel' => 'tiktok', 'external_message_id' => 'MAI', 'sender' => 'seller', 'via' => 'ai', 'text' => 'Halo dari AI', 'sent_at' => now()->subHour()]);
+        Http::fake([
+            '*/conversations/*/messages*' => Http::response(['code' => 0, 'data' => ['messages' => [
+                ['id' => 'MB', 'type' => 'TEXT', 'content' => json_encode(['content' => 'Ada yang bisa dibantu?']), 'sender' => ['role' => 'BUYER', 'nickname' => 'Budi'], 'create_time' => 1_789_346_600],
+                ['id' => 'MAI', 'type' => 'TEXT', 'content' => json_encode(['content' => 'Halo dari AI']), 'sender' => ['role' => 'SHOP'], 'create_time' => 1_789_346_610],
+                ['id' => 'MS', 'type' => 'TEXT', 'content' => json_encode(['content' => 'Dibalas staf']), 'sender' => ['role' => 'SHOP'], 'create_time' => 1_789_346_620],
+                ['id' => 'MBOT', 'type' => 'OTHER', 'content' => json_encode(['content' => '[Other] Please check this message in seller center of TikTok shop.']), 'sender' => ['role' => 'SHOP'], 'create_time' => 1_789_346_630],
+            ]]]),
+            '*/conversations*' => Http::response(['code' => 0, 'data' => ['conversations' => [
+                ['id' => 'CONV9', 'participants' => [['role' => 'BUYER', 'im_user_id' => 'B1', 'nickname' => 'Budi']]],
+            ]]]),
+        ]);
+
+        app(EcomChatService::class)->importFromTikTok();
+        $by = $conv->fresh()->messages->keyBy('external_message_id');
+
+        $this->assertSame('ai', $by['MAI']->via);
+        $this->assertSame('staff', $by['MS']->via);
+        $this->assertSame('bot', $by['MBOT']->via);
+        $this->assertStringContainsString('Seller Center', $by['MBOT']->text);
+    }
 }

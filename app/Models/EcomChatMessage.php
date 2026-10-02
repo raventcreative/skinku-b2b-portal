@@ -19,6 +19,9 @@ class EcomChatMessage extends Model
 
     public const VIA_BUYER = 'buyer';
 
+    /** Balasan otomatis chatbot/sistem TikTok sendiri (bukan AI SKINKU, bukan staf). */
+    public const VIA_BOT = 'bot';
+
     protected $fillable = [
         'conversation_id', 'channel', 'external_message_id',
         'sender', 'via', 'type', 'text', 'meta', 'sent_at',
