@@ -38,7 +38,9 @@ use App\Http\Controllers\KolScoringController;
 use App\Http\Controllers\KolScreeningController;
 use App\Http\Controllers\KolSettingsController;
 use App\Http\Controllers\KolTiktokCheckController;
+use App\Http\Controllers\KolViewsHarianController;
 use App\Http\Controllers\LearningController;
+use App\Http\Controllers\MarketplacePemetaanHqController;
 use App\Http\Controllers\MarketplaceStockController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MemberDormancyController;
@@ -447,6 +449,9 @@ Route::middleware(['auth', 'role'])->group(function () {
             // Cek Performa TikTok — screening kreator via Creator Marketplace API
             // (GMV/follower/views langsung dari TikTok, walau belum jadi affiliate).
             Route::get('/kol-cek-tiktok', [KolTiktokCheckController::class, 'index'])->name('kol-cek-tiktok.index');
+            // Report views harian video SKINKU per kreator (potret sync 04:00).
+            Route::get('/kol-views-harian', [KolViewsHarianController::class, 'index'])->name('kol-views-harian.index');
+            Route::get('/kol-views-harian/export', [KolViewsHarianController::class, 'export'])->name('kol-views-harian.export');
 
             // Tim Affiliate Gapok — performa affiliate gajian + gaji per bulan + ROI.
             Route::get('/kol-gapok', [KolGapokController::class, 'index'])->name('kol-gapok.index');
@@ -673,8 +678,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::delete('/marketplace-stock/master/{master}/foto/{file}', [MarketplaceStockController::class, 'deleteFoto'])->name('marketplace-stock.master.foto.hapus');
         Route::post('/marketplace-stock/master/{master}/foto/{file}/utama', [MarketplaceStockController::class, 'setFotoUtama'])->name('marketplace-stock.master.foto.utama');
         Route::post('/marketplace-stock/kosongkan', [MarketplaceStockController::class, 'kosongkan'])->name('marketplace-stock.kosongkan');
-        Route::get('/marketplace-stock/pemetaan-hq', [\App\Http\Controllers\MarketplacePemetaanHqController::class, 'index'])->name('marketplace-stock.pemetaan-hq');
-        Route::post('/marketplace-stock/pemetaan-hq', [\App\Http\Controllers\MarketplacePemetaanHqController::class, 'simpan'])->name('marketplace-stock.pemetaan-hq.simpan');
+        Route::get('/marketplace-stock/pemetaan-hq', [MarketplacePemetaanHqController::class, 'index'])->name('marketplace-stock.pemetaan-hq');
+        Route::post('/marketplace-stock/pemetaan-hq', [MarketplacePemetaanHqController::class, 'simpan'])->name('marketplace-stock.pemetaan-hq.simpan');
     });
 
     /* ---------------- Kalkulator ROI ---------------- */

@@ -33,6 +33,11 @@ class TikTokAffiliateContentSyncCommand extends Command
             : now()->startOfMonth();
 
         try {
+            // Tanggal 1: tutup dulu bulan lalu (potret terakhirnya) supaya views
+            // hari terakhir bulan lalu tak hilang dari report harian.
+            if (! $opt && now()->day === 1) {
+                $svc->syncContentStats($conn, now()->subMonthNoOverflow()->startOfMonth());
+            }
             $r = $svc->syncContentStats($conn, $month);
             $this->info("Content sync {$month->format('Y-m')}: {$r['videos']} video, {$r['lives']} LIVE → {$r['creators']} kreator tersimpan.");
 
