@@ -240,14 +240,22 @@
     @php $s = $report['stok']; @endphp
     <div class="rpt-card bg-white rounded-2xl border border-stone-200 p-5">
         <h3 class="text-sm font-bold text-stone-800 mb-1">Stok HQ vs Laju Penjualan</h3>
-        <p class="text-[11px] text-stone-400 mb-4">"Cukup" = stok HQ ÷ rata-rata unit terjual per hari di periode ini.</p>
-        <div class="grid lg:grid-cols-2 print:grid-cols-2 gap-5">
+        <p class="text-[11px] text-stone-400 mb-4">"Cukup" = stok HQ ÷ rata-rata unit terjual per hari (maks. 90 hari terakhir periode, semua channel).</p>
+        <div class="grid lg:grid-cols-3 print:grid-cols-3 gap-5">
             <div>
                 <p class="text-xs font-semibold text-rose-600 mb-2">Menipis (&lt; 21 hari)</p>
                 @forelse($s['menipis'] as $x)
                     <div class="flex justify-between text-xs py-1.5 border-t border-stone-100"><span>{{ $x['nama'] }}</span><span><b>{{ $x['stok'] > 0 ? $x['hari_cukup'].' hari' : 'HABIS' }}</b> <span class="text-stone-400">· stok {{ $num($x['stok']) }}</span></span></div>
                 @empty
                     <p class="text-xs text-stone-400">Tidak ada produk yang menipis.</p>
+                @endforelse
+            </div>
+            <div>
+                <p class="text-xs font-semibold text-emerald-600 mb-2">Aman (21–120 hari)</p>
+                @forelse($s['aman'] as $x)
+                    <div class="flex justify-between text-xs py-1.5 border-t border-stone-100"><span>{{ $x['nama'] }}</span><span><b>{{ $x['hari_cukup'] }} hari</b> <span class="text-stone-400">· stok {{ $num($x['stok']) }}</span></span></div>
+                @empty
+                    <p class="text-xs text-stone-400">Belum ada produk di rentang aman.</p>
                 @endforelse
             </div>
             <div>

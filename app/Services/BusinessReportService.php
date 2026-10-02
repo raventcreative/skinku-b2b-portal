@@ -249,6 +249,7 @@ class BusinessReportService
 
         return [
             'menipis' => $rows->filter(fn ($r) => $r['hari_cukup'] !== null && $r['hari_cukup'] < 21)->sortBy('hari_cukup')->values()->all(),
+            'aman' => $rows->filter(fn ($r) => $r['hari_cukup'] !== null && $r['hari_cukup'] >= 21 && $r['hari_cukup'] <= 120)->sortBy('hari_cukup')->values()->all(),
             'menumpuk' => $rows->filter(fn ($r) => $r['stok'] > 0 && ($r['hari_cukup'] === null || $r['hari_cukup'] > 120))->sortByDesc('stok')->take(8)->values()->all(),
             'semua' => $rows->values()->all(),
         ];

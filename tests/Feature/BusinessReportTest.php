@@ -94,6 +94,7 @@ class BusinessReportTest extends TestCase
             ->assertSee('Rp 5.000.000')               // omzet PO 3jt + TikTok 2jt
             ->assertSee('Toko '.$mitra->id)
             ->assertSee('tokob')                      // mitra tidak order
+            ->assertSee('Aman (21–120 hari)')          // Mizu: stok 30 ÷ 1 unit/hari = 30 hari → aman
             ->assertSee('Analisis &amp; Rekomendasi AI', false);
 
         $this->actingAs($admin)->get(route('reports.business', ['jenis' => 'semua']))->assertOk()
