@@ -99,6 +99,7 @@
     $pj = $report['penjualan'];
     $now = $pj['now'];
     $prev = $pj['prev'];
+    $cmp = $p['compare'];   // false = Semua Periode (tanpa pembanding)
 @endphp
 <div id="laporan" class="space-y-5">
     {{-- Kop laporan --}}
@@ -106,7 +107,7 @@
         <div>
             <p class="text-xl font-extrabold tracking-tight text-red-700">SKINKU.</p>
             <h2 class="text-lg font-bold text-stone-900 mt-1">Laporan Bisnis {{ $jenisList[$p['jenis']] }} — {{ $p['label'] }}</h2>
-            <p class="text-xs text-stone-500">Periode {{ $p['from']->translatedFormat('d M Y') }} – {{ $p['to']->translatedFormat('d M Y') }} · dibanding {{ $p['prevLabel'] }}</p>
+            <p class="text-xs text-stone-500">Periode {{ $p['from']->translatedFormat('d M Y') }} – {{ $p['to']->translatedFormat('d M Y') }} @if($cmp) · dibanding {{ $p['prevLabel'] }} @else · seluruh data sejak transaksi pertama @endif</p>
         </div>
         <p class="text-[11px] text-stone-400 text-right">Dibuat {{ $report['generated_at']->translatedFormat('d M Y H:i') }}<br>oleh {{ auth()->user()->fullname ?? auth()->user()->name }}</p>
     </div>
@@ -123,7 +124,7 @@
             <div class="rpt-card bg-white rounded-2xl border border-stone-200 p-4">
                 <p class="text-[10px] uppercase tracking-wide text-stone-400 font-semibold">{{ $lbl }}</p>
                 <p class="text-lg font-bold text-stone-900 mt-1">{{ $val }}</p>
-                <p class="text-[11px] mt-0.5">{!! $d !!} <span class="text-stone-400">vs {{ $pv }}</span></p>
+                @if($cmp)<p class="text-[11px] mt-0.5">{!! $d !!} <span class="text-stone-400">vs {{ $pv }}</span></p>@endif
             </div>
         @endforeach
     </div>
@@ -149,15 +150,17 @@
             <div class="lg:col-span-2 print:col-span-2 overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="text-[10px] uppercase text-stone-500"><tr>
-                        <th class="text-left px-3 py-2">Channel</th><th class="text-right">Omzet</th><th class="text-right">Sebelumnya</th><th class="text-right">Δ</th><th class="text-right">Order</th><th class="text-right pr-3">Cancel</th>
+                        <th class="text-left px-3 py-2">Channel</th><th class="text-right">Omzet</th>@if($cmp)<th class="text-right">Sebelumnya</th><th class="text-right">Δ</th>@endif<th class="text-right">Order</th><th class="text-right pr-3">Cancel</th>
                     </tr></thead>
                     <tbody>
                     @foreach($pj['channels'] as $c)
                         <tr class="border-t border-stone-100">
                             <td class="px-3 py-2"><span class="inline-block w-2.5 h-2.5 rounded-full mr-1.5" style="background: {{ $c['color'] }}"></span>{{ $c['label'] }}</td>
                             <td class="text-right font-semibold">{{ $rp($c['omzet']) }}</td>
+                            @if($cmp)
                             <td class="text-right text-stone-500">{{ $rp($c['prev']) }}</td>
                             <td class="text-right text-xs">{!! $delta($c['omzet'], $c['prev']) !!}</td>
+                            @endif
                             <td class="text-right">{{ $num($c['orders']) }}</td>
                             <td class="text-right pr-3 {{ $c['cancel_rate'] >= 10 ? 'text-rose-600 font-semibold' : '' }}">{{ number_format($c['cancel_rate'], 1, ',', '.') }}%</td>
                         </tr>
@@ -173,7 +176,7 @@
     {{-- Produk terlaris --}}
     <div class="rpt-card bg-white rounded-2xl border border-stone-200 p-5">
         <h3 class="text-sm font-bold text-stone-800 mb-1">Produk Terlaris</h3>
-        <p class="text-[11px] text-stone-400 mb-4">Unit terjual (order berbayar). Bundle dihitung per isi. ▲▼ vs {{ $report['produk']['prev_label'] }}.</p>
+        <p class="text-[11px] text-stone-400 mb-4">Unit terjual (order berbayar). Bundle dihitung per isi. @if($cmp) Abu-abu = {{ $report['produk']['prev_label'] }}. @endif</p>
         @if($report['produk']['channels']['semua']['rows'])<div style="height:{{ max(160, count($report['produk']['channels']['semua']['rows']) * 26) }}px" class="mb-5"><canvas id="chProduk"></canvas></div>@endif
         <div class="grid sm:grid-cols-3 print:grid-cols-3 gap-4">
             @foreach(['reseller' => 'Reseller / PO', 'tiktok' => 'TikTok', 'shopee' => 'Shopee'] as $k => $lbl)
@@ -264,7 +267,7 @@
             <h3 class="text-sm font-bold text-stone-800 mb-4">KOL / Affiliate (TikTok)</h3>
             <div class="grid grid-cols-2 lg:grid-cols-5 print:grid-cols-5 gap-3 mb-5">
                 @foreach([
-                    ['GMV affiliate', $rp($k['gmv']), $delta($k['gmv'], $k['gmv_prev'])],
+                    ['GMV affiliate', $rp($k['gmv']), $cmp ? $delta($k['gmv'], $k['gmv_prev']) : ''],
                     ['Order affiliate', $num($k['orders']), ''],
                     ['Kreator menghasilkan', $num($k['kreator_aktif']), ''],
                     ['Komisi', $rp($k['komisi']), ''],
@@ -331,7 +334,7 @@
     $chartData = [
         'channel' => array_map(fn ($c) => [$c['label'], $c['omzet'], $c['color']], $r['penjualan']['channels']),
         'trend' => $r['penjualan']['trend'],
-        'produk' => ['labels' => array_column($semua, 'label'), 'now' => array_column($semua, 'qty'), 'prev' => array_column($semua, 'prev')],
+        'produk' => ['labels' => array_column($semua, 'label'), 'now' => array_column($semua, 'qty'), 'prev' => $r['period']['compare'] ? array_column($semua, 'prev') : null],
         'kol' => $r['kol'] ? ['labels' => array_column($r['kol']['top'], 'nama'), 'data' => array_column($r['kol']['top'], 'gmv')] : null,
         'beban' => $r['keuangan'] ? ['labels' => array_keys($r['keuangan']['beban_top']), 'data' => array_values($r['keuangan']['beban_top'])] : null,
     ];
@@ -351,8 +354,8 @@
         mk('chTrend', { type: 'line', data: { labels: D.trend.labels, datasets: D.trend.channels.map(c => ({ label: c.label, data: c.data, borderColor: c.color, backgroundColor: c.color, tension: .3, pointRadius: 0, borderWidth: 2 })) },
             options: { interaction: { mode: 'index', intersect: false }, scales: { y: { ticks: { callback: v => rp(v) } } }, plugins: { tooltip: { callbacks: { label: c => c.dataset.label + ': ' + rp(c.raw) } } } } });
         mk('chProduk', { type: 'bar', data: { labels: D.produk.labels, datasets: [
-                { label: 'Periode ini', data: D.produk.now, backgroundColor: '#b4232f' },
-                { label: 'Sebelumnya', data: D.produk.prev, backgroundColor: '#d6d3d1' }] },
+                { label: 'Periode ini', data: D.produk.now, backgroundColor: '#b4232f' }].concat(D.produk.prev ? [
+                { label: 'Sebelumnya', data: D.produk.prev, backgroundColor: '#d6d3d1' }] : []) },
             options: { indexAxis: 'y', plugins: { legend: { position: 'bottom' } } } });
         if (D.kol) mk('chKol', { type: 'bar', data: { labels: D.kol.labels, datasets: [{ label: 'GMV', data: D.kol.data, backgroundColor: '#ef4444' }] },
             options: { indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => rp(c.raw) } } }, scales: { x: { ticks: { callback: v => rp(v) } } } } });

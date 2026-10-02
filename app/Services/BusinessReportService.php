@@ -5,11 +5,14 @@ namespace App\Services;
 use App\Models\KolDeal;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
+use App\Models\ShopeeOrder;
+use App\Models\TiktokOrder;
 use App\Models\User;
 use App\Services\ReportBot\ReportAi;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -22,7 +25,7 @@ use Throwable;
  */
 class BusinessReportService
 {
-    public const JENIS = ['mingguan' => 'Mingguan', 'bulanan' => 'Bulanan', 'kuartal' => 'Kuartal', 'tahunan' => 'Tahunan', 'custom' => 'Custom'];
+    public const JENIS = ['mingguan' => 'Mingguan', 'bulanan' => 'Bulanan', 'kuartal' => 'Kuartal', 'tahunan' => 'Tahunan', 'custom' => 'Custom', 'semua' => 'Semua Periode'];
 
     public function __construct(
         private ReportService $reports,
@@ -67,6 +70,12 @@ class BusinessReportService
                 $to = $from->copy()->endOfYear()->startOfDay();
                 $prevFrom = $from->copy()->subYear();
                 break;
+            case 'semua':
+                // Sejak transaksi pertama di sistem s/d hari ini — tanpa pembanding.
+                $from = $this->firstDataDate() ?? $today->copy()->subYear();
+                $to = $today->copy();
+                $prevFrom = $from->copy()->subDays((int) $from->diffInDays($to) + 1);
+                break;
             case 'custom':
                 $from = $parse($dari, $today->copy()->subDays(29));
                 $to = $parse($sampai, $today);
@@ -88,7 +97,7 @@ class BusinessReportService
         }
         $len = (int) $from->diffInDays($to);
         $prevTo = $prevFrom->copy()->addDays($len);
-        if ($jenis !== 'custom' && ! $berjalan) {
+        if (! in_array($jenis, ['custom', 'semua'], true) && ! $berjalan) {
             // Periode penuh → pembanding juga penuh (mis. Feb 28 hari vs Jan 31 hari).
             $prevTo = $from->copy()->subDay();
         }
@@ -97,16 +106,30 @@ class BusinessReportService
             'bulanan' => $from->translatedFormat('F Y'),
             'kuartal' => 'Q'.$from->quarter.' '.$from->year,
             'tahunan' => 'Tahun '.$from->year,
+            'semua' => 'Semua Periode ('.$this->rangeLabel($from, $to).')',
             default => $this->rangeLabel($from, $to),
         };
-        if ($berjalan && $jenis !== 'custom') {
+        if ($berjalan && ! in_array($jenis, ['custom', 'semua'], true)) {
             $label .= ' (s/d '.$to->translatedFormat('d M').')';
         }
 
         return [
             'jenis' => $jenis, 'from' => $from, 'to' => $to, 'prevFrom' => $prevFrom, 'prevTo' => $prevTo,
             'label' => $label, 'prevLabel' => $this->rangeLabel($prevFrom, $prevTo),
+            'compare' => $jenis !== 'semua',
         ];
+    }
+
+    /** Tanggal transaksi paling awal (PO / TikTok / Shopee). */
+    private function firstDataDate(): ?Carbon
+    {
+        $dates = array_filter([
+            PurchaseOrder::min(DB::raw('COALESCE(order_date, DATE(created_at))')),
+            Schema::hasTable('tiktok_orders') ? TiktokOrder::min('order_created_at') : null,
+            Schema::hasTable('shopee_orders') ? ShopeeOrder::min('order_created_at') : null,
+        ]);
+
+        return $dates ? Carbon::parse(min(array_map(fn ($d) => substr((string) $d, 0, 10), $dates)))->startOfDay() : null;
     }
 
     /** Data laporan lengkap untuk satu periode. */
@@ -208,8 +231,10 @@ class BusinessReportService
     /** Stok HQ vs laju jual periode: hari cukup = stok ÷ (unit terjual/hari). */
     private function stok(array $p): array
     {
-        $days = max(1, (int) $p['from']->diffInDays($p['to']) + 1);
-        $sold = collect($this->produk->report($p['from'], 1000, $p['from'], $p['to'])['channels']['semua']['rows'])
+        // Laju jual = maks 90 hari terakhir periode (tahunan/semua periode tak relevan untuk stok sekarang).
+        $from = $p['from']->copy()->max($p['to']->copy()->subDays(89));
+        $days = max(1, (int) $from->diffInDays($p['to']) + 1);
+        $sold = collect($this->produk->report($from, 1000, $from, $p['to'])['channels']['semua']['rows'])
             ->filter(fn ($r) => ! $r['unmapped'])->pluck('qty', 'label');
 
         $rows = Product::where('status', Product::STATUS_ACTIVE)->orderBy('name')->get(['name', 'hq_stock'])
@@ -283,9 +308,12 @@ class BusinessReportService
     {
         $pj = $r['penjualan'];
 
+        $cmp = $r['period']['compare'];
+
         return [
-            'periode' => $r['period']['label'], 'pembanding' => $r['period']['prevLabel'],
-            'penjualan' => ['sekarang' => $pj['now'], 'sebelumnya' => $pj['prev'],
+            'periode' => $r['period']['label'],
+            'pembanding' => $cmp ? $r['period']['prevLabel'] : 'TIDAK ADA (laporan semua periode / all time) — abaikan semua field "sebelumnya"/"prev"',
+            'penjualan' => ['sekarang' => $pj['now'], 'sebelumnya' => $cmp ? $pj['prev'] : null,
                 'per_channel' => array_map(fn ($c) => array_intersect_key($c, array_flip(['label', 'omzet', 'prev', 'orders', 'cancel_rate'])), $pj['channels'])],
             'produk_top' => array_map(fn ($x) => ['produk' => $x['label'], 'unit' => $x['qty'], 'unit_sebelumnya' => $x['prev']],
                 array_slice($r['produk']['channels']['semua']['rows'], 0, 8)),

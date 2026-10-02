@@ -51,7 +51,14 @@ class BusinessReportController extends Controller
         $p = $r['period'];
         $pj = $r['penjualan'];
 
-        $sheets = [
+        $sheets = $p['compare'] ? [] : [
+            'Ringkasan' => [
+                'headers' => ['Metrik', $p['label']],
+                'rows' => [['Omzet (selesai + berjalan)', $pj['now']['omzet']], ['Terealisasi', $pj['now']['terealisasi']], ['Jumlah order', $pj['now']['orders']],
+                    ['AOV (rata-rata order)', $pj['now']['aov']], ['Cancel rate (%)', $pj['now']['cancel_rate']], ['Nilai batal', $pj['now']['batal']]],
+            ],
+        ];
+        $sheets += [
             'Ringkasan' => [
                 'headers' => ['Metrik', $p['label'], $p['prevLabel'], 'Selisih', '%'],
                 'rows' => collect([
