@@ -399,4 +399,36 @@ class ChannelSalesTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    /** Filter Periode global (?dari/?sampai) berlaku ke KPI, status PO & tren — bukan cuma section channel. */
+    public function test_periode_rentang_tanggal_berlaku_seluruh_dashboard(): void
+    {
+        Carbon::setTestNow('2026-07-16 12:00:00');
+        $this->po('PO-G1', 'completed', 1_000_000, '2026-07-05');
+        $this->po('PO-G2', 'pending', 2_000_000, '2026-07-10');
+
+        $svc = app(ReportService::class);
+        $month = Carbon::parse('2026-07-01');
+        $d = Carbon::parse('2026-07-05');
+
+        $s = $svc->summary(null, $month, false, $d, $d);
+        $this->assertSame(1, $s['total_po']);                   // PO-G2 (10 Jul) di luar rentang
+        $this->assertSame(0, $s['pending_po']);
+
+        $status = collect($svc->poStatusDistribution(null, $month, $d, $d))->pluck('total', 'label');
+        $this->assertSame(1, $status['completed']);
+        $this->assertSame(0, $status['pending']);
+
+        $trend = $svc->salesTrendByChannel($month, $d, Carbon::parse('2026-07-07'));
+        $this->assertSame(['2026-07-05', '2026-07-06', '2026-07-07'], $trend['labels']);
+
+        $admin = User::create([
+            'name' => 'G', 'fullname' => 'G', 'username' => 'pglobal', 'email' => 'pg@skinku.test',
+            'password' => Hash::make('secret123'), 'role' => User::ROLE_ADMIN, 'status' => User::STATUS_ACTIVE,
+        ]);
+        $this->actingAs($admin)->get('/dashboard?dari=2026-07-05&sampai=2026-07-05')
+            ->assertOk()->assertSee('Tren Penjualan — 05 Jul 2026')->assertSee('name="dari"', false);
+
+        Carbon::setTestNow();
+    }
 }

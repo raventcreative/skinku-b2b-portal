@@ -30,18 +30,20 @@ class ReportService
      * $alias dipakai saat purchase_orders ikut dalam JOIN dan kolomnya harus
      * dikualifikasi (mis. 'po'), supaya order_date tidak ambigu.
      */
-    private function inMonth($query, ?Carbon $month, ?string $alias = null)
+    private function inMonth($query, ?Carbon $month, ?string $alias = null, ?Carbon $from = null, ?Carbon $to = null)
     {
-        if (! $month) {
+        // Rentang tanggal bebas (filter Periode dashboard) menang atas bulan.
+        if ($from && $to) {
+            [$d1, $d2] = [$from->toDateString(), $to->toDateString()];
+        } elseif ($month) {
+            [$d1, $d2] = [$month->copy()->startOfMonth()->toDateString(), $month->copy()->endOfMonth()->toDateString()];
+        } else {
             return $query;
         }
 
         $p = $alias ? $alias.'.' : '';
 
-        return $query->whereRaw(
-            "COALESCE({$p}order_date, DATE({$p}created_at)) BETWEEN ? AND ?",
-            [$month->copy()->startOfMonth()->toDateString(), $month->copy()->endOfMonth()->toDateString()],
-        );
+        return $query->whereRaw("COALESCE({$p}order_date, DATE({$p}created_at)) BETWEEN ? AND ?", [$d1, $d2]);
     }
 
     /**
@@ -96,17 +98,17 @@ class ReportService
      * barang, HPP, dan laba kotornya semua berbasis PO). Eksplisit, supaya label
      * yang sama tak berarti dua hal berbeda di dua halaman.
      */
-    public function summary(?User $viewer = null, ?Carbon $month = null, bool $allChannels = false): array
+    public function summary(?User $viewer = null, ?Carbon $month = null, bool $allChannels = false, ?Carbon $from = null, ?Carbon $to = null): array
     {
         $completed = $this->inMonth(
             $this->scopePo(PurchaseOrder::query()->where('status', self::REVENUE_STATUS), $viewer),
-            $month,
+            $month, null, $from, $to,
         );
 
-        $allPo = $this->inMonth($this->scopePo(PurchaseOrder::query(), $viewer), $month);
+        $allPo = $this->inMonth($this->scopePo(PurchaseOrder::query(), $viewer), $month, null, $from, $to);
 
         $totalSales = $allChannels && $month && $viewer?->isStaff()
-            ? (float) collect($this->channelSales($month))->sum('confirmed')
+            ? (float) collect($this->channelSales($month, $from, $to))->sum('confirmed')
             : (float) (clone $completed)->sum('total_amount');
 
         return [
@@ -371,8 +373,12 @@ class ReportService
     }
 
     /** Sales totals grouped by day/week/month for the trend line chart. */
-    public function salesTrend(string $granularity = 'day', int $points = 14, ?User $viewer = null, ?Carbon $month = null): array
+    public function salesTrend(string $granularity = 'day', int $points = 14, ?User $viewer = null, ?Carbon $month = null, ?Carbon $from = null, ?Carbon $to = null): array
     {
+        $range = $from && $to;
+        if ($range) {
+            $points = max($points, (int) $from->diffInDays($to) + 1);
+        }
         $driver = DB::connection()->getDriverName();
         // Basis tanggal ORDER, bukan completed_at: entri back-date diselesaikan
         // hari ini tetapi transaksinya terjadi di masa lalu — memakai completed_at
@@ -382,7 +388,7 @@ class ReportService
         $rows = $this->inMonth($this->scopePo(
             PurchaseOrder::query()->where('status', self::REVENUE_STATUS)->whereNotNull('completed_at'),
             $viewer,
-        ), $month)
+        ), $month, null, $from, $to)
             ->selectRaw("$format as bucket, SUM(total_amount) as total, COUNT(*) as orders")
             ->groupBy('bucket')
             // Ambil N periode TERBARU lalu balik urutannya untuk digambar dari
@@ -403,7 +409,14 @@ class ReportService
         // Satu bulan dipilih → gambar SEMUA harinya, hari tanpa penjualan diisi
         // 0. Tanpa ini grafik cuma memuat hari yang ada transaksinya dan garis
         // melompatinya begitu saja — hari nol terlihat seperti tak pernah ada.
-        return $month && $granularity === 'day' ? $this->fillDays($series, $month) : $series;
+        if ($granularity !== 'day') {
+            return $series;
+        }
+        if ($range) {
+            return $this->fillDays($series, $from, $to);
+        }
+
+        return $month ? $this->fillDays($series, $month->copy()->startOfMonth(), $month->copy()->endOfMonth()) : $series;
     }
 
     /**
@@ -414,15 +427,15 @@ class ReportService
      *
      * @return array{labels: array<int,string>, channels: array<int, array{key:string, label:string, color:string, data: array<int,float>}>}
      */
-    public function salesTrendByChannel(?Carbon $month = null): array
+    public function salesTrendByChannel(?Carbon $month = null, ?Carbon $from = null, ?Carbon $to = null): array
     {
         $month ??= Carbon::now();
         $driver = DB::connection()->getDriverName();
 
-        // Label hari: tgl 1 s/d akhir bulan; bulan berjalan berhenti di HARI INI
-        // (hari yang belum terjadi tak digambar sebagai 0).
-        $start = $month->copy()->startOfMonth();
-        $end = $month->copy()->endOfMonth();
+        // Label hari: tgl 1 s/d akhir bulan (atau rentang Periode); bulan berjalan berhenti
+        // di HARI INI (hari yang belum terjadi tak digambar sebagai 0).
+        $start = $from && $to ? $from->copy()->startOfDay() : $month->copy()->startOfMonth();
+        $end = $from && $to ? $to->copy()->startOfDay() : $month->copy()->endOfMonth();
         $today = Carbon::today();
         if ($end->gt($today) && ! $start->gt($today)) {
             $end = $today;
@@ -486,11 +499,11 @@ class ReportService
      * @param  array<int, array{label:string, total:float, orders:int}>  $series
      * @return array<int, array{label:string, total:float, orders:int}>
      */
-    private function fillDays(array $series, Carbon $month): array
+    private function fillDays(array $series, Carbon $start, Carbon $end): array
     {
         $byLabel = collect($series)->keyBy('label');
-        $cursor = $month->copy()->startOfMonth();
-        $end = $month->copy()->endOfMonth();
+        $cursor = $start->copy()->startOfDay();
+        $end = $end->copy()->startOfDay();
         $today = Carbon::today();
 
         if ($end->gt($today) && ! $cursor->gt($today)) {
@@ -657,9 +670,9 @@ class ReportService
     }
 
     /** PO count grouped by status — pie chart. */
-    public function poStatusDistribution(?User $viewer = null, ?Carbon $month = null): array
+    public function poStatusDistribution(?User $viewer = null, ?Carbon $month = null, ?Carbon $from = null, ?Carbon $to = null): array
     {
-        $rows = $this->inMonth($this->scopePo(PurchaseOrder::query(), $viewer), $month)
+        $rows = $this->inMonth($this->scopePo(PurchaseOrder::query(), $viewer), $month, null, $from, $to)
             ->selectRaw('status, COUNT(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status')

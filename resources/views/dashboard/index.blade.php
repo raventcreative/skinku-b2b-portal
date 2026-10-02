@@ -56,7 +56,7 @@
     </div>
 @else
 @php
-    $per = $bulan->translatedFormat('M Y');
+    $per = $periodeLabel;
 
     // Kartu Penjualan dipecah per channel — angka bulat menyembunyikan dari mana
     // omzetnya datang. Channel baru (Tokopedia/Lazada/offline) otomatis ikut
@@ -232,16 +232,31 @@
 </script>
 @endif
 
-{{-- Filter periode — berlaku untuk seluruh dashboard --}}
+{{-- Filter periode — berlaku untuk SELURUH dashboard: bulan, preset cepat, atau rentang tanggal --}}
+@php
+    $pRange = $chFrom && $chSampai;
+    $pIs = fn ($a, $b) => $pRange && $chFrom->isSameDay($a) && $chSampai->isSameDay($b);
+    $pBtn = fn ($on) => 'px-2.5 py-1 text-[11px] rounded-lg border '.($on ? 'bg-red-600 text-white border-red-600' : 'bg-white border-stone-300 text-stone-600 hover:bg-stone-50');
+    $pLink = fn ($a, $b) => route('dashboard', ['dari' => $a->toDateString(), 'sampai' => $b->toDateString()]);
+@endphp
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <span class="text-xs text-stone-500">Periode</span>
-    <form method="GET" class="flex items-center gap-2">
-        <input type="month" name="bulan" value="{{ $bulan->format('Y-m') }}" onchange="this.form.submit()"
-            class="px-3 py-1.5 border border-stone-300 rounded-lg text-xs">
+    <a href="{{ $pLink(today(), today()) }}" class="{{ $pBtn($pIs(today(), today())) }}">Hari ini</a>
+    <a href="{{ $pLink(today()->subDay(), today()->subDay()) }}" class="{{ $pBtn($pIs(today()->subDay(), today()->subDay())) }}">Kemarin</a>
+    <a href="{{ $pLink(today()->subDays(6), today()) }}" class="{{ $pBtn($pIs(today()->subDays(6), today())) }}">7 hari</a>
+    <a href="{{ $pLink(today()->subDays(29), today()) }}" class="{{ $pBtn($pIs(today()->subDays(29), today())) }}">30 hari</a>
+    <a href="{{ route('dashboard') }}" class="{{ $pBtn(! $pRange && $bulan->isSameMonth(now())) }}">Bulan ini</a>
+    <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
+        <input type="month" name="bulan" value="{{ $pRange ? '' : $bulan->format('Y-m') }}" onchange="this.form.submit()" title="Pilih bulan"
+            class="px-3 py-1.5 border rounded-lg text-xs {{ ! $pRange && ! $bulan->isSameMonth(now()) ? 'border-red-500 text-red-700' : 'border-stone-300' }}">
     </form>
-    @if(! $bulan->isSameMonth(now()))
-        <a href="{{ route('dashboard') }}" class="text-xs text-indigo-600 hover:underline">← bulan ini</a>
-    @endif
+    <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-1 text-[11px]">
+        <input type="date" name="dari" value="{{ $chFrom?->toDateString() }}" max="{{ today()->toDateString() }}" class="px-2 py-1 border border-stone-300 rounded-lg" aria-label="Dari tanggal">
+        <span class="text-stone-400">–</span>
+        <input type="date" name="sampai" value="{{ $chSampai?->toDateString() }}" max="{{ today()->toDateString() }}" class="px-2 py-1 border border-stone-300 rounded-lg" aria-label="Sampai tanggal">
+        <button class="px-2.5 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Terapkan</button>
+    </form>
+    <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full {{ $pRange ? 'bg-red-50 text-red-700' : 'bg-stone-100 text-stone-500' }}">{{ $periodeLabel }}</span>
     <span class="text-[11px] text-stone-400 ml-auto">Kartu bertanda “saat ini” tidak ikut filter</span>
 </div>
 
@@ -281,11 +296,11 @@
 
 <div class="grid lg:grid-cols-3 gap-6 mb-6">
     <div class="lg:col-span-2 bg-white rounded-2xl border border-stone-200 p-5">
-        <h3 class="text-sm font-bold text-stone-800 mb-3">Tren Penjualan — {{ $bulan->translatedFormat('F Y') }}</h3>
+        <h3 class="text-sm font-bold text-stone-800 mb-3">Tren Penjualan — {{ $periodeLabel }}</h3>
         <canvas id="salesTrendChart" height="110"></canvas>
     </div>
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
-        <h3 class="text-sm font-bold text-stone-800 mb-3">Distribusi Status PO — {{ $bulan->translatedFormat('M Y') }}</h3>
+        <h3 class="text-sm font-bold text-stone-800 mb-3">Distribusi Status PO — {{ $periodeLabel }}</h3>
         <div style="height:260px"><canvas id="poStatusChart"></canvas></div>
     </div>
 </div>
