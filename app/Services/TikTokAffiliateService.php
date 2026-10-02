@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Kol;
+use App\Models\KolContentDailySnapshot;
 use App\Models\KolCreatorContent;
 use App\Models\KolCreatorContentStat;
 use App\Models\KolTiktokProfile;
@@ -101,6 +102,17 @@ class TikTokAffiliateService
             }
             if ($rows !== []) {
                 KolCreatorContent::insert($rows);
+            }
+            // Riwayat harian video (views harian = selisih antar potret). Idempoten per hari.
+            foreach ($vids as $v) {
+                if (($v['content_id'] ?? '') === '') {
+                    continue;
+                }
+                KolContentDailySnapshot::updateOrCreate(
+                    ['content_id' => $v['content_id'], 'period' => $period, 'captured_on' => now()->toDateString()],
+                    ['kol_id' => $kolId, 'title' => $v['title'] ?: null, 'posted_at' => $v['occurred_at'] ?? null,
+                        'views' => (int) ($v['views'] ?? 0), 'gmv' => (int) ($v['gmv'] ?? 0), 'items_sold' => (int) ($v['items_sold'] ?? 0)],
+                );
             }
             $stored++;
         }

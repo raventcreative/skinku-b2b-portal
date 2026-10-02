@@ -705,6 +705,11 @@ Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/spec
 
 **Izin baru:** `kol.affiliate.view`, `kol.affiliate.manage`.
 
+### Report Views Harian video SKINKU (migrasi `000158`)
+- `tiktok:affiliate-content-sync` (04:00) kini juga menyimpan **potret harian** tiap video SKINKU ke `kol_content_daily_snapshots` (kumulatif bulan per video; idempoten per hari; tanggal 1 ikut menutup bulan lalu). `kol_creator_contents` tetap angka terbaru.
+- `KolViewsHarianService::report()` — views tanggal D = potret (D+1) − potret sebelumnya; ganti bulan = kumulatif sejak tgl 1; video tanpa potret sebelumnya dihitung penuh hanya bila baru diposting (selain itu titik awal); selisih negatif → 0.
+- Halaman **Views Harian SKINKU** (`kol-views-harian.index`, izin `kol.affiliate.view`): kreator × tanggal (default 14 hari s/d kemarin, maks 62), heatmap, total, GMV, cari kreator + Export Excel. Riwayat mulai sejak fitur aktif. Test: `KolViewsHarianTest`.
+
 ### KSS setengah otomatis + filter skor
 - `KolScoringService::kssPrefill(Kol)` — tebak isian KSS dari data yang ada: ratecard (screening), median (screening → fallback avg views TikTok), ER (TikTok), niche (kategori Skinfluencer/Makeup → beauty), riwayat (verdict deal selesai; tanpa deal → "belum pernah"), kesiapan (jumlah video+LIVE jualan 30 hari ≥8 aktif / >0 jarang / 0 tidak). null = isi manual. Kalkulator (`kol-skor.kss?kol={id}`) mengisi otomatis + menampilkan sumber tiap isian; tombol "hitung" di kolom KSS Database KOL.
 - **KSS otomatis di tabel** — `KolScoringService::kssAuto(Kol)`: bila ratecard + views + engagement ada, skor dihitung tanpa klik (tampil miring "≈62"); isian non-inti yang tak diketahui diisi nilai tengah & dicatat sebagai asumsi (tooltip). Filter/urut KSS memakai skor tersimpan, lalu estimasi. "hitung" = data belum cukup.
