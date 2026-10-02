@@ -22,6 +22,9 @@ class EcomChatMessage extends Model
     /** Balasan otomatis chatbot/sistem TikTok sendiri (bukan AI SKINKU, bukan staf). */
     public const VIA_BOT = 'bot';
 
+    /** Teks pengganti kartu TikTok yang isinya tak dikirim API (sambutan, konfirmasi pesanan, dll). */
+    public const BOT_CARD_TEXT = '🧩 Kartu otomatis TikTok (sambutan / konfirmasi pesanan / notifikasi) — isinya hanya terlihat di Seller Center';
+
     protected $fillable = [
         'conversation_id', 'channel', 'external_message_id',
         'sender', 'via', 'type', 'text', 'meta', 'sent_at',

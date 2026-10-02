@@ -65,7 +65,7 @@
             @php($mine = $m->sender !== 'buyer')
             @php($isCard = in_array($m->type, ['order_card', 'logistics_card'], true))
             @php($isBot = $m->via === 'bot')
-            @php($isOther = $m->type === 'other' && str_starts_with((string) $m->text, '📎'))
+            @php($isOther = $m->type === 'other' && (str_starts_with((string) $m->text, '📎') || str_starts_with((string) $m->text, '🧩')))
             @php($isImage = $m->type === 'image')
             @php($isVideo = $m->type === 'video')
             @php($mediaUrl = ($isImage || $isVideo) ? (string) ($m->meta['url'] ?? '') : '')
@@ -137,7 +137,7 @@
                     @elseif($isOther)
                         <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">{{ $m->text }}</div>
                     @elseif(trim((string) $m->text) === '')
-                        <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">(pesan kosong / tipe tak dikenal)</div>
+                        <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">{{ $isBot ? '🔔 Notifikasi sistem TikTok (mis. obrolan dialihkan) — tidak perlu dibalas' : '(pesan kosong / tipe tak dikenal)' }}</div>
                     @elseif($isBot)
                         <div class="px-3 py-2 rounded-2xl text-sm whitespace-pre-line wrap-break-word bg-sky-50 border border-sky-200 text-sky-900">{{ $m->text }}</div>
                     @else
