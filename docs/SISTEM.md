@@ -707,6 +707,7 @@ Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/spec
 
 ### KSS setengah otomatis + filter skor
 - `KolScoringService::kssPrefill(Kol)` — tebak isian KSS dari data yang ada: ratecard (screening), median (screening → fallback avg views TikTok), ER (TikTok), niche (kategori Skinfluencer/Makeup → beauty), riwayat (verdict deal selesai; tanpa deal → "belum pernah"), kesiapan (jumlah video+LIVE jualan 30 hari ≥8 aktif / >0 jarang / 0 tidak). null = isi manual. Kalkulator (`kol-skor.kss?kol={id}`) mengisi otomatis + menampilkan sumber tiap isian; tombol "hitung" di kolom KSS Database KOL.
+- **KSS otomatis di tabel** — `KolScoringService::kssAuto(Kol)`: bila ratecard + views + engagement ada, skor dihitung tanpa klik (tampil miring "≈62"); isian non-inti yang tak diketahui diisi nilai tengah & dicatat sebagai asumsi (tooltip). Filter/urut KSS memakai skor tersimpan, lalu estimasi. "hitung" = data belum cukup.
 - Database KOL: filter & urut **APS** (bina_intensif/pantau/nurture/new/belum, gated `kol.affiliate.view`) dan **KSS** (shortlist/nego/tolak/belum) dari skor terakhir `kol_scores`.
 - Tombol **(?)** penjelasan istilah (APS, KSS, GPM, Porsi SKINKU): partial `kols._hint` + `kols._hint-dialog` (satu `<dialog>` per halaman). Test: `tests/Feature/KolKssOtomatisTest.php`.
 

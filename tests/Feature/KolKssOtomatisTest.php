@@ -96,4 +96,24 @@ class KolKssOtomatisTest extends TestCase
         $belum = Kol::where('tiktok_username', 'kssbelum')->value('id');
         $this->assertStringContainsString(e(route('kol-skor.kss', ['kol' => $belum])), $html); // link "hitung"
     }
+
+    public function test_kss_otomatis_tampil_di_tabel_dan_ikut_filter_tanpa_klik(): void
+    {
+        $kol = $this->kolLengkap(); // ratecard 1,5 jt · views 12 rb · ER 3,4% · Skinfluencer
+        Kol::create(['tiktok_username' => 'tanparatecard', 'followers' => 1]);
+        $auto = app(KolScoringService::class)->kssAuto($kol);
+        $this->assertNotNull($auto);
+        $this->assertSame([], $auto['asumsi']); // semua data ada → tanpa asumsi
+        $this->assertNull(app(KolScoringService::class)->kssAuto(Kol::where('tiktok_username', 'tanparatecard')->first()->load(['latestScreening', 'tiktokProfile', 'deals'])));
+
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'saauto');
+        $html = $this->actingAs($super)->get(route('kols.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('≈'.str_replace('.', ',', (string) $auto['score']), $html);
+
+        // Filter KSS memakai estimasi otomatis; yang tanpa data tetap "belum".
+        $this->actingAs($super)->get(route('kols.index', ['kss' => $auto['decision']]))->assertOk()
+            ->assertSee('@lengkap')->assertDontSee('@tanparatecard');
+        $this->actingAs($super)->get(route('kols.index', ['kss' => 'belum']))->assertOk()
+            ->assertSee('@tanparatecard')->assertDontSee('@lengkap');
+    }
 }

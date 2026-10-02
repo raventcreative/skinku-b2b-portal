@@ -20,7 +20,8 @@
         <li><b>15%</b> Riwayat kerja sama dengan brand</li>
         <li><b>10%</b> Kesiapan komersial (rutin keranjang kuning)</li>
     </ul>
-    <p>≥70 <b class="text-emerald-700">Shortlist</b> · ≥50 <b class="text-amber-600">Nego dulu</b> · &lt;50 <b class="text-rose-600">Tolak sopan, simpan</b>. Klik "hitung" di kolom KSS → isian terisi otomatis dari data yang ada.</p>
+    <p>≥70 <b class="text-emerald-700">Shortlist</b> · ≥50 <b class="text-amber-600">Nego dulu</b> · &lt;50 <b class="text-rose-600">Tolak sopan, simpan</b>. </p>
+    <p class="mt-2"><b>≈62</b> (miring) = <b>KSS otomatis</b>, dihitung sendiri dari ratecard + views + engagement TikTok (estimasi, belum disimpan). <b>62</b> (tegak) = sudah dicek &amp; disimpan lewat kalkulator. <b>hitung</b> = data belum cukup (biasanya belum ada ratecard) → isi manual.</p>
 </template>
 <template id="hint-gpm">
     <p class="font-bold text-stone-800 mb-1">GPM — GMV per 1.000 views</p>

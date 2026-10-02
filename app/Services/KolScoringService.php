@@ -155,6 +155,35 @@ class KolScoringService
     }
 
     /**
+     * KSS otomatis untuk tabel: dihitung tanpa klik bila data inti ada (ratecard,
+     * median views, engagement). Isian non-inti yang tak diketahui diisi nilai
+     * tengah (niche general, riwayat belum pernah, kesiapan jarang) dan dicatat
+     * di `asumsi` — skor ini ESTIMASI, simpan lewat kalkulator untuk versi final.
+     *
+     * @return array{score:float,decision:string,asumsi:array<int,string>}|null
+     */
+    public function kssAuto(Kol $k): ?array
+    {
+        $p = $this->kssPrefill($k);
+        if (! $p['rate'] || ! $p['median'] || $p['er'] === null) {
+            return null;
+        }
+        $asumsi = [];
+        foreach (['niche' => ['general', 'niche'], 'history' => ['none', 'riwayat brand'], 'readiness' => ['rare', 'kesiapan']] as $key => [$default, $label]) {
+            if ($p[$key] === null) {
+                $p[$key] = $default;
+                $asumsi[] = $label;
+            }
+        }
+        $r = $this->kss([
+            'rate' => $p['rate'], 'barterOnly' => false, 'medianViews' => $p['median'],
+            'engagementRate' => (float) $p['er'], 'niche' => $p['niche'], 'history' => $p['history'], 'readiness' => $p['readiness'],
+        ]);
+
+        return ['score' => $r['score'], 'decision' => $r['decision'], 'asumsi' => $asumsi];
+    }
+
+    /**
      * @param  array{rate:int,barterOnly:bool,medianViews:int,engagementRate:float,niche:string,history:string,readiness:string}  $in
      * @return array{score:float,decision:string,ecpm:?float,components:array,advice:string}
      */

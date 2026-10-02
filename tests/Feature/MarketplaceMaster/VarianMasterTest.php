@@ -181,4 +181,39 @@ class VarianMasterTest extends TestCase
         $this->actingAs($admin)->get(route('marketplace-stock.edit', $m->variants()->first()))->assertRedirect(route('marketplace-stock.edit', $m));
         $this->actingAs($admin)->get(route('marketplace-stock.edit', $m))->assertOk()->assertSee('Varian Produk')->assertSee('value="SCR-3"', false);
     }
+
+    public function test_varian_isi_3_pcs_stok_otomatis_dari_varian_satuan_dan_order_memotong_satuan(): void
+    {
+        $m = $this->induk();
+        $admin = $this->admin();
+        $svc = app(MarketplaceMasterService::class);
+
+        // Scrub 3 Pcs = isi SCR-1 × 3 (saudara yang baru dibuat di simpan yang sama). Stok manual 81 diabaikan.
+        $this->actingAs($admin)->put(route('marketplace-stock.update', $m), $this->form($m, [
+            ['name' => 'Scrub 1 Pcs', 'sku' => 'SCR-1', 'price' => '50000', 'stock' => '296'],
+            ['name' => 'Scrub 3 Pcs', 'sku' => 'SCR-3', 'price' => '150000', 'stock' => '81', 'isi_sku' => 'scr-1', 'isi_qty' => '3'],
+        ]))->assertRedirect()->assertSessionHasNoErrors();
+
+        [$satu, $tiga] = $m->fresh()->variants->all();
+        $this->assertSame(1, $tiga->bundleItems()->count());
+        $this->assertSame($satu->id, $tiga->bundleItems()->first()->component_id);
+        $this->assertSame(98, $svc->effectiveStock($tiga->fresh(), 'tiktok'));   // floor(296 / 3)
+
+        // Order 2 × "3 Pcs" → stok satuan berkurang 6.
+        $l = MarketplaceListing::create(['channel' => 'tiktok', 'seller_sku' => 'SCR-3', 'master_id' => $tiga->id]);
+        $svc->applyOrderDelta($l, -2, now());
+        $this->assertSame(290, $satu->fresh()->base_stock);
+        $this->assertSame(96, $svc->effectiveStock($tiga->fresh(), 'tiktok'));
+
+        // Katalog: stok varian 3 Pcs tampil "otomatis".
+        $this->actingAs($admin)->get(route('marketplace-stock.index'))->assertOk()->assertSee('otomatis');
+
+        // Isi dikosongkan → kembali stok manual, resep dihapus.
+        $this->actingAs($admin)->put(route('marketplace-stock.update', $m), $this->form($m, [
+            ['id' => $satu->id, 'name' => 'Scrub 1 Pcs', 'sku' => 'SCR-1', 'price' => '50000', 'stock' => '290'],
+            ['id' => $tiga->id, 'name' => 'Scrub 3 Pcs', 'sku' => 'SCR-3', 'price' => '150000', 'stock' => '20', 'isi_sku' => ''],
+        ]))->assertRedirect();
+        $this->assertSame(0, $tiga->bundleItems()->count());
+        $this->assertSame(20, $tiga->fresh()->base_stock);
+    }
 }
