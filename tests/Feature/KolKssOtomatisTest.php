@@ -91,7 +91,7 @@ class KolKssOtomatisTest extends TestCase
         $html = $this->actingAs($super)->get(route('kols.index', ['sort' => 'kss', 'dir' => 'desc']))->assertOk()->getContent();
         $this->assertTrue(strpos($html, '@kssbagus') < strpos($html, '@kssjelek'));
         $this->assertTrue(strpos($html, '@kssjelek') < strpos($html, '@kssbelum')); // belum dihitung → bawah
-        $this->assertStringContainsString("kolHint('aps')", $html);
+        $this->assertStringContainsString("kolHint('aps', this)", $html);
         $this->assertStringContainsString('id="hint-gpm"', $html);
         $belum = Kol::where('tiktok_username', 'kssbelum')->value('id');
         $this->assertStringContainsString(e(route('kol-skor.kss', ['kol' => $belum])), $html); // link "hitung"
