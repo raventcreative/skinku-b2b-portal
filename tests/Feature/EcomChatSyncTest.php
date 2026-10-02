@@ -219,4 +219,20 @@ class EcomChatSyncTest extends TestCase
         $svc->refreshReplyState($ai);
         $this->assertSame(['replied', 'ai'], [$ai->fresh()->status, $ai->fresh()->last_reply_via]);
     }
+
+    public function test_label_ai_yang_tertimpa_staf_dipulihkan_dari_draft_auto_send(): void
+    {
+        $c = EcomChatConversation::create(['channel' => 'tiktok', 'external_conversation_id' => 'R1', 'buyer_name' => 'X', 'status' => 'replied',
+            'last_reply_via' => 'staff', 'ai_draft' => 'Mohon ditunggu pesanannya ya.', 'ai_decision' => 'auto_send']);
+        $c->messages()->create(['channel' => 'tiktok', 'external_message_id' => 'R1a', 'sender' => 'buyer', 'via' => 'buyer', 'text' => 'baik kak', 'sent_at' => now()]);
+        $c->messages()->create(['channel' => 'tiktok', 'external_message_id' => 'R1b', 'sender' => 'seller', 'via' => 'staff', 'text' => ':)', 'sent_at' => now()->addMinute()]);
+        $c->messages()->create(['channel' => 'tiktok', 'external_message_id' => 'R1c', 'sender' => 'seller', 'via' => 'staff', 'text' => 'Mohon ditunggu pesanannya ya.', 'sent_at' => now()->addMinutes(2)]);
+
+        app(EcomChatService::class)->refreshReplyState($c);
+
+        $by = $c->fresh()->messages->keyBy('external_message_id');
+        $this->assertSame('ai', $by['R1c']->via);
+        $this->assertSame('staff', $by['R1b']->via);
+        $this->assertSame('ai', $c->fresh()->last_reply_via);
+    }
 }

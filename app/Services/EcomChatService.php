@@ -310,10 +310,18 @@ class EcomChatService
      */
     public function refreshReplyState(EcomChatConversation $conv): void
     {
-        // Repair data lama: pesan OTHER dari sisi toko dulu tersimpan sebagai "staf" + placeholder lama.
+        // Repair data lama: kartu OTHER dari sisi toko dulu tersimpan sebagai "staf" + placeholder lama.
         $conv->messages()->where('type', 'other')->where('sender', '!=', EcomChatMessage::SENDER_BUYER)
-            ->where('via', EcomChatMessage::VIA_STAFF)
-            ->update(['via' => EcomChatMessage::VIA_BOT, 'text' => '📎 Pesan tipe lain — isinya hanya terlihat di TikTok Seller Center']);
+            ->where(fn ($q) => $q->where('via', EcomChatMessage::VIA_STAFF)->orWhere('text', 'like', '📎%'))
+            ->update(['via' => EcomChatMessage::VIA_BOT, 'text' => EcomChatMessage::BOT_CARD_TEXT]);
+
+        // Repair label AI yang dulu tertimpa jadi "staf" oleh sync lama: balasan toko yang
+        // teksnya PERSIS draft auto-send AI terakhir = kiriman AI SKINKU.
+        if ($conv->ai_decision === 'auto_send' && trim((string) $conv->ai_draft) !== '') {
+            $conv->messages()->where('sender', '!=', EcomChatMessage::SENDER_BUYER)
+                ->where('via', EcomChatMessage::VIA_STAFF)->where('text', $conv->ai_draft)
+                ->update(['via' => EcomChatMessage::VIA_AI]);
+        }
 
         if ($conv->status === EcomChatConversation::STATUS_CLOSED) {
             return;
@@ -758,7 +766,7 @@ class EcomChatService
         $t = trim((string) ($in['content'] ?? $in['text'] ?? ''));
 
         return ($t === '' || str_starts_with($t, '[Other]'))
-            ? '📎 Pesan tipe lain — isinya hanya terlihat di TikTok Seller Center'
+            ? EcomChatMessage::BOT_CARD_TEXT
             : $t;
     }
 }
