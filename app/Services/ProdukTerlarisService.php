@@ -27,12 +27,26 @@ class ProdukTerlarisService
     ) {}
 
     /**
-     * @return array<string, array{total:int, rows: array<int, array{label:string, qty:int, prev:int, unmapped:bool}>}>
+     * Bulan berjalan dibandingkan dengan PERIODE YANG SAMA bulan lalu (mis. 1–2 Okt vs
+     * 1–2 Sep), bukan sebulan penuh — kalau tidak, awal bulan selalu tampak "turun".
+     *
+     * @return array{prev_label:string, channels: array<string, array{total:int, rows: array<int, array{label:string, qty:int, prev:int, unmapped:bool}>}>}
      */
     public function report(Carbon $month, int $limit = 10): array
     {
-        $now = $this->tally($month);
-        $prev = $this->tally($month->copy()->subMonthNoOverflow());
+        $start = $month->copy()->startOfMonth()->startOfDay();
+        $end = $month->copy()->endOfMonth()->endOfDay();
+        $prevStart = $start->copy()->subMonthNoOverflow();
+        $prevEnd = $prevStart->copy()->endOfMonth()->endOfDay();
+
+        $berjalan = now()->between($start, $end);
+        if ($berjalan) {
+            $end = now()->copy()->endOfDay();
+            $prevEnd = $prevStart->copy()->addDays($end->day - 1)->endOfDay()->min($prevEnd);
+        }
+
+        $now = $this->tally($start, $end);
+        $prev = $this->tally($prevStart, $prevEnd);
 
         $out = [];
         foreach (['semua', 'reseller', 'tiktok', 'shopee'] as $ch) {
@@ -42,14 +56,16 @@ class ProdukTerlarisService
             $out[$ch] = ['total' => (int) $rows->sum('qty'), 'rows' => $rows->take($limit)->all()];
         }
 
-        return $out;
+        $prevLabel = $berjalan
+            ? $prevStart->day.'–'.$prevEnd->day.' '.$prevStart->translatedFormat('M Y')
+            : $prevStart->translatedFormat('M Y');
+
+        return ['prev_label' => $prevLabel, 'channels' => $out];
     }
 
     /** @return array<string, array<string, array{label:string, qty:int, unmapped:bool}>> */
-    private function tally(Carbon $month): array
+    private function tally(Carbon $start, Carbon $end): array
     {
-        $start = $month->copy()->startOfMonth()->startOfDay();
-        $end = $month->copy()->endOfMonth()->endOfDay();
         $acc = ['semua' => [], 'reseller' => [], 'tiktok' => [], 'shopee' => []];
         $add = function (string $ch, string $key, string $label, int $qty, bool $unmapped = false) use (&$acc) {
             foreach ([$ch, 'semua'] as $c) {

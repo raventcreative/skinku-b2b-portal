@@ -8,14 +8,22 @@
     ];
     $ptNum = fn ($n) => number_format($n, 0, ',', '.');
 @endphp
-<div class="bg-white rounded-2xl border border-stone-200 p-5 mb-6">
-    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
-        <h3 class="text-sm font-bold text-stone-800">Produk Terlaris — {{ $bulan->translatedFormat('F Y') }}</h3>
-        <p class="text-[11px] text-stone-400">Unit terjual (order berbayar: selesai + berjalan). Bundle dihitung per isi. ▲▼ = dibanding {{ $bulan->copy()->subMonthNoOverflow()->translatedFormat('M Y') }}. Ganti bulan lewat pilihan bulan di atas.</p>
+<div id="produkTerlaris" class="bg-white rounded-2xl border border-stone-200 p-5 mb-6 scroll-mt-20">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h3 class="text-sm font-bold text-stone-800">Produk Terlaris — {{ $ptBulan->translatedFormat('F Y') }}</h3>
+        <form method="GET" action="{{ route('dashboard') }}#produkTerlaris" class="flex items-center gap-2 text-xs">
+            @foreach(request()->except('pt_bulan') as $k => $v)
+                @if(is_string($v))<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endif
+            @endforeach
+            <label for="ptBulan" class="text-stone-500">Bulan</label>
+            <input id="ptBulan" type="month" name="pt_bulan" value="{{ $ptBulan->format('Y-m') }}" max="{{ now()->format('Y-m') }}"
+                   onchange="this.form.submit()" class="px-2 py-1 border border-stone-300 rounded-lg text-xs">
+        </form>
     </div>
+    <p class="text-[11px] text-stone-400 -mt-2 mb-4">Unit terjual (order berbayar: selesai + berjalan). Bundle dihitung per isi. ▲▼ = dibanding {{ $produkTerlaris['prev_label'] }}.</p>
     <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
         @foreach($ptChannels as $key => [$label, $color])
-            @php $pt = $produkTerlaris[$key]; $max = max(1, collect($pt['rows'])->max('qty') ?? 1); @endphp
+            @php $pt = $produkTerlaris['channels'][$key]; $max = max(1, collect($pt['rows'])->max('qty') ?? 1); @endphp
             <div class="rounded-xl border border-stone-200 p-4">
                 <div class="flex items-center justify-between mb-3">
                     <span class="flex items-center gap-2 text-xs font-bold text-stone-700">

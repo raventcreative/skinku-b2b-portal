@@ -64,7 +64,8 @@ class ProdukTerlarisTest extends TestCase
         ShopeeOrder::create(['order_sn' => 'S1', 'status' => 'READY_TO_SHIP', 'total_amount' => 0, 'order_created_at' => '2026-09-12',
             'line_items' => [['sku' => 'MZ-1', 'name' => 'Mizu', 'qty' => 3]]]);
 
-        $r = app(ProdukTerlarisService::class)->report(Carbon::parse('2026-09-01'));
+        Carbon::setTestNow('2026-10-15 10:00:00');   // September = bulan penuh (sudah lewat)
+        $r = app(ProdukTerlarisService::class)->report(Carbon::parse('2026-09-01'))['channels'];
 
         $row = fn ($ch, $label) => collect($r[$ch]['rows'])->firstWhere('label', $label);
 
@@ -76,6 +77,28 @@ class ProdukTerlarisTest extends TestCase
         $this->assertSame(13, $row('semua', 'Mizu')['qty']);                  // 10 PO + 3 Shopee
         $this->assertSame('Mizu', $r['semua']['rows'][0]['label']);           // urut unit terbanyak
         $this->assertSame(20, $r['semua']['total']);                          // 13 + 6 + 1
+        Carbon::setTestNow();
+    }
+
+    public function test_bulan_berjalan_dibanding_periode_yang_sama_bulan_lalu(): void
+    {
+        $mizu = $this->produk('Mizu', 'MZ-1');
+        $this->po('completed', $mizu, 5, '2026-10-01');
+        $this->po('completed', $mizu, 3, '2026-09-02');           // dalam 1–2 Sep → pembanding
+        $this->po('completed', $mizu, 100, '2026-09-20');         // setelah tgl 2 → TIDAK ikut pembanding
+
+        Carbon::setTestNow('2026-10-02 17:00:00');
+        $r = app(ProdukTerlarisService::class)->report(Carbon::parse('2026-10-01'));
+        Carbon::setTestNow();
+
+        $this->assertSame('1–2 Sep 2026', $r['prev_label']);
+        $this->assertSame(3, $r['channels']['reseller']['rows'][0]['prev']);
+    }
+
+    public function test_pilihan_bulan_khusus_panel(): void
+    {
+        $this->actingAs($this->user(User::ROLE_ADMIN))->get('/dashboard?pt_bulan=2026-08')
+            ->assertOk()->assertSee('Produk Terlaris — Agustus 2026')->assertSee('name="pt_bulan"', false);
     }
 
     public function test_panel_tampil_untuk_staff_saja(): void
