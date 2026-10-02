@@ -233,8 +233,9 @@
                         <a href="{{ $prof ?? route('kols.show', $kol) }}" @if($prof) target="_blank" rel="noopener" @endif
                             class="font-bold text-red-700 hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
                         <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $kol->platformLabel() }}</span>
-                        {{-- Tag peran: KOL (endorse) merah, Affiliate biru; "both" dapat keduanya. --}}
-                        @if(in_array($kol->role, ['kol', 'both'], true))<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-rose-100 text-rose-700 font-semibold">KOL</span>@endif
+                        {{-- Tag KOL hanya bila SUDAH masuk deal KOL (selain batal) — prospek yang baru
+                             didata tak diberi tag. Affiliate biru = peran affiliate (punya order affiliate). --}}
+                        @if($kol->deals->contains(fn ($d) => $d->status !== 'batal'))<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-rose-100 text-rose-700 font-semibold" title="Sudah punya deal KOL">KOL</span>@endif
                         @if(in_array($kol->role, ['affiliate', 'both'], true))<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-sky-100 text-sky-700">Affiliate</span>@endif
                         @if($kol->is_gapok)<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-amber-100 text-amber-700 font-semibold" title="Anggota Tim Affiliate Gapok">GAPOK</span>@endif
                         @if($kol->isBlacklisted())<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-rose-100 text-rose-700">BLACKLIST</span>@endif
