@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
+use App\Models\KolDeal;
 use App\Models\KolTiktokProfile;
 use App\Models\KolTiktokSnapshot;
 use App\Models\TiktokAffiliateConnection;
@@ -219,15 +220,22 @@ class KolPerformanceTrackerTest extends TestCase
             ->assertSee('Total: 1 KOL (sesuai filter)');
     }
 
-    public function test_tag_peran_kol_dan_affiliate_tampil(): void
+    public function test_tag_kol_hanya_untuk_yang_sudah_punya_deal(): void
     {
-        Kol::create(['tiktok_username' => 'murnikol', 'followers' => 1, 'role' => 'kol']);
-        Kol::create(['tiktok_username' => 'duaperan', 'followers' => 1, 'role' => 'both']);
+        $tanpaDeal = Kol::create(['tiktok_username' => 'prospekbaru', 'followers' => 1, 'role' => 'kol']);
+        $deal = Kol::create(['tiktok_username' => 'sudahdeal', 'followers' => 1, 'role' => 'kol']);
+        $batal = Kol::create(['tiktok_username' => 'dealbatal', 'followers' => 1, 'role' => 'kol']);
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'satag');
+        foreach ([[$deal, 'berjalan'], [$batal, 'batal']] as [$k, $st]) {
+            KolDeal::create(['kode' => 'D'.$k->id, 'kol_id' => $k->id, 'jenis' => 'vt', 'total_biaya' => 1_000_000,
+                'status' => $st, 'periode_mulai' => now()->toDateString()]);
+        }
+        Kol::create(['tiktok_username' => 'afil', 'followers' => 1, 'role' => 'affiliate']);
 
-        $html = $this->actingAs($this->user(User::ROLE_SUPER_ADMIN, 'satag'))->get(route('kols.index'))
+        $html = $this->actingAs($super)->get(route('kols.index'))
             ->assertOk()->assertSee('Database KOL / Affiliate')->getContent();
-        $this->assertSame(2, substr_count($html, 'font-semibold">KOL</span>'));      // kol + both
-        $this->assertSame(1, substr_count($html, 'text-sky-700">Affiliate</span>')); // both
+        $this->assertSame(1, substr_count($html, 'title="Sudah punya deal KOL">KOL</span>')); // hanya @sudahdeal
+        $this->assertSame(1, substr_count($html, 'text-sky-700">Affiliate</span>'));
     }
 
     public function test_kolom_tiktok_bisa_diurutkan_dan_status_sync_dibedakan(): void
