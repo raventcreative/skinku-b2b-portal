@@ -64,7 +64,8 @@
         @forelse($conversation->messages as $m)
             @php($mine = $m->sender !== 'buyer')
             @php($isCard = in_array($m->type, ['order_card', 'logistics_card'], true))
-            @php($isOther = $m->type === 'other')
+            @php($isBot = $m->via === 'bot')
+            @php($isOther = $m->type === 'other' && str_starts_with((string) $m->text, '📎'))
             @php($isImage = $m->type === 'image')
             @php($isVideo = $m->type === 'video')
             @php($mediaUrl = ($isImage || $isVideo) ? (string) ($m->meta['url'] ?? '') : '')
@@ -77,8 +78,8 @@
             @php($isProduct = $m->type === 'product_card' || $__prodJson)
             @php($productId = $m->type === 'product_card' ? (string) ($m->meta['product_id'] ?? '') : ($__prodJson ? (string) $__dec['product_id'] : ''))
             <div class="flex items-end gap-2 {{ $mine ? 'flex-row-reverse' : '' }}">
-                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[11px] font-bold uppercase {{ $mine ? 'bg-stone-200 text-stone-700' : 'bg-brand-maroon text-white' }}">
-                    {{ mb_substr($mine ? 'Toko' : $buyerName, 0, 1) }}
+                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[11px] font-bold uppercase {{ ! $mine ? 'bg-brand-maroon text-white' : ($isBot ? 'bg-sky-100 text-sky-700' : ($m->via === 'ai' ? 'bg-violet-100 text-violet-700' : 'bg-stone-200 text-stone-700')) }}">
+                    {{ ! $mine ? mb_substr($buyerName, 0, 1) : ($isBot ? 'B' : ($m->via === 'ai' ? 'AI' : 'S')) }}
                 </span>
                 <div class="max-w-[75%] min-w-0">
                     @if($isCard)
@@ -135,11 +136,25 @@
                         </div>
                     @elseif($isOther)
                         <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">{{ $m->text }}</div>
+                    @elseif(trim((string) $m->text) === '')
+                        <div class="px-3 py-1.5 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-stone-400 text-xs italic">(pesan kosong / tipe tak dikenal)</div>
+                    @elseif($isBot)
+                        <div class="px-3 py-2 rounded-2xl text-sm whitespace-pre-line wrap-break-word bg-sky-50 border border-sky-200 text-sky-900">{{ $m->text }}</div>
                     @else
                         <div class="px-3 py-2 rounded-2xl text-sm whitespace-pre-line wrap-break-word {{ $mine ? 'bg-brand-maroon text-white' : 'bg-brand-cream border border-stone-200 text-stone-800' }}">{{ $m->text }}</div>
                     @endif
                     <div class="text-[9px] text-stone-400 mt-0.5 {{ $mine ? 'text-right' : '' }}">
-                        {{ $mine ? ($m->via === 'ai' ? 'AI SKINKU' : 'Toko') : $buyerName }} · {{ optional($m->sent_at)->format('d M H:i') }}
+                        @if($mine)
+                            @php([$vLabel, $vCls] = match ($m->via) {
+                                'ai' => ['AI SKINKU', 'bg-violet-100 text-violet-700'],
+                                'bot' => ['Bot TikTok', 'bg-sky-100 text-sky-700'],
+                                default => ['Staf', 'bg-stone-200 text-stone-600'],
+                            })
+                            <span class="inline-block px-1.5 py-px rounded font-semibold {{ $vCls }}">{{ $vLabel }}</span>
+                        @else
+                            {{ $buyerName }}
+                        @endif
+                        · {{ optional($m->sent_at)->format('d M H:i') }}
                     </div>
                 </div>
             </div>

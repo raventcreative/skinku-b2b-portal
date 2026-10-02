@@ -449,7 +449,10 @@ class EcomChatService
             [
                 'conversation_id' => $conv->id,
                 'sender' => $isBuyer ? EcomChatMessage::SENDER_BUYER : EcomChatMessage::SENDER_SELLER,
-                'via' => $isBuyer ? EcomChatMessage::VIA_BUYER : EcomChatMessage::VIA_STAFF,
+                // Pesan kiriman AI SKINKU tetap berlabel AI saat ditarik ulang.
+                'via' => $isBuyer ? EcomChatMessage::VIA_BUYER
+                    : (EcomChatMessage::where('channel', $conv->channel)->where('external_message_id', $extId)->value('via') === EcomChatMessage::VIA_AI
+                        ? EcomChatMessage::VIA_AI : EcomChatMessage::VIA_STAFF),
                 'type' => (string) ($n['type'] ?? 'text'),
                 'text' => (string) ($n['text'] ?? ''),
                 'meta' => $n['meta'] ?? null,
@@ -601,8 +604,20 @@ class EcomChatService
             return false;
         }
 
-        $isBuyer = strtolower((string) ($m['sender']['role'] ?? '')) === 'buyer';
+        $role = strtoupper((string) ($m['sender']['role'] ?? ''));
+        $isBuyer = $role === 'BUYER';
         [$type, $text, $meta] = $this->parseChannelMessage($m);
+        // Chatbot/sistem TikTok: role ROBOT/SYSTEM, atau pesan tipe OTHER dari sisi toko
+        // (auto-reply "Balasan otomatis dari chatbot" datang sebagai OTHER).
+        $isBot = ! $isBuyer && (in_array($role, ['ROBOT', 'BOT', 'SYSTEM'], true) || $type === 'other');
+        $existing = EcomChatMessage::where('channel', $conv->channel)->where('external_message_id', $extId)->first();
+        $via = match (true) {
+            $isBuyer => EcomChatMessage::VIA_BUYER,
+            $isBot => EcomChatMessage::VIA_BOT,
+            // Pesan yang dikirim AI SKINKU tetap berlabel AI saat ditarik ulang.
+            $existing?->via === EcomChatMessage::VIA_AI => EcomChatMessage::VIA_AI,
+            default => EcomChatMessage::VIA_STAFF,
+        };
         $sentAt = ! empty($m['create_time'])
             ? Carbon::createFromTimestamp((int) $m['create_time'], config('app.timezone'))
             : now();
@@ -613,7 +628,7 @@ class EcomChatService
             [
                 'conversation_id' => $conv->id,
                 'sender' => $isBuyer ? EcomChatMessage::SENDER_BUYER : EcomChatMessage::SENDER_SELLER,
-                'via' => $isBuyer ? EcomChatMessage::VIA_BUYER : EcomChatMessage::VIA_STAFF,
+                'via' => $via,
                 'type' => $type,
                 'text' => $text,
                 'meta' => $meta,
@@ -649,7 +664,8 @@ class EcomChatService
         // SEBALIKNYA: balasan penjual (mis. dibalas langsung di Seller Center) jadi
         // pesan TERBARU → tandai "Terbalas" agar status SKINKU sinkron & keluar dari
         // "Perlu dibalas" (sumber = staff, karena bukan auto-send AI kita).
-        if (! $isBuyer
+        // Balasan bot TikTok tidak dihitung "sudah ditangani" — chat tetap butuh staf/AI kita.
+        if (! $isBuyer && ! $isBot
             && in_array($conv->status, [EcomChatConversation::STATUS_OPEN, EcomChatConversation::STATUS_NEEDS_STAFF], true)
             && $conv->last_message_at !== null
             && ($conv->last_incoming_at === null || $conv->last_message_at->gt($conv->last_incoming_at))
@@ -684,7 +700,10 @@ class EcomChatService
             'IMAGE' => ['image', '🖼️ Foto', ['url' => (string) ($in['url'] ?? '')]],
             'VIDEO' => ['video', '🎬 Video', ['url' => (string) ($in['url'] ?? '')]],
             'PRODUCT_CARD' => ['product_card', '🛍️ Produk', ['product_id' => (string) ($in['product_id'] ?? '')]],
-            'OTHER' => ['other', '📎 Pesan tipe lain — buka di TikTok Seller Center', null],
+            // OTHER sering berisi teks (mis. auto-reply chatbot TikTok) → tampilkan teksnya.
+            // TikTok TIDAK mengirim isi pesan OTHER (mis. auto-reply chatbot) — hanya placeholder
+            // "[Other] Please check…". Isi asli selain placeholder (bila suatu saat ada) ditampilkan.
+            'OTHER' => ['other', $this->otherText($in), null],
             // Kartu tanpa label tipe jelas → kenali dari isinya.
             default => match (true) {
                 isset($in['url']) && (isset($in['width']) || isset($in['height'])) => ['image', '🖼️ Foto', ['url' => (string) $in['url']]],
@@ -692,5 +711,14 @@ class EcomChatService
                 default => ['text', (string) ($in['content'] ?? $raw), null],
             },
         };
+    }
+
+    private function otherText(array $in): string
+    {
+        $t = trim((string) ($in['content'] ?? $in['text'] ?? ''));
+
+        return ($t === '' || str_starts_with($t, '[Other]'))
+            ? '📎 Pesan tipe lain — isinya hanya terlihat di TikTok Seller Center'
+            : $t;
     }
 }
