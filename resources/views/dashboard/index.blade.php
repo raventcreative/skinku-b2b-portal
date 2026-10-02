@@ -247,7 +247,7 @@
     <a href="{{ $pLink(today()->subDays(29), today()) }}" class="{{ $pBtn($pIs(today()->subDays(29), today())) }}">30 hari</a>
     <a href="{{ route('dashboard') }}" class="{{ $pBtn(! $pRange && $bulan->isSameMonth(now())) }}">Bulan ini</a>
     <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
-        <input type="month" name="bulan" value="{{ $bulan->format('Y-m') }}" onchange="this.form.submit()" title="Pilih bulan"
+        <input type="month" name="bulan" value="{{ $pRange ? '' : $bulan->format('Y-m') }}" onchange="this.form.submit()" title="Pilih bulan"
             class="px-3 py-1.5 border rounded-lg text-xs {{ ! $pRange && ! $bulan->isSameMonth(now()) ? 'border-red-500 text-red-700' : 'border-stone-300' }}">
     </form>
     <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-1 text-[11px]">
