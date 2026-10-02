@@ -595,6 +595,7 @@ Docblock: *"Semua laporan berbasis agregat SQL — tak pernah mock. 'Sales' = PO
 | `grossProfit(?month)` | Estimasi laba kotor PO completed pakai COGS rata-rata kini. |
 | `salesTrend(granularity, points, ?User, ?month)` | Total sales per bucket waktu (hari/minggu/bulan); zero-fill hari saat 1 bulan dipilih. |
 | `salesByProduct(limit, ?User, ?month)` | Produk teratas by revenue. |
+| `ProdukTerlarisService::report(month)` *(service terpisah)* | Panel **Produk Terlaris** dashboard (staff): unit terjual per channel (Semua/Reseller-PO/TikTok/Shopee), order berbayar (selesai+berjalan), SKU marketplace di-resolve lewat peta SKU/bundle (isi × qty), SKU belum dipetakan tetap tampil bertanda; ▲▼ vs bulan lalu. Ikut `?bulan` dashboard. |
 | `partnerSalesDetail(?month)` | Detail penjualan per-mitra (grup `company_name`). |
 | `salesByPartner(role, limit, ?month)` | Penjualan per-mitra dalam 1 role. HQ-only. |
 | `omzetPerMitra(?month)` | Gabung 2 jalur sebagai seller: PO ke downline + `PartnerSale` ke end-customer. |

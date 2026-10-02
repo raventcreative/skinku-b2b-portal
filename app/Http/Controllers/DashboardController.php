@@ -71,6 +71,9 @@ class DashboardController extends Controller
         // Grand Total omzet SETAHUN (semua channel) — hanya staff.
         $yearlyOmzet = $user->isStaff() ? $this->reports->yearlyOmzet($bulan) : null;
 
+        // Produk terlaris bulan ini per channel (unit) — data HQ, hanya staff.
+        $produkTerlaris = $user->isStaff() ? app(\App\Services\ProdukTerlarisService::class)->report($bulan) : null;
+
         // Recent POs visible to this user.
         $recentPo = PurchaseOrder::query()
             ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
@@ -118,7 +121,7 @@ class DashboardController extends Controller
                 ->get()
             : collect();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'trendByChannel', 'channelSales', 'yearlyOmzet', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'trendByChannel', 'channelSales', 'yearlyOmzet', 'produkTerlaris', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
     }
 
     /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */
