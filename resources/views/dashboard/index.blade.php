@@ -294,6 +294,10 @@
 @include('dashboard._channel-sales')
 </div>
 
+@if(! empty($produkTerlaris))
+    @include('dashboard._produk-terlaris')
+@endif
+
 <div class="grid lg:grid-cols-2 gap-6">
     <div class="bg-white rounded-2xl border border-stone-200 p-5">
         <h3 class="text-sm font-bold text-stone-800 mb-3">PO Terbaru</h3>
