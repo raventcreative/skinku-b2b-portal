@@ -107,7 +107,7 @@
                         @if(! empty($tiktokInfo['error']))<p role="alert" class="mt-2 text-[11px] text-rose-700">Info akun belum dapat dibaca: {{ $tiktokInfo['error'] }}</p>@endif
                         <label class="mt-3 block">
                             <span class="text-[11px] font-semibold text-stone-700">Privasi publikasi</span>
-                            <select name="tiktok[privacy_level]" class="mt-1 block min-h-10 w-full px-3 text-sm">
+                            <select id="ttPrivacy" name="tiktok[privacy_level]" class="mt-1 block min-h-10 w-full px-3 text-sm">
                                 <option value="">Pilih privasi</option>
                                 @foreach($privacyOptions as $option)<option value="{{ $option }}" @selected(old('tiktok.privacy_level', $post->targets->firstWhere('platform', 'tiktok')?->options['privacy_level'] ?? '') === $option)>{{ \App\Services\Social\TikTokContentClient::PRIVACY_LABELS[$option] ?? $option }}</option>@endforeach
                             </select>
@@ -116,9 +116,17 @@
                             <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[allow_comment]" value="1" @checked(old('tiktok.allow_comment')) @disabled(! empty($tiktokInfo['comment_disabled'])) class="accent-red-700">Izinkan komentar</label>
                             <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[allow_duet]" value="1" @checked(old('tiktok.allow_duet')) @disabled(! empty($tiktokInfo['duet_disabled'])) class="accent-red-700">Izinkan duet</label>
                             <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[allow_stitch]" value="1" @checked(old('tiktok.allow_stitch')) @disabled(! empty($tiktokInfo['stitch_disabled'])) class="accent-red-700">Izinkan stitch</label>
-                            <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[brand_organic]" value="1" @checked(old('tiktok.brand_organic')) class="accent-red-700">Promosi brand sendiri</label>
                         </div>
-                        <label class="mt-3 flex items-start gap-2 text-[11px] leading-5 text-stone-600"><input type="checkbox" name="tiktok[consent]" value="1" @checked(old('tiktok.consent')) class="mt-1 accent-red-700"><span>Saya menyetujui <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Music Usage Confirmation</a> TikTok untuk konten ini.</span></label>
+                        {{-- Pengungkapan konten komersial sesuai TikTok Content Sharing Guidelines. --}}
+                        <div class="mt-3 rounded-lg border border-stone-200 bg-white p-3 text-[11px] text-stone-700">
+                            <label class="flex items-start gap-2 font-semibold"><input type="checkbox" id="ttDisclose" name="tiktok[disclose]" value="1" @checked(old('tiktok.disclose')) class="mt-0.5 accent-red-700"><span>Ungkap konten komersial<span class="block font-normal text-stone-500">Aktifkan bila konten mempromosikan brand, produk, atau layanan.</span></span></label>
+                            <div id="ttDiscloseOptions" class="mt-2 space-y-1.5 pl-6" @if(! old('tiktok.disclose')) hidden @endif>
+                                <label class="flex items-start gap-2"><input type="checkbox" id="ttBrandOrganic" name="tiktok[brand_organic]" value="1" @checked(old('tiktok.brand_organic')) class="mt-0.5 accent-red-700"><span>Brand sendiri<span class="block text-stone-500">Mempromosikan diri atau bisnis sendiri.</span></span></label>
+                                <label class="flex items-start gap-2"><input type="checkbox" id="ttBrandContent" name="tiktok[brand_content]" value="1" @checked(old('tiktok.brand_content')) class="mt-0.5 accent-red-700"><span>Branded content<span class="block text-stone-500">Kerja sama berbayar dengan brand pihak ketiga.</span></span></label>
+                                <p id="ttDiscloseLabel" class="font-semibold text-stone-800" aria-live="polite"></p>
+                            </div>
+                        </div>
+                        <label class="mt-3 flex items-start gap-2 text-[11px] leading-5 text-stone-600"><input type="checkbox" name="tiktok[consent]" value="1" @checked(old('tiktok.consent')) class="mt-1 accent-red-700"><span>Saya menyetujui <span id="ttBcPolicy" @if(! old('tiktok.brand_content')) hidden @endif><a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Branded Content Policy</a> dan </span><a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Music Usage Confirmation</a> TikTok untuk konten ini.</span></label>
                     </div>
                 @endif
 
@@ -178,6 +186,30 @@
         var label = document.getElementById('publishLabel');
         if (caption && count) caption.addEventListener('input', function () { count.textContent = caption.value.length; });
         if (schedule && label) schedule.addEventListener('input', function () { label.textContent = schedule.value ? 'Jadwalkan publikasi' : 'Terbitkan sekarang'; });
+
+        // TikTok: branded content tidak boleh privat; disclosure aktif wajib pilih minimal satu jenis.
+        var disclose = document.getElementById('ttDisclose');
+        if (disclose) {
+            var opts = document.getElementById('ttDiscloseOptions'), organic = document.getElementById('ttBrandOrganic'),
+                branded = document.getElementById('ttBrandContent'), note = document.getElementById('ttDiscloseLabel'),
+                policy = document.getElementById('ttBcPolicy'), privacy = document.getElementById('ttPrivacy'),
+                selfOnly = privacy && privacy.querySelector('option[value="SELF_ONLY"]'), publish = document.getElementById('publishButton');
+            var sync = function () {
+                var on = disclose.checked, bc = on && branded.checked, any = on && (organic.checked || branded.checked);
+                opts.hidden = !on;
+                policy.hidden = !bc;
+                note.textContent = !on ? '' : bc ? 'Konten akan diberi label "Paid partnership".' : organic.checked ? 'Konten akan diberi label "Promotional content".' : 'Pilih minimal satu jenis konten komersial.';
+                if (selfOnly) {
+                    selfOnly.disabled = bc;
+                    selfOnly.textContent = bc ? 'Hanya saya (tidak tersedia untuk branded content)' : 'Hanya saya (private)';
+                    if (bc && privacy.value === 'SELF_ONLY') privacy.value = '';
+                }
+                publish.disabled = on && !any;
+                publish.title = publish.disabled ? 'Pilih jenis konten komersial terlebih dahulu.' : '';
+            };
+            [disclose, organic, branded].forEach(function (el) { el.addEventListener('change', sync); });
+            sync();
+        }
     })();
 </script>
 @endsection

@@ -258,6 +258,8 @@ class ContentPostController extends Controller
             'tiktok.allow_duet' => ['nullable', 'boolean'],
             'tiktok.allow_stitch' => ['nullable', 'boolean'],
             'tiktok.brand_organic' => ['nullable', 'boolean'],
+            'tiktok.disclose' => ['nullable', 'boolean'],
+            'tiktok.brand_content' => ['nullable', 'boolean'],
             'media' => ['array', 'max:'.config('content.carousel_max')],
             'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,application/mp4', 'max:'.config('content.video_max_kb')],
         ], [
@@ -292,7 +294,9 @@ class ContentPostController extends Controller
         if ($request->input('intent') === 'publish') {
             $this->service->publish($post->fresh(), $request->input('tiktok', []));
 
-            return redirect()->route('content.show', $post)->with('status', 'Konten masuk pipeline publikasi.');
+            $note = $post->targets()->where('platform', 'tiktok')->exists() ? ' TikTok butuh beberapa menit untuk memproses video sebelum muncul di profil.' : '';
+
+            return redirect()->route('content.show', $post)->with('status', 'Konten masuk pipeline publikasi.'.$note);
         }
 
         return redirect()->route('content.edit', $post)->with('status', 'Draft tersimpan.');
