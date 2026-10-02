@@ -41,11 +41,19 @@ class ComparativeReportService
 
         $is = array_fill_keys(self::IS_KEYS, 0.0);
         $cf = ['operating' => 0.0, 'investing' => 0.0, 'financing' => 0.0, 'net' => 0.0];
+        // Rincian per akun per pos L/R (dijumlah lintas bulan) → [pos => [code => [name, amount]]].
+        $lines = [];
 
         foreach ($months as $m) {
             $r = $this->reports->incomeStatement($m);
             foreach (self::IS_KEYS as $k) {
                 $is[$k] += $r[$k];
+            }
+            foreach ($r['lines'] as $pos => $items) {
+                foreach ($items as $it) {
+                    $lines[$pos][$it['code']]['name'] = $it['name'];
+                    $lines[$pos][$it['code']]['amount'] = ($lines[$pos][$it['code']]['amount'] ?? 0.0) + $it['amount'];
+                }
             }
             $c = $this->cash->directCashFlow($m);
             $cf['operating'] += $c['totals']['operating'];
@@ -58,7 +66,7 @@ class ComparativeReportService
         $cf['kas_awal'] = $this->cash->directCashFlow(reset($months))['kas_awal'];
         $cf['kas_akhir'] = $this->cash->directCashFlow(end($months))['kas_akhir'];
 
-        return ['spec' => $spec, 'is' => $is, 'bs' => $bs, 'cf' => $cf];
+        return ['spec' => $spec, 'is' => $is, 'bs' => $bs, 'cf' => $cf, 'lines' => $lines];
     }
 
     /** Laba Rugi + Neraca + Arus Kas per bulan untuk satu tahun (tabel tren). */
