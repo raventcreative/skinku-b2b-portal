@@ -945,6 +945,8 @@ Isi `SHOPEE_PARTNER_ID` / `SHOPEE_PARTNER_KEY` **live** + `SHOPEE_API_BASE=https
 
 ## 24. Catatan & Utang Teknis
 
+- **Chat E-commerce — sumber balasan** (`ecom_chat_messages.via`): `buyer` / `ai` (AI SKINKU) / `staff` / `bot` (chatbot & sistem TikTok: role ROBOT/SYSTEM atau tipe OTHER dari toko; isi kartu OTHER tak dikirim API → `EcomChatMessage::BOT_CARD_TEXT`). `EcomChatService::refreshReplyState()` menghitung ulang status tiap tarik TikTok; `repairAiLabels()` memulihkan label AI yang tertimpa sync lama (TikTok & Shopee, hanya draft auto-send terakhir). **Sementara:** `logShopeeSource()` mencatat metadata pesan toko Shopee ke `storage/logs/shopee-chat-source.log` untuk mencari tanda auto-reply Shopee — hapus setelah deteksi bot Shopee dibuat.
+
 Hal-hal yang **sudah teridentifikasi** dari pembacaan kode — bukan bug aktif yang menghalangi, tapi worth diketahui/dirapikan nanti:
 
 1. **Role `sponsor` tak ada di tabel `roles`.** Konstanta dipakai logika komisi, tapi belum ada seeder yang insert baris `sponsor` → belum bisa dipilih di UI Role/Permission. (Impact: onboarding sponsor via UI belum lengkap.)

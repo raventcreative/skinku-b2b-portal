@@ -100,4 +100,32 @@ class ShopeeChatFlowTest extends TestCase
             ->get('/ecom-chat?channel=tiktok&tab=semua')
             ->assertOk()->assertSee('AndiTikTok')->assertDontSee('BudiShopee');
     }
+
+    public function test_sync_shopee_catat_sumber_pesan_toko_dan_pulihkan_label_ai(): void
+    {
+        $this->shopeeConn();
+        $log = storage_path('logs/shopee-chat-source.log');
+        @unlink($log);
+        EcomChatConversation::create(['channel' => 'shopee', 'external_conversation_id' => 'CA', 'buyer_name' => 'Lia', 'status' => 'replied',
+            'last_reply_via' => 'staff', 'ai_draft' => 'Silakan checkout ya kak', 'ai_decision' => 'auto_send']);
+        Http::fake([
+            '*get_one_conversation*' => Http::response(['response' => ['conversation_id' => 'CA', 'to_name' => 'Lia', 'to_id' => 5], 'error' => '']),
+            '*get_message*' => Http::response(['response' => ['messages' => [
+                ['message_id' => 'B1', 'conversation_id' => 'CA', 'from_id' => 5, 'from_shop_id' => 9, 'message_type' => 'text', 'content' => ['text' => 'ori kak?'], 'created_timestamp' => 1723887400],
+                ['message_id' => 'S1', 'conversation_id' => 'CA', 'from_id' => 1, 'from_shop_id' => 426938728, 'message_type' => 'text', 'source' => 'auto_reply', 'content' => ['text' => 'Silakan checkout ya kak'], 'created_timestamp' => 1723887500],
+            ]], 'error' => '']),
+        ]);
+
+        app(EcomChatService::class)->syncShopeeConversation('CA');
+
+        $this->assertDatabaseHas('ecom_chat_messages', ['external_message_id' => 'S1', 'via' => 'ai']);
+        $this->assertSame('ai', EcomChatConversation::where('external_conversation_id', 'CA')->value('last_reply_via'));
+        // Pencatat: metadata pesan TOKO saja (tanpa isi chat), pesan pembeli tidak dicatat.
+        $isi = (string) @file_get_contents($log);
+        $this->assertStringContainsString('"message_id":"S1"', $isi);
+        $this->assertStringContainsString('"source":"auto_reply"', $isi);
+        $this->assertStringNotContainsString('B1', $isi);
+        $this->assertStringNotContainsString('checkout', $isi);
+        @unlink($log);
+    }
 }
