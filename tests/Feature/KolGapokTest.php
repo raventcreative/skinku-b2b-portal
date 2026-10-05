@@ -243,4 +243,32 @@ class KolGapokTest extends TestCase
         $r2 = $svc->range(Carbon::parse('2026-09-01')->startOfDay(), Carbon::parse('2026-09-15')->endOfDay(), $sal);
         $this->assertSame(300_000, $r2->first()['gmv']);
     }
+
+    public function test_gaji_bulan_baru_otomatis_ikut_bulan_sebelumnya_sampai_disimpan_ulang(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'gapokauto', 'followers' => 1, 'is_gapok' => true]);
+        $svc = app(\App\Services\KolGapokService::class);
+        $svc->setSalary($kol->id, \Illuminate\Support\Carbon::parse('2026-08-01'), 2_000_000, null, null);
+        $svc->setSalary($kol->id, \Illuminate\Support\Carbon::parse('2026-09-01'), 2_500_000, null, null);
+
+        // Oktober belum disimpan → ikut gaji terakhir (Sep), ditandai otomatis.
+        $okt = $svc->monthly(\Illuminate\Support\Carbon::parse('2026-10-01'))->first();
+        $this->assertSame(2_500_000, $okt['salary']);
+        $this->assertTrue($okt['salary_auto']);
+        $this->assertSame('2026-09-01', $okt['salary_from']);
+
+        // Bulan yang sudah disimpan tetap pakai angkanya sendiri.
+        $this->assertFalse($svc->monthly(\Illuminate\Support\Carbon::parse('2026-08-01'))->first()['salary_auto']);
+
+        // Disimpan ulang (mis. naik gaji) → angka baru, tak lagi otomatis; bulan sesudahnya ikut angka baru.
+        $svc->setSalary($kol->id, \Illuminate\Support\Carbon::parse('2026-10-01'), 3_000_000, null, null);
+        $okt = $svc->monthly(\Illuminate\Support\Carbon::parse('2026-10-01'))->first();
+        $this->assertSame([3_000_000, false], [$okt['salary'], $okt['salary_auto']]);
+        $this->assertSame(3_000_000, $svc->monthly(\Illuminate\Support\Carbon::parse('2026-11-01'))->first()['salary']);
+
+        // Belum pernah punya gaji sama sekali → tetap 0 (tak otomatis).
+        $baru = Kol::create(['tiktok_username' => 'gapokbaru', 'followers' => 1, 'is_gapok' => true]);
+        $row = $svc->monthly(\Illuminate\Support\Carbon::parse('2026-10-01'))->firstWhere('kol.id', $baru->id);
+        $this->assertSame([0, false], [$row['salary'], $row['salary_auto']]);
+    }
 }

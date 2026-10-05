@@ -64,6 +64,10 @@ class KolGapokService
 
         $salaries = KolGapokSalary::where('period', $period)
             ->whereIn('kol_id', $ids)->get()->keyBy('kol_id');
+        // Bulan tanpa gaji tersimpan → ikut gaji bulan terakhir sebelumnya (otomatis,
+        // tidak disimpan). Simpan manual di bulan itu = mengunci/mengganti angkanya.
+        $carried = KolGapokSalary::whereIn('kol_id', array_diff($ids, $salaries->keys()->all()))
+            ->where('period', '<', $period)->orderByDesc('period')->get()->unique('kol_id')->keyBy('kol_id');
 
         // Pembayaran (cicilan) gaji bulan $period — banyak baris per kreator.
         $payments = KolGapokPayment::where('period', $period)
@@ -73,10 +77,11 @@ class KolGapokService
         $content = KolCreatorContentStat::where('period', $period)
             ->whereIn('kol_id', $ids)->get()->keyBy('kol_id');
 
-        return $gapok->map(function ($kol) use ($agg, $byType, $salaries, $payments, $content) {
+        return $gapok->map(function ($kol) use ($agg, $byType, $salaries, $carried, $payments, $content) {
             $a = $agg[$kol->id] ?? null;
             $gmv = (int) ($a->gmv ?? 0);
-            $salary = (int) ($salaries[$kol->id]->monthly_salary ?? 0);
+            $auto = ! isset($salaries[$kol->id]) && isset($carried[$kol->id]);
+            $salary = (int) (($salaries[$kol->id] ?? $carried[$kol->id] ?? null)->monthly_salary ?? 0);
             $types = $byType[$kol->id] ?? collect();
             $gmvOf = fn (string $t) => (int) (optional($types->firstWhere('ct', $t))->gmv ?? 0);
             $c = $content[$kol->id] ?? null;
@@ -92,6 +97,8 @@ class KolGapokService
                 'videos' => (int) ($c->videos ?? 0),
                 'lives' => (int) ($c->lives ?? 0),
                 'salary' => $salary,
+                'salary_auto' => $auto,
+                'salary_from' => $auto ? $carried[$kol->id]->period : null,
                 'roi' => $salary > 0 ? round($gmv / $salary, 1) : null,
                 'joined_at' => $kol->gapok_joined_at,
                 'paid' => (int) $pmts->sum('amount'),
