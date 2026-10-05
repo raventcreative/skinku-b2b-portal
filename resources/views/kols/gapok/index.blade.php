@@ -129,6 +129,9 @@
                                                class="salary-input w-28 px-2 py-1 border border-stone-300 rounded-sm text-right text-sm focus:outline-hidden focus:ring-2 focus:ring-red-500">
                                         <button class="text-xs text-red-600 hover:underline">simpan</button>
                                     </form>
+                                    @if($r['salary_auto'])
+                                        <p class="salary-auto text-[10px] text-sky-600 mt-0.5" title="Belum disimpan untuk bulan ini — angka diambil dari gaji bulan sebelumnya. Klik simpan untuk mengunci, atau ubah angkanya.">↻ otomatis dari {{ \Illuminate\Support\Carbon::parse($r['salary_from'])->translatedFormat('M Y') }}</p>
+                                    @endif
                                 @else
                                     {{ $r['salary'] ? $rp($r['salary']) : '—' }}
                                 @endif
@@ -289,6 +292,8 @@
                 if (!d || !d.ok) throw new Error('gagal');
                 saved = hidden.value;
                 flash(display, true);
+                var autoNote = row.querySelector('.salary-auto');
+                if (autoNote) autoNote.remove();
                 var gmv = Number(row.dataset.gmv || 0);
                 var roi = raw > 0 ? gmv / raw : null;
                 var badge = row.querySelector('.roi-badge');
