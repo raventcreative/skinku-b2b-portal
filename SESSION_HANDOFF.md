@@ -1,4 +1,118 @@
-# SKINKU — Handoff Sesi (buat lanjut di VS Code / Codex)
+# SKINKU — Handoff Sesi (lanjut kerja LOKAL di laptop Windows)
+
+> **Terbaru: 5 Okt 2026.** Laptop, GitHub `main`, dan server produksi **sama 1:1** di commit
+> **`d1edcdd`** (Merge PR #72). Bagian "ARSIP" di bawah = handoff lama (sesi OKR), simpan sbg riwayat.
+
+---
+
+## A. STATUS SEKARANG
+
+| Tempat | Lokasi | Commit |
+|---|---|---|
+| GitHub | `raventcreative/skinku-b2b-portal` branch `main` | `d1edcdd` |
+| Server produksi | `/home/u864765086/domains/skinku.id/laravel-b2b` (Hostinger, SSH `ssh -p 65002 u864765086@153.92.11.179`) | `d1edcdd` |
+| Laptop | `C:\Users\DELL\Downloads\skinku-b2b-php` (Windows, PowerShell) | `d1edcdd` |
+
+- Migration terakhir: **`000159_add_beban_affiliate_account`** (sudah jalan di server & lokal).
+- `skinku.id/staging-skinku` = staging, **jangan disentuh**.
+- Database lokal (XAMPP MySQL, db `skinku_b2b`) **struktur sama, data kosong** — data asli hanya di server.
+
+## B. SETUP LOKAL (laptop Windows) — sudah beres, catatan bila diulang
+
+- PHP 8.3 via WinGet: `%LOCALAPPDATA%\Microsoft\WinGet\Packages\PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe\php.ini`
+  — `extension=pdo_mysql`, `extension=mysqli`, `extension_dir = "ext"` sudah diaktifkan (backup `php.ini.bak`).
+- MySQL dari **XAMPP** → **wajib di-Start dulu** sebelum `migrate` / `optimize:clear` / `serve`
+  (kalau mati: error `No connection could be made… refused` atau `cache … FAIL`).
+- `graphify` terpasang via `pip install graphifyy`; output di `graphify-out/` (tidak di-commit).
+
+## C. ALUR KERJA HARIAN
+
+**Mulai kerja (PowerShell laptop):**
+```powershell
+cd C:\Users\DELL\Downloads\skinku-b2b-php
+git checkout main
+git pull origin main
+php artisan migrate          # hanya bila ada migration baru
+php artisan optimize:clear
+php artisan serve            # buka http://127.0.0.1:8000
+npm run dev                  # opsional, HMR Tailwind saat ubah tampilan
+```
+
+**Selesai kerja:**
+```powershell
+npm run build                # WAJIB bila kelas Blade/CSS berubah (public/build di-commit)
+php -d memory_limit=-1 vendor/bin/phpunit --filter <NamaTest>
+git add -A ; git commit -m "..." ; git push origin main
+graphify update .
+```
+
+**Deploy ke server (SSH):**
+```bash
+cd /home/u864765086/domains/skinku.id/laravel-b2b && git pull origin main && php artisan optimize:clear
+# + php artisan migrate --force   bila ada migration baru
+```
+
+Aturan tetap (lihat `AGENTS.md`): tanpa baris Co-Authored-By/"Generated with Claude" di commit; jangan commit `.env`/token;
+migration hanya additive; jangan `migrate:fresh`; logika non-trivial wajib test.
+**Test yang memang gagal sejak dulu (abaikan):** ContentCreatorTest, ContentInsightTest, ContentTikTokTest,
+KanbanTest::test_deskripsi_link_terrender_di_papan, ProductGrandColumnTest, ReturTest, TempoPaymentTest.
+
+## D. YANG DIKERJAKAN SESI CLOUD TERAKHIR (PR #32 – #72, semua sudah merged & deploy)
+
+- **AI chat** akses semua menu sesuai izin role (5 tool baca: stok HQ, PO, stok marketplace, pesanan, komisi).
+- **KOL / Affiliate:** Database KOL/Affiliate (No, tag KOL hanya bila ada deal, freeze panes, sort kolom TikTok,
+  filter APS/KSS, hint ala comment Excel), tracker performa TikTok mingguan (IDR), GMV SKINKU 30 hari/bulan + Porsi,
+  KSS otomatis (≈), "Jadikan KOL semua", **Views Harian SKINKU** (snapshot harian video SKINKU 04:00).
+- **Marketplace:** varian bundle "Isi (SKU × qty)" (mis. Scrub 3 Pcs = Scrub × 3).
+- **OKR:** opsi papan Kanban baru, tugas masuk papan terpilih, baseline bulan selesai, fix 500 board terhapus.
+- **Dashboard:** filter **Periode global** (Hari ini/Kemarin/7/30 hari/Bulan ini/custom) untuk semua kartu & grafik;
+  panel **Produk Terlaris** per channel (unit, bundle dipecah, ▲▼ periode setara).
+- **Generate Report** (Laporan → Generate Report, `/laporan-bisnis`): Mingguan/Bulanan/Kuartal/Tahunan/Custom/
+  Semua Periode, grafik, PDF (print browser), Excel, **analisis AI** (cache 12 jam); stok Menipis/Aman/Menumpuk
+  (laju jual 90 hari terakhir).
+- **Akuntansi:** akun Beban Gaji/Komisi Affiliate (legacy Excel 6002, di server = **6016**); Banding laporan bisa
+  dibuka rincian per akun; perintah `php artisan akuntansi:reklas {dari} {ke} [--jalankan] [--nonaktifkan]`.
+  Akun 6014 "Beban E-commerce (Tiktok)" saldo 0 — dibiarkan aktif atas keputusan user.
+- **Chat E-commerce:** label sumber balasan **AI SKINKU / Staf / Bot TikTok**, kartu TikTok yang isinya tak dikirim
+  API diberi keterangan, status dihitung ulang tiap tarik chat, label AI lama dipulihkan (draft auto-send terakhir).
+- **Tim Affiliate Gapok:** gaji pokok bulan baru **otomatis ikut bulan sebelumnya** (↻ otomatis) sampai disimpan ulang.
+- Lain: tombol "Choose File" muncul lagi (preflight Tailwind v4), Impor Jurnal Excel → akun 6002 terpetakan.
+
+## E. PEKERJAAN TERBUKA / PANTAU
+
+1. **Backfill KOL** (server, malam hari; kuota TikTok reset harian):
+   ```bash
+   nohup sh -c "php artisan tiktok:marketplace-sync --limit=600 --sleep=8 && php artisan tiktok:kol-performance-sync --semua --limit=600 --sleep=8" > storage/logs/isi-kol.log 2>&1 &
+   grep -ci "berhenti\|habis" storage/logs/isi-kol.log   # 0 = lengkap; >0 = ulang malam berikutnya
+   ```
+   Per 5 Okt hasilnya 2 (kena kuota) → jalankan ulang.
+2. **Pencatat sementara Shopee chat** (`EcomChatService::logShopeeSource`, file `storage/logs/shopee-chat-source.log`):
+   untuk mencari tanda Auto Reply/Asisten AI Shopee. Setelah ada data → buat deteksi "Bot Shopee" lalu **hapus pencatat**.
+3. **Dua AI di Shopee:** Asisten AI Toko (Shopee) + AI SKINKU sama-sama aktif → risiko balasan dobel. User memilih
+   dibiarkan dulu; pantau keluhan pembeli.
+4. Notifikasi "Tarik chat selesai" tampil dobel di Chat E-commerce (kosmetik, belum diperbaiki).
+5. Backlog lama: buat varian marketplace via API (Tahap B), barcode per-model Shopee, duplikat parent ikut varian,
+   merge stok HQ Tahap 3, test push nyata, perbaiki test lama yang gagal, `.env.bak*` ke `.gitignore` server,
+   jurnal CFO September 0 (belum diinvestigasi).
+
+## F. PETA KODE CEPAT (fitur sesi ini)
+
+| Fitur | File utama |
+|---|---|
+| Generate Report | `app/Services/BusinessReportService.php`, `app/Http/Controllers/BusinessReportController.php`, `resources/views/reports/business.blade.php` |
+| Produk Terlaris | `app/Services/ProdukTerlarisService.php`, `resources/views/dashboard/_produk-terlaris.blade.php` |
+| Periode dashboard | `app/Http/Controllers/DashboardController.php`, `ReportService` (param `$from/$to`) |
+| Views Harian SKINKU | `app/Services/KolViewsHarianService.php`, `KolViewsHarianController`, `kols/views_harian.blade.php` |
+| KSS otomatis | `app/Services/KolScoringService.php` (`kssAuto`, `kssPrefill`) |
+| Chat label & status | `app/Services/EcomChatService.php` (`storeSyncedMessage`, `refreshReplyState`, `repairAiLabels`), `ecom-chat/_thread.blade.php` |
+| Gaji gapok otomatis | `app/Services/KolGapokService.php` (`range`), `kols/gapok/index.blade.php` |
+| Reklas akun | `app/Console/Commands/AccountingReklasCommand.php` |
+
+Detail per modul: `docs/SISTEM.md` (§11 Dashboard & Laporan, §15 KOL, §24 Catatan & Utang Teknis).
+
+---
+
+# ARSIP — Handoff lama (sesi OKR / Codex)
 
 > Ringkasan lengkap pekerjaan sebelumnya + fitur OKR sesi Codex.
 > Baseline sebelum OKR: `37820b9`. **520 test lulus (2340 assertions)** setelah panel paralel, pemulihan output AI, dan fallback gangguan OpenAI.
