@@ -24,7 +24,7 @@ class ContentTikTokTest extends TestCase
     {
         parent::setUp();
         Storage::fake('public');
-        config(['services.tiktok_content.client_key' => 'ck', 'services.tiktok_content.client_secret' => 'cs']);
+        config(['services.tiktok_content.client_key' => 'ck', 'services.tiktok_content.client_secret' => 'cs', 'services.tiktok_content.audited' => true]);
     }
 
     private function user(string $role, string $u): User

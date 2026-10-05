@@ -186,6 +186,8 @@ return [
     'tiktok_content' => [
         'client_key' => env('TIKTOK_CONTENT_CLIENT_KEY'),
         'client_secret' => env('TIKTOK_CONTENT_CLIENT_SECRET'),
+        // false selama app belum lolos audit TikTok → semua postingan dipaksa private (SELF_ONLY).
+        'audited' => (bool) env('TIKTOK_CONTENT_AUDITED', false),
     ],
 
 ];

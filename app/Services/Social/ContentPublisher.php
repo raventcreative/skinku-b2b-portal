@@ -89,6 +89,10 @@ class ContentPublisher
             if (empty($opt['privacy_level'])) {
                 throw new RuntimeException('Privasi TikTok belum dipilih. Lengkapi pengaturan konten atau gunakan posting manual.');
             }
+            // Target yang antre sebelum aturan audit berlaku tetap dipaksa private.
+            if (! in_array($opt['privacy_level'], TikTokContentClient::privacyOptions(), true)) {
+                $opt['privacy_level'] = 'SELF_ONLY';
+            }
             $caption = $target->caption();
 
             if ($target->post->type === 'video') {

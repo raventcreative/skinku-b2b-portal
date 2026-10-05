@@ -12,7 +12,7 @@ use RuntimeException;
  * Dok: developers.tiktok.com/doc/content-posting-api-reference-direct-post.
  * - Video: FILE_UPLOAD (upload langsung dari server, tanpa verifikasi domain).
  * - Foto : hanya PULL_FROM_URL → domain APP_URL wajib diverifikasi di developer portal.
- * App belum lolos audit TikTok → semua postingan dipaksa private (SELF_ONLY).
+ * App belum lolos audit TikTok → semua postingan dipaksa private (SELF_ONLY); lihat privacyOptions().
  */
 class TikTokContentClient
 {
@@ -26,6 +26,17 @@ class TikTokContentClient
         'FOLLOWER_OF_CREATOR' => 'Follower',
         'SELF_ONLY' => 'Hanya saya (private)',
     ];
+
+    /**
+     * Pilihan privasi yang boleh dipakai. Sebelum lolos audit, TikTok menolak selain SELF_ONLY,
+     * jadi hanya itu yang ditawarkan. Set TIKTOK_CONTENT_AUDITED=true setelah audit lolos.
+     */
+    public static function privacyOptions(?array $fromApi = null): array
+    {
+        return config('services.tiktok_content.audited')
+            ? ($fromApi ?: array_keys(self::PRIVACY_LABELS))
+            : ['SELF_ONLY'];
+    }
 
     public const CHUNK = 10 * 1024 * 1024; // 5–64 MB diizinkan; potongan terakhir boleh s/d 128 MB
 
