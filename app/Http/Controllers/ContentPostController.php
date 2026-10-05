@@ -241,7 +241,7 @@ class ContentPostController extends Controller
     {
         $platforms = array_keys(config('content.platforms'));
         $data = $request->validate([
-            'title' => ['required', 'string', 'max:150'],
+            'title' => ['nullable', 'string', 'max:150'], // opsional: kosong = diambil dari caption
             'type' => ['required', Rule::in(array_keys(ContentPost::TYPES))],
             'intent' => ['required', Rule::in(['draft', 'publish'])],
             'caption' => ['nullable', 'string', 'max:63206'],
@@ -253,7 +253,6 @@ class ContentPostController extends Controller
             'creator_note' => ['nullable', 'string', 'max:2000'],
             'tiktok' => ['nullable', 'array'],
             'tiktok.privacy_level' => ['nullable', Rule::in(array_keys(TikTokContentClient::PRIVACY_LABELS))],
-            'tiktok.consent' => ['sometimes', 'accepted'],
             'tiktok.allow_comment' => ['nullable', 'boolean'],
             'tiktok.allow_duet' => ['nullable', 'boolean'],
             'tiktok.allow_stitch' => ['nullable', 'boolean'],
@@ -266,7 +265,6 @@ class ContentPostController extends Controller
             'media.*.mimetypes' => 'Media harus JPG/PNG/WEBP atau video MP4/MOV.',
             'media.*.max' => 'File media terlalu besar (maks '.intdiv(config('content.video_max_kb'), 1024).' MB).',
             'scheduled_at.after' => 'Jadwal terbit harus di masa depan.',
-            'tiktok.consent.accepted' => 'Centang Music Usage Confirmation pada form konten.',
         ]);
 
         $data['platforms'] = array_values(array_unique($data['platforms'] ?? []));
@@ -281,8 +279,8 @@ class ContentPostController extends Controller
             }
             $tiktok = SocialConnection::for('tiktok');
             $tiktokApi = in_array('tiktok', $data['platforms'], true) && $tiktok?->isActive() && config('content.platforms.tiktok.mode') === 'auto';
-            if ($tiktokApi && (empty($data['tiktok']['privacy_level']) || empty($data['tiktok']['consent']))) {
-                throw ValidationException::withMessages(['tiktok' => 'Pilih privasi dan setujui ketentuan sebelum menerbitkan ke TikTok.']);
+            if ($tiktokApi && empty($data['tiktok']['privacy_level'])) {
+                throw ValidationException::withMessages(['tiktok.privacy_level' => 'Pilih privasi TikTok sebelum menerbitkan.']);
             }
         }
 

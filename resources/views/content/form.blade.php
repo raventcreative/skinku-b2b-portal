@@ -41,11 +41,6 @@
                     <div><h2 class="text-sm font-bold text-stone-900">Materi konten</h2><p class="mt-0.5 text-[11px] text-stone-500">Tentukan identitas konten dan unggah media.</p></div>
                 </div>
                 <div class="space-y-4">
-                    <label class="block">
-                        <span class="text-xs font-semibold text-stone-700">Judul internal <span class="text-red-700">*</span></span>
-                        <input name="title" required maxlength="150" value="{{ old('title', $post->title) }}" placeholder="mis. Reels Body Serum — before/after" class="mt-1.5 block min-h-11 w-full px-3 text-sm">
-                    </label>
-
                     <fieldset>
                         <legend class="text-xs font-semibold text-stone-700">Format media <span class="text-red-700">*</span></legend>
                         <div class="mt-2 grid grid-cols-3 gap-2">
@@ -127,7 +122,7 @@
                                 <p id="ttDiscloseLabel" class="font-semibold text-stone-800" aria-live="polite"></p>
                             </div>
                         </div>
-                        <label class="mt-3 flex items-start gap-2 text-[11px] leading-5 text-stone-600"><input type="checkbox" name="tiktok[consent]" value="1" @checked(old('tiktok.consent')) class="mt-1 accent-red-700"><span>Saya menyetujui <span id="ttBcPolicy" @if(! old('tiktok.brand_content')) hidden @endif><a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Branded Content Policy</a> dan </span><a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Music Usage Confirmation</a> TikTok untuk konten ini.</span></label>
+                        <p class="mt-3 text-[11px] leading-5 text-stone-600"><span>Dengan menerbitkan, Anda menyetujui <span id="ttBcPolicy" @if(! old('tiktok.brand_content')) hidden @endif><a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Branded Content Policy</a> dan </span><a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Music Usage Confirmation</a> TikTok untuk konten ini.</span></p>
                     </div>
                 @endif
 
@@ -204,15 +199,34 @@
         });
         var form = media && media.form, sending = false;
         if (form) form.addEventListener('submit', function (e) {
-            if (sending) { e.preventDefault(); return; } // cegah kirim ganda; tombol tak di-disable agar nilai intent tetap terkirim
+            if (sending) { e.preventDefault(); return; } // cegah kirim ganda
             sending = true;
-            var btn = e.submitter, uploading = media.files.length > 0;
-            if (btn) {
-                btn.setAttribute('aria-busy', 'true');
-                btn.classList.add('opacity-70', 'cursor-wait');
-                var text = btn.querySelector('span') || btn;
-                text.textContent = uploading ? 'Mengunggah media… jangan tutup halaman' : 'Menyimpan…';
-            }
+            var btn = e.submitter, text = btn && (btn.querySelector('span') || btn);
+            if (btn) { btn.setAttribute('aria-busy', 'true'); btn.style.opacity = '.7'; btn.style.cursor = 'wait'; }
+            if (!media.files.length || !window.FormData) { if (text) text.textContent = 'Menyimpan…'; return; }
+
+            // Ada media → kirim lewat XHR agar persen upload terlihat. Halaman hasil (sukses atau
+            // error validasi) ditampilkan apa adanya, sama seperti submit biasa.
+            e.preventDefault();
+            var data = new FormData(form);
+            if (btn && btn.name) data.append(btn.name, btn.value);
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', form.action);
+            xhr.upload.onprogress = function (ev) {
+                if (ev.lengthComputable && text) text.textContent = ev.loaded < ev.total
+                    ? 'Mengunggah ' + Math.floor(ev.loaded / ev.total * 100) + '% — jangan tutup halaman'
+                    : 'Memproses di server…';
+            };
+            xhr.onload = function () {
+                history.replaceState(null, '', xhr.responseURL || form.action);
+                document.open(); document.write(xhr.responseText); document.close();
+            };
+            xhr.onerror = function () {
+                sending = false;
+                if (btn) { btn.removeAttribute('aria-busy'); btn.style.opacity = ''; btn.style.cursor = ''; }
+                if (text) text.textContent = 'Gagal mengunggah — cek koneksi lalu coba lagi';
+            };
+            xhr.send(data);
         });
 
         // TikTok: branded content tidak boleh privat; disclosure aktif wajib pilih minimal satu jenis.
