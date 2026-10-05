@@ -8,7 +8,9 @@
 */
 return [
     'image_max_kb' => (int) env('CONTENT_IMAGE_MAX_KB', 8192),
-    'video_max_kb' => (int) env('CONTENT_VIDEO_MAX_KB', 307200),
+    // Tak boleh melebihi upload_max_filesize/post_max_size PHP: di atas itu PHP membuang seluruh
+    // isi form sehingga upload "tidak ada respons" alih-alih pesan ukuran yang jelas.
+    'video_max_kb' => min((int) env('CONTENT_VIDEO_MAX_KB', 307200), intdiv(\Symfony\Component\HttpFoundation\File\UploadedFile::getMaxFilesize(), 1024)),
     // Email kontak di halaman publik /privacy & /terms (wajib untuk review app TikTok/Meta).
     'legal_contact' => env('LEGAL_CONTACT_EMAIL', env('MAIL_FROM_ADDRESS')),
 
