@@ -36,10 +36,10 @@
 <div class="max-w-6xl mx-auto">
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-            <a href="{{ route('okr.index') }}" class="text-xs text-stone-500 hover:text-red-600">← Semua OKR</a>
+            <a href="{{ route('okr.index') }}" class="text-xs text-stone-500 hover:text-brand-maroon">← Semua OKR</a>
             <div class="flex flex-wrap items-center gap-2 mt-2">
                 <h3 class="text-xl font-bold text-stone-900">{{ $okr->name }}</h3>
-                <span class="px-2 py-1 text-[10px] font-bold rounded-full {{ $okr->isDraft() ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800' }}">
+                <span class="px-2 py-1 text-[10px] font-bold rounded-full {{ $okr->isDraft() ? 'bg-amber-100 text-amber-800' : 'bg-brand-cream text-brand-maroon' }}">
                     {{ $okr->isDraft() ? 'DRAF AI' : 'AKTIF' }}
                 </span>
             </div>
@@ -48,15 +48,15 @@
         @if(!$okr->isDraft())
             <div class="w-52">
                 <div class="flex justify-between text-xs mb-1"><span class="text-stone-500">{{ $allDone }}/{{ $allTotal }} tugas</span><b>{{ $allProgress }}%</b></div>
-                <div class="h-2.5 bg-stone-200 rounded-full overflow-hidden"><div class="h-full bg-red-500 rounded-full" style="width: {{ $allProgress }}%"></div></div>
+                <div class="h-2.5 bg-stone-200 rounded-full overflow-hidden"><div class="h-full bg-brand-maroon rounded-full" style="width: {{ $allProgress }}%"></div></div>
             </div>
         @endif
     </div>
 
     @if($okr->isGenerating())
         {{-- AI menyusun draf di background — polling sampai selesai. --}}
-        <div class="bg-white border border-stone-200 rounded-2xl p-10 text-center">
-            <div class="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-stone-200 border-t-red-500 animate-spin"></div>
+        <div class="bg-brand-cream border border-stone-200 rounded-2xl p-10 text-center">
+            <div class="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-stone-200 border-t-brand-maroon animate-spin"></div>
             <p class="text-sm font-bold text-stone-900">AI sedang menyusun draf OKR…</p>
             <p class="text-xs text-stone-500 mt-1 max-w-md mx-auto">Panel CMO, CFO, COO, lalu Orchestrator berjalan di latar belakang. Halaman ini akan memperbarui sendiri saat selesai — kamu boleh tinggalkan dan buka lagi nanti.</p>
         </div>
@@ -75,7 +75,7 @@
             <p class="text-sm font-bold text-rose-900">Gagal menyusun draf OKR</p>
             <p class="text-xs text-rose-700 mt-1">{{ $okr->generation_error ?: 'Terjadi kesalahan saat memanggil AI. Coba lagi, atau periksa provider AI di Pengaturan.' }}</p>
             @if($canManage)
-                <a href="{{ route('okr.create') }}" class="inline-block mt-3 px-4 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Susun ulang</a>
+                <a href="{{ route('okr.create') }}" class="inline-block mt-3 px-4 py-2 text-xs bg-brand-maroon text-white rounded-lg hover:bg-brand-dark font-semibold">Susun ulang</a>
             @endif
         </div>
     @else
@@ -108,7 +108,7 @@
             $tasksNoPic = $okrTasks->whereNull('assignee_user_id')->count();
             $krNoOwner = $okr->objectives->flatMap->keyResults->filter(fn ($kr) => blank($kr->owner_name))->count();
         @endphp
-        <section class="bg-white border border-stone-200 rounded-xl p-4 mb-4">
+        <section class="bg-brand-cream border border-stone-200 rounded-xl p-4 mb-4">
             {{-- 1. FAKTA SERVER — tetap/konsisten tiap generate --}}
             <div class="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -137,7 +137,7 @@
             @if($okr->analysis_summary)
                 <div class="mt-4 pt-3 border-t border-stone-100">
                     <p class="text-sm font-bold text-stone-900">Analisis &amp; rekomendasi AI
-                        <span class="ml-1 px-1.5 py-0.5 rounded-sm bg-violet-100 text-violet-700 text-[9px] font-bold uppercase align-middle">bisa berbeda tiap generate</span>
+                        <span class="ml-1 px-1.5 py-0.5 rounded-sm bg-brand-cream text-brand-maroon text-[9px] font-bold uppercase align-middle">bisa berbeda tiap generate</span>
                     </p>
                     <p class="text-[11px] text-stone-500 mt-0.5">Opini model atas fakta di atas. Narasinya bisa berubah tiap generate — perlakukan sebagai draf, bukan angka.</p>
                     <p class="mt-2 text-xs leading-5 text-stone-700">{{ $okr->analysis_summary }}</p>
@@ -207,7 +207,7 @@
     @endif
 
     @if($okr->isDraft() && $canManage)
-        <div class="bg-white rounded-xl border border-stone-200 p-4 mb-4">
+        <div class="bg-brand-cream rounded-xl border border-stone-200 p-4 mb-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <p class="text-sm font-bold text-stone-900">{{ $allTotal }} pekerjaan dalam pratinjau</p>
@@ -241,25 +241,25 @@
                 $objectiveProgress = $objectiveTotal ? (int) round(($objectiveDone / $objectiveTotal) * 100) : 0;
                 $objectiveEditor = 'objective-editor-'.$objective->id;
             @endphp
-            <section class="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <section class="bg-brand-cream rounded-xl border border-stone-200 overflow-hidden">
                 <div class="px-4 py-3 bg-stone-50 border-b border-stone-200">
                     <div id="{{ $objectiveEditor }}-view" class="{{ $showEditors ? 'hidden' : '' }} flex flex-wrap justify-between gap-3">
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
-                                <p class="text-[10px] font-bold tracking-wider text-red-600 uppercase">Objective {{ $oi + 1 }}</p>
-                                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-100 text-indigo-700">{{ $objective->specialistLabel() }} AI</span>
+                                <p class="text-[10px] font-bold tracking-wider text-brand-maroon uppercase">Objective {{ $oi + 1 }}</p>
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-brand-cream text-brand-maroon">{{ $objective->specialistLabel() }} AI</span>
                                 <span class="text-[11px] text-stone-500">Penanggung jawab: <b class="{{ $objective->ownerLabel() ? 'text-stone-700' : 'text-rose-600' }}">{{ $objective->ownerLabel() ?: 'belum terisi' }}</b></span>
                             </div>
                             <h4 class="font-bold text-stone-900 mt-1">{{ $objective->title }}</h4>
                             @if($objective->description)<p class="text-xs text-stone-600 mt-1 max-w-3xl">{{ $objective->description }}</p>@endif
-                            @if($objective->rationale)<p class="text-[11px] text-indigo-700 mt-1.5 max-w-3xl"><b>Alasan dipilih:</b> {{ $objective->rationale }}</p>@endif
+                            @if($objective->rationale)<p class="text-[11px] text-brand-maroon mt-1.5 max-w-3xl"><b>Alasan dipilih:</b> {{ $objective->rationale }}</p>@endif
                         </div>
                         @if($okr->isDraft() && $canManage)
-                            <button type="button" onclick="toggleInlineEditor('{{ $objectiveEditor }}')" class="self-start px-2.5 py-1 text-[10px] font-semibold text-stone-600 border border-stone-300 rounded-lg hover:bg-white">Edit Objective</button>
+                            <button type="button" onclick="toggleInlineEditor('{{ $objectiveEditor }}')" class="self-start px-2.5 py-1 text-[10px] font-semibold text-stone-600 border border-stone-300 rounded-lg hover:bg-brand-cream">Edit Objective</button>
                         @elseif(!$okr->isDraft())
                             <div class="w-36">
                                 <div class="flex justify-between text-[11px] mb-1"><span>{{ $objectiveDone }}/{{ $objectiveTotal }}</span><b>{{ $objectiveProgress }}%</b></div>
-                                <div class="h-2 bg-stone-200 rounded-full overflow-hidden"><div class="h-full bg-red-500" style="width: {{ $objectiveProgress }}%"></div></div>
+                                <div class="h-2 bg-stone-200 rounded-full overflow-hidden"><div class="h-full bg-brand-maroon" style="width: {{ $objectiveProgress }}%"></div></div>
                             </div>
                         @endif
                     </div>
@@ -267,7 +267,7 @@
                     @if($okr->isDraft() && $canManage)
                         <div id="{{ $objectiveEditor }}-edit" class="{{ $showEditors ? '' : 'hidden' }} grid md:grid-cols-[7rem_1fr_13rem] gap-2">
                             <label>
-                                <span class="text-[10px] font-bold text-red-600 uppercase">Divisi AI</span>
+                                <span class="text-[10px] font-bold text-brand-maroon uppercase">Divisi AI</span>
                                 <select name="objectives[{{ $objective->id }}][specialist]" class="mt-1 block w-full px-2 py-2 border border-stone-300 rounded-lg text-xs">
                                     @foreach(\App\Models\OkrObjective::SPECIALISTS as $key => $label)
                                         <option value="{{ $key }}" @selected(old('objectives.'.$objective->id.'.specialist', $objective->specialist) === $key)>{{ $label }} AI</option>
@@ -303,10 +303,10 @@
                             $krProgress = $krTotal ? (int) round(($krDone / $krTotal) * 100) : 0;
                             $krEditor = 'kr-editor-'.$kr->id;
                         @endphp
-                        <div class="border-l-4 border-indigo-300 pl-3">
+                        <div class="border-l-4 border-brand-gold pl-3">
                             <div id="{{ $krEditor }}-view" class="{{ $showEditors ? 'hidden' : '' }} flex flex-wrap justify-between gap-2">
                                 <div class="min-w-0">
-                                    <p class="text-[10px] font-bold text-indigo-700 uppercase">Key Result {{ $oi + 1 }}.{{ $ki + 1 }}</p>
+                                    <p class="text-[10px] font-bold text-brand-maroon uppercase">Key Result {{ $oi + 1 }}.{{ $ki + 1 }}</p>
                                     <p class="text-sm font-semibold text-stone-900 mt-1">{{ $kr->title }}</p>
                                     <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-[11px] text-stone-500">
                                         <span>Metrik: <b class="text-stone-700">{{ $kr->metric ?: 'belum terisi' }}</b></span>
@@ -326,16 +326,16 @@
                                     @endif
                                 </div>
                                 @if($okr->isDraft() && $canManage)
-                                    <button type="button" onclick="toggleInlineEditor('{{ $krEditor }}')" class="self-start px-2 py-1 text-[10px] font-semibold text-stone-500 hover:text-indigo-700">Edit KR</button>
+                                    <button type="button" onclick="toggleInlineEditor('{{ $krEditor }}')" class="self-start px-2 py-1 text-[10px] font-semibold text-stone-500 hover:text-brand-maroon">Edit KR</button>
                                 @else
                                     <span class="text-xs font-bold {{ $krProgress === 100 ? 'text-emerald-600' : 'text-stone-600' }}">{{ $krProgress }}%</span>
                                 @endif
                             </div>
 
                             @if($okr->isDraft() && $canManage)
-                                <div id="{{ $krEditor }}-edit" class="{{ $showEditors ? '' : 'hidden' }} rounded-lg bg-indigo-50/60 p-3">
+                                <div id="{{ $krEditor }}-edit" class="{{ $showEditors ? '' : 'hidden' }} rounded-lg bg-brand-cream p-3">
                                     <label class="block">
-                                        <span class="text-[10px] font-bold text-indigo-700 uppercase">Key Result {{ $oi + 1 }}.{{ $ki + 1 }}</span>
+                                        <span class="text-[10px] font-bold text-brand-maroon uppercase">Key Result {{ $oi + 1 }}.{{ $ki + 1 }}</span>
                                         <input name="key_results[{{ $kr->id }}][title]" required maxlength="255" value="{{ old('key_results.'.$kr->id.'.title', $kr->title) }}" class="mt-1 block w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-semibold">
                                     </label>
                                     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
@@ -367,7 +367,7 @@
                                                 <div class="flex items-start justify-between gap-2">
                                                     <p class="text-xs font-bold text-stone-800">{{ $task->title }}</p>
                                                     @if($okr->isDraft() && $canManage)
-                                                        <button type="button" onclick="toggleInlineEditor('{{ $taskEditor }}')" class="shrink-0 text-[10px] font-semibold text-stone-500 hover:text-indigo-700">Edit</button>
+                                                        <button type="button" onclick="toggleInlineEditor('{{ $taskEditor }}')" class="shrink-0 text-[10px] font-semibold text-stone-500 hover:text-brand-maroon">Edit</button>
                                                     @endif
                                                 </div>
                                                 <p class="text-[11px] leading-relaxed mt-1 {{ $task->description ? 'text-stone-600' : 'font-semibold text-rose-600' }}">{{ $task->description ?: 'Detail pekerjaan belum terisi.' }}</p>
@@ -376,9 +376,9 @@
                                                     <span>Tenggat: <b class="text-stone-700">{{ $task->due_date?->format('d M Y') ?: 'belum terisi' }}</b></span>
                                                 </div>
                                                 @if($okr->isDraft())
-                                                    <p class="mt-1.5 text-[10px] {{ $task->column?->board ? 'text-indigo-600' : 'text-rose-600' }}">Kanban: {{ $task->column?->board?->name ? $task->column->board->name.' › '.$task->column->name : 'kolom belum terisi' }}</p>
+                                                    <p class="mt-1.5 text-[10px] {{ $task->column?->board ? 'text-brand-maroon' : 'text-rose-600' }}">Kanban: {{ $task->column?->board?->name ? $task->column->board->name.' › '.$task->column->name : 'kolom belum terisi' }}</p>
                                                 @elseif($task->card && $task->card->column?->board)
-                                                    <a href="{{ route('kanban.show', $task->card->column->board) }}" class="inline-block mt-1.5 text-[10px] font-semibold text-indigo-600 hover:underline">{{ $task->card->column->board->name }} › {{ $task->card->column->name }}</a>
+                                                    <a href="{{ route('kanban.show', $task->card->column->board) }}" class="inline-block mt-1.5 text-[10px] font-semibold text-brand-maroon hover:underline">{{ $task->card->column->board->name }} › {{ $task->card->column->name }}</a>
                                                 @else
                                                     <span class="inline-block mt-1.5 text-[10px] text-rose-500">Kartu tidak tersedia</span>
                                                 @endif
@@ -427,7 +427,7 @@
     @if($okr->isDraft() && $canManage)
             <div id="okrSaveBar" class="{{ $showEditors ? '' : 'hidden' }} sticky bottom-4 z-10 mt-4 p-3 bg-stone-900/95 rounded-xl shadow-lg flex flex-wrap items-center justify-between gap-2">
                 <p class="text-xs text-white">Simpan semua koreksi yang dilakukan langsung pada kartu.</p>
-                <button class="px-4 py-2 text-xs bg-white text-stone-900 rounded-lg hover:bg-stone-100 font-bold">Simpan Perubahan</button>
+                <button class="px-4 py-2 text-xs bg-brand-cream text-stone-900 rounded-lg hover:bg-stone-100 font-bold">Simpan Perubahan</button>
             </div>
         </form>
 

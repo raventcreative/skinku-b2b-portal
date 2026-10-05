@@ -46,26 +46,26 @@
     <div id="sidebarOverlay" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/50 z-30 lg:hidden"></div>
 
     {{-- Sidebar --}}
-    <aside id="sidebar" class="portal-sidebar w-64 bg-red-800 text-red-50 flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out">
-        <div class="p-6 border-b border-red-900/50 relative">
-            <button onclick="closeSidebar()" class="lg:hidden absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg text-red-100 hover:bg-red-900/60 text-lg" aria-label="Tutup menu"> Tutup </button>
+    <aside id="sidebar" class="portal-sidebar w-64 bg-brand-deep text-brand-cream flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out">
+        <div class="p-6 border-b border-brand-dark/40 relative">
+            <button onclick="closeSidebar()" class="lg:hidden absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg text-brand-cream hover:bg-brand-dark/40 text-lg" aria-label="Tutup menu"> Tutup </button>
             <h1 class="text-2xl font-bold tracking-tight text-white">SKINKU<span class="text-white text-3xl leading-none">.</span></h1>
-            <p class="text-[10px] uppercase tracking-widest text-red-200 font-semibold mt-1">B2B Distributor Portal</p>
+            <p class="text-[10px] uppercase tracking-widest text-brand-gold font-semibold mt-1">B2B Distributor Portal</p>
         </div>
 
-        <div class="px-5 py-4 border-b border-red-900/50">
+        <div class="px-5 py-4 border-b border-brand-dark/40">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center font-bold text-red-700 uppercase text-xs">
+                <div class="w-10 h-10 rounded-full bg-brand-cream flex items-center justify-center font-bold text-brand-maroon uppercase text-xs">
                     {{ strtoupper(mb_substr($u->displayName(), 0, 2)) }}
                 </div>
                 <div class="min-w-0">
                     <p class="text-xs font-bold text-white truncate">{{ $u->displayName() }}</p>
-                    <p class="text-[10px] text-red-200 truncate">{{ $u->email }}</p>
+                    <p class="text-[10px] text-brand-cream/70 truncate">{{ $u->email }}</p>
                 </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
                 <span class="px-2 py-0.5 text-[9px] rounded-sm font-bold uppercase bg-white/20 text-white">{{ str_replace('_', ' ', $u->role) }}</span>
-                @if($u->company_name)<span class="text-[9.5px] text-red-200 truncate max-w-[110px]">{{ $u->company_name }}</span>@endif
+                @if($u->company_name)<span class="text-[9.5px] text-brand-cream/70 truncate max-w-[110px]">{{ $u->company_name }}</span>@endif
             </div>
         </div>
 
@@ -102,7 +102,7 @@
                             'shopee.index' => '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"/>',
                             // Stok Marketplace: pakai ulang path kotak/box (grp-produk) — zero fetch baru.
                             'marketplace-stock.index' => '<path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>',
-                            'ecom-chat.index' => '<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/>',
+                            'ecom-chat.index' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h7A2.5 2.5 0 0 1 16 5.5v4A2.5 2.5 0 0 1 13.5 12H9l-4.5 3v-3.4A2.5 2.5 0 0 1 4 10V5.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 7.5h.01M11 7.5h.01m4.5 5H20a1 1 0 0 1 1 1v6h-6v-6a1 1 0 0 1 1-1Zm1-1v-.75a2 2 0 1 1 4 0v.75"/>',
                             'learning.index' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5"/>',
                             'kols.index' => '<path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"/>',
                             'okr.index' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"/>',
@@ -164,7 +164,7 @@
                     // $iconKey: kunci navIcon() alternatif saat nama rute item tak punya ikon sendiri (reuse ikon).
                     function navItem($route, $label, $active, $params = [], $isActive = null, $iconKey = null) {
                         $is = $isActive ?? request()->routeIs($active);
-                        $cls = $is ? 'bg-red-700 text-white border-l-2 border-red-200 pl-3.5' : 'text-red-100/80 hover:text-white hover:bg-white/10 pl-4';
+                        $cls = $is ? 'bg-brand-dark/35 text-brand-gold border-l-2 border-brand-gold pl-3.5' : 'text-brand-cream/85 hover:text-white hover:bg-white/10 pl-4';
                         return '<a href="'.route($route, $params).'" class="flex items-center gap-3 pr-4 py-2.5 rounded-lg '.$cls.'">'.navIcon($iconKey ?? $route).'<span>'.$label.'</span></a>';
                     }
                 }
@@ -211,11 +211,11 @@
 
             @if($isProdukManager)
                 <button type="button" onclick="toggleNavGroup('grpProduk')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $produkGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $produkGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-produk') !!}<span>Manajemen Produk</span></span>
                     <svg id="grpProdukChevron" class="w-3.5 h-3.5 transition-transform {{ $produkGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="grpProduk" class="{{ $produkGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpProduk" class="{{ $produkGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     @if($u->canDo('manage_products'))
                         {!! navItem('products.index', 'Produk Master', 'products.index') !!}
                     @endif
@@ -253,11 +253,11 @@
             @endphp
             @if($u->canDo('view_reports') || $u->canDo('view_commission_report'))
                 <button type="button" onclick="toggleNavGroup('grpLaporan')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $laporanGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $laporanGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-laporan') !!}<span>Laporan</span></span>
                     <svg id="grpLaporanChevron" class="w-3.5 h-3.5 transition-transform {{ $laporanGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="grpLaporan" class="{{ $laporanGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpLaporan" class="{{ $laporanGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     @if($u->canDo('view_reports'))
                         {!! navItem('reports.index', $u->isPartner() ? 'Laporan Pembelian' : 'Laporan Penjualan', 'reports.index') !!}
                         @if($u->isPartner() && \App\Support\PartnerHierarchy::holdsStock($u->role))
@@ -279,11 +279,11 @@
             @endphp
             @if($u->canDo('view_accounting') || $u->canDo('process_withdrawal'))
                 <button type="button" onclick="toggleNavGroup('grpKeuangan')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $keuanganGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $keuanganGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-keuangan') !!}<span>Keuangan</span></span>
                     <svg id="grpKeuanganChevron" class="w-3.5 h-3.5 transition-transform {{ $keuanganGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="grpKeuangan" class="{{ $keuanganGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpKeuangan" class="{{ $keuanganGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     @if($u->canDo('view_accounting'))
                         {!! navItem('accounting.index', 'Akuntansi', 'accounting.*') !!}
                     @endif
@@ -299,11 +299,11 @@
             @endphp
             @if($u->canDo('manage_tiktok') || $u->canDo('manage_shopee') || $u->canDo('manage_ecommerce_chat'))
                 <button type="button" onclick="toggleNavGroup('grpIntegrasi')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $integrasiGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $integrasiGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-integrasi') !!}<span>Integrasi</span></span>
                     <svg id="grpIntegrasiChevron" class="w-3.5 h-3.5 transition-transform {{ $integrasiGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="grpIntegrasi" class="{{ $integrasiGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpIntegrasi" class="{{ $integrasiGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     @if($u->canDo('manage_tiktok'))
                         {!! navItem('tiktok.index', 'TikTok', 'tiktok.*') !!}
                         {!! navItem('tiktok-affiliate.index', 'TikTok Affiliate API', 'tiktok-affiliate.*') !!}
@@ -324,11 +324,11 @@
             @endphp
             @if($u->canDo('manage_marketplace_stock'))
                 <button type="button" onclick="toggleNavGroup('grpStokMp')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $stokMpGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $stokMpGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('marketplace-stock.index') !!}<span>Stok Marketplace</span></span>
                     <svg id="grpStokMpChevron" class="w-3.5 h-3.5 transition-transform {{ $stokMpGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="grpStokMp" class="{{ $stokMpGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpStokMp" class="{{ $stokMpGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     {!! navItem('marketplace-stock.index', 'Stok Master', 'marketplace-stock.index') !!}
                     {{-- Stok TikTok/Shopee berbagi nama rute 'marketplace-stock.channel' (beda parameter); ikon dipakai ulang dari item TikTok/Shopee. --}}
                     {!! navItem('marketplace-stock.channel', 'Stok TikTok', 'marketplace-stock.channel', ['tiktok'], request()->routeIs('marketplace-stock.channel') && request()->route('channel') === 'tiktok', 'tiktok.index') !!}
@@ -346,11 +346,11 @@
             @endphp
             @if($u->canDo('content.create') || $u->canDo('content.manage') || $u->canDo('social.connect'))
                 <button type="button" onclick="toggleNavGroup('grpKonten')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $kontenGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $kontenGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('kol-konten.index') !!}<span>Konten</span></span>
                     <svg id="grpKontenChevron" class="w-3.5 h-3.5 transition-transform {{ $kontenGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
                 </button>
-                <div id="grpKonten" class="{{ $kontenGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpKonten" class="{{ $kontenGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     @if($u->canDo('content.create'))
                         {!! navItem('content.index', 'Pipeline Konten', 'content.index', [], request()->routeIs('content.index', 'content.create', 'content.edit', 'content.show'), 'kol-konten.index') !!}
                         {!! navItem('content.calendar', 'Kalender Konten', 'content.calendar', [], request()->routeIs('content.calendar'), 'content.calendar') !!}
@@ -371,11 +371,11 @@
             @php $kolGroupOpen = request()->routeIs('kol*'); @endphp
             @if($u->canDo('kol.view') || $u->canDo('kol.deal.manage'))
                 <button type="button" onclick="toggleNavGroup('grpKol')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $kolGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $kolGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('kols.index') !!}<span>KOL</span></span>
                     <svg id="grpKolChevron" class="w-3.5 h-3.5 transition-transform {{ $kolGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="grpKol" class="{{ $kolGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpKol" class="{{ $kolGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     {{-- Urutan mengikuti app Iyuro: Dashboard → Reminder → Database →
                          Pipeline → Deal → Konten → Affiliate → Skor. --}}
                     @if($u->canDo('kol.view'))
@@ -422,11 +422,11 @@
             @endphp
             @if($u->canDo('okr.view') || $u->canDo('kanban.view') || $u->canDo('mindmap.view'))
                 <button type="button" onclick="toggleNavGroup('grpKerja')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $kerjaGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $kerjaGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-kerja') !!}<span>Produktivitas</span></span>
                     <svg id="grpKerjaChevron" class="w-3.5 h-3.5 transition-transform {{ $kerjaGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="grpKerja" class="{{ $kerjaGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpKerja" class="{{ $kerjaGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     @if($u->canDo('okr.view'))
                         {!! navItem('okr.index', 'OKR', 'okr.*') !!}
                     @endif
@@ -449,11 +449,11 @@
             @endphp
             @if($u->canDo('manage_users') || $u->canDo('manage_join_packages') || $u->canDo('manage_member_dormancy'))
                 <button type="button" onclick="toggleNavGroup('grpMitra')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $mitraGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $mitraGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-mitra') !!}<span>Mitra &amp; Jaringan</span></span>
                     <svg id="grpMitraChevron" class="w-3.5 h-3.5 transition-transform {{ $mitraGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="grpMitra" class="{{ $mitraGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpMitra" class="{{ $mitraGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     @if($u->canDo('manage_users'))
                         {!! navItem('users.index', 'Kelola Anggota', 'users.index') !!}
                         {!! navItem('struktur-jaringan.index', 'Struktur Jaringan', 'struktur-jaringan.index') !!}
@@ -479,11 +479,11 @@
             @endphp
             @if($u->canDo('manage_permissions') || $u->canDo('view_audit_log') || $u->canDo('manage_announcements') || $u->canDo('system_settings'))
                 <button type="button" onclick="toggleNavGroup('grpSistem')"
-                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-red-100 hover:text-white hover:bg-red-900/50 {{ $sistemGroupOpen ? 'text-white' : '' }}">
+                    class="w-full flex items-center justify-between gap-3 pr-4 pl-4 py-2.5 rounded-lg text-brand-cream/85 hover:text-white hover:bg-brand-dark/35 {{ $sistemGroupOpen ? 'text-white' : '' }}">
                     <span class="flex items-center gap-3">{!! navIcon('grp-sistem') !!}<span>Sistem</span></span>
                     <svg id="grpSistemChevron" class="w-3.5 h-3.5 transition-transform {{ $sistemGroupOpen ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="grpSistem" class="{{ $sistemGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-red-900/50 space-y-1">
+                <div id="grpSistem" class="{{ $sistemGroupOpen ? '' : 'hidden' }} ml-4 pl-2 border-l border-brand-dark/40 space-y-1">
                     @if($u->canDo('manage_permissions'))
                         {!! navItem('permissions.index', 'Manajemen Hak Akses', 'permissions.index') !!}
                     @endif
@@ -500,7 +500,7 @@
             @endif
         </nav>
 
-        <div class="p-3 border-t border-red-900/50 space-y-1">
+        <div class="p-3 border-t border-brand-dark/40 space-y-1">
             {{-- Tombol Komunitas WA (khusus role user; QR -> popup, tanpa QR -> link langsung). --}}
             @if(!empty($sidebarCommunity))
                 @if($sidebarCommunity->qrUrl())
@@ -528,12 +528,12 @@
                 @endif
             @endif
             @if($u->isPartner())
-                <a href="{{ route('account.rekening') }}" class="flex items-center gap-3 px-4 py-2 text-[11px] text-red-100 hover:text-white rounded-lg hover:bg-red-900/50">{!! navIcon('rekening') !!}<span>Rekening</span></a>
+                <a href="{{ route('account.rekening') }}" class="flex items-center gap-3 px-4 py-2 text-[11px] text-brand-cream/85 hover:text-white rounded-lg hover:bg-brand-dark/35">{!! navIcon('rekening') !!}<span>Rekening</span></a>
             @endif
-            <a href="{{ route('account.password') }}" class="flex items-center gap-3 px-4 py-2 text-[11px] text-red-100 hover:text-white rounded-lg hover:bg-red-900/50">{!! navIcon('password') !!}<span>Ubah Password</span></a>
+            <a href="{{ route('account.password') }}" class="flex items-center gap-3 px-4 py-2 text-[11px] text-brand-cream/85 hover:text-white rounded-lg hover:bg-brand-dark/35">{!! navIcon('password') !!}<span>Ubah Password</span></a>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
-                <button type="submit" class="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-semibold text-white hover:bg-red-900/60 rounded-lg">{!! navIcon('logout') !!}<span>Keluar Sistem</span></button>
+                <button type="submit" class="w-full flex items-center gap-3 px-4 py-2 text-[11px] font-semibold text-white hover:bg-brand-dark/40 rounded-lg">{!! navIcon('logout') !!}<span>Keluar Sistem</span></button>
             </form>
         </div>
     </aside>
@@ -550,9 +550,9 @@
             <div class="flex items-center gap-3">
                 @if($u->canDo('manage_ecommerce_chat'))
                     @php($ecomUnread = app(\App\Services\EcomChatService::class)->unreadCountFor($u))
-                    <a href="{{ route('ecom-chat.index') }}" class="relative w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-100" title="Chat E-commerce" aria-label="Chat E-commerce">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.83L3 20l1.17-3.5A7.6 7.6 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                        <span id="ecomChatBadge" class="{{ $ecomUnread > 0 ? '' : 'hidden' }} absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">{{ $ecomUnread }}</span>
+                    <a href="{{ route('ecom-chat.index') }}" class="relative flex h-10 w-10 items-center justify-center rounded-xl border {{ request()->routeIs('ecom-chat.*') ? 'border-brand-maroon bg-brand-cream text-brand-maroon' : 'border-stone-200 text-stone-700 hover:border-brand-maroon hover:bg-brand-cream hover:text-brand-maroon' }} transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-maroon focus-visible:ring-offset-2" title="Chat E-commerce" aria-label="Chat E-commerce">
+                        <svg aria-hidden="true" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3h7A2.5 2.5 0 0 1 16 5.5v4A2.5 2.5 0 0 1 13.5 12H9l-4.5 3v-3.4A2.5 2.5 0 0 1 4 10V5.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 7.5h.01M11 7.5h.01m4.5 5H20a1 1 0 0 1 1 1v6h-6v-6a1 1 0 0 1 1-1Zm1-1v-.75a2 2 0 1 1 4 0v.75"/></svg>
+                        <span id="ecomChatBadge" class="{{ $ecomUnread > 0 ? '' : 'hidden' }} absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-gold text-brand-dark text-[10px] font-bold flex items-center justify-center">{{ $ecomUnread }}</span>
                     </a>
                     <button id="ecomChatMute" type="button" class="w-7 h-7 flex items-center justify-center rounded-lg text-stone-400 hover:text-stone-700" title="Bunyi notifikasi" aria-label="Toggle bunyi notifikasi">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6l-4 4H4v4h4l4 4V6z"/></svg>
@@ -679,7 +679,7 @@
     function setMuted(v) { try { localStorage.setItem('ecomChatMute', v ? '1' : '0'); } catch (e) {} renderMute(); }
     function renderMute() {
         if (!muteBtn) return;
-        muteBtn.classList.toggle('text-red-600', muted());
+        muteBtn.classList.toggle('text-brand-gold', muted());
         muteBtn.title = muted() ? 'Bunyi notifikasi: MATI' : 'Bunyi notifikasi: NYALA';
     }
     function lastSeen() { try { return parseInt(localStorage.getItem('ecomChatUnread') || '0', 10) || 0; } catch (e) { return 0; } }

@@ -226,12 +226,12 @@ class CreateEditMasterTest extends TestCase
         for ($i = 0; $i < 8; $i++) {
             app(ImageService::class)->attach($m, UploadedFile::fake()->image("x{$i}.jpg"), MarketplaceMaster::MASTER_IMAGE);
         }
-        // kirim 3 lagi → cuma 1 yang masuk (total mentok 9)
+        // kirim 3 lagi → tolak seluruh request agar pengguna tahu galeri penuh
         $this->actingAs($this->admin())->put(route('marketplace-stock.update', $m), [
             'name' => 'C', 'master_sku' => 'C-1',
             'foto' => [UploadedFile::fake()->image('a.jpg'), UploadedFile::fake()->image('b.jpg'), UploadedFile::fake()->image('c.jpg')],
-        ])->assertRedirect();
-        $this->assertSame(9, $m->filesIn(MarketplaceMaster::MASTER_IMAGE)->count());
+        ])->assertSessionHasErrors('foto');
+        $this->assertSame(8, $m->filesIn(MarketplaceMaster::MASTER_IMAGE)->count());
     }
 
     public function test_store_validasi_wajib(): void

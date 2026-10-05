@@ -25,39 +25,43 @@
 @endphp
 
 {{-- Kotak cari KOL: ketik + pilih dalam 1 field → langsung loncat ke detail KOL. --}}
-<div class="bg-white rounded-2xl border border-stone-200 p-4 mb-4 max-w-md">
+<div class="mb-4 max-w-xl rounded-2xl border border-stone-200 bg-brand-cream p-4">
     <label class="block">
-        <span class="text-xs font-semibold text-stone-600">Cari KOL</span>
+        <span class="text-xs font-semibold text-stone-700">Cari database KOL</span>
+        <span class="mt-0.5 block text-[11px] text-stone-500">Ketik username atau pilih nama untuk langsung membuka profil.</span>
         @include('kols._kol-combo', ['kols' => $allKols, 'name' => 'cari_kol_id', 'id' => 'cariKolCombo', 'atPrefix' => false, 'placeholder' => 'Ketik username atau pilih KOL…'])
     </label>
 </div>
 
-<div class="flex flex-wrap items-center gap-3 mb-4">
-    <form method="GET" class="flex flex-wrap items-center gap-2 text-xs">
-        <select name="level" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+<div class="mb-4 rounded-2xl border border-stone-200 bg-brand-cream p-4">
+<div class="flex flex-col gap-4">
+    <form method="GET" aria-label="Filter database KOL" class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 xl:grid-cols-5">
+        <select aria-label="Filter level" name="level" onchange="this.form.submit()" class="min-h-10 w-full rounded-lg border border-stone-300 px-2.5 py-2">
             <option value="">Semua level</option>
             @foreach($levels as $lv)<option value="{{ $lv }}" @selected(($filters['level'] ?? '') === $lv)>{{ $lv }}</option>@endforeach
         </select>
-        <select name="kategori" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+        <select aria-label="Filter kategori" name="kategori" onchange="this.form.submit()" class="min-h-10 w-full rounded-lg border border-stone-300 px-2.5 py-2">
             <option value="">Semua kategori</option>
             @foreach($kategoriList as $kat)<option value="{{ $kat }}" @selected(($filters['kategori'] ?? '') === $kat)>{{ $kat }}</option>@endforeach
         </select>
-        <select name="status" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+        <select aria-label="Filter status" name="status" onchange="this.form.submit()" class="min-h-10 w-full rounded-lg border border-stone-300 px-2.5 py-2">
             <option value="">Semua status</option>
             @foreach(\App\Models\Kol::STATUSES as $st)<option value="{{ $st }}" @selected(($filters['status'] ?? '') === $st)>{{ $st }}</option>@endforeach
         </select>
-        <select name="platform" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+        <select aria-label="Filter platform" name="platform" onchange="this.form.submit()" class="min-h-10 w-full rounded-lg border border-stone-300 px-2.5 py-2">
             <option value="">Semua platform</option>
             @foreach($platforms as $key => $p)<option value="{{ $key }}" @selected(($filters['platform'] ?? '') === $key)>{{ $p['label'] }}</option>@endforeach
         </select>
-        <select name="role" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+        <select aria-label="Filter peran" name="role" onchange="this.form.submit()" class="min-h-10 w-full rounded-lg border border-stone-300 px-2.5 py-2">
             <option value="">Semua peran</option>
             @foreach($roleLabels as $val => $lbl)<option value="{{ $val }}" @selected(($filters['role'] ?? '') === $val)>{{ $lbl }}</option>@endforeach
         </select>
-        <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="cari nama/manager/voucher…" class="px-2 py-1.5 border border-stone-300 rounded-lg w-44">
-        <button class="px-2 py-1.5 bg-stone-700 text-white rounded-lg">cari</button>
+        <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" aria-label="Cari nama, manager, atau voucher" placeholder="Nama, manager, voucher…" class="min-h-10 w-full rounded-lg border border-stone-300 px-3 py-2 sm:col-span-2 xl:col-span-1">
+        <button class="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-brand-dark px-3 py-2 font-semibold text-white hover:bg-stone-800">
+            <svg aria-hidden="true" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m16 16 4 4"/></svg>Cari
+        </button>
         {{-- Filter hasil kurasi: langsung saring yang layak / kemahalan. --}}
-        <select name="verdict" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+        <select aria-label="Filter penilaian" name="verdict" onchange="this.form.submit()" class="min-h-10 w-full rounded-lg border border-stone-300 px-2.5 py-2">
             <option value="">Semua verdict</option>
             <option value="worth" @selected(($filters['verdict'] ?? '') === 'worth')>Worth It</option>
             <option value="masih" @selected(($filters['verdict'] ?? '') === 'masih')>Masih Oke</option>
@@ -66,7 +70,7 @@
             <option value="belum" @selected(($filters['verdict'] ?? '') === 'belum')>Belum discreening</option>
         </select>
         {{-- Filter Tim Gapok: tampilkan cuma anggota gajian. --}}
-        <select name="gapok" onchange="this.form.submit()" class="px-2 py-1.5 border border-stone-300 rounded-lg">
+        <select aria-label="Filter anggota Gapok" name="gapok" onchange="this.form.submit()" class="min-h-10 w-full rounded-lg border border-stone-300 px-2.5 py-2">
             <option value="">Semua anggota</option>
             <option value="1" @selected(($filters['gapok'] ?? '') === '1')>Gapok saja</option>
         </select>
@@ -74,25 +78,26 @@
         <input type="hidden" name="sort" value="{{ $sort }}">
         <input type="hidden" name="dir" value="{{ $dir }}">
         @if(array_filter($filters))
-            <a href="{{ route('kols.index') }}" class="text-indigo-600 hover:underline">reset</a>
+            <a href="{{ route('kols.index') }}" class="inline-flex min-h-10 items-center px-2 font-semibold text-brand-maroon hover:underline">Reset filter</a>
         @endif
     </form>
-    <div class="ml-auto flex gap-2">
+    <div class="flex flex-wrap gap-2 border-t border-stone-100 pt-3">
         @if($u->canDo('kol.deal.manage'))
-            <a href="{{ route('kol-deals.index') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">Daftar Deal</a>
+            <a href="{{ route('kol-deals.index') }}" class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-300 bg-brand-cream px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h16"/></svg>Daftar deal</a>
         @endif
         @if($u->canDo('kol.screening.manage'))
-            <a href="{{ route('kols.export') }}" class="px-4 py-2 text-sm bg-emerald-700 text-white rounded-lg hover:bg-emerald-800" title="Isi tabel ini (satu baris per KOL)"> Export Excel</a>
-        <a href="{{ route('kol-screenings.create') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50">+ Screening</a>
-            <a href="{{ route('kols.import') }}" class="px-4 py-2 text-sm bg-white border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-50" title="Impor banyak KOL sekaligus dari file"> Impor</a>
-            <button onclick="document.getElementById('addKol').classList.toggle('hidden')"
-                class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">+ Tambah KOL</button>
+            <a href="{{ route('kols.export') }}" class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-brand-maroon px-3 py-2 text-xs font-semibold text-white hover:bg-brand-dark" title="Ekspor satu baris untuk setiap KOL"><svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg>Ekspor Excel</a>
+            <a href="{{ route('kol-screenings.create') }}" class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-300 bg-brand-cream px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"><svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>Screening</a>
+            <a href="{{ route('kols.import') }}" class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-300 bg-brand-cream px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50" title="Impor banyak KOL sekaligus dari file"><svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>Impor</a>
+            <button type="button" onclick="document.getElementById('addKol').classList.toggle('hidden')"
+                class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-brand-maroon px-3 py-2 text-xs font-semibold text-white hover:bg-brand-dark"><svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M10 3v14M3 10h14"/></svg>Tambah KOL</button>
         @endif
     </div>
 </div>
+</div>
 
 @if($u->canDo('kol.screening.manage'))
-<div id="addKol" class="hidden bg-white rounded-2xl border border-stone-200 p-5 mb-4">
+<div id="addKol" class="hidden bg-brand-cream rounded-2xl border border-stone-200 p-5 mb-4">
     <p class="text-sm font-bold text-stone-800 mb-3">Tambah KOL</p>
     <form method="POST" action="{{ route('kols.store') }}" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
         @csrf
@@ -114,7 +119,7 @@
         <input name="agency" maxlength="150" placeholder="agency (kosongkan bila non-agency)" value="{{ old('agency') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
         <input name="phone" maxlength="30" placeholder="No. HP (mis. 0812…)" value="{{ old('phone') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
         <input name="catatan" maxlength="2000" placeholder="catatan (opsional)" value="{{ old('catatan') }}" class="px-3 py-2 border border-stone-300 rounded-lg">
-        <div><button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Simpan</button></div>
+        <div><button class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-brand-maroon px-4 py-2 text-xs font-semibold text-white hover:bg-brand-dark"><svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/></svg>Simpan KOL</button></div>
     </form>
     @if($errors->any())
         <p class="mt-2 text-xs text-rose-600">{{ $errors->first() }}</p>
@@ -124,7 +129,7 @@
 
 <p class="text-[11px] text-stone-500 mb-2 leading-relaxed">
     Ada dua kolom penilaian layak/tidaknya harga KOL:
-    <b class="text-emerald-700">Penilaian Median</b> = dari views tengah, <b>acuan utama</b> (tak mempan diakali 1 video viral) ·
+    <b class="text-brand-maroon">Penilaian Median</b> = dari views tengah, <b>acuan utama</b> (tak mempan diakali 1 video viral) ·
     <b class="text-stone-600">Penilaian Rata-rata</b> = pembanding, bisa terangkat 1 video viral.
     Kalau keduanya beda jauh, artinya ada video yang meledak sendiri — percayai yang <b>Median</b>.
 </p>
@@ -134,15 +139,16 @@
     #kolTable.show-v7 .v7col { display: table-cell; }
 </style>
 <div class="flex items-center gap-2 mb-2">
-    <button type="button" onclick="toggleV7()" class="text-[11px] px-3 py-1.5 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50 whitespace-nowrap">
-        <span id="v7label">▸ Tampilkan 7 kolom views</span>
+    <button type="button" onclick="toggleV7()" class="inline-flex min-h-9 items-center gap-2 rounded-lg border border-stone-300 bg-brand-cream px-3 py-1.5 text-[11px] font-semibold text-stone-700 hover:bg-brand-cream whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-maroon">
+        <svg aria-hidden="true" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h18M3 12h18M3 19h18M8 3v4m8 3v4m-5 3v4"/></svg>
+        <span id="v7label">Tampilkan 7 kolom views</span>
     </button>
     <span class="text-[11px] text-stone-400">Ringkas: Total · Rata-rata · Median tetap tampil. Klik buat lihat rincian 7 video terakhir.</span>
 </div>
 
-<div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+<div class="bg-brand-cream rounded-2xl border border-stone-200 overflow-hidden">
     <div class="overflow-x-auto">
-    <table id="kolTable" class="w-full text-xs whitespace-nowrap">
+    <table id="kolTable" class="w-full min-w-[118rem] text-xs whitespace-nowrap tabular-nums">
         @php
             // Header = tautan sort. Klik pertama asc, klik lagi balik arah;
             // filter aktif ikut terbawa. Panah menandai kolom yang sedang dipakai.
@@ -157,9 +163,9 @@
         {{-- Header dua baris ala Excel: grup "Views 7 Video Terakhir" membawahi
              kolom 1–7, kolom lain rowspan penuh. Angka per video di kolomnya
              sendiri — bukan deret bertitik yang susah dibaca. --}}
-        <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
+        <thead class="sticky top-0 z-20 bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
-                <th rowspan="2" class="text-left px-4 py-2 align-bottom">{!! $sortLink('username', 'Username') !!}</th>
+                <th rowspan="2" class="sticky left-0 z-30 bg-stone-50 text-left px-4 py-2 align-bottom">{!! $sortLink('username', 'Username') !!}</th>
                 <th rowspan="2" class="text-right align-bottom">{!! $sortLink('followers', 'Followers') !!}</th>
                 <th rowspan="2" class="text-left px-3 align-bottom">{!! $sortLink('level', 'Level') !!}</th>
                 <th rowspan="2" class="text-left align-bottom">{!! $sortLink('kategori', 'Kategori') !!}</th>
@@ -193,11 +199,11 @@
         </thead>
         <tbody>
             @forelse($kols as $kol)
-                <tr class="border-t border-stone-100 hover:bg-stone-50">
-                    <td class="px-4 py-2.5">
+                <tr class="group border-t border-stone-100 hover:bg-brand-cream/60">
+                    <td class="sticky left-0 z-10 min-w-56 bg-brand-cream px-4 py-2.5 group-hover:bg-brand-cream">
                         @php $prof = $kol->profileUrl(); @endphp
                         <a href="{{ $prof ?? route('kols.show', $kol) }}" @if($prof) target="_blank" rel="noopener" @endif
-                            class="font-bold text-red-700 hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
+                            class="font-bold text-brand-maroon hover:underline" title="Buka profil {{ $kol->platformLabel() }}">{{ '@'.$kol->tiktok_username }}</a>
                         <span class="ml-1 text-[9px] uppercase tracking-wide text-stone-400">{{ $kol->platformLabel() }}</span>
                         @if($kol->role !== 'kol')<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-sky-100 text-sky-700">{{ $roleLabels[$kol->role] ?? $kol->role }}</span>@endif
                         @if($kol->is_gapok)<span class="ml-1 text-[9px] px-1 py-0.5 rounded-sm bg-amber-100 text-amber-700 font-semibold" title="Anggota Tim Affiliate Gapok">GAPOK</span>@endif
@@ -264,7 +270,7 @@
                     <td class="text-center px-2 font-semibold text-stone-700">{{ $canAffiliate && $apsS && $apsS->score !== null ? $skorFmt($apsS->score) : '—' }}</td>
                     <td class="text-center px-2 font-semibold text-stone-700">{{ $kssS && $kssS->score !== null ? $skorFmt($kssS->score) : '—' }}</td>
                     <td class="text-right px-4">
-                        <a href="{{ route('kols.show', $kol) }}" class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap">detail →</a>
+                        <a href="{{ route('kols.show', $kol) }}" class="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold text-brand-maroon hover:bg-brand-cream whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-maroon" aria-label="Lihat detail {{ '@'.$kol->tiktok_username }}">Detail<svg aria-hidden="true" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.22 14.78a.75.75 0 0 1 0-1.06L10.94 10 7.22 6.28a.75.75 0 1 1 1.06-1.06l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0Z" clip-rule="evenodd"/></svg></a>
                     </td>
                 </tr>
             @empty
@@ -285,7 +291,7 @@
         <input type="hidden" name="kol_id" id="dm_kol_id">
         <input type="hidden" name="status" value="draft">
         <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-bold text-stone-900">Deal cepat — <span id="dm_kol_name" class="text-red-700"></span></h3>
+            <h3 class="text-sm font-bold text-stone-900">Deal cepat — <span id="dm_kol_name" class="text-brand-maroon"></span></h3>
             <button type="button" onclick="document.getElementById('dealModal').close()" class="text-stone-400 hover:text-stone-700 text-lg leading-none">&times;</button>
         </div>
         <div class="grid grid-cols-2 gap-3 text-sm">
@@ -308,7 +314,7 @@
             </label>
         </div>
         <div class="flex items-center gap-2 mt-4">
-            <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Buat Deal</button>
+            <button class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-brand-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"><svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7"/></svg>Buat deal</button>
             <button type="button" onclick="document.getElementById('dealModal').close()" class="px-3 py-2 text-sm text-stone-500 hover:text-stone-800">Batal</button>
             <span class="ml-auto text-[10px] text-stone-400">PIC & finansial via Edit</span>
         </div>
@@ -341,7 +347,7 @@
         var on = t.classList.toggle('show-v7');
         try { localStorage.setItem('kol_show_v7', on ? '1' : '0'); } catch (e) {}
         var lbl = document.getElementById('v7label');
-        if (lbl) lbl.textContent = on ? '▾ Sembunyikan 7 kolom views' : '▸ Tampilkan 7 kolom views';
+        if (lbl) lbl.textContent = on ? 'Sembunyikan 7 kolom views' : 'Tampilkan 7 kolom views';
     }
     (function () {
         var show = false;
@@ -350,7 +356,7 @@
             var t = document.getElementById('kolTable');
             if (t) t.classList.add('show-v7');
             var lbl = document.getElementById('v7label');
-            if (lbl) lbl.textContent = '▾ Sembunyikan 7 kolom views';
+            if (lbl) lbl.textContent = 'Sembunyikan 7 kolom views';
         }
     })();
 </script>

@@ -74,7 +74,7 @@ class MarketplaceStockController extends Controller
 
     public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
     {
-        $this->validateMaster($r);
+        $this->validateMaster($r, $master);
         $master->update($this->masterAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
         $svc->pushMaster($master);
@@ -89,8 +89,9 @@ class MarketplaceStockController extends Controller
         return redirect()->route('marketplace-stock.edit', $copy)->with('status', "Digandakan dari \"{$master->name}\". Sesuaikan lalu simpan.");
     }
 
-    private function validateMaster(Request $r): void
+    private function validateMaster(Request $r, ?MarketplaceMaster $master = null): void
     {
+        $fotoLimit = 9 - ($master?->files()->where('collection', MarketplaceMaster::MASTER_IMAGE)->count() ?? 0);
         $r->validate([
             'name' => ['required', 'string', 'max:255'],
             'master_sku' => ['required', 'string', 'max:255'],
@@ -104,7 +105,7 @@ class MarketplaceStockController extends Controller
             'width_cm' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
             'height_cm' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
             'barcode' => ['nullable', 'string', 'max:255'],
-            'foto' => ['nullable', 'array', 'max:9'],
+            'foto' => ['nullable', 'array', 'max:'.$fotoLimit],
             'foto.*' => ['image', 'max:5120'],
         ]);
     }
@@ -127,7 +128,7 @@ class MarketplaceStockController extends Controller
         ];
     }
 
-    /** Set harga/stok (via setter supaya seeded_at ke-set) + attach foto (banyak, total maks 9) bila di-upload. */
+    /** Set harga/stok (via setter supaya seeded_at ke-set) + attach foto (total maks 9) bila di-upload. */
     private function applyMasterInputs(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): void
     {
         if ($r->filled('price')) {
@@ -138,7 +139,7 @@ class MarketplaceStockController extends Controller
         }
         $existing = $master->files()->where('collection', MarketplaceMaster::MASTER_IMAGE)->count();
         foreach ((array) $r->file('foto', []) as $file) {
-            if (! $file || $existing >= 9) {
+            if (! $file) {
                 continue;
             }
             $img->attach($master, $file, MarketplaceMaster::MASTER_IMAGE);
