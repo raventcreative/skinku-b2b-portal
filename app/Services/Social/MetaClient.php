@@ -92,6 +92,29 @@ class MetaClient
         ])['data'] ?? [];
     }
 
+    /** Ambil media akun Instagram, terbaru lebih dulu, berhenti setelah cursor lama. */
+    public function instagramMedia(string $accountId, string $token, string $since): array
+    {
+        $items = [];
+        $after = null;
+        for ($page = 0; $page < 10; $page++) {
+            $query = ['fields' => 'id,caption,media_type,timestamp,permalink,like_count,comments_count', 'limit' => 100];
+            if ($after) {
+                $query['after'] = $after;
+            }
+            $response = $this->get($this->graphBase(), "/{$accountId}/media", $token, $query);
+            $batch = $response['data'] ?? [];
+            $items = [...$items, ...array_filter($batch, fn ($item) => ($item['timestamp'] ?? '') >= $since)];
+            $after = $response['paging']['cursors']['after'] ?? null;
+            $oldest = collect($batch)->last();
+            if (! $after || count($batch) < 100 || ($oldest['timestamp'] ?? '') < $since) {
+                break;
+            }
+        }
+
+        return $items;
+    }
+
     /* ---------------- OAuth Threads ---------------- */
 
     public function threadsAuthorizeUrl(string $redirect, string $state): string

@@ -82,6 +82,14 @@ class ContentTikTokTest extends TestCase
         return ContentPost::latest('id')->first();
     }
 
+    public function test_simpan_draft_tiktok_tanpa_centang_consent_tidak_error(): void
+    {
+        // Checkbox tak tercentang = field tidak terkirim; 'accepted' implisit dulu tetap gagal.
+        $this->actingAs($this->user(User::ROLE_ADMIN, 'tdraft'))->post(route('content.store'), [
+            'title' => 'Serum', 'type' => 'video', 'intent' => 'draft', 'platforms' => ['tiktok'],
+        ])->assertSessionHasNoErrors();
+    }
+
     public function test_pembagian_potongan_upload_sesuai_aturan_tiktok(): void
     {
         $mb = 1024 * 1024;
@@ -89,6 +97,24 @@ class ContentTikTokTest extends TestCase
         $this->assertSame([10 * $mb, 1], TikTokContentClient::chunkPlan(10 * $mb));
         $this->assertSame([10 * $mb, 2], TikTokContentClient::chunkPlan(25 * $mb));     // sisa 5 MB ikut potongan terakhir
         $this->assertSame([10 * $mb, 1], TikTokContentClient::chunkPlan(19 * $mb));     // potongan terakhir 19 MB (≤128 MB)
+
+        // chunk_size tak boleh melebihi video_size. Rentang 5–10 MB (klip 30 detik)
+        // dulu dilaporkan sebagai potongan 10 MB untuk video yang lebih kecil.
+        $this->assertSame([6 * $mb, 1], TikTokContentClient::chunkPlan(6 * $mb));
+        $this->assertSame([5 * $mb, 1], TikTokContentClient::chunkPlan(5 * $mb));
+        $this->assertSame([10 * $mb - 1, 1], TikTokContentClient::chunkPlan(10 * $mb - 1));
+    }
+
+    public function test_potongan_tak_pernah_melebihi_ukuran_video(): void
+    {
+        $mb = 1024 * 1024;
+        foreach ([1, 4, 5, 6, 9, 10, 11, 19, 25, 64, 128, 300] as $ukuranMb) {
+            [$chunk, $jumlah] = TikTokContentClient::chunkPlan($ukuranMb * $mb);
+            $this->assertLessThanOrEqual($ukuranMb * $mb, $chunk, "chunk_size > video_size pada {$ukuranMb} MB");
+            $this->assertSame(max(1, intdiv($ukuranMb * $mb, $chunk)), $jumlah, "jumlah potongan salah pada {$ukuranMb} MB");
+            $this->assertGreaterThanOrEqual(1, $jumlah);
+            $this->assertLessThanOrEqual(1000, $jumlah);
+        }
     }
 
     public function test_approve_wajib_pilih_privacy_bila_tiktok_terhubung_dan_form_tampilkan_akun(): void

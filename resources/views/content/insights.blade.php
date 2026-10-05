@@ -15,15 +15,27 @@
         <p class="text-sm text-stone-500">Performa postingan akun brand yang terbit {{ $days }} hari terakhir. Metrik ditarik otomatis tiap hari pukul 05:00.</p>
         <div class="flex gap-1">
             @foreach(\App\Http\Controllers\ContentInsightController::PERIODS as $p)
-                <a href="{{ route('content-insights.index', ['days' => $p]) }}"
+                <a href="{{ route('content-insights.index', array_filter(['days' => $p, 'platform' => $platform === 'semua' ? null : $platform])) }}"
                    class="px-3 py-1.5 text-xs rounded-lg font-semibold {{ $p === $days ? 'bg-red-600 text-white' : 'bg-white border border-stone-300 text-stone-600 hover:bg-stone-50' }}">{{ $p }} hari</a>
             @endforeach
         </div>
     </div>
 
+    <nav aria-label="Filter platform insight" class="flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3">
+        <span class="mr-1 text-xs font-semibold text-stone-600">Platform:</span>
+        @foreach(['semua' => 'Semua', 'instagram' => 'Instagram', 'tiktok' => 'TikTok'] as $value => $label)
+            <a href="{{ route('content-insights.index', array_filter(['days' => $days, 'platform' => $value === 'semua' ? null : $value])) }}"
+               @if($platform === $value) aria-current="page" @endif
+               class="inline-flex min-h-12 items-center rounded-lg border px-4 text-xs font-semibold transition {{ $platform === $value ? 'border-red-700 bg-red-700 text-white' : 'border-stone-300 bg-white text-stone-700 hover:border-red-700 hover:bg-red-50 hover:text-red-800' }}">
+                {{ $label }}
+            </a>
+        @endforeach
+        <span class="text-xs text-stone-500">Menampilkan views {{ strtolower($platformLabel) }}.</span>
+    </nav>
+
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
-            <p class="text-xs text-stone-500">Total views</p>
+            <p class="text-xs text-stone-500">Total views · {{ $platformLabel }}</p>
             <p class="text-2xl font-bold text-stone-800 tabular-nums">{{ $nf($stats['views']) }}</p>
             <p class="text-[10px] text-stone-400">snapshot terbaru tiap postingan</p>
         </div>
@@ -44,6 +56,17 @@
         </div>
     </div>
 
+    @foreach($syncErrors as $error)
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            @if($error['platform'] === 'tiktok' && str_contains($error['message'], 'scope_not_authorized'))
+                <strong>TIKTOK:</strong> Data insight belum tersedia karena izin membaca video publik (<code>video.list</code>) belum aktif di akun. Setelah izin disetujui TikTok, hubungkan ulang akun agar metrik TikTok bisa ditarik.
+            @else
+                <strong>{{ strtoupper($error['platform']) }}:</strong> {{ $error['message'] }}
+            @endif
+            <a href="{{ route('social.index') }}" class="ml-1 font-semibold underline">Periksa koneksi akun</a>
+        </div>
+    @endforeach
+
     @if($stats['targets'] > 0 && $stats['synced'] === 0)
         <div class="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800">
             {{ $stats['targets'] }} postingan terbit belum memiliki data insight. Metrik biasanya tersedia H+1 setelah terbit. Pastikan akun tersambung dan izinnya aktif di
@@ -52,14 +75,14 @@
     @elseif($stats['targets'] === 0)
         <div class="rounded-2xl border border-stone-200 bg-white px-5 py-6 text-center">
             <p class="text-sm font-semibold text-stone-800">Belum ada postingan terbit dalam {{ $days }} hari terakhir.</p>
-            <p class="mt-1 text-xs text-stone-500">Insight akan muncul setelah konten dipublikasikan dan metriknya tersinkron.</p>
+            <p class="mt-1 text-xs text-stone-500">Halaman ini menampilkan konten yang diterbitkan lewat SKINKU dan postingan akun brand yang berhasil diimpor. Impor Instagram dan video TikTok publik berjalan otomatis setiap hari setelah izin akun tersedia.</p>
             <a href="{{ route('content.index') }}" class="mt-3 inline-flex min-h-9 items-center rounded-lg bg-stone-800 px-4 text-xs font-semibold text-white hover:bg-stone-900">Buka Kalender Konten</a>
         </div>
     @endif
 
     @if(count($chart['labels']))
         <div class="bg-white rounded-2xl border border-stone-200 p-4">
-            <p class="text-sm font-semibold text-stone-700 mb-2">Pertumbuhan views (kumulatif)</p>
+            <p class="text-sm font-semibold text-stone-700 mb-2">Pertumbuhan views kumulatif · {{ $platform === 'semua' ? 'Instagram & TikTok' : $platformLabel }}</p>
             <div class="relative h-64"><canvas id="chartInsight"></canvas></div>
         </div>
     @endif
@@ -78,7 +101,10 @@
                             <tr>
                                 <td class="px-4 py-2">
                                     <a href="{{ route('content.show', $t->post) }}" class="font-semibold text-stone-800 hover:underline">{{ $t->post->title }}</a>
-                                    <p class="text-[11px] text-stone-400">{{ $t->platformLabel() }} · {{ $t->published_at?->format('d M Y') }}</p>
+                                    <p class="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-400">
+                                        <span class="rounded-full px-2 py-0.5 font-semibold {{ $t->platform === 'tiktok' ? 'bg-slate-100 text-slate-700' : 'bg-pink-50 text-pink-700' }}">{{ $t->platformLabel() }}</span>
+                                        <span>{{ $t->published_at?->format('d M Y') }}</span>
+                                    </p>
                                 </td>
                                 <td class="px-4 py-2 text-right tabular-nums">{{ $s->views !== null ? $nf($s->views) : '—' }}</td>
                                 <td class="px-4 py-2 text-right tabular-nums {{ $erClass($s->er()) }}">{{ $pct($s->er()) }}</td>
@@ -121,10 +147,11 @@
     (function () {
         if (!window.Chart) return;
         var c = {!! json_encode($chart) !!};
+        var colors = { Instagram: '#c13584', Tiktok: '#1c1917' };
         new Chart(document.getElementById('chartInsight'), {
             type: 'line',
-            data: { labels: c.labels, datasets: [{ label: 'Views', data: c.views, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,.08)', fill: true, tension: .3, pointRadius: 3 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 }, maxTicksLimit: 10 } } } }
+            data: { labels: c.labels, datasets: c.datasets.map(function (dataset) { return { label: dataset.label, data: dataset.data, borderColor: colors[dataset.label] || '#5c1118', backgroundColor: 'transparent', fill: false, tension: .3, pointRadius: 3, spanGaps: true }; }) },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { font: { size: 11 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 }, maxTicksLimit: 10 } } } }
         });
     })();
 </script>

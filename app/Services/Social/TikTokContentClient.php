@@ -18,10 +18,7 @@ class TikTokContentClient
 {
     public const API = 'https://open.tiktokapis.com/v2';
 
-    // ponytail: video.list (insight TikTok, FR-80) ditunda — hanya membaca video publik, jadi tak bisa
-    // diperagakan di demo Sandbox (wajib private) untuk audit pertama. Tambahkan lagi + Display API di
-    // app TikTok sebagai revisi setelah lolos audit; videoStats() & ContentInsights sudah siap.
-    public const SCOPES = ['user.info.basic', 'video.publish', 'video.upload'];
+    public const SCOPES = ['user.info.basic', 'video.list', 'video.publish', 'video.upload'];
 
     public const PRIVACY_LABELS = [
         'PUBLIC_TO_EVERYONE' => 'Publik',
@@ -86,22 +83,31 @@ class TikTokContentClient
     /** @return array{creator_nickname?:string,creator_username?:string,privacy_level_options?:array,comment_disabled?:bool,duet_disabled?:bool,stitch_disabled?:bool,max_video_post_duration_sec?:int} */
     public function creatorInfo(string $token): array
     {
-        return $this->decode(Http::withToken($token)->asJson()->post(self::API.'/post/publish/creator_info/query/'));
+        return $this->decode(Http::withToken($token)->withHeaders(['Content-Type' => 'application/json; charset=UTF-8'])
+            ->send('POST', self::API.'/post/publish/creator_info/query/', ['body' => '']));
     }
 
     /**
-     * Pembagian potongan upload sesuai aturan TikTok: < 5 MB → satu potongan utuh;
-     * selain itu potongan 10 MB, jumlah = floor(size/chunk), sisa ikut potongan terakhir.
+     * Pembagian potongan upload sesuai Media Transfer Guide TikTok: jumlah =
+     * floor(video_size / chunk_size), sisa ikut potongan terakhir, dan
+     * **chunk_size tidak boleh melebihi video_size**.
+     *
+     * Syarat terakhir itu yang dulu terlewat. Video 5–10 MB lolos dari cabang
+     * "< 5 MB" lalu dilaporkan sebagai chunk_size 10 MB untuk video yang lebih
+     * kecil dari 10 MB, dan init ditolak TikTok — padahal klip 30 detik justru
+     * paling sering jatuh di rentang itu. Karena itu apa pun di bawah satu
+     * potongan penuh dikirim utuh, sekaligus menampung aturan "video < 5 MB
+     * wajib dikirim utuh".
      *
      * @return array{0:int,1:int} [chunk_size, total_chunk_count]
      */
     public static function chunkPlan(int $size): array
     {
-        if ($size < 5 * 1024 * 1024) {
+        if ($size < self::CHUNK) {
             return [$size, 1];
         }
 
-        return [self::CHUNK, max(1, intdiv($size, self::CHUNK))];
+        return [self::CHUNK, intdiv($size, self::CHUNK)];
     }
 
     /** Init Direct Post video (FILE_UPLOAD) lalu upload berurutan. @return string publish_id */
@@ -167,6 +173,27 @@ class TikTokContentClient
         ))['videos'] ?? [];
 
         return collect($videos)->keyBy(fn ($v) => (string) $v['id'])->all();
+    }
+
+    /** Ambil video publik terbaru untuk impor insight akun brand. */
+    public function videoList(string $token, int $since, int $maxPages = 10): array
+    {
+        $videos = [];
+        $cursor = 0;
+        for ($page = 0; $page < $maxPages; $page++) {
+            $response = $this->decode(Http::withToken($token)->asJson()->post(
+                self::API.'/video/list/?fields=id,title,video_description,create_time,share_url,view_count,like_count,comment_count,share_count',
+                ['max_count' => 20, 'cursor' => $cursor],
+            ));
+            $batch = $response['videos'] ?? [];
+            $videos = [...$videos, ...array_filter($batch, fn ($video) => (int) ($video['create_time'] ?? 0) >= $since)];
+            if (empty($response['has_more']) || ! $batch || (int) ($batch[array_key_last($batch)]['create_time'] ?? 0) < $since) {
+                break;
+            }
+            $cursor = (int) ($response['cursor'] ?? 0);
+        }
+
+        return $videos;
     }
 
     private function token(array $params): array

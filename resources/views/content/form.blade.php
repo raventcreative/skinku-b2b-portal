@@ -118,7 +118,7 @@
                             <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[allow_stitch]" value="1" @checked(old('tiktok.allow_stitch')) @disabled(! empty($tiktokInfo['stitch_disabled'])) class="accent-red-700">Izinkan stitch</label>
                             <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="tiktok[brand_organic]" value="1" @checked(old('tiktok.brand_organic')) class="accent-red-700">Promosi brand sendiri</label>
                         </div>
-                        <label class="mt-3 flex items-start gap-2 text-[11px] leading-5 text-stone-600"><input type="checkbox" name="tiktok[consent]" value="1" @checked(old('tiktok.consent')) class="mt-1 accent-red-700"><span>Saya menyetujui <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Music Usage Confirmation</a> TikTok untuk konten ini.</span></label>
+                        <label class="mt-3 flex items-start gap-2 text-[11px] leading-5 text-stone-600"><input type="checkbox" name="tiktok[consent]" value="1" @checked(old('tiktok.consent')) class="mt-1 accent-red-700"><span>Saya menyetujui <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer" class="font-semibold text-red-700 underline underline-offset-2">Music Usage Confirmation</a> untuk konten ini. Persetujuan ini wajib tiap konten dan terpisah dari izin aplikasi di TikTok Developer.</span></label>
                     </div>
                 @endif
 
