@@ -159,8 +159,10 @@ class ContentPostService
                     if (empty($tiktok['privacy_level']) || empty($tiktok['consent'])) {
                         throw ValidationException::withMessages(['tiktok' => 'Pilih pengaturan privasi TikTok dan setujui Music Usage Confirmation.']);
                     }
-                    if (! array_key_exists($tiktok['privacy_level'], \App\Services\Social\TikTokContentClient::PRIVACY_LABELS)) {
-                        throw ValidationException::withMessages(['tiktok.privacy_level' => 'Pilihan privasi TikTok tidak valid.']);
+                    if (! in_array($tiktok['privacy_level'], \App\Services\Social\TikTokContentClient::privacyOptions(), true)) {
+                        throw ValidationException::withMessages(['tiktok.privacy_level' => config('services.tiktok_content.audited')
+                            ? 'Pilihan privasi TikTok tidak valid.'
+                            : 'App TikTok belum lolos audit — sementara hanya bisa privasi "Hanya saya (private)".']);
                     }
                     $disclose = ! empty($tiktok['disclose']);
                     $organic = $disclose && ! empty($tiktok['brand_organic']);

@@ -9,7 +9,7 @@
     $selected = old('platforms', $selected);
     $tiktokConnection = $connections['tiktok'] ?? null;
     $tiktokApi = ($platforms['tiktok']['mode'] ?? null) === 'auto' && $tiktokConnection?->isActive();
-    $privacyOptions = $tiktokInfo['privacy_level_options'] ?? array_keys(\App\Services\Social\TikTokContentClient::PRIVACY_LABELS);
+    $privacyOptions = \App\Services\Social\TikTokContentClient::privacyOptions($tiktokInfo['privacy_level_options'] ?? null);
 @endphp
 
 <div class="mx-auto max-w-6xl space-y-5">
