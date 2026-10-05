@@ -60,8 +60,9 @@
 
                     <div>
                         <label for="contentMedia" class="text-xs font-semibold text-stone-700">{{ $post->exists ? 'Ganti media (opsional)' : 'File media' }} <span class="text-red-700">*</span></label>
-                        <input id="contentMedia" type="file" name="media[]" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" class="mt-1.5 block min-h-12 w-full rounded-lg border border-dashed border-stone-300 bg-stone-50 p-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-stone-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white">
+                        <input id="contentMedia" type="file" name="media[]" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/x-m4v,.mp4,.mov,.m4v" data-video-max="{{ config('content.video_max_kb') * 1024 }}" data-image-max="{{ config('content.image_max_kb') * 1024 }}" class="mt-1.5 block min-h-12 w-full rounded-lg border border-dashed border-stone-300 bg-stone-50 p-2 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-stone-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white">
                         <p class="mt-1.5 text-[11px] text-stone-500">JPG/PNG/WEBP maks {{ intdiv(config('content.image_max_kb'), 1024) }} MB · video maks {{ intdiv(config('content.video_max_kb'), 1024) }} MB. Upload baru mengganti media lama.</p>
+                        <p id="mediaError" role="alert" class="mt-1.5 text-[11px] font-semibold text-rose-700" hidden></p>
                         @if($media->isNotEmpty())
                             <div class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
                                 @foreach($media as $file)
@@ -122,7 +123,7 @@
                             <label class="flex items-start gap-2 font-semibold"><input type="checkbox" id="ttDisclose" name="tiktok[disclose]" value="1" @checked(old('tiktok.disclose')) class="mt-0.5 accent-red-700"><span>Ungkap konten komersial<span class="block font-normal text-stone-500">Aktifkan bila konten mempromosikan brand, produk, atau layanan.</span></span></label>
                             <div id="ttDiscloseOptions" class="mt-2 space-y-1.5 pl-6" @if(! old('tiktok.disclose')) hidden @endif>
                                 <label class="flex items-start gap-2"><input type="checkbox" id="ttBrandOrganic" name="tiktok[brand_organic]" value="1" @checked(old('tiktok.brand_organic')) class="mt-0.5 accent-red-700"><span>Brand sendiri<span class="block text-stone-500">Mempromosikan diri atau bisnis sendiri.</span></span></label>
-                                <label class="flex items-start gap-2"><input type="checkbox" id="ttBrandContent" name="tiktok[brand_content]" value="1" @checked(old('tiktok.brand_content')) class="mt-0.5 accent-red-700"><span>Branded content<span class="block text-stone-500">Kerja sama berbayar dengan brand pihak ketiga.</span></span></label>
+                                <label class="flex items-start gap-2"><input type="checkbox" id="ttBrandContent" name="tiktok[brand_content]" value="1" @checked(old('tiktok.brand_content')) @disabled(! config('services.tiktok_content.audited')) class="mt-0.5 accent-red-700"><span>Branded content<span class="block text-stone-500">{{ config('services.tiktok_content.audited') ? 'Kerja sama berbayar dengan brand pihak ketiga.' : 'Tersedia setelah app TikTok lolos audit (branded content tidak boleh private).' }}</span></span></label>
                                 <p id="ttDiscloseLabel" class="font-semibold text-stone-800" aria-live="polite"></p>
                             </div>
                         </div>
@@ -186,6 +187,33 @@
         var label = document.getElementById('publishLabel');
         if (caption && count) caption.addEventListener('input', function () { count.textContent = caption.value.length; });
         if (schedule && label) schedule.addEventListener('input', function () { label.textContent = schedule.value ? 'Jadwalkan publikasi' : 'Terbitkan sekarang'; });
+
+        // Media: tolak file kebesaran sebelum upload (di atas batas PHP form terbuang tanpa pesan),
+        // lalu tunjukkan sedang mengunggah agar upload video besar tidak terlihat macet.
+        var media = document.getElementById('contentMedia'), mediaError = document.getElementById('mediaError');
+        if (media && mediaError) media.addEventListener('change', function () {
+            var tooBig = Array.prototype.find.call(media.files, function (f) {
+                return f.size > Number(f.type.indexOf('image/') === 0 ? media.dataset.imageMax : media.dataset.videoMax);
+            });
+            mediaError.hidden = !tooBig;
+            if (tooBig) {
+                mediaError.textContent = tooBig.name + ' terlalu besar (' + Math.ceil(tooBig.size / 1048576) + ' MB). Maks video '
+                    + Math.floor(media.dataset.videoMax / 1048576) + ' MB, gambar ' + Math.floor(media.dataset.imageMax / 1048576) + ' MB.';
+                media.value = '';
+            }
+        });
+        var form = media && media.form, sending = false;
+        if (form) form.addEventListener('submit', function (e) {
+            if (sending) { e.preventDefault(); return; } // cegah kirim ganda; tombol tak di-disable agar nilai intent tetap terkirim
+            sending = true;
+            var btn = e.submitter, uploading = media.files.length > 0;
+            if (btn) {
+                btn.setAttribute('aria-busy', 'true');
+                btn.classList.add('opacity-70', 'cursor-wait');
+                var text = btn.querySelector('span') || btn;
+                text.textContent = uploading ? 'Mengunggah media… jangan tutup halaman' : 'Menyimpan…';
+            }
+        });
 
         // TikTok: branded content tidak boleh privat; disclosure aktif wajib pilih minimal satu jenis.
         var disclose = document.getElementById('ttDisclose');

@@ -261,10 +261,10 @@ class ContentPostController extends Controller
             'tiktok.disclose' => ['nullable', 'boolean'],
             'tiktok.brand_content' => ['nullable', 'boolean'],
             'media' => ['array', 'max:'.config('content.carousel_max')],
-            'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,application/mp4', 'max:'.config('content.video_max_kb')],
+            'media.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/x-m4v,application/mp4', 'max:'.config('content.video_max_kb')],
         ], [
             'media.*.mimetypes' => 'Media harus JPG/PNG/WEBP atau video MP4/MOV.',
-            'media.*.max' => 'File media terlalu besar.',
+            'media.*.max' => 'File media terlalu besar (maks '.intdiv(config('content.video_max_kb'), 1024).' MB).',
             'scheduled_at.after' => 'Jadwal terbit harus di masa depan.',
             'tiktok.consent.accepted' => 'Centang Music Usage Confirmation pada form konten.',
         ]);
