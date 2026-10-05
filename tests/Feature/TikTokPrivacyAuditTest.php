@@ -66,6 +66,32 @@ class TikTokPrivacyAuditTest extends TestCase
         app(ContentPostService::class)->publish($post, ['privacy_level' => 'PUBLIC_TO_EVERYONE', 'consent' => '1']);
     }
 
+    public function test_terbit_private_tanpa_centang_persetujuan_berhasil(): void
+    {
+        config(['services.tiktok_content.audited' => false]);
+        $post = $this->draft();
+
+        // Persetujuan Music Usage berupa pernyataan di form, bukan checkbox.
+        app(ContentPostService::class)->publish($post, ['privacy_level' => 'SELF_ONLY']);
+
+        $target = $post->targets()->where('platform', 'tiktok')->first();
+        $this->assertSame(ContentPostTarget::QUEUED, $target->status);
+        $this->assertSame('SELF_ONLY', $target->options['privacy_level']);
+        $this->assertNotEmpty($target->options['music_usage_consent_at']);
+    }
+
+    public function test_tanpa_privasi_error_menunjuk_kolom_privasi(): void
+    {
+        $post = $this->draft();
+
+        try {
+            app(ContentPostService::class)->publish($post, []);
+            $this->fail('Seharusnya ditolak.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('tiktok.privacy_level', $e->errors());
+        }
+    }
+
     public function test_target_lama_berprivasi_publik_tetap_dikirim_private(): void
     {
         config(['services.tiktok_content.audited' => false]);

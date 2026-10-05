@@ -29,11 +29,18 @@ class ContentVideoUploadTest extends TestCase
         $this->assertContains($video->getMimeType(), ['video/x-m4v', 'application/mp4', 'video/mp4']);
 
         $this->actingAs($admin)->post(route('content.store'), [
-            'title' => 'Klip HP', 'type' => 'video', 'intent' => 'draft', 'caption' => 'Glow', 'platforms' => ['instagram'],
+            'type' => 'video', 'intent' => 'draft', 'caption' => 'Glow', 'platforms' => ['instagram'],
             'media' => [$video],
         ])->assertSessionHasNoErrors();
 
-        $this->assertSame(1, ContentPost::where('title', 'Klip HP')->first()->filesIn(ContentPost::MEDIA)->count());
+        $this->assertSame(1, ContentPost::where('title', 'Glow')->first()->filesIn(ContentPost::MEDIA)->count());
+    }
+
+    public function test_tanpa_judul_judul_diambil_dari_baris_pertama_caption(): void
+    {
+        $this->assertSame('Glow tiap hari', \App\Services\ContentPostService::titleFor(['caption' => "Glow tiap hari\n#skinku"]));
+        $this->assertSame('Judul manual', \App\Services\ContentPostService::titleFor(['title' => 'Judul manual', 'caption' => 'x']));
+        $this->assertStringStartsWith('Konten ', \App\Services\ContentPostService::titleFor(['caption' => '']));
     }
 
     public function test_batas_video_tidak_melebihi_batas_upload_php(): void

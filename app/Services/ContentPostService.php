@@ -97,11 +97,22 @@ class ContentPostService
      *
      * @param  array<int,UploadedFile>  $files
      */
+    /**
+     * TikTok & Instagram tak punya judul, jadi form tak memintanya. Judul (untuk daftar, kalender,
+     * pencarian) = isian eksplisit, atau baris pertama caption, atau judul lama, atau "Konten <tanggal>".
+     */
+    public static function titleFor(array $data, ?ContentPost $post = null): string
+    {
+        $line = trim(strtok((string) ($data['caption'] ?? ''), "\n") ?: '');
+
+        return mb_substr(trim((string) ($data['title'] ?? '')) ?: $line ?: $post?->title ?: 'Konten '.now()->format('d M Y H:i'), 0, 150);
+    }
+
     public function save(?ContentPost $post, User $user, array $data, array $files): ContentPost
     {
         return DB::transaction(function () use ($post, $user, $data, $files) {
             $attrs = [
-                'title' => $data['title'],
+                'title' => self::titleFor($data, $post),
                 'type' => $data['type'],
                 'caption' => $data['caption'] ?? null,
                 'scheduled_at' => $data['scheduled_at'] ?? null,
@@ -156,8 +167,9 @@ class ContentPostService
             foreach ($targets as $target) {
                 $manual = $target->isManual();
                 if ($target->platform === 'tiktok' && ! $manual) {
-                    if (empty($tiktok['privacy_level']) || empty($tiktok['consent'])) {
-                        throw ValidationException::withMessages(['tiktok' => 'Pilih pengaturan privasi TikTok dan setujui Music Usage Confirmation.']);
+                    // Persetujuan Music Usage = pernyataan di form yang disetujui dengan menekan Terbitkan (pedoman TikTok).
+                    if (empty($tiktok['privacy_level'])) {
+                        throw ValidationException::withMessages(['tiktok.privacy_level' => 'Pilih privasi TikTok sebelum menerbitkan.']);
                     }
                     if (! in_array($tiktok['privacy_level'], \App\Services\Social\TikTokContentClient::privacyOptions(), true)) {
                         throw ValidationException::withMessages(['tiktok.privacy_level' => config('services.tiktok_content.audited')
