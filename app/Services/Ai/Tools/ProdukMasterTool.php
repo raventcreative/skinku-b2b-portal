@@ -25,8 +25,8 @@ class ProdukMasterTool extends BaseTool
     public function description(): string
     {
         return 'Katalog Produk Master SKINKU (menu Manajemen Produk → Produk Master): SKU, kategori, harga per tier '
-            .'(grand, distributor, reseller, retail), HPP rata-rata, berat, stok pusat/HQ, status. Bisa cari nama/SKU/'
-            .'kategori. Bukan stok etalase TikTok/Shopee (itu stok_marketplace).';
+            .'(grand, distributor, reseller, retail), berat, stok pusat/HQ, status, + HPP rata-rata khusus izin Lihat HPP. '
+            .'Bisa cari nama/SKU/kategori. Bukan stok etalase TikTok/Shopee (itu stok_marketplace).';
     }
 
     public function parameters(): array
@@ -54,6 +54,7 @@ class ProdukMasterTool extends BaseTool
             ->orderBy('name')->get();
         $limit = max(1, min(50, (int) ($args['limit'] ?? 20)));
         $rp = fn ($v) => $v === null ? null : (float) $v;
+        $hpp = $this->bolehLihatHpp($user);
 
         return array_filter([
             'ringkasan' => [
@@ -71,11 +72,12 @@ class ProdukMasterTool extends BaseTool
                     'reseller' => $rp($p->price_reseller),
                     'retail' => $rp($p->price_retail),
                 ],
-                'hpp' => $rp($p->cogs),
+            ] + ($hpp ? ['hpp' => $rp($p->cogs)] : []) + [
                 'berat_gram' => $p->weight_grams ?: null,
                 'stok_pusat' => (int) $p->hq_stock,
                 'status' => $p->status,
             ])->values()->all(),
+            'catatan_akses' => $hpp ? null : self::CATATAN_HPP,
             'catatan' => $produk->count() > $limit
                 ? "Menampilkan {$limit} dari {$produk->count()} produk (urut nama) — persempit dgn kata cari."
                 : null,

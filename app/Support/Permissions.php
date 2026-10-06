@@ -31,6 +31,7 @@ class Permissions
         'manage_hq_stock' => 'Kelola Stok Pusat & Stock Movement',
         'receive_stock' => 'Terima Stok Masuk & HPP',
         'manage_production' => 'Bahan Baku & Produksi (HPP)',
+        'view_hpp' => 'Lihat HPP, Harga Beli & Biaya Produksi di Asisten AI',
         'view_reports' => 'Lihat Laporan Penjualan',
         'view_commission_report' => 'Lihat Laporan Komisi',
         'view_accounting' => 'Akuntansi & Laporan Keuangan',
@@ -87,6 +88,8 @@ class Permissions
         'manage_hq_stock' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
         'receive_stock' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
         'manage_production' => [User::ROLE_ADMIN, User::ROLE_GUDANG],
+        // HPP/harga beli/biaya produksi di jawaban Asisten AI: default hanya super admin (admin & gudang tak perlu tahu).
+        'view_hpp' => [],
         'view_reports' => [User::ROLE_ADMIN, User::ROLE_GUDANG, User::ROLE_DISTRIBUTOR, User::ROLE_GRAND_DISTRIBUTOR],
         // Data payout mitra = sensitif → admin-only (super_admin selalu implisit).
         'view_commission_report' => [User::ROLE_ADMIN],

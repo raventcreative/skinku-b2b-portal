@@ -25,8 +25,8 @@ class BahanBakuTool extends BaseTool
 
     public function description(): string
     {
-        return 'Bahan baku produksi (menu Bahan Baku): stok, satuan, HPP rata-rata per unit, nilai stok, status, plus '
-            .'riwayat pembelian bahan terbaru (qty, harga/unit, subtotal, HPP sebelum→sesudah, supplier). Bisa cari nama bahan.';
+        return 'Bahan baku produksi (menu Bahan Baku): stok, satuan, status, plus riwayat pembelian bahan terbaru (qty, '
+            .'supplier). HPP rata-rata, nilai stok, harga beli & HPP sebelum→sesudah khusus izin Lihat HPP. Bisa cari nama bahan.';
     }
 
     public function parameters(): array
@@ -48,19 +48,17 @@ class BahanBakuTool extends BaseTool
         $bahan = Material::query()->when($cari !== '', fn ($q) => $q->where('name', 'like', "%{$cari}%"))->orderBy('name')->get();
         $nilai = fn (Material $m) => round((float) $m->stock * (float) $m->avg_cost, 2);
         $riwayat = max(0, min(30, (int) ($args['riwayat'] ?? 10)));
+        $hpp = $this->bolehLihatHpp($user);
 
         return array_filter([
-            'ringkasan' => [
-                'jumlah_bahan' => $bahan->count(),
-                'nilai_stok_total' => round($bahan->sum($nilai), 2),
-                'stok_minus' => $bahan->filter(fn (Material $m) => (float) $m->stock < 0)->count(),
-            ],
+            'ringkasan' => ['jumlah_bahan' => $bahan->count()]
+                + ($hpp ? ['nilai_stok_total' => round($bahan->sum($nilai), 2)] : [])
+                + ['stok_minus' => $bahan->filter(fn (Material $m) => (float) $m->stock < 0)->count()],
             'bahan' => $bahan->take(60)->map(fn (Material $m) => [
                 'nama' => $m->name,
                 'satuan' => $m->unit,
                 'stok' => (float) $m->stock,
-                'hpp_rata_rata' => (float) $m->avg_cost,
-                'nilai_stok' => $nilai($m),
+            ] + ($hpp ? ['hpp_rata_rata' => (float) $m->avg_cost, 'nilai_stok' => $nilai($m)] : []) + [
                 'status' => $m->status,
             ])->values()->all(),
             'riwayat_beli' => $riwayat === 0 ? null : MaterialPurchase::query()
@@ -70,13 +68,16 @@ class BahanBakuTool extends BaseTool
                     'tanggal' => $p->purchased_at?->toDateString(),
                     'bahan' => $p->material_name,
                     'qty' => (float) $p->quantity,
+                ] + ($hpp ? [
                     'harga_unit' => (float) $p->unit_cost,
                     'subtotal' => (float) $p->subtotal,
                     'hpp_sebelum' => (float) $p->cost_before,
                     'hpp_sesudah' => (float) $p->cost_after,
+                ] : []) + [
                     'supplier' => $p->supplier_name,
                 ])->all(),
             'catatan' => $bahan->count() > 60 ? "Menampilkan 60 dari {$bahan->count()} bahan (urut nama) — persempit dgn kata cari." : null,
+            'catatan_akses' => $hpp ? null : self::CATATAN_HPP,
         ], fn ($v) => $v !== null);
     }
 }
