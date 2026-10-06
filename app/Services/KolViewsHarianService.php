@@ -69,7 +69,12 @@ class KolViewsHarianService
                 $cell = &$agg[$s->kol_id][$day];
                 $cell['views'] = ($cell['views'] ?? 0) + $dv;
                 $cell['gmv'] = ($cell['gmv'] ?? 0) + $dg;
-                $cell['videos'][$s->content_id] = true;
+                // Hitung video hanya bila HARI ITU benar-benar dapat views/penjualan. Data TikTok kumulatif bulan: video
+                // yang pernah ditonton awal bulan tetap muncul di tiap potret berikutnya (angka diam) — dulu ikut
+                // terhitung, sehingga kolom VIDEO rentang 4 hari = sebulan penuh.
+                if ($dv > 0 || $dg > 0) {
+                    $cell['videos'][$s->content_id] = true;
+                }
                 unset($cell);
             }
         }
