@@ -37,10 +37,10 @@ class DataKolTool extends BaseTool
     {
         return 'Data Database KOL / Affiliate (menu KOL). Isi username → profil satu kreator: peran, level, followers, '
             .'status, Tim Gapok, skor KSS, pipeline, deal, plus (bila punya izin Affiliate) GMV/pesanan/komisi/APS/gaji '
-            .'gapok bulan itu. Tanpa username → ringkasan jumlah KOL + daftar kreator teratas, urut GMV bulan itu (GMV = '
-            .'pesanan affiliate tercatat, sama dgn Tim Gapok) atau followers. Untuk "siapa yang sedang perform/terlaris" '
-            .'pakai daftar TANPA filter status (urut GMV), atau alat views_harian_kol untuk views & GMV per video. '
-            .'Kontak pribadi tidak tersedia.';
+            .'gapok bulan itu. Tanpa username → ringkasan jumlah KOL + daftar kreator teratas, urut GMV bulan itu atau '
+            .'followers. GMV = semua pesanan affiliate SKINKU (video + LIVE), sama dgn kolom "GMV SKINKU" di Database KOL '
+            .'& Tim Gapok. Untuk "siapa yang terlaris/terbaik (penjualan)" pakai daftar TANPA filter status urut GMV; '
+            .'untuk views video pakai views_harian_kol. Kontak pribadi tidak tersedia.';
     }
 
     public function parameters(): array
