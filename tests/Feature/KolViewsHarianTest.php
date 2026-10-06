@@ -99,6 +99,28 @@ class KolViewsHarianTest extends TestCase
         $this->assertSame(2, $row['videos']);
     }
 
+    public function test_jumlah_video_hanya_yang_dapat_views_di_rentang_dipilih(): void
+    {
+        $k = Kol::create(['tiktok_username' => 'jumlahvideo', 'followers' => 1]);
+        // P: hanya ditonton 1–2 Sep; setelahnya angka kumulatif diam tapi tetap muncul di tiap potret bulan itu.
+        foreach (['2026-09-01' => 10, '2026-09-02' => 50, '2026-09-03' => 90, '2026-09-04' => 90, '2026-09-05' => 90] as $tgl => $v) {
+            $this->snap($k, 'P', '2026-09-01', $tgl, $v, '2026-08-01');
+        }
+        // Q: ditonton terus tiap hari.
+        foreach (['2026-09-01' => 5, '2026-09-02' => 10, '2026-09-03' => 15, '2026-09-04' => 20, '2026-09-05' => 25] as $tgl => $v) {
+            $this->snap($k, 'Q', '2026-09-01', $tgl, $v, '2026-08-01');
+        }
+        $svc = app(KolViewsHarianService::class);
+
+        // 3–4 Sep: hanya Q yang dapat views → VIDEO 1 (dulu 2: P ikut terhitung walau 0 views).
+        $row = $svc->report(Carbon::parse('2026-09-03'), Carbon::parse('2026-09-04'))['rows']->sole();
+        $this->assertSame(['2026-09-03' => 5, '2026-09-04' => 5], $row['views']);
+        $this->assertSame(1, $row['videos']);
+
+        // 1–4 Sep: P (ditonton 1–2 Sep) & Q → VIDEO 2.
+        $this->assertSame(2, $svc->report(Carbon::parse('2026-09-01'), Carbon::parse('2026-09-04'))['rows']->sole()['videos']);
+    }
+
     public function test_hari_yang_belum_dipotret_tetap_titik_awal_agar_tak_menggelembung(): void
     {
         $k = Kol::create(['tiktok_username' => 'celah', 'followers' => 1]);
