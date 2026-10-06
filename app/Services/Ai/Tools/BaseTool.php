@@ -11,6 +11,9 @@ use App\Models\User;
  */
 abstract class BaseTool implements AiTool
 {
+    /** Catatan utk AI saat HPP/biaya disembunyikan — supaya tak dikira nol/kosong. */
+    protected const CATATAN_HPP = 'HPP, harga beli & biaya produksi tidak ditampilkan sesuai hak akses user (khusus izin "Lihat HPP"; default hanya super admin).';
+
     public function isWrite(): bool
     {
         return false;
@@ -24,6 +27,12 @@ abstract class BaseTool implements AiTool
     public function availableFor(User $user): bool
     {
         return true;
+    }
+
+    /** HPP, harga beli & biaya produksi (modal) hanya utk izin view_hpp — default super admin; admin/gudang tidak. */
+    protected function bolehLihatHpp(User $user): bool
+    {
+        return $user->canDo('view_hpp');
     }
 
     /** Tanggal YYYY-MM-DD dari AI → string, atau null bila kosong/ngawur. */

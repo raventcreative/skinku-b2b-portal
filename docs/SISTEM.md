@@ -781,21 +781,23 @@ Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/spec
 | `buat_kartu_kanban` | **write** | `kanban.view` | Buat kartu task (tanya klarifikasi kalau ambigu). |
 | `buat_mindmap` | **write** | `mindmap.view` | Buat board mindmap baru. |
 | `tambah_mindmap` | **write** | `mindmap.view` | Tambah sticky/branch ke board. |
-| `laporan_stok_hq` | read | `manage_hq_stock` | Laporan Mutasi Stok HQ (harian/bulanan, saring produk) via `HqStockReportService`. |
+| `laporan_stok_hq` | read | `manage_hq_stock` | Laporan Mutasi Stok HQ (harian/bulanan, saring produk) via `HqStockReportService`. `nilai_hpp` di total khusus `view_hpp`. |
 | `daftar_po` | read | staff & mitra (= `business`) | PO + status bayar + sisa tagihan. **Mitra hanya PO miliknya.** |
 | `stok_marketplace` | read | `manage_marketplace_stock` | Stok etalase Produk Master per channel (varian & bundle terhitung). |
 | `pesanan_marketplace` | read | `manage_tiktok` / `manage_shopee` | Ringkas pesanan; channel tampil hanya bila punya izin channel itu. |
 | `komisi` | read | mitra / staff + `view_commission_report` | Mitra: saldo & riwayat sendiri. Admin: rekap per mitra. |
 | `views_harian_kol` | read | `kol.affiliate.view` + `kol.view` (route bersarang) | Views Harian SKINKU: kreator teratas (views, Diposting, GMV, hari terbaik) atau rincian per video satu kreator — via `KolViewsHarianService`, angka = tabel halaman. |
 | `data_kol` | read | `kol.view` | Database KOL: profil 1 kreator (peran, level, followers, status, gapok, KSS, pipeline, deal) atau ringkasan + daftar teratas (saring peran/gapok; status & kategori sengaja bukan filter — data nyata semua "prospek" & kategori kosong). Kolom ikut halaman: GMV (dirinci LIVE / video / lainnya = etalase & link, di profil & daftar)/pesanan/komisi/APS/jumlah video-LIVE/gaji-ROI gapok hanya + `kol.affiliate.view` (via `KolGapokService::performa`, = Tim Gapok); biaya & status bayar deal hanya + `kol.deal.finance`. Telepon/manajer/catatan/rekening **tak pernah** dikirim ke AI. |
-| `produk_master` | read | `manage_products` | Katalog Produk Master: harga per tier, HPP, berat, stok pusat, status (cari nama/SKU/kategori; terhapus tak ikut) — = `ProductController@index`. |
+| `produk_master` | read | `manage_products` | Katalog Produk Master: harga per tier, berat, stok pusat, status, HPP (khusus `view_hpp`) (cari nama/SKU/kategori; terhapus tak ikut) — = `ProductController@index`. |
 | `pemantauan_stok` | read | staf & mitra (= `business`) | Pemantauan Stok / Stok Saya: **mitra hanya stok miliknya (qty > 0)**; staf semua mitra + total per produk + stok pusat (bila `manage_hq_stock`). Menipis = minimum > 0 & qty ≤ minimum (aturan halaman). Hanya nama mitra, tanpa kontak. |
 | `retur` | read | `process_return`, atau mitra | Retur PO: status, barang×qty, kondisi, alasan, kredit (applied). Tanpa `process_return` → **hanya retur atas PO miliknya** (= gerbang `ReturController@index`). |
-| `bahan_baku` | read | `manage_production` | Bahan baku: stok, HPP rata-rata, nilai stok, status + riwayat beli (harga, HPP sebelum→sesudah, nama supplier). |
-| `produksi_hpp` | read | `manage_production` | Batch produksi: qty, total biaya, HPP/pcs, HPP rata-rata sesudah, ringkasan per produk; `nomor` → rincian bahan & biaya lain (= halaman detail). Kolom tersimpan, tak dihitung ulang. |
+| `bahan_baku` | read | `manage_production` | Bahan baku: stok, status + riwayat beli (qty, nama supplier); HPP rata-rata, nilai stok, harga beli, HPP sebelum→sesudah khusus `view_hpp`. |
+| `produksi_hpp` | read | `manage_production` | Batch produksi: qty, pencatat, ringkasan per produk; `nomor` → rincian bahan yang dipakai (= halaman detail). Total biaya, HPP/pcs, HPP rata-rata, harga bahan & biaya lain khusus `view_hpp`. Kolom tersimpan, tak dihitung ulang. |
 | `stok_opname` | read | `manage_hq_stock` | Riwayat opname dari mutasi HQ `reference_type='opname'` (dicatat 1 detik sebelum tgl opname → dikelompokkan per tgl opname): produk disesuaikan, selisih fisik − sistem. Menu Stok Masuk (beli jadi) sengaja tak dibuatkan alat (menunya disembunyikan). |
 
 Tool write selalu lewat alur confirm; tool read eksekusi inline.
+
+**HPP & biaya modal di jawaban AI** — HPP produk, harga beli bahan, biaya produksi, dan `nilai_hpp` laporan stok hanya dikirim ke AI bila user punya izin `view_hpp` ("Lihat HPP, Harga Beli & Biaya Produksi di Asisten AI"; default kosong = hanya super admin, bisa diberikan di Hak Akses). Tanpa izin itu alat mengirim `catatan_akses` (`BaseTool::CATATAN_HPP`) supaya AI tak mengira angkanya nol. Cek lewat `BaseTool::bolehLihatHpp()`. Halaman sistem sendiri belum ikut izin ini.
 
 **Aturan alat per menu:** izin alat = izin route menunya (`permission()`), syarat tambahan (mis. `business`, salah satu dari dua izin) lewat `availableFor(User)`; `ToolRegistry` mengecek keduanya — alat yang tak lolos tak dikirim ke model dan tak bisa dipanggil by name. Scoping data mitra (milik sendiri) dilakukan **di dalam** alat. Jangan buat alat generik "query bebas" — melewati batas role. Test: `tests/Feature/AiMenuToolsTest.php`, `tests/Feature/AiKolToolsTest.php` (alat KOL: izin per role, kolom per izin, tanpa data pribadi), `tests/Feature/AiOperasionalToolsTest.php` (Produk & Operasional). `ringkas_dashboard` stok menipis memakai aturan halaman (minimum > 0) & jumlahnya dihitung penuh (bukan dari contoh limit 10). Username → KOL (persis/alias) lewat `KolUsernameAlias::kolId()` — sama dgn sync affiliate; nama sebagian → kandidat utk ditanyakan balik.
 

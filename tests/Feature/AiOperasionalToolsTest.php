@@ -13,9 +13,12 @@ use App\Models\ProductionCost;
 use App\Models\ProductionMaterial;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
+use App\Models\RolePermission;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\Ai\Tools\ToolRegistry;
+use App\Services\InventoryService;
+use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -23,7 +26,8 @@ use Tests\TestCase;
 /**
  * Alat Asisten AI menu Produk & Operasional — izin & cakupan = halamannya: Produk Master = manage_products;
  * Pemantauan Stok = staf & mitra (mitra hanya stok sendiri); Retur = process_return, atau mitra atas PO sendiri;
- * Bahan Baku & Produksi = manage_production; Stok Opname = manage_hq_stock.
+ * Bahan Baku & Produksi = manage_production; Stok Opname = manage_hq_stock. HPP, harga beli & biaya produksi
+ * khusus izin view_hpp (default hanya super admin — admin & gudang tak perlu tahu).
  */
 class AiOperasionalToolsTest extends TestCase
 {
@@ -109,7 +113,12 @@ class AiOperasionalToolsTest extends TestCase
         $this->assertSame(160, $out['ringkasan']['total_stok_pusat']);
         $glow = collect($out['produk'])->firstWhere('sku', 'SG-01');
         $this->assertSame(['grand' => 18000.0, 'distributor' => 20000.0, 'reseller' => 25000.0, 'retail' => 35000.0], $glow['harga']);
-        $this->assertSame([12000.0, 100, 120, 'Serum'], [$glow['hpp'], $glow['berat_gram'], $glow['stok_pusat'], $glow['kategori']]);
+        $this->assertSame([100, 120, 'Serum'], [$glow['berat_gram'], $glow['stok_pusat'], $glow['kategori']]);
+        // HPP khusus izin Lihat HPP (default hanya super admin) — admin tak melihatnya.
+        $this->assertArrayNotHasKey('hpp', $glow);
+        $this->assertStringContainsString('Lihat HPP', $out['catatan_akses']);
+        $superGlow = collect($this->pakai('produk_master', $this->user(User::ROLE_SUPER_ADMIN))['produk'])->firstWhere('sku', 'SG-01');
+        $this->assertSame(12000.0, $superGlow['hpp']);
         $this->assertNull(collect($out['produk'])->firstWhere('sku', 'YK-01')['harga']['grand']);
         $this->assertSame(['Serum Glow'], array_column($this->pakai('produk_master', $admin, ['cari' => 'serum'])['produk'], 'nama'));
         $this->assertSame(['Sabun Yuki'], array_column($this->pakai('produk_master', $admin, ['status' => 'inactive'])['produk'], 'nama'));
@@ -178,14 +187,26 @@ class AiOperasionalToolsTest extends TestCase
         MaterialPurchase::create(['material_id' => $gliserin->id, 'material_name' => 'Gliserin', 'quantity' => 10, 'unit_cost' => 42000,
             'subtotal' => 420000, 'cost_before' => 38000, 'cost_after' => 40000, 'supplier_name' => 'CV Kimia', 'purchased_at' => '2026-10-02']);
 
+        // Gudang: stok & riwayat tanpa angka modal (HPP rata-rata, nilai stok, harga beli).
         $out = $this->pakai('bahan_baku', $this->user(User::ROLE_GUDANG));
+        $this->assertSame(['jumlah_bahan' => 2, 'stok_minus' => 1], $out['ringkasan']);
+        $this->assertSame(['nama' => 'Gliserin', 'satuan' => 'kg', 'stok' => 12.5, 'status' => 'active'], $out['bahan'][0]);
+        $this->assertSame(['tanggal' => '2026-10-02', 'bahan' => 'Gliserin', 'qty' => 10.0, 'supplier' => 'CV Kimia'], $out['riwayat_beli'][0]);
+        $this->assertArrayHasKey('catatan_akses', $out);
 
-        // Nilai stok = stok × HPP rata-rata (Pewangi minus ikut mengurangi, seperti di halaman).
+        // Super admin: lengkap. Nilai stok = stok × HPP rata-rata (Pewangi minus ikut mengurangi, seperti di halaman).
+        $out = $this->pakai('bahan_baku', $this->user(User::ROLE_SUPER_ADMIN));
         $this->assertSame(['jumlah_bahan' => 2, 'nilai_stok_total' => 300000.0, 'stok_minus' => 1], $out['ringkasan']);
         $this->assertSame(['nama' => 'Gliserin', 'satuan' => 'kg', 'stok' => 12.5, 'hpp_rata_rata' => 40000.0, 'nilai_stok' => 500000.0,
             'status' => 'active'], $out['bahan'][0]);
         $this->assertSame(['tanggal' => '2026-10-02', 'bahan' => 'Gliserin', 'qty' => 10.0, 'harga_unit' => 42000.0, 'subtotal' => 420000.0,
             'hpp_sebelum' => 38000.0, 'hpp_sesudah' => 40000.0, 'supplier' => 'CV Kimia'], $out['riwayat_beli'][0]);
+        $this->assertArrayNotHasKey('catatan_akses', $out);
+
+        // Izin bisa diberikan lewat Hak Akses → gudang ikut melihat HPP.
+        RolePermission::create(['role' => User::ROLE_GUDANG, 'permission_key' => 'view_hpp', 'allowed' => true]);
+        Permissions::flushCache();
+        $this->assertSame(40000.0, $this->pakai('bahan_baku', $this->user(User::ROLE_GUDANG, 'gud2'))['bahan'][0]['hpp_rata_rata']);
     }
 
     public function test_produksi_hpp_ringkasan_rentang_dan_rincian_batch(): void
@@ -203,21 +224,49 @@ class AiOperasionalToolsTest extends TestCase
             'produced_at' => '2026-10-04', 'output_qty' => 50, 'material_cost' => 450000, 'other_cost' => 150000, 'total_cost' => 600000,
             'hpp_per_unit' => 12000, 'cogs_before' => 9500, 'cogs_after' => 10333.33, 'created_by' => $gud->id]);
 
+        // Gudang: batch & bahan yang dipakai, tanpa biaya/HPP.
         $out = $this->pakai('produksi_hpp', $gud);
         $this->assertSame(['PRD-00002', 'PRD-00001'], array_column($out['produksi'], 'nomor'));
+        $this->assertSame(['produk' => 'Serum Glow', 'batch' => 2, 'qty' => 150], $out['ringkasan']['per_produk'][0]);
+        $this->assertSame(['nomor' => 'PRD-00001', 'tanggal' => '2026-10-01', 'produk' => 'Serum Glow', 'qty_jadi' => 100, 'oleh' => 'GUDANG'],
+            $out['produksi'][1]);
+        $this->assertArrayNotHasKey('total_biaya', $out['ringkasan']);
+        $r = $this->pakai('produksi_hpp', $gud, ['nomor' => 'PRD-00001']);
+        $this->assertSame([['nama' => 'Gliserin', 'qty' => 20.0, 'satuan' => 'kg']], $r['bahan']);
+        $this->assertSame([], array_intersect(['biaya_bahan', 'biaya_lain', 'total_biaya', 'hpp_per_pcs', 'biaya_lain_rinci'], array_keys($r)));
+        $this->assertArrayHasKey('catatan_akses', $r);
+
+        // Super admin: lengkap.
+        $sa = $this->user(User::ROLE_SUPER_ADMIN);
+        $out = $this->pakai('produksi_hpp', $sa);
         $this->assertSame(['produk' => 'Serum Glow', 'batch' => 2, 'qty' => 150, 'total_biaya' => 1600000.0, 'hpp_rata_rata_batch' => 10666.67],
             $out['ringkasan']['per_produk'][0]);
         $this->assertSame([10000.0, 9500.0, 'GUDANG'], [$out['produksi'][1]['hpp_per_pcs'], $out['produksi'][1]['hpp_rata_rata_sesudah'], $out['produksi'][1]['oleh']]);
 
         // Rentang tanggal (batas akhir ikut).
-        $this->assertSame(['PRD-00001'], array_column($this->pakai('produksi_hpp', $gud, ['sampai' => '2026-10-01'])['produksi'], 'nomor'));
+        $this->assertSame(['PRD-00001'], array_column($this->pakai('produksi_hpp', $sa, ['sampai' => '2026-10-01'])['produksi'], 'nomor'));
 
         // Rincian satu batch = halaman detail produksi.
-        $r = $this->pakai('produksi_hpp', $gud, ['nomor' => 'PRD-00001']);
+        $r = $this->pakai('produksi_hpp', $sa, ['nomor' => 'PRD-00001']);
         $this->assertSame([['nama' => 'Gliserin', 'qty' => 20.0, 'satuan' => 'kg', 'harga_unit' => 40000.0, 'subtotal' => 800000.0]], $r['bahan']);
         $this->assertSame([['keterangan' => 'Kemasan', 'nominal' => 200000.0]], $r['biaya_lain_rinci']);
         $this->assertSame([800000.0, 200000.0, 9000.0, 9500.0], [$r['biaya_bahan'], $r['biaya_lain'], $r['hpp_rata_rata_sebelum'], $r['hpp_rata_rata_sesudah']]);
-        $this->assertArrayHasKey('error', $this->pakai('produksi_hpp', $gud, ['nomor' => 'PRD-99999']));
+        $this->assertArrayHasKey('error', $this->pakai('produksi_hpp', $sa, ['nomor' => 'PRD-99999']));
+    }
+
+    public function test_laporan_stok_hq_nilai_hpp_khusus_izin_lihat_hpp(): void
+    {
+        $p = $this->produk('Serum Glow', 'SG-01', 0);
+        app(InventoryService::class)->adjustHqStock($p, 10, StockMovement::TYPE_IN, null, 'production', occurredAt: now()->subHour());
+
+        $admin = $this->pakai('laporan_stok_hq', $this->user(User::ROLE_ADMIN));
+        $this->assertArrayNotHasKey('nilai_hpp', $admin['total']);
+        $this->assertArrayHasKey('nilai_jual', $admin['total']); // nilai jual tetap boleh
+        $this->assertArrayHasKey('catatan_akses', $admin);
+
+        $super = $this->pakai('laporan_stok_hq', $this->user(User::ROLE_SUPER_ADMIN));
+        $this->assertGreaterThan(0, $super['total']['nilai_hpp']);
+        $this->assertArrayNotHasKey('catatan_akses', $super);
     }
 
     public function test_stok_opname_dikelompokkan_per_tanggal_opname(): void

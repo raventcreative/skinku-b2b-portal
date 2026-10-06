@@ -73,12 +73,16 @@ class LaporanStokHqTool extends BaseTool
                 'akhir' => $r['akhir'],
             ]);
 
+        // Nilai stok versi HPP (modal) hanya utk izin Lihat HPP; nilai jual tetap.
+        $hpp = $this->bolehLihatHpp($user);
+        $total = $hpp ? $rep['totals'] : array_diff_key($rep['totals'], ['nilai_hpp' => true]);
+
         return [
             'periode' => $rep['label'],
             'jumlah_produk' => $rows->count(),
-            'total' => $rep['totals'],
+            'total' => $total,
             // ponytail: dipotong 50 baris biar konteks AI tak meledak; saring pakai 'produk' bila perlu.
             'produk' => $rows->take(50)->values()->all(),
-        ];
+        ] + ($hpp ? [] : ['catatan_akses' => self::CATATAN_HPP]);
     }
 }
