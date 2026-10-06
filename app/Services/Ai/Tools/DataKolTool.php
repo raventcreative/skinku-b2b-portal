@@ -9,6 +9,7 @@ use App\Services\KolAffiliateService;
 use App\Services\KolGapokService;
 use App\Services\KolScoringService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Alat BACA: Database KOL / Affiliate (menu KOL). Izin & kolom mengikuti halamannya:
@@ -38,8 +39,8 @@ class DataKolTool extends BaseTool
         return 'Data Database KOL / Affiliate (menu KOL). Isi username → profil satu kreator: peran, level, followers, '
             .'status, Tim Gapok, skor KSS, pipeline, deal, plus (bila punya izin Affiliate) GMV/pesanan/komisi/APS/gaji '
             .'gapok bulan itu. Tanpa username → ringkasan jumlah KOL + daftar kreator teratas, urut GMV bulan itu atau '
-            .'followers. GMV = semua pesanan affiliate SKINKU (video + LIVE), sama dgn kolom "GMV SKINKU" di Database KOL '
-            .'& Tim Gapok. Untuk "siapa yang terlaris/terbaik (penjualan)" pakai daftar TANPA filter status urut GMV; '
+            .'followers (bisa disaring peran/gapok). GMV = semua pesanan affiliate SKINKU (video + LIVE), sama dgn kolom '
+            .'"GMV SKINKU" di Database KOL & Tim Gapok. Untuk "siapa yang terlaris/terbaik" panggil TANPA filter, urut GMV; '
             .'untuk views video pakai views_harian_kol. Kontak pribadi tidak tersedia.';
     }
 
@@ -50,11 +51,8 @@ class DataKolTool extends BaseTool
             'properties' => [
                 'username' => ['type' => 'string', 'description' => 'Username TikTok kreator (opsional) → profil lengkap.'],
                 'bulan' => ['type' => 'string', 'description' => 'YYYY-MM untuk angka performa. Default bulan ini.'],
-                'peran' => ['type' => 'string', 'enum' => Kol::ROLES, 'description' => 'kol / affiliate / both (KOL + Affiliate).'],
-                'status' => ['type' => 'string', 'enum' => Kol::STATUSES, 'description' => 'Status kerja sama di Database KOL (diisi manual tim; '
-                    .'kreator baru otomatis "prospek") — BUKAN ukuran performa, jangan dipakai untuk mencari yang sedang perform.'],
-                'kategori' => ['type' => 'string', 'enum' => config('kol.kategori')],
-                'gapok' => ['type' => 'boolean', 'description' => 'true = hanya anggota Tim Gapok.'],
+                'peran' => ['type' => 'string', 'enum' => Kol::ROLES, 'description' => 'Opsional: kol / affiliate / both (KOL + Affiliate).'],
+                'gapok' => ['type' => 'boolean', 'description' => 'Opsional: true = hanya anggota Tim Gapok.'],
                 'urut' => ['type' => 'string', 'enum' => ['gmv', 'followers'], 'description' => 'Default gmv (bila boleh lihat GMV), selain itu followers.'],
                 'limit' => ['type' => 'integer', 'description' => 'Jumlah kreator di daftar, 1-30. Default 10.'],
             ],
@@ -176,18 +174,16 @@ class DataKolTool extends BaseTool
 
     private function daftar(array $args, Carbon $bulan, array $boleh): array
     {
+        // ponytail: status & kategori sengaja TIDAK bisa jadi filter — di data nyata semua KOL masih "prospek" & kategori
+        // kosong, jadi AI yang memfilter dgn itu ("sedang perform" = status aktif) selalu dapat daftar kosong. Tambahkan
+        // lagi bila tim mulai mengisi status/kategori. Sebarannya tetap ada di ringkasan.
         $filter = array_filter([
             'peran' => in_array($args['peran'] ?? null, Kol::ROLES, true) ? $args['peran'] : null,
-            'status' => in_array($args['status'] ?? null, Kol::STATUSES, true) ? $args['status'] : null,
-            'kategori' => in_array($args['kategori'] ?? null, config('kol.kategori'), true) ? $args['kategori'] : null,
             'gapok' => ($args['gapok'] ?? null) === true ? true : null,
         ]);
-        $kols = Kol::query()
-            ->when(isset($filter['peran']), fn ($q) => $q->where('role', $filter['peran']))
-            ->when(isset($filter['status']), fn ($q) => $q->where('status', $filter['status']))
-            ->when(isset($filter['kategori']), fn ($q) => $q->where('kategori', $filter['kategori']))
-            ->when(isset($filter['gapok']), fn ($q) => $q->where('is_gapok', true))
-            ->get(['id', 'tiktok_username', 'name', 'role', 'status', 'followers', 'is_gapok']);
+        $semua = Kol::query()->get(['id', 'tiktok_username', 'name', 'role', 'status', 'followers', 'is_gapok']);
+        $kols = $semua->filter(fn (Kol $k) => (! isset($filter['peran']) || $k->role === $filter['peran'])
+            && (! isset($filter['gapok']) || $k->is_gapok));
         $urut = $boleh['gmv'] && ($args['urut'] ?? 'gmv') === 'gmv' ? 'gmv' : 'followers';
         $perf = $boleh['gmv']
             ? $this->gapok->performa(null, $bulan->copy()->startOfMonth(), $bulan->copy()->endOfMonth(), $bulan->toDateString())
@@ -204,32 +200,32 @@ class DataKolTool extends BaseTool
             'pesanan' => $boleh['gmv'] ? ($perf[$k->id]['orders'] ?? 0) : null,
         ], fn ($v) => $v !== null));
 
-        $ringkasan = [
+        $ringkasan = $this->ringkas($kols);
+        if ($boleh['gmv']) {
+            $ringkasan += ['bulan' => $bulan->format('Y-m'), 'gmv_bulan' => (int) $rows->sum('gmv'), 'pesanan_bulan' => (int) $rows->sum('pesanan')];
+        }
+
+        return array_filter([
+            'filter' => $filter ?: null,
+            'ringkasan' => $ringkasan,
+            // Saat disaring, sebaran SEMUA KOL ikut dikirim — biar AI tak menyimpulkan "tidak ada" dari filter yang salah.
+            'semua_kol' => $filter ? $this->ringkas($semua) : null,
+            'catatan' => $filter && $kols->isEmpty()
+                ? 'Tidak ada KOL yang cocok dengan filter ini (lihat semua_kol). Untuk peringkat GMV/terbaik, ulangi TANPA filter.'
+                : null,
+            'urut' => $urut,
+            'daftar' => $rows->sortByDesc($urut)->take(max(1, min(30, (int) ($args['limit'] ?? 10))))->values()->all(),
+        ], fn ($v) => $v !== null);
+    }
+
+    /** @return array{jumlah_kol:int,per_peran:array<string,int>,per_status:array<string,int>,tim_gapok:int} */
+    private function ringkas(Collection $kols): array
+    {
+        return [
             'jumlah_kol' => $kols->count(),
             'per_peran' => $kols->countBy(fn (Kol $k) => Kol::ROLE_LABELS[$k->role] ?? $k->role)->all(),
             'per_status' => $kols->countBy('status')->all(),
             'tim_gapok' => $kols->where('is_gapok', true)->count(),
         ];
-        if ($boleh['gmv']) {
-            $ringkasan += ['bulan' => $bulan->format('Y-m'), 'gmv_bulan' => (int) $rows->sum('gmv'), 'pesanan_bulan' => (int) $rows->sum('pesanan')];
-        }
-
-        // Saat difilter, sertakan sebaran SEMUA KOL — biar AI tak menyimpulkan "tidak ada" dari filter yang salah arti
-        // (mis. status "aktif" dikira "sedang perform", padahal kreator baru otomatis "prospek").
-        $semua = $filter ? [
-            'jumlah' => Kol::count(),
-            'per_status' => Kol::query()->selectRaw('status, COUNT(*) AS n')->groupBy('status')->pluck('n', 'status')->map(fn ($n) => (int) $n)->all(),
-        ] : null;
-
-        return array_filter([
-            'filter' => $filter ?: null,
-            'ringkasan' => $ringkasan,
-            'semua_kol' => $semua,
-            'catatan' => $filter && $kols->isEmpty()
-                ? 'Tidak ada KOL yang cocok dengan filter ini. Lihat semua_kol; untuk pertanyaan performa ulangi tanpa filter status.'
-                : null,
-            'urut' => $urut,
-            'daftar' => $rows->sortByDesc($urut)->take(max(1, min(30, (int) ($args['limit'] ?? 10))))->values()->all(),
-        ], fn ($v) => $v !== null);
     }
 }
