@@ -138,6 +138,25 @@
     $canPoInbox = $user->canDo('update_po_status') || $user->canDo('process_downline_po');
     $poInbox = $actionablePos ?? collect();
 @endphp
+@if(($stokPusatMenipis ?? collect())->isNotEmpty())
+{{-- Pengingat stok PUSAT menipis: stok ≤ stok minimum per produk (diatur di Produk Master). --}}
+<div class="bg-white rounded-2xl border border-amber-200 overflow-hidden mb-5">
+    <div class="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-amber-100 bg-amber-50">
+        <span class="text-sm font-bold text-amber-900">⚠️ Stok pusat menipis</span>
+        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ $stokPusatMenipis->count() }} produk</span>
+        <a href="{{ $user->canDo('manage_products') ? route('products.index', ['stok' => 'menipis']) : route('inventory.index') }}" class="ml-auto text-xs font-semibold text-amber-700 hover:underline">Lihat semua →</a>
+    </div>
+    <div class="px-5 py-2">
+        @foreach($stokPusatMenipis->take(5) as $sp)
+            <div class="flex justify-between items-center py-1.5 border-b border-stone-50 last:border-0 text-xs">
+                <span class="font-semibold text-stone-800">{{ $sp->name }} <span class="text-stone-400 font-normal">{{ $sp->sku }}</span></span>
+                <span class="font-bold {{ $sp->hq_stock <= 0 ? 'text-rose-600' : 'text-amber-700' }}">{{ number_format($sp->hq_stock, 0, ',', '.') }} <span class="text-stone-400 font-normal">/ min {{ number_format($sp->hq_min_stock, 0, ',', '.') }}</span></span>
+            </div>
+        @endforeach
+        @if($stokPusatMenipis->count() > 5)<p class="text-[11px] text-stone-400 py-1.5">+{{ $stokPusatMenipis->count() - 5 }} produk lain</p>@endif
+    </div>
+</div>
+@endif
 @if($user->canDo('process_withdrawal') || $canPoInbox)
 <div class="bg-white rounded-2xl border border-amber-200 overflow-hidden mb-5">
     <button type="button" onclick="togglePerluTindakan()" class="w-full flex items-center gap-2 px-5 py-3 border-b border-amber-100 bg-amber-50 hover:bg-amber-100/70 transition text-left">

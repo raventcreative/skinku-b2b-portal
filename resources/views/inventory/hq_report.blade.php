@@ -115,7 +115,7 @@
                     <td class="hq-no text-right px-2 py-2 font-mono text-stone-400 sticky left-0 bg-white z-10 w-12"></td>
                     <td class="px-3 py-2 sticky left-12 bg-white z-10">
                         <a href="{{ route('stock-movements.index', ['product_id' => $r['product']->id, 'from' => $start->format('Y-m-d'), 'to' => $end->format('Y-m-d')]) }}"
-                            class="font-semibold text-indigo-700 hover:text-indigo-900 hover:underline" title="Lihat rincian pergerakan produk ini pada periode ini">{{ $r['product']->name }}</a>
+                            class="font-semibold text-indigo-700 hover:text-indigo-900 hover:underline" title="Lihat rincian pergerakan produk ini pada periode ini">{{ $r['product']->name }}</a>@if($r['product']->isStokPusatMenipis())<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title="Stok pusat saat ini ≤ minimum {{ $r['product']->hq_min_stock }}">menipis</span>@endif
                         <div class="text-[10px] text-stone-400 font-mono">{{ $r['product']->sku ?: '—' }}</div>
                     </td>
                     <td class="text-right px-3 py-2 font-mono text-stone-600">{{ $n($r['awal']) }}</td>

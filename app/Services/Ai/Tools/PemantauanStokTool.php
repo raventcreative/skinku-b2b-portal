@@ -27,8 +27,8 @@ class PemantauanStokTool extends BaseTool
     public function description(): string
     {
         return 'Stok barang di gudang mitra (menu Pemantauan Stok / Stok Saya). Mitra: stok miliknya sendiri. Staf: stok '
-            .'semua mitra + total per produk (+ stok pusat HQ bila punya izin Stok HQ). Menandai stok menipis (≤ stok '
-            .'minimum yang diisi). Bisa cari produk, nama mitra (staf), atau hanya yang menipis.';
+            .'semua mitra + total per produk (+ stok pusat HQ bila punya izin Stok HQ, dgn stok minimum & tanda menipis). '
+            .'Menandai stok menipis (≤ stok minimum yang diisi). Bisa cari produk, nama mitra (staf), atau hanya yang menipis.';
     }
 
     public function parameters(): array
@@ -86,8 +86,11 @@ class PemantauanStokTool extends BaseTool
             // Tabel "Stok Pusat" halaman: produk selain terhapus (aktif & nonaktif), urut nama.
             $out['stok_pusat'] = Product::where('status', '!=', Product::STATUS_DELETED)
                 ->when($produk !== '', $cariProduk)
-                ->orderBy('name')->limit(50)->get(['name', 'sku', 'hq_stock'])
-                ->map(fn (Product $p) => ['produk' => $p->name, 'sku' => $p->sku, 'stok' => (int) $p->hq_stock])->all();
+                ->orderBy('name')->limit(50)->get(['name', 'sku', 'hq_stock', 'hq_min_stock', 'status'])
+                ->map(fn (Product $p) => array_filter(['produk' => $p->name, 'sku' => $p->sku, 'stok' => (int) $p->hq_stock,
+                    'minimum' => $p->hq_min_stock, 'menipis' => $p->isStokPusatMenipis()], fn ($v) => $v !== null))->all();
+            // Pengingat stok pusat: produk aktif dgn stok ≤ minimum (banner Dashboard).
+            $out['stok_pusat_menipis'] = Product::stokPusatMenipis()->count();
         }
         if ($rows->count() > $limit) {
             $out['catatan'] = "Menampilkan {$limit} dari {$rows->count()} baris stok (terbaru diperbarui) — persempit dgn produk/mitra.";

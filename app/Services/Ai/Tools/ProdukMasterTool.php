@@ -75,6 +75,8 @@ class ProdukMasterTool extends BaseTool
             ] + ($hpp ? ['hpp' => $rp($p->cogs)] : []) + [
                 'berat_gram' => $p->weight_grams ?: null,
                 'stok_pusat' => (int) $p->hq_stock,
+                'stok_minimum' => $p->hq_min_stock,
+                'stok_menipis' => $p->isStokPusatMenipis(),
                 'status' => $p->status,
             ])->values()->all(),
             'catatan_akses' => $hpp ? null : self::CATATAN_HPP,

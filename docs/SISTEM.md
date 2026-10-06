@@ -242,6 +242,10 @@ Kolom harga: `price_grand, price_distributor, price_reseller, price_retail`, plu
   - `reference_type` yang teramati: `purchase_order`, `po_return`, `join_transaction`/`join_cancel`, `opname`, `partner_sale`, `stock_receipt`, `production`, `tiktok_order`, `shopee_order`.
 - **`StockReceipt` / `StockReceiptItem`** — header/baris penerimaan barang dengan snapshot cogs sebelum/sesudah.
 
+### Stok minimum pusat (pengingat HQ menipis, migrasi `000160`)
+- `products.hq_min_stock` (nullable; kosong = tanpa pengingat), diisi di form Produk Master (`manage_products`). `Product::isStokPusatMenipis()` = minimum > 0 & `hq_stock` ≤ minimum; scope `Product::stokPusatMenipis()` = itu + status aktif.
+- Banner **"Stok pusat menipis"** di Dashboard (staf `manage_hq_stock` / `manage_products`, urut stok terkecil, 5 teratas + "Lihat semua" → Produk Master `?stok=menipis`); tanda "menipis · min X" di Produk Master & tabel Stok Pusat (Pemantauan Stok), badge di Laporan Stok HQ; Asisten AI: `pemantauan_stok` (stok_pusat + `stok_pusat_menipis`) & `produk_master` (`stok_minimum`, `stok_menipis`). Panel "Peringatan Stok Rendah" (stok mitra) kini juga mengabaikan minimum 0. Tak ada notifikasi push (sengaja; bisa ditambah lewat Report Bot Telegram). Test: `tests/Feature/StokMinimumHqTest.php`.
+
 ### Service
 - **`InventoryService`** — **satu-satunya jalur tulis stok**. Tiap method `DB::transaction` + `lockForUpdate()`, selalu memasangkan tulis-saldo dengan `writeMovement()`.
   - `adjustHqStock()` / `adjustPartnerStock()` (berbasis delta, throw kalau negatif).
