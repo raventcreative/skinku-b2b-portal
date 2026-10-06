@@ -5,11 +5,13 @@ namespace Tests\Feature;
 use App\Models\Material;
 use App\Models\Product;
 use App\Models\Production;
+use App\Models\RolePermission;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\MaterialService;
 use App\Services\ProductionService;
 use App\Services\StockReceiptService;
+use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -17,6 +19,15 @@ use Tests\TestCase;
 class ProductionTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Tes di kelas ini = pengguna yang boleh mengelola HPP (izin Lihat HPP, default hanya super admin).
+        // Perilaku tanpa izin (HPP disembunyikan, harga tak bisa diubah) ada di HppIzinTest.
+        RolePermission::create(['role' => User::ROLE_ADMIN, 'permission_key' => 'view_hpp', 'allowed' => true]);
+        Permissions::flushCache();
+    }
 
     private function user(string $role): User
     {

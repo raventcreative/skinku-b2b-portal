@@ -12,6 +12,9 @@
     // jumlah kolom untuk colspan grup
     $keluarCols = 3 + ($showKeluarLain ? 1 : 0);
     $emptyCount = collect($rows)->where('empty', true)->count();
+    // Nilai HPP (modal) hanya utk izin Lihat HPP — default super admin; nilai jual tetap tampil.
+    $lihatHpp = auth()->user()->canDo('view_hpp');
+    $batasJual = $lihatHpp ? '' : ' border-l-2';
 @endphp
 
 <style>
@@ -89,7 +92,7 @@
                 <th class="text-center px-3 py-1.5 border-l border-stone-200 bg-rose-50/50 text-rose-700" colspan="{{ $keluarCols }}">Keluar</th>
                 <th rowspan="2" class="text-right px-3 py-2 border-l border-stone-200">Penyesuaian</th>
                 <th rowspan="2" class="text-right px-3 py-2 border-l border-stone-200 bg-stone-100 text-stone-700">Stok Akhir</th>
-                <th class="text-center px-3 py-1.5 border-l-2 border-stone-300 bg-amber-50/50 text-amber-800" colspan="4">Nilai Persediaan (Stok Akhir)</th>
+                <th class="text-center px-3 py-1.5 border-l-2 border-stone-300 bg-amber-50/50 text-amber-800" colspan="{{ $lihatHpp ? 4 : 2 }}">Nilai Persediaan (Stok Akhir)</th>
             </tr>
             <tr class="bg-stone-50 text-stone-500 uppercase text-[10px]">
                 <th class="text-right px-3 py-1.5 border-l border-stone-200">Produksi</th>
@@ -98,9 +101,11 @@
                 <th class="text-right px-3 py-1.5">Shopee</th>
                 <th class="text-right px-3 py-1.5">Reseller / Distributor</th>
                 @if($showKeluarLain)<th class="text-right px-3 py-1.5">Lain</th>@endif
+                @if($lihatHpp)
                 <th class="text-right px-3 py-1.5 border-l-2 border-stone-300">HPP/Unit</th>
                 <th class="text-right px-3 py-1.5">Nilai HPP</th>
-                <th class="text-right px-3 py-1.5">Jual/Unit</th>
+                @endif
+                <th class="text-right px-3 py-1.5{{ $batasJual }} border-stone-300">Jual/Unit</th>
                 <th class="text-right px-3 py-1.5">Nilai Jual</th>
             </tr>
         </thead>
@@ -122,9 +127,11 @@
                     @if($showKeluarLain)<td class="text-right px-3 py-2 font-mono text-rose-600">{{ $r['keluar_lain'] ? $n($r['keluar_lain']) : '·' }}</td>@endif
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-100 {{ $r['penyesuaian'] > 0 ? 'text-emerald-600' : ($r['penyesuaian'] < 0 ? 'text-rose-600' : 'text-stone-300') }}">{{ $r['penyesuaian'] ? $sign($r['penyesuaian']) : '·' }}</td>
                     <td class="text-right px-3 py-2 font-mono font-bold border-l border-stone-100 bg-stone-50 text-stone-800">{{ $n($r['akhir']) }}</td>
+                    @if($lihatHpp)
                     <td class="text-right px-3 py-2 font-mono border-l-2 border-stone-200 text-stone-500">{{ $rpn($r['product']->cogs) }}</td>
                     <td class="text-right px-3 py-2 font-mono text-amber-800">{{ $rpn($r['nilai_hpp']) }}</td>
-                    <td class="text-right px-3 py-2 font-mono text-stone-500">{{ $rpn($r['product']->price_retail) }}</td>
+                    @endif
+                    <td class="text-right px-3 py-2 font-mono{{ $batasJual }} border-stone-200 text-stone-500">{{ $rpn($r['product']->price_retail) }}</td>
                     <td class="text-right px-3 py-2 font-mono text-emerald-700">{{ $rpn($r['nilai_jual']) }}</td>
                 </tr>
             @empty
@@ -144,9 +151,11 @@
                     @if($showKeluarLain)<td class="text-right px-3 py-2 font-mono">{{ $n($totals['keluar_lain']) }}</td>@endif
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-200">{{ $sign($totals['penyesuaian']) }}</td>
                     <td class="text-right px-3 py-2 font-mono border-l border-stone-200">{{ $n($totals['akhir']) }}</td>
+                    @if($lihatHpp)
                     <td class="text-right px-3 py-2 font-mono border-l-2 border-stone-300 text-stone-400">—</td>
                     <td class="text-right px-3 py-2 font-mono text-amber-800">{{ $rpn($totals['nilai_hpp']) }}</td>
-                    <td class="text-right px-3 py-2 font-mono text-stone-400">—</td>
+                    @endif
+                    <td class="text-right px-3 py-2 font-mono{{ $batasJual }} border-stone-300 text-stone-400">—</td>
                     <td class="text-right px-3 py-2 font-mono text-emerald-700">{{ $rpn($totals['nilai_jual']) }}</td>
                 </tr>
             </tfoot>
@@ -158,7 +167,7 @@
     Rumus: <b>Stok Akhir = Stok Awal + Produksi + Penyesuaian − (TikTok + Shopee + Reseller/Distributor)</b>.
     Kolom TikTok &amp; Shopee terisi dari order yang sudah kamu <b>Potong Stok</b>. Titik <b>·</b> = nol.
     <br>💡 Klik <b>nama produk</b> untuk lihat rincian tiap pergerakannya (buku besar) pada periode ini.
-    <br>💰 <b>Nilai Persediaan</b> (Rupiah) = Stok Akhir × harga/unit. <b>Nilai HPP</b> pakai harga pokok (cogs) = modal barang tersimpan; <b>Nilai Jual</b> pakai harga retail = potensi omzet.
+    <br>💰 <b>Nilai Persediaan</b> (Rupiah) = Stok Akhir × harga/unit. @if($lihatHpp)<b>Nilai HPP</b> pakai harga pokok (cogs) = modal barang tersimpan; @endif<b>Nilai Jual</b> pakai harga retail = potensi omzet.
 </p>
 @endsection
 

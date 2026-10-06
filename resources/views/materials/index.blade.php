@@ -3,6 +3,8 @@
 @section('heading', 'Bahan Baku & Stok')
 
 @section('content')
+{{-- HPP rata-rata, nilai stok & harga beli hanya utk izin Lihat HPP (default super admin). Input tetap bisa. --}}
+@php $lihatHpp = auth()->user()->canDo('view_hpp'); @endphp
 <div class="flex justify-between items-center mb-5 gap-3 flex-wrap">
     <p class="text-xs text-stone-500 max-w-xl">Master bahan baku beserta stok dan HPP rata-ratanya. "Beli Bahan" menambah stok bahan dan memperbarui HPP bahan (rata-rata bergerak).</p>
     <div class="flex gap-2 flex-wrap">
@@ -26,8 +28,10 @@
                 <th class="text-left px-4 py-3">Nama Bahan</th>
                 <th class="text-left">Satuan</th>
                 <th class="text-right">Stok</th>
+                @if($lihatHpp)
                 <th class="text-right">HPP Rata-rata / unit</th>
                 <th class="text-right">Nilai Stok</th>
+                @endif
                 <th class="text-left">Status</th>
                 <th class="pr-4"></th>
             </tr>
@@ -38,8 +42,10 @@
                     <td class="px-4 py-2.5 font-semibold text-stone-800">{{ $m->name }}</td>
                     <td class="text-stone-500">{{ $m->unit }}</td>
                     <td class="text-right text-stone-700">{{ rtrim(rtrim(number_format($m->stock, 3, ',', '.'), '0'), ',') }}</td>
+                    @if($lihatHpp)
                     <td class="text-right text-stone-700">Rp {{ number_format($m->avg_cost, 0, ',', '.') }}</td>
                     <td class="text-right text-stone-500">Rp {{ number_format($m->stock * $m->avg_cost, 0, ',', '.') }}</td>
+                    @endif
                     <td>@if($m->status==='active')<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">Aktif</span>@else<span class="px-2 py-0.5 rounded-full bg-stone-200 text-stone-600 text-[10px] font-bold">Nonaktif</span>@endif</td>
                     <td class="pr-4 text-right whitespace-nowrap">
                         <button type="button" aria-label="Edit {{ $m->name }}" title="Edit bahan" class="inline-flex items-center justify-center w-9 h-9 text-stone-600 bg-white border border-stone-200 rounded-lg hover:text-red-700 hover:border-red-200 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500" onclick='openMaterial({{ json_encode($m->only(["id","name","unit","status","notes","stock"])) }})'>
@@ -54,7 +60,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-8 text-center text-stone-400">Belum ada bahan baku. Klik "+ Bahan Baku".</td></tr>
+                <tr><td colspan="{{ $lihatHpp ? 7 : 5 }}" class="px-4 py-8 text-center text-stone-400">Belum ada bahan baku. Klik "+ Bahan Baku".</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -70,9 +76,11 @@
                 <th class="text-left px-4 py-3">Tanggal</th>
                 <th class="text-left">Bahan</th>
                 <th class="text-right">Qty</th>
+                @if($lihatHpp)
                 <th class="text-right">Harga / unit</th>
                 <th class="text-right">Subtotal</th>
                 <th class="text-right">HPP → jadi</th>
+                @endif
                 <th class="text-left">Supplier</th>
             </tr>
         </thead>
@@ -82,13 +90,15 @@
                     <td class="px-4 py-2 text-stone-600">{{ $p->purchased_at?->format('d M Y') }}</td>
                     <td class="font-semibold text-stone-800">{{ $p->material_name }}</td>
                     <td class="text-right text-stone-600">{{ rtrim(rtrim(number_format($p->quantity, 3, ',', '.'), '0'), ',') }}</td>
+                    @if($lihatHpp)
                     <td class="text-right text-stone-600">Rp {{ number_format($p->unit_cost, 0, ',', '.') }}</td>
                     <td class="text-right font-semibold text-stone-800">Rp {{ number_format($p->subtotal, 0, ',', '.') }}</td>
                     <td class="text-right text-stone-400">Rp {{ number_format($p->cost_before, 0, ',', '.') }} → <span class="text-emerald-700 font-semibold">Rp {{ number_format($p->cost_after, 0, ',', '.') }}</span></td>
+                    @endif
                     <td class="text-stone-500">{{ $p->supplier_name ?: '—' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-8 text-center text-stone-400">Belum ada pembelian bahan.</td></tr>
+                <tr><td colspan="{{ $lihatHpp ? 7 : 4 }}" class="px-4 py-8 text-center text-stone-400">Belum ada pembelian bahan.</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -115,7 +125,7 @@
                     <select name="status" class="w-full px-3 py-2 border border-stone-300 rounded-lg"><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select>
                 </div>
             </div>
-            <div id="hppWrap" class="hidden"><label class="block text-xs font-semibold mb-1">HPP / unit <span class="text-stone-400 font-normal">(isi untuk set manual; kosongkan = tidak diubah)</span></label><input type="number" step="0.01" min="0" name="avg_cost" class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
+            @if($lihatHpp)<div id="hppWrap" class="hidden"><label class="block text-xs font-semibold mb-1">HPP / unit <span class="text-stone-400 font-normal">(isi untuk set manual; kosongkan = tidak diubah)</span></label><input type="number" step="0.01" min="0" name="avg_cost" class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>@endif
             <div id="stockWrap" class="hidden space-y-3 border-t border-stone-100 pt-3">
                 <p class="text-xs text-stone-500">Stok saat ini: <b id="curStock" class="text-stone-800">—</b></p>
                 <div>
@@ -191,7 +201,8 @@
         const statusWrap = document.getElementById('statusWrap');
         const hppWrap = document.getElementById('hppWrap');
         const stockWrap = document.getElementById('stockWrap');
-        f.querySelector('[name=avg_cost]').value = '';
+        const avgCost = f.querySelector('[name=avg_cost]'); // hanya ada utk izin Lihat HPP
+        if (avgCost) avgCost.value = '';
         f.querySelector('[name=stock]').value = '';
         f.querySelector('[name=adjustment_reason]').value = '';
         if (m) {
@@ -204,14 +215,14 @@
             f.querySelector('[name=status]').value = m.status ?? 'active';
             document.getElementById('curStock').textContent = (m.stock ?? '0') + ' ' + (m.unit ?? '');
             statusWrap.classList.remove('hidden');
-            hppWrap.classList.remove('hidden');
+            hppWrap?.classList.remove('hidden');
             stockWrap.classList.remove('hidden');
         } else {
             f.action = '{{ route('materials.store') }}';
             document.getElementById('materialMethod').value = 'POST';
             document.getElementById('materialModalTitle').textContent = 'Tambah Bahan Baku';
             statusWrap.classList.add('hidden');
-            hppWrap.classList.add('hidden');
+            hppWrap?.classList.add('hidden');
             stockWrap.classList.add('hidden');
         }
         toggleModal('materialModal');

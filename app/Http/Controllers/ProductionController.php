@@ -55,6 +55,9 @@ class ProductionController extends Controller
             'blocks.*.costs.*.amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
+        // Harga bahan ketikan hanya dari yang boleh melihat HPP; selainnya kosong → pakai HPP rata-rata bahan.
+        $lihatHpp = $request->user()->canDo('view_hpp');
+
         // Prepare each finished-product block (materials + other costs).
         $prepared = [];
         foreach ($data['blocks'] as $block) {
@@ -63,7 +66,7 @@ class ProductionController extends Controller
                 ->map(fn ($r) => [
                     'material_id' => (int) $r['material_id'],
                     'quantity' => (float) $r['quantity'],
-                    'unit_cost' => (isset($r['unit_cost']) && $r['unit_cost'] !== '') ? (float) $r['unit_cost'] : null,
+                    'unit_cost' => ($lihatHpp && isset($r['unit_cost']) && $r['unit_cost'] !== '') ? (float) $r['unit_cost'] : null,
                 ])
                 ->values()->all();
 
@@ -105,8 +108,11 @@ class ProductionController extends Controller
         }
 
         if (count($productions) === 1) {
+            // Angka HPP di notifikasi hanya utk izin Lihat HPP (gudang mencatat tanpa melihat hasil hitungannya).
+            $hpp = $lihatHpp ? ' HPP/pcs = Rp '.number_format($productions[0]->hpp_per_unit, 0, ',', '.').'.' : '';
+
             return redirect()->route('productions.show', $productions[0])
-                ->with('status', "Produksi {$productions[0]->production_number} tercatat. HPP/pcs = Rp ".number_format($productions[0]->hpp_per_unit, 0, ',', '.').'.');
+                ->with('status', "Produksi {$productions[0]->production_number} tercatat.{$hpp}");
         }
 
         return redirect()->route('productions.index')
@@ -157,6 +163,13 @@ class ProductionController extends Controller
             return back()->withErrors(['materials' => 'Minimal satu baris bahan (bahan + qty pakai).'])->withInput();
         }
 
+        // Tanpa izin Lihat HPP kolom harga tak ada di form: harga baris lama (bahan yang sama) dipertahankan supaya
+        // biaya batch lama tak berubah diam-diam; bahan baru → HPP rata-rata bahan (unit_cost kosong).
+        if (! $request->user()->canDo('view_hpp')) {
+            $lama = $production->materials->pluck('unit_cost', 'material_id');
+            $materialLines = array_map(fn ($r) => ['unit_cost' => isset($lama[$r['material_id']]) ? (float) $lama[$r['material_id']] : null] + $r, $materialLines);
+        }
+
         $otherCosts = collect($data['costs'] ?? [])
             ->filter(fn ($r) => ! empty($r['label']) && isset($r['amount']) && $r['amount'] !== '')
             ->map(fn ($r) => ['label' => $r['label'], 'amount' => (float) $r['amount']])
@@ -191,6 +204,8 @@ class ProductionController extends Controller
     /** HPP (cogs) history for one finished product, across productions + stock receipts. */
     public function hppHistory(Product $product)
     {
+        abort_unless(request()->user()->canDo('view_hpp'), 403);
+
         $entries = collect();
 
         Production::where('product_id', $product->id)->orderBy('produced_at')->orderBy('id')->get()

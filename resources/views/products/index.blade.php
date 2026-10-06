@@ -3,6 +3,11 @@
 @section('heading', 'Manajemen Produk')
 
 @section('content')
+@php
+    // HPP (harga pokok) hanya utk izin Lihat HPP — default super admin; admin/gudang tak perlu tahu.
+    $lihatHpp = auth()->user()->canDo('view_hpp');
+    $kolomEdit = array_values(array_diff(['id', 'name', 'sku', 'category', 'description', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'status'], $lihatHpp ? [] : ['cogs']));
+@endphp
 <div class="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
     <form method="GET" class="flex flex-wrap gap-2">
         <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari nama/SKU…" class="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg sm:w-56">
@@ -22,7 +27,7 @@
             <tr class="ui-table-groups__row">
                 <th scope="colgroup" colspan="3" class="text-left">Katalog</th>
                 <th scope="colgroup" colspan="4" class="text-center">Harga jual <span>(Rp)</span></th>
-                <th scope="colgroup" colspan="3" class="text-center">Biaya &amp; logistik</th>
+                <th scope="colgroup" colspan="{{ $lihatHpp ? 3 : 2 }}" class="text-center">{{ $lihatHpp ? 'Biaya & logistik' : 'Logistik' }}</th>
                 <th scope="col" rowspan="2" class="text-left">Status</th>
                 <th scope="col" rowspan="2" class="ui-table-actions-head text-right">Aksi</th>
             </tr>
@@ -34,7 +39,7 @@
                 <th scope="col" class="text-right">Distributor</th>
                 <th scope="col" class="text-right">Reseller</th>
                 <th scope="col" class="text-right">Retail</th>
-                <th scope="col" class="text-right">HPP</th>
+                @if($lihatHpp)<th scope="col" class="text-right">HPP</th>@endif
                 <th scope="col" class="text-right">Berat</th>
                 <th scope="col" class="text-right">Stok Pusat</th>
             </tr>
@@ -67,6 +72,7 @@
                     <td class="text-right tabular-nums">Rp {{ number_format($p->price_distributor, 0, ',', '.') }}</td>
                     <td class="text-right tabular-nums">Rp {{ number_format($p->price_reseller, 0, ',', '.') }}</td>
                     <td class="text-right tabular-nums">Rp {{ number_format($p->price_retail, 0, ',', '.') }}</td>
+                    @if($lihatHpp)
                     <td class="text-right text-stone-500">
                         @if(auth()->user()->canDo('manage_production'))
                             <a href="{{ route('products.hpp-history', $p) }}" class="font-medium text-stone-600 underline decoration-stone-300 underline-offset-2 hover:text-red-700 hover:decoration-red-600" title="Buka riwayat HPP">Rp {{ number_format($p->cogs, 0, ',', '.') }}</a>
@@ -74,17 +80,18 @@
                             Rp {{ number_format($p->cogs, 0, ',', '.') }}
                         @endif
                     </td>
+                    @endif
                     <td class="text-right {{ (int) $p->weight_grams <= 0 ? 'text-amber-600 font-semibold' : 'text-stone-600' }}">{{ (int) $p->weight_grams > 0 ? number_format($p->weight_grams, 0, ',', '.').' g' : 'belum diisi' }}</td>
                     <td class="text-right tabular-nums"><span class="inline-flex min-w-10 justify-center rounded-md px-2 py-1 font-semibold {{ $p->hq_stock <= 0 ? 'bg-rose-50 text-rose-700' : 'bg-stone-100 text-stone-800' }}">{{ $p->hq_stock }}</span></td>
                     <td><span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $p->status==='active' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-stone-200 bg-stone-100 text-stone-600' }}"><span class="h-1.5 w-1.5 rounded-full {{ $p->status==='active' ? 'bg-emerald-600' : 'bg-stone-400' }}"></span>{{ $p->status }}</span></td>
                     <td class="whitespace-nowrap text-right">
                         <div class="inline-flex items-center justify-end gap-1">
-                        @if(auth()->user()->canDo('manage_production'))
+                        @if($lihatHpp && auth()->user()->canDo('manage_production'))
                             <a href="{{ route('products.hpp-history', $p) }}" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2.5 text-[11px] font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" title="Riwayat HPP"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5 text-emerald-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15.5 7 11l3 2 6-7m0 0v4m0-4h-4"/></svg><span>Riwayat HPP</span></a>
                         @endif
                         @if($p->status !== 'deleted')
                             @php $gallery = $p->fileGallery(\App\Models\Product::GALLERY); @endphp
-                            <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2.5 text-[11px] font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" aria-label="Edit {{ $p->name }}" title="Edit produk" onclick='openProduct({{ json_encode($p->only(["id","name","sku","category","description","price_grand","price_distributor","price_reseller","price_retail","cogs","weight_grams","hq_stock","status"]) + ["gallery" => $gallery]) }})'><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="m12.5 3.5 4 4M4 16l1-4 8.5-8.5a1.4 1.4 0 0 1 2 2L7 14l-3 2Z"/></svg>Edit</button>
+                            <button type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2.5 text-[11px] font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" aria-label="Edit {{ $p->name }}" title="Edit produk" onclick='openProduct({{ json_encode($p->only($kolomEdit) + ["gallery" => $gallery]) }})'><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="m12.5 3.5 4 4M4 16l1-4 8.5-8.5a1.4 1.4 0 0 1 2 2L7 14l-3 2Z"/></svg>Edit</button>
                             <form method="POST" action="{{ route('products.destroy', $p) }}" class="inline" onsubmit="return confirm('Hapus produk ini (soft delete)?')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-rose-200 bg-white px-2.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700" aria-label="Hapus {{ $p->name }}" title="Hapus produk"><svg aria-hidden="true" focusable="false" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h14M8 5V3h4v2m-7 0 1 12h8l1-12m-6 3v6m4-6v6"/></svg>Hapus</button>
@@ -94,7 +101,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="12" class="px-4 py-6 text-center text-stone-400">Belum ada produk.</td></tr>
+                <tr><td colspan="{{ $lihatHpp ? 12 : 11 }}" class="px-4 py-6 text-center text-stone-400">Belum ada produk.</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -119,7 +126,7 @@
             <div><label class="block text-xs font-semibold mb-1">Harga Grand Distributor</label><input type="number" step="0.01" name="price_grand" class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="kosong = ikut distributor"></div>
             <div><label class="block text-xs font-semibold mb-1">Harga Reseller *</label><input type="number" step="0.01" name="price_reseller" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">Harga Retail *</label><input type="number" step="0.01" name="price_retail" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
-            <div><label class="block text-xs font-semibold mb-1">HPP / COGS *</label><input type="number" step="0.01" name="cogs" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
+            @if($lihatHpp)<div><label class="block text-xs font-semibold mb-1">HPP / COGS *</label><input type="number" step="0.01" name="cogs" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>@endif
             <div><label class="block text-xs font-semibold mb-1">Berat (gram)</label><input type="number" name="weight_grams" min="0" step="1" class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="untuk booking kurir"></div>
             <div><label class="block text-xs font-semibold mb-1">Stok Pusat *</label><input type="number" name="hq_stock" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
             <div><label class="block text-xs font-semibold mb-1">Status *</label>
