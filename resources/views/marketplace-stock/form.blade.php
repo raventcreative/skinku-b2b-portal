@@ -105,7 +105,8 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div class="mp-induk-saja">
                     <label class="block text-sm font-medium text-stone-700 mb-1">Harga</label>
-                    <input type="number" step="0.01" min="0" name="price" value="{{ old('price', $master->base_price) }}" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
+                    @include('partials.rupiah-input')
+                    <input type="text" inputmode="numeric" data-rupiah name="price" value="{{ \App\Support\Rupiah::input(old('price', $master->base_price)) }}" class="w-full px-3 py-2 border border-stone-200 rounded-lg">
                 </div>
                 <div class="mp-induk-saja mp-stok-manual">
                     <label class="block text-sm font-medium text-stone-700 mb-1">Stok</label>
@@ -195,7 +196,7 @@
             </div>
             <div class="flex flex-wrap items-end gap-2 bg-stone-50 rounded-xl p-3">
                 <span class="text-xs font-semibold text-stone-600 w-full">Terapkan ke semua varian</span>
-                <input type="number" step="0.01" min="0" id="varSemuaHarga" placeholder="Harga" class="w-32 px-2 py-1.5 border border-stone-200 rounded-lg text-sm">
+                <input type="text" inputmode="numeric" data-rupiah id="varSemuaHarga" placeholder="Harga" class="w-32 px-2 py-1.5 border border-stone-200 rounded-lg text-sm">
                 <input type="number" min="0" id="varSemuaStok" placeholder="Stok" class="w-24 px-2 py-1.5 border border-stone-200 rounded-lg text-sm">
                 <button type="button" id="varTerapkan" class="px-3 py-1.5 text-sm rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">Terapkan</button>
             </div>
@@ -207,7 +208,7 @@
                             <tr class="mp-var">
                                 <td class="py-1 pr-2"><input type="hidden" name="varian[{{ $i }}][id]" value="{{ $v['id'] ?? '' }}"><input type="text" name="varian[{{ $i }}][name]" value="{{ $v['name'] ?? '' }}" required maxlength="100" class="w-40 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
                                 <td class="py-1 pr-2"><input type="text" name="varian[{{ $i }}][sku]" value="{{ $v['sku'] ?? '' }}" required maxlength="255" class="w-32 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
-                                <td class="py-1 pr-2"><input type="number" step="0.01" min="0" name="varian[{{ $i }}][price]" value="{{ $v['price'] ?? '' }}" class="mp-var-harga w-28 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
+                                <td class="py-1 pr-2"><input type="text" inputmode="numeric" data-rupiah name="varian[{{ $i }}][price]" value="{{ \App\Support\Rupiah::input($v['price'] ?? null) }}" class="mp-var-harga w-28 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
                                 <td class="py-1 pr-2"><input type="number" min="0" name="varian[{{ $i }}][stock]" value="{{ $v['stock'] ?? '' }}" class="mp-var-stok w-20 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
                                 <td class="py-1 pr-2"><input type="text" name="varian[{{ $i }}][barcode]" value="{{ $v['barcode'] ?? '' }}" maxlength="255" class="w-32 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
                                 <td class="py-1 pr-2 whitespace-nowrap"><input type="text" name="varian[{{ $i }}][isi_sku]" value="{{ $v['isi_sku'] ?? '' }}" maxlength="255" list="mpSkuIsi" placeholder="SKU isi" class="mp-var-isi w-24 px-2 py-1.5 border border-stone-200 rounded-lg"> × <input type="number" min="1" max="999" name="varian[{{ $i }}][isi_qty]" value="{{ $v['isi_qty'] ?? '' }}" placeholder="qty" class="w-14 px-2 py-1.5 border border-stone-200 rounded-lg"></td>
@@ -807,7 +808,7 @@
         var hid = document.createElement('input'); hid.type = 'hidden'; hid.name = 'varian[' + i + '][id]'; tdNama.insertBefore(hid, tdNama.firstChild);
         tr.appendChild(tdNama);
         tr.appendChild(sel('varian[' + i + '][sku]', 'w-32', { type: 'text', required: '', maxlength: '255' }));
-        tr.appendChild(sel('varian[' + i + '][price]', 'mp-var-harga w-28', { type: 'number', step: '0.01', min: '0' }));
+        tr.appendChild(sel('varian[' + i + '][price]', 'mp-var-harga w-28', { type: 'text', inputmode: 'numeric', 'data-rupiah': '' }));
         tr.appendChild(sel('varian[' + i + '][stock]', 'mp-var-stok w-20', { type: 'number', min: '0' }));
         tr.appendChild(sel('varian[' + i + '][barcode]', 'w-32', { type: 'text', maxlength: '255' }));
         var tdIsi = sel('varian[' + i + '][isi_sku]', 'mp-var-isi w-24', { type: 'text', maxlength: '255', list: 'mpSkuIsi', placeholder: 'SKU isi' });

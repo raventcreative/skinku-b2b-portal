@@ -10,6 +10,7 @@ use App\Models\ShopeeConnection;
 use App\Models\TiktokConnection;
 use App\Services\ImageService;
 use App\Services\MarketplaceMasterService;
+use App\Support\Rupiah;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -77,6 +78,7 @@ class MarketplaceStockController extends Controller
 
     public function store(Request $r, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
     {
+        $this->normalisasiHarga($r);
         $this->validateMaster($r);
         $master = MarketplaceMaster::create($this->masterAttributes($r) + $this->kategoriAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
@@ -98,6 +100,7 @@ class MarketplaceStockController extends Controller
 
     public function update(Request $r, MarketplaceMaster $master, ImageService $img, MarketplaceMasterService $svc): RedirectResponse
     {
+        $this->normalisasiHarga($r);
         $this->validateMaster($r);
         $master->update($this->masterAttributes($r) + $this->kategoriAttributes($r));
         $this->applyMasterInputs($r, $master, $img, $svc);
@@ -130,6 +133,25 @@ class MarketplaceStockController extends Controller
         $copy = $svc->duplicateMaster($master);
 
         return redirect()->route('marketplace-stock.edit', $copy)->with('status', "Digandakan dari \"{$master->name}\". Sesuaikan lalu simpan.");
+    }
+
+    /**
+     * Harga dari input bertitik ribuan ("195.000") → angka polos SEBELUM validasi (Rupiah::polos), termasuk harga
+     * tiap varian. Normalnya JS form sudah mengirim angka polos (partials/rupiah-input); ini jaring pengaman utk
+     * JS mati/browser lama — "65.000" lolos `numeric` sbg 65 kalau tak dinormalkan.
+     */
+    private function normalisasiHarga(Request $r): void
+    {
+        if ($r->has('price')) {
+            $r->merge(['price' => Rupiah::polos($r->input('price'))]);
+        }
+        $varian = $r->input('varian');
+        if (is_array($varian)) {
+            $r->merge(['varian' => array_map(
+                fn ($row) => is_array($row) && array_key_exists('price', $row) ? ['price' => Rupiah::polos($row['price'])] + $row : $row,
+                $varian,
+            )]);
+        }
     }
 
     private function validateMaster(Request $r): void
@@ -619,6 +641,7 @@ class MarketplaceStockController extends Controller
 
     public function setMasterPrice(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
+        $this->normalisasiHarga($r);
         $r->validate(['price' => ['required', 'numeric', 'min:0', 'max:9999999999.99']]);
         $svc->setMasterPrice($master, (float) $r->price);
 
@@ -638,6 +661,7 @@ class MarketplaceStockController extends Controller
     public function setChannelPrice(Request $r, string $channel, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
     {
         abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
+        $this->normalisasiHarga($r);
         $r->validate(['price' => ['required', 'numeric', 'min:0', 'max:9999999999.99']]);
         $svc->setChannelPrice($master, $channel, (float) $r->price);
         $svc->pushMaster($master);
