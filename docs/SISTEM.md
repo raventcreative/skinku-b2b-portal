@@ -786,10 +786,12 @@ Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/spec
 | `stok_marketplace` | read | `manage_marketplace_stock` | Stok etalase Produk Master per channel (varian & bundle terhitung). |
 | `pesanan_marketplace` | read | `manage_tiktok` / `manage_shopee` | Ringkas pesanan; channel tampil hanya bila punya izin channel itu. |
 | `komisi` | read | mitra / staff + `view_commission_report` | Mitra: saldo & riwayat sendiri. Admin: rekap per mitra. |
+| `views_harian_kol` | read | `kol.affiliate.view` + `kol.view` (route bersarang) | Views Harian SKINKU: kreator teratas (views, Diposting, GMV, hari terbaik) atau rincian per video satu kreator — via `KolViewsHarianService`, angka = tabel halaman. |
+| `data_kol` | read | `kol.view` | Database KOL: profil 1 kreator (peran, level, followers, status, gapok, KSS, pipeline, deal) atau ringkasan + daftar teratas (filter peran/status/kategori/gapok). Kolom ikut halaman: GMV/pesanan/komisi/APS/video-LIVE/gaji-ROI gapok hanya + `kol.affiliate.view` (via `KolGapokService::performa`, = Tim Gapok); biaya & status bayar deal hanya + `kol.deal.finance`. Telepon/manajer/catatan/rekening **tak pernah** dikirim ke AI. |
 
 Tool write selalu lewat alur confirm; tool read eksekusi inline.
 
-**Aturan alat per menu:** izin alat = izin route menunya (`permission()`), syarat tambahan (mis. `business`, salah satu dari dua izin) lewat `availableFor(User)`; `ToolRegistry` mengecek keduanya — alat yang tak lolos tak dikirim ke model dan tak bisa dipanggil by name. Scoping data mitra (milik sendiri) dilakukan **di dalam** alat. Jangan buat alat generik "query bebas" — melewati batas role. Test: `tests/Feature/AiMenuToolsTest.php`.
+**Aturan alat per menu:** izin alat = izin route menunya (`permission()`), syarat tambahan (mis. `business`, salah satu dari dua izin) lewat `availableFor(User)`; `ToolRegistry` mengecek keduanya — alat yang tak lolos tak dikirim ke model dan tak bisa dipanggil by name. Scoping data mitra (milik sendiri) dilakukan **di dalam** alat. Jangan buat alat generik "query bebas" — melewati batas role. Test: `tests/Feature/AiMenuToolsTest.php`, `tests/Feature/AiKolToolsTest.php` (alat KOL: izin per role, kolom per izin, tanpa data pribadi). Username → KOL (persis/alias) lewat `KolUsernameAlias::kolId()` — sama dgn sync affiliate; nama sebagian → kandidat utk ditanyakan balik.
 
 ### Controller / route
 `/asisten` (halaman penuh) + widget floating → backend JSON-or-redirect sama: `state` (poll), `send` (POST → mungkin `confirm`), `confirm` (eksekusi 1 tool write pending setelah `validate()` re-run defensif + audit-log), `reset`. `/asisten/pengetahuan` (**"Pengetahuan AI"**) digating tambahan `internal`.
