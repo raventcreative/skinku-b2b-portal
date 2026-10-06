@@ -153,11 +153,34 @@ class KolViewsHarianBackfillTest extends TestCase
         $this->fakeApi('kreatorx', '2026-09-28'); // potret 28 Sep: riwayat tak tersedia
 
         $this->artisan('tiktok:affiliate-views-backfill', ['--dari' => '2026-09-28', '--sampai' => '2026-09-29', '--simpan' => true])
-            ->expectsOutputToContain('✗ 2026-09-28')
+            ->expectsOutputToContain('[GAGAL] 2026-09-28')
             ->assertFailed();
 
         $this->assertSame(['2026-09-29', '2026-09-30'],
             KolContentDailySnapshot::orderBy('captured_on')->pluck('captured_on')->map(fn ($d) => Carbon::parse($d)->toDateString())->all());
+    }
+
+    public function test_satu_tanggal_tersimpan_utuh_atau_tidak_sama_sekali(): void
+    {
+        Kol::create(['tiktok_username' => 'kreatorx', 'followers' => 1]);
+        Kol::create(['tiktok_username' => 'kreatory', 'followers' => 1]);
+        Http::fake(['*shop_videos/performance*' => Http::response(['code' => 0, 'data' => ['videos' => [
+            ['id' => 'V1', 'username' => 'kreatorx', 'title' => 'a', 'views' => 10, 'gmv' => ['amount' => '0'], 'video_post_time' => '2026-08-01 10:00:00'],
+            ['id' => 'V2', 'username' => 'kreatory', 'title' => 'b', 'views' => 20, 'gmv' => ['amount' => '0'], 'video_post_time' => '2026-08-01 10:00:00'],
+        ]]], 200)]);
+        // Simulasi terputus saat menulis video ke-2 → video ke-1 di tanggal yang sama ikut dibatalkan, supaya
+        // saat dijalankan ulang tanggal itu tak dilewati sbg "sudah ada" padahal isinya setengah.
+        KolContentDailySnapshot::creating(function (KolContentDailySnapshot $s) {
+            if ($s->content_id === 'V2') {
+                throw new \RuntimeException('koneksi putus');
+            }
+        });
+
+        $this->artisan('tiktok:affiliate-views-backfill', ['--dari' => '2026-09-28', '--sampai' => '2026-09-28', '--simpan' => true])
+            ->expectsOutputToContain('[GAGAL] 2026-09-28')
+            ->assertFailed();
+
+        $this->assertSame(0, KolContentDailySnapshot::count());
     }
 
     public function test_tanpa_dari_ditolak(): void

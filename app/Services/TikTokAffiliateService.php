@@ -11,6 +11,7 @@ use App\Models\KolTiktokSnapshot;
 use App\Models\KolUsernameAlias;
 use App\Models\TiktokAffiliateConnection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Sinkron order affiliate TikTok (Affiliate Seller API) → pipeline
@@ -128,6 +129,7 @@ class TikTokAffiliateService
         $videos = $this->collect(fn ($pt) => $this->client->getShopVideoPerformance($access, (string) $conn->shop_cipher, $period, $tgl->toDateString(), 100, $pt), 'videos', 'video', $maxPages);
 
         $out = ['videos' => 0, 'kreator' => 0, 'views' => 0, 'gmv' => 0, 'ditulis' => 0, 'rentang' => "{$period} s/d {$hari->toDateString()}"];
+        $perKol = [];
         foreach ($videos as $u => $vids) {
             $kolId = $this->kolIdUntuk($u);
             if (! $kolId) {
@@ -137,9 +139,16 @@ class TikTokAffiliateService
             $out['videos'] += count($vids);
             $out['views'] += array_sum(array_column($vids, 'views'));
             $out['gmv'] += array_sum(array_column($vids, 'gmv'));
-            if ($simpan) {
-                $out['ditulis'] += $this->tulisPotretHarian($kolId, $vids, $period, $tgl->toDateString());
-            }
+            $perKol[$kolId] = array_merge($perKol[$kolId] ?? [], $vids);
+        }
+        if ($simpan && $perKol !== []) {
+            // Satu tanggal potret = satu transaksi: terputus di tengah (mis. SSH putus) → tak ada tanggal setengah
+            // tersimpan yang kelak dilewati sbg "sudah ada" saat perintah dijalankan ulang.
+            DB::transaction(function () use ($perKol, $period, $tgl, &$out) {
+                foreach ($perKol as $kolId => $vids) {
+                    $out['ditulis'] += $this->tulisPotretHarian($kolId, $vids, $period, $tgl->toDateString());
+                }
+            });
         }
 
         return $out;
