@@ -787,7 +787,7 @@ Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/spec
 | `pesanan_marketplace` | read | `manage_tiktok` / `manage_shopee` | Ringkas pesanan; channel tampil hanya bila punya izin channel itu. |
 | `komisi` | read | mitra / staff + `view_commission_report` | Mitra: saldo & riwayat sendiri. Admin: rekap per mitra. |
 | `views_harian_kol` | read | `kol.affiliate.view` + `kol.view` (route bersarang) | Views Harian SKINKU: kreator teratas (views, Diposting, GMV, hari terbaik) atau rincian per video satu kreator — via `KolViewsHarianService`, angka = tabel halaman. |
-| `data_kol` | read | `kol.view` | Database KOL: profil 1 kreator (peran, level, followers, status, gapok, KSS, pipeline, deal) atau ringkasan + daftar teratas (filter peran/status/kategori/gapok). Kolom ikut halaman: GMV/pesanan/komisi/APS/video-LIVE/gaji-ROI gapok hanya + `kol.affiliate.view` (via `KolGapokService::performa`, = Tim Gapok); biaya & status bayar deal hanya + `kol.deal.finance`. Telepon/manajer/catatan/rekening **tak pernah** dikirim ke AI. |
+| `data_kol` | read | `kol.view` | Database KOL: profil 1 kreator (peran, level, followers, status, gapok, KSS, pipeline, deal) atau ringkasan + daftar teratas (saring peran/gapok; status & kategori sengaja bukan filter — data nyata semua "prospek" & kategori kosong). Kolom ikut halaman: GMV (dirinci LIVE / video / lainnya = etalase & link, di profil & daftar)/pesanan/komisi/APS/jumlah video-LIVE/gaji-ROI gapok hanya + `kol.affiliate.view` (via `KolGapokService::performa`, = Tim Gapok); biaya & status bayar deal hanya + `kol.deal.finance`. Telepon/manajer/catatan/rekening **tak pernah** dikirim ke AI. |
 
 Tool write selalu lewat alur confirm; tool read eksekusi inline.
 

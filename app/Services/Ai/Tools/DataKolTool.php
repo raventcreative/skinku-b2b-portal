@@ -39,8 +39,9 @@ class DataKolTool extends BaseTool
         return 'Data Database KOL / Affiliate (menu KOL). Isi username → profil satu kreator: peran, level, followers, '
             .'status, Tim Gapok, skor KSS, pipeline, deal, plus (bila punya izin Affiliate) GMV/pesanan/komisi/APS/gaji '
             .'gapok bulan itu. Tanpa username → ringkasan jumlah KOL + daftar kreator teratas, urut GMV bulan itu atau '
-            .'followers (bisa disaring peran/gapok). GMV = semua pesanan affiliate SKINKU (video + LIVE), sama dgn kolom '
-            .'"GMV SKINKU" di Database KOL & Tim Gapok. Untuk "siapa yang terlaris/terbaik" panggil TANPA filter, urut GMV; '
+            .'followers (bisa disaring peran/gapok). GMV = semua pesanan affiliate SKINKU, sama dgn kolom "GMV SKINKU" di '
+            .'Database KOL & Tim Gapok, dirinci per channel: gmv_live (LIVE), gmv_video (video/VT), gmv_lainnya (etalase & '
+            .'link) — ada di profil maupun daftar. Untuk "siapa yang terlaris/terbaik" panggil TANPA filter, urut GMV; '
             .'untuk views video pakai views_harian_kol. Kontak pribadi tidak tersedia.';
     }
 
@@ -158,8 +159,7 @@ class DataKolTool extends BaseTool
             'gmv' => $p['gmv'],
             'pesanan' => $p['orders'],
             'komisi' => $p['commission'],
-            'gmv_live' => $p['gmv_live'],
-            'gmv_video' => $p['gmv_video'],
+        ] + $this->perChannel($p) + [
             'jumlah_video' => $p['videos'],
             'jumlah_live' => $p['lives'],
         ];
@@ -189,16 +189,23 @@ class DataKolTool extends BaseTool
             ? $this->gapok->performa(null, $bulan->copy()->startOfMonth(), $bulan->copy()->endOfMonth(), $bulan->toDateString())
             : [];
 
-        $rows = $kols->map(fn (Kol $k) => array_filter([
-            'username' => '@'.$k->handle(),
-            'nama' => $k->name,
-            'peran' => Kol::ROLE_LABELS[$k->role] ?? $k->role,
-            'status' => $k->status,
-            'followers' => $k->followers,
-            'tim_gapok' => (bool) $k->is_gapok,
-            'gmv' => $boleh['gmv'] ? ($perf[$k->id]['gmv'] ?? 0) : null,
-            'pesanan' => $boleh['gmv'] ? ($perf[$k->id]['orders'] ?? 0) : null,
-        ], fn ($v) => $v !== null));
+        $rows = $kols->map(function (Kol $k) use ($boleh, $perf) {
+            $row = array_filter([
+                'username' => '@'.$k->handle(),
+                'nama' => $k->name,
+                'peran' => Kol::ROLE_LABELS[$k->role] ?? $k->role,
+                'status' => $k->status,
+                'followers' => $k->followers,
+                'tim_gapok' => (bool) $k->is_gapok,
+            ], fn ($v) => $v !== null);
+            if ($boleh['gmv']) {
+                // Rincian per channel sekalian — "10 teratas + LIVE vs VT" cukup 1 panggilan (batas langkah AI = 5).
+                $p = $perf[$k->id] ?? ['gmv' => 0, 'orders' => 0, 'gmv_live' => 0, 'gmv_video' => 0];
+                $row += ['gmv' => $p['gmv'], 'pesanan' => $p['orders']] + $this->perChannel($p);
+            }
+
+            return $row;
+        });
 
         $ringkasan = $this->ringkas($kols);
         if ($boleh['gmv']) {
@@ -216,6 +223,16 @@ class DataKolTool extends BaseTool
             'urut' => $urut,
             'daftar' => $rows->sortByDesc($urut)->take(max(1, min(30, (int) ($args['limit'] ?? 10))))->values()->all(),
         ], fn ($v) => $v !== null);
+    }
+
+    /** GMV per channel: LIVE, video (VT), lainnya (etalase/SHOP, link/LINKSHARE, tanpa tipe) — ketiganya = gmv. */
+    private function perChannel(array $p): array
+    {
+        return [
+            'gmv_live' => $p['gmv_live'],
+            'gmv_video' => $p['gmv_video'],
+            'gmv_lainnya' => max(0, $p['gmv'] - $p['gmv_live'] - $p['gmv_video']),
+        ];
     }
 
     /** @return array{jumlah_kol:int,per_peran:array<string,int>,per_status:array<string,int>,tim_gapok:int} */
