@@ -158,10 +158,7 @@ class TikTokAffiliateService
     /** Username TikTok (lowercase) → id KOL (kolom tiktok_username atau alias); null = bukan KOL. */
     private function kolIdUntuk(string $username): ?int
     {
-        $id = Kol::whereRaw('LOWER(tiktok_username) = ?', [$username])->value('id')
-            ?? KolUsernameAlias::where('username', $username)->value('kol_id');
-
-        return $id ? (int) $id : null;
+        return KolUsernameAlias::kolId($username);
     }
 
     /** Tulis potret harian video satu kreator (views harian = selisih antar potret). Idempoten per tanggal potret. */

@@ -39,8 +39,6 @@ class KolGapokService
      */
     public function range(Carbon $from, Carbon $to, Carbon $salaryMonth): Collection
     {
-        $start = $from->copy();
-        $end = $to->copy();
         $period = $salaryMonth->copy()->startOfMonth()->toDateString();
 
         $gapok = Kol::gapok()->orderBy('tiktok_username')->get();
@@ -48,19 +46,7 @@ class KolGapokService
             return collect();
         }
         $ids = $gapok->pluck('id')->all();
-
-        $agg = KolAffiliateTransaction::matched()->notCancelled()
-            ->whereIn('kol_id', $ids)
-            ->whereBetween('order_date', [$start, $end])
-            ->selectRaw('kol_id, SUM(gmv) as gmv, COUNT(*) as orders, SUM(commission) as commission')
-            ->groupBy('kol_id')->get()->keyBy('kol_id');
-
-        // GMV per content_type (LIVE/VIDEO) — dari mana penjualan datang.
-        $byType = KolAffiliateTransaction::matched()->notCancelled()
-            ->whereIn('kol_id', $ids)
-            ->whereBetween('order_date', [$start, $end])
-            ->selectRaw('kol_id, LOWER(content_type) as ct, SUM(gmv) as gmv')
-            ->groupBy('kol_id', 'ct')->get()->groupBy('kol_id');
+        $perf = $this->performa($ids, $from, $to, $period);
 
         $salaries = KolGapokSalary::where('period', $period)
             ->whereIn('kol_id', $ids)->get()->keyBy('kol_id');
@@ -73,38 +59,64 @@ class KolGapokService
         $payments = KolGapokPayment::where('period', $period)
             ->whereIn('kol_id', $ids)->orderBy('paid_at')->get()->groupBy('kol_id');
 
-        // Jumlah video & LIVE per kreator (bulan $period) dari Analytics API.
-        $content = KolCreatorContentStat::where('period', $period)
-            ->whereIn('kol_id', $ids)->get()->keyBy('kol_id');
-
-        return $gapok->map(function ($kol) use ($agg, $byType, $salaries, $carried, $payments, $content) {
-            $a = $agg[$kol->id] ?? null;
-            $gmv = (int) ($a->gmv ?? 0);
+        return $gapok->map(function ($kol) use ($perf, $salaries, $carried, $payments) {
+            $p = $perf[$kol->id];
             $auto = ! isset($salaries[$kol->id]) && isset($carried[$kol->id]);
             $salary = (int) (($salaries[$kol->id] ?? $carried[$kol->id] ?? null)->monthly_salary ?? 0);
-            $types = $byType[$kol->id] ?? collect();
-            $gmvOf = fn (string $t) => (int) (optional($types->firstWhere('ct', $t))->gmv ?? 0);
-            $c = $content[$kol->id] ?? null;
             $pmts = $payments[$kol->id] ?? collect();
 
-            return [
-                'kol' => $kol,
-                'gmv' => $gmv,
+            return ['kol' => $kol] + $p + [
+                'salary' => $salary,
+                'salary_auto' => $auto,
+                'salary_from' => $auto ? $carried[$kol->id]->period : null,
+                'roi' => $salary > 0 ? round($p['gmv'] / $salary, 1) : null,
+                'joined_at' => $kol->gapok_joined_at,
+                'paid' => (int) $pmts->sum('amount'),
+                'payments' => $pmts->values(),
+            ];
+        })->sortByDesc('gmv')->values();
+    }
+
+    /**
+     * Angka affiliate per KOL di rentang [from,to]: GMV/pesanan/komisi dari transaksi yang cocok & tak batal,
+     * split GMV per content_type (LIVE/VIDEO), + jumlah video & LIVE bulan $period (Analytics API). Satu sumber
+     * untuk Tim Gapok & alat AI `data_kol`, jadi angkanya selalu sama.
+     *
+     * @param  array<int,int>|null  $ids  null = semua KOL yang punya transaksi/konten
+     * @return array<int,array{gmv:int,orders:int,commission:int,gmv_live:int,gmv_video:int,videos:int,lives:int}>
+     */
+    public function performa(?array $ids, Carbon $from, Carbon $to, string $period): array
+    {
+        $tx = fn () => KolAffiliateTransaction::matched()->notCancelled()
+            ->when($ids !== null, fn ($q) => $q->whereIn('kol_id', $ids))
+            ->whereBetween('order_date', [$from->copy(), $to->copy()]);
+        $agg = $tx()->selectRaw('kol_id, SUM(gmv) as gmv, COUNT(*) as orders, SUM(commission) as commission')
+            ->groupBy('kol_id')->get()->keyBy('kol_id');
+        // GMV per content_type (LIVE/VIDEO) — dari mana penjualan datang.
+        $byType = $tx()->selectRaw('kol_id, LOWER(content_type) as ct, SUM(gmv) as gmv')
+            ->groupBy('kol_id', 'ct')->get()->groupBy('kol_id');
+        // Jumlah video & LIVE per kreator (bulan $period) dari Analytics API.
+        $content = KolCreatorContentStat::where('period', $period)
+            ->when($ids !== null, fn ($q) => $q->whereIn('kol_id', $ids))->get()->keyBy('kol_id');
+
+        $out = [];
+        foreach ($ids ?? $agg->keys()->merge($content->keys())->unique()->all() as $id) {
+            $a = $agg[$id] ?? null;
+            $types = $byType[$id] ?? collect();
+            $gmvOf = fn (string $t) => (int) (optional($types->firstWhere('ct', $t))->gmv ?? 0);
+            $c = $content[$id] ?? null;
+            $out[$id] = [
+                'gmv' => (int) ($a->gmv ?? 0),
                 'orders' => (int) ($a->orders ?? 0),
                 'commission' => (int) ($a->commission ?? 0),
                 'gmv_live' => $gmvOf('live'),
                 'gmv_video' => $gmvOf('video'),
                 'videos' => (int) ($c->videos ?? 0),
                 'lives' => (int) ($c->lives ?? 0),
-                'salary' => $salary,
-                'salary_auto' => $auto,
-                'salary_from' => $auto ? $carried[$kol->id]->period : null,
-                'roi' => $salary > 0 ? round($gmv / $salary, 1) : null,
-                'joined_at' => $kol->gapok_joined_at,
-                'paid' => (int) $pmts->sum('amount'),
-                'payments' => $pmts->values(),
             ];
-        })->sortByDesc('gmv')->values();
+        }
+
+        return $out;
     }
 
     /** Ringkasan total tim untuk footer tabel. */
