@@ -35,9 +35,11 @@ class ViewsHarianKolTool extends BaseTool
     public function description(): string
     {
         return 'Views HARIAN video SKINKU (keranjang kuning) per kreator dari menu KOL → Views Harian: views per hari, '
-            .'jumlah video yang diupload di rentang (Diposting), GMV video, hari terbaik, kreator teratas. Paling cocok '
-            .'untuk "siapa kreator yang sedang perform/ramai". Isi username untuk rincian per video kreator itu (judul, '
-            .'tanggal upload, views, GMV, link). Data hari ini baru ada besok pagi.';
+            .'jumlah video yang diupload di rentang (Diposting), GMV video, hari terbaik, kreator teratas. HANYA VIDEO — '
+            .'LIVE tidak termasuk, jadi kreator yang jualan lewat LIVE bisa tak muncul. Untuk peringkat penjualan/GMV '
+            .'SKINKU (video + LIVE) pakai data_kol urut GMV; untuk "siapa yang perform/terbaik" sebutkan ukurannya atau '
+            .'gabungkan keduanya. Isi username untuk rincian per video kreator itu (judul, tanggal upload, views, GMV, link). '
+            .'Data hari ini baru ada besok pagi.';
     }
 
     public function parameters(): array
@@ -60,9 +62,10 @@ class ViewsHarianKolTool extends BaseTool
         $limit = max(1, min(30, (int) ($args['limit'] ?? 10)));
         $out = [
             'periode' => $from->toDateString().' s/d '.$to->toDateString(),
-            'catatan' => 'Views per tanggal = views pada hari itu (data hari ini muncul besok pagi). Hanya video SKINKU '
-                .'kreator yang terdaftar di Database KOL. Diposting = jumlah video yang diupload di rentang ini; views '
-                .'tetap mencakup video lama yang masih ditonton.',
+            'catatan' => 'Hanya VIDEO SKINKU kreator yang terdaftar di Database KOL — LIVE tidak termasuk (GMV di sini = GMV '
+                .'dari video; penjualan SKINKU total video + LIVE ada di data_kol). Views per tanggal = views pada hari itu '
+                .'(data hari ini muncul besok pagi). Diposting = jumlah video yang diupload di rentang ini; views tetap '
+                .'mencakup video lama yang masih ditonton.',
             'tercatat_sejak' => KolContentDailySnapshot::min('captured_on'),
         ];
 
