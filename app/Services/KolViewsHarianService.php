@@ -12,8 +12,11 @@ use Illuminate\Support\Collection;
  * bulan (kol_content_daily_snapshots, diambil jam 04:00). Views tanggal D =
  * potret (D+1) − potret sebelumnya untuk video yang sama:
  *  - ganti bulan (period beda) → angka bulan baru = views sejak tanggal 1;
- *  - video tanpa potret sebelumnya: dihitung penuh bila baru diposting (≤ D),
- *    selain itu hanya jadi titik awal (tak dihitung, biar tak menggelembung);
+ *  - video tanpa potret sebelumnya: dihitung penuh bila baru diposting (≤ D) ATAU
+ *    potret hari D (kemarin) sudah tercatat tapi video ini tak ada di sana — TikTok
+ *    hanya mengirim video yang dapat views bulan ini, jadi absen = 0 dan seluruh
+ *    angkanya views hari D. Bila hari D belum dipotret (awal pencatatan / awal
+ *    jendela / celah sync) → hanya titik awal (tak dihitung, biar tak menggelembung);
  *  - selisih negatif (koreksi TikTok) → 0.
  */
 class KolViewsHarianService
@@ -35,6 +38,8 @@ class KolViewsHarianService
             ->when($kolId, fn ($q) => $q->where('kol_id', $kolId))
             ->orderBy('captured_on')
             ->get(['kol_id', 'content_id', 'period', 'captured_on', 'posted_at', 'views', 'gmv']);
+        // Tanggal potret yang tercatat (video mana pun) di jendela ini — utk tahu apakah "kemarin" sudah dipotret.
+        $tercatat = $snaps->map(fn ($s) => Carbon::parse($s->captured_on)->toDateString())->unique()->flip();
 
         // [kol_id][tanggal] => ['views','gmv','videos'=>set]
         $agg = [];
@@ -47,10 +52,13 @@ class KolViewsHarianService
                     $dg = max(0, $s->gmv - $prev->gmv);
                 } elseif ($prev) {
                     [$dv, $dg] = [$s->views, $s->gmv]; // bulan baru: kumulatif sejak tgl 1
-                } elseif ($s->posted_at && $s->posted_at->toDateString() >= $day) {
-                    [$dv, $dg] = [$s->views, $s->gmv]; // video baru diposting
+                } elseif (($s->posted_at && $s->posted_at->toDateString() >= $day) || $tercatat->has($day)) {
+                    // Video baru diposting, ATAU kemarin sudah dipotret tapi video ini belum ada di sana (= 0 views
+                    // bulan ini s/d kemarin) → seluruh angkanya views hari ini. Dulu angka ini dibuang (undercount
+                    // views hari pertama video lama yang aktif lagi).
+                    [$dv, $dg] = [$s->views, $s->gmv];
                 } else {
-                    $prev = $s; // titik awal saja
+                    $prev = $s; // titik awal: kemarin belum dipotret (awal pencatatan/jendela, atau celah sync)
 
                     continue;
                 }
