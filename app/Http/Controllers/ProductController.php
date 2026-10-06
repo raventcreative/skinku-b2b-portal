@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Services\AuditService;
 use App\Services\ImageService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -113,6 +114,29 @@ class ProductController extends Controller
         );
 
         return back()->with('status', "Produk {$product->name} berhasil dihapus (soft delete).");
+    }
+
+    /**
+     * Stok minimum pusat diisi langsung dari tabel Produk Master (tanpa buka form Edit). JSON utk isian inline;
+     * validasi manual → 422 JSON (ValidationException di route web jadi redirect, dikira sukses oleh fetch).
+     */
+    public function updateMinStock(Request $request, Product $product): JsonResponse
+    {
+        $v = $request->input('hq_min_stock');
+        $min = ($v === null || $v === '') ? null : filter_var($v, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        if ($min === false) {
+            return response()->json(['message' => 'Isi angka bulat ≥ 0 (kosong = tanpa pengingat).'], 422);
+        }
+        $sebelum = $product->hq_min_stock;
+        $product->update(['hq_min_stock' => $min]);
+        AuditService::log(action: 'update_product_min_stock', targetType: 'product', targetId: $product->id,
+            before: ['hq_min_stock' => $sebelum], after: ['hq_min_stock' => $product->hq_min_stock]);
+
+        return response()->json([
+            'hq_min_stock' => $product->hq_min_stock,
+            'stok' => (int) $product->hq_stock,
+            'menipis' => $product->isStokPusatMenipis(),
+        ]);
     }
 
     private function validateData(Request $request, ?Product $product = null): array
