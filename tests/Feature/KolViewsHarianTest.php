@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Kol;
 use App\Models\KolContentDailySnapshot;
+use App\Models\KolCreatorContent;
 use App\Models\TiktokAffiliateConnection;
 use App\Models\User;
 use App\Services\KolViewsHarianService;
@@ -35,7 +36,7 @@ class KolViewsHarianTest extends TestCase
             'captured_on' => $tgl, 'posted_at' => $posted, 'views' => $views, 'gmv' => $gmv]);
     }
 
-    public function test_sync_konten_menyimpan_potret_harian_tanpa_dobel(): void
+    public function test_sync_konten_04_tak_lagi_menulis_potret_views_harian(): void
     {
         TiktokAffiliateConnection::create(['shop_id' => 'S1', 'shop_cipher' => 'C', 'access_token' => 'tok', 'refresh_token' => 'ref',
             'access_expires_at' => now()->addDays(5), 'refresh_expires_at' => now()->addDays(30)]);
@@ -49,12 +50,12 @@ class KolViewsHarianTest extends TestCase
         ]);
 
         $this->artisan('tiktok:affiliate-content-sync')->assertSuccessful();
-        $this->artisan('tiktok:affiliate-content-sync')->assertSuccessful(); // dua kali sehari → tetap 1 baris
 
-        $s = KolContentDailySnapshot::where('kol_id', $kol->id)->sole();
-        $this->assertSame('V1', $s->content_id);
-        $this->assertSame(1200, $s->views);
-        $this->assertSame(now()->toDateString(), (string) $s->captured_on);
+        // Data bulanan (Tim Gapok) tetap tersimpan, tapi potret views harian kini diambil 12:30 oleh
+        // tiktok:affiliate-views-backfill --koreksi: jam 04:00 data TikTok kemarin belum lengkap (dulu tgl 2 Okt kosong
+        // lalu views-nya menumpuk di 3 Okt).
+        $this->assertSame(1, KolCreatorContent::where('kol_id', $kol->id)->count());
+        $this->assertSame(0, KolContentDailySnapshot::count());
     }
 
     public function test_views_harian_dari_selisih_potret_video_baru_dan_ganti_bulan(): void

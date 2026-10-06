@@ -6,6 +6,7 @@ use App\Models\Kol;
 use App\Models\KolContentDailySnapshot;
 use App\Models\TiktokAffiliateConnection;
 use App\Services\KolViewsHarianService;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
@@ -181,6 +182,53 @@ class KolViewsHarianBackfillTest extends TestCase
             ->assertFailed();
 
         $this->assertSame(0, KolContentDailySnapshot::count());
+    }
+
+    public function test_koreksi_menaikkan_potret_yang_diambil_terlalu_pagi_tak_pernah_menurunkan(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'kreatorx', 'followers' => 1]);
+        $snap = fn (string $id, string $tgl, int $views) => KolContentDailySnapshot::create(['kol_id' => $kol->id, 'content_id' => $id,
+            'period' => '2026-10-01', 'captured_on' => $tgl, 'views' => $views, 'gmv' => 0]);
+        // Potret 3 Okt diambil terlalu pagi (data TikTok baru s/d 1 Okt): V1 masih 100, padahal lengkapnya 200.
+        $snap('V1', '2026-10-03', 100);
+        $snap('V1', '2026-10-04', 9999); // lebih besar dari jawaban API (300) → tak boleh turun
+        $snap('V9', '2026-10-04', 77);   // video yang tak ikut terkirim API → dibiarkan
+        $this->fakeApi(); // V1 = 100 × jumlah hari dalam rentang
+
+        $this->artisan('tiktok:affiliate-views-backfill', ['--dari' => '2026-10-02', '--sampai' => '2026-10-03', '--koreksi' => true, '--simpan' => true])
+            ->expectsOutputToContain('[OK] 2026-10-02')
+            ->expectsOutputToContain('[KOREKSI] 2026-10-03')
+            ->assertSuccessful();
+
+        $v = fn (string $id, string $tgl) => KolContentDailySnapshot::where('content_id', $id)->whereDate('captured_on', $tgl)->value('views');
+        $this->assertSame([100, 200, 9999, 77], [$v('V1', '2026-10-02'), $v('V1', '2026-10-03'), $v('V1', '2026-10-04'), $v('V9', '2026-10-04')]);
+
+        // Tanggal yang tadinya kosong (2 Okt = potret 3 Okt − potret 2 Okt) kini terisi.
+        $row = app(KolViewsHarianService::class)->report(Carbon::parse('2026-10-02'), Carbon::parse('2026-10-02'))['rows']
+            ->firstWhere(fn ($r) => $r['kol']->id === $kol->id);
+        $this->assertSame(['2026-10-02' => 100], $row['views']);
+    }
+
+    public function test_terakhir_n_hari_untuk_jadwal_harian(): void
+    {
+        Kol::create(['tiktok_username' => 'kreatorx', 'followers' => 1]);
+        $this->fakeApi();
+
+        // Hari ini 6 Okt: --terakhir=2 → hari 4–5 Okt → potret 4, 5, 6 Okt (potret 6 Okt = data s/d kemarin).
+        $this->artisan('tiktok:affiliate-views-backfill', ['--terakhir' => 2, '--koreksi' => true, '--simpan' => true])->assertSuccessful();
+
+        $this->assertSame(['2026-10-04', '2026-10-05', '2026-10-06'],
+            KolContentDailySnapshot::orderBy('captured_on')->pluck('captured_on')->map(fn ($d) => Carbon::parse($d)->toDateString())->all());
+    }
+
+    public function test_dijadwalkan_harian_1230_dengan_koreksi(): void
+    {
+        $this->artisan('schedule:list')->assertSuccessful(); // memuat jadwal di routes/console.php
+        $event = collect(app(Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'tiktok:affiliate-views-backfill'));
+
+        $this->assertNotNull($event);
+        $this->assertStringContainsString('--terakhir=2 --koreksi --simpan', $event->command);
+        $this->assertSame('30 12 * * *', $event->expression);
     }
 
     public function test_tanpa_dari_ditolak(): void

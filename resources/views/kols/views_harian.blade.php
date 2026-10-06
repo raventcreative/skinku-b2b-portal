@@ -6,12 +6,13 @@
 @php $fmt = fn ($n) => number_format((int) $n, 0, ',', '.'); @endphp
 <div class="space-y-4">
     <div class="bg-white rounded-2xl border border-stone-200 p-4 text-[12px] text-stone-600 leading-relaxed">
-        Views <b>per hari</b> dari video yang mempromosikan <b>produk SKINKU</b> (keranjang kuning), per kreator. Dihitung tiap pagi jam 04:00
-        dari selisih data TikTok hari ini vs kemarin → kolom tanggal = views <b>pada hari itu</b>, jadi data hari ini baru muncul besok pagi.
+        Views <b>per hari</b> dari video yang mempromosikan <b>produk SKINKU</b> (keranjang kuning), per kreator. Diambil tiap hari ±12:30
+        (saat data TikTok kemarin sudah lengkap) dari selisih data kumulatif → kolom tanggal = views <b>pada hari itu</b>; angka kemarin muncul setelah ±12:30
+        dan 2 hari terakhir dikoreksi otomatis.
         Video non-SKINKU tidak termasuk. Kolom <b>Diposting</b> = jumlah video SKINKU yang diunggah kreator di rentang tanggal ini;
         views tetap mencakup video lama yang masih ditonton. <b>Klik nama kreator</b> untuk melihat daftar videonya.
         @if($mulai)<span class="text-stone-400">Riwayat tercatat sejak {{ \Illuminate\Support\Carbon::parse($mulai)->translatedFormat('d M Y') }}.</span>
-        @else<span class="text-amber-700">Belum ada data — riwayat mulai terkumpul setelah sync 04:00 berikutnya (butuh 2 pagi untuk angka harian pertama).</span>@endif
+        @else<span class="text-amber-700">Belum ada data — riwayat mulai terkumpul setelah pengambilan data ±12:30 berikutnya (butuh 2 hari untuk angka harian pertama).</span>@endif
     </div>
 
     <form method="GET" class="flex flex-wrap items-end gap-2 text-xs">

@@ -104,8 +104,9 @@ class TikTokAffiliateService
             if ($rows !== []) {
                 KolCreatorContent::insert($rows);
             }
-            // Riwayat harian video (views harian = selisih antar potret). Idempoten per hari.
-            $this->tulisPotretHarian($kolId, $vids, $period, now()->toDateString());
+            // Potret views harian TIDAK ditulis di sini: jam 04:00 data TikTok kemarin belum lengkap (dulu bikin
+            // tanggal kosong lalu menumpuk di hari berikutnya). Diambil jam 12:30 oleh tiktok:affiliate-views-backfill
+            // --koreksi (data lengkap s/d kemarin) — lihat routes/console.php.
             $stored++;
         }
         $conn->update(['last_synced_at' => now()]);
@@ -121,7 +122,7 @@ class TikTokAffiliateService
      *
      * @return array{videos:int,kreator:int,views:int,gmv:int,ditulis:int,rentang:string}
      */
-    public function isiMundurPotretHarian(TiktokAffiliateConnection $conn, Carbon $capturedOn, bool $simpan, int $maxPages = 60): array
+    public function isiMundurPotretHarian(TiktokAffiliateConnection $conn, Carbon $capturedOn, bool $simpan, int $maxPages = 60, bool $koreksi = false): array
     {
         $tgl = $capturedOn->copy()->startOfDay();
         $hari = $tgl->copy()->subDay();
@@ -145,9 +146,9 @@ class TikTokAffiliateService
         if ($simpan && $perKol !== []) {
             // Satu tanggal potret = satu transaksi: terputus di tengah (mis. SSH putus) → tak ada tanggal setengah
             // tersimpan yang kelak dilewati sbg "sudah ada" saat perintah dijalankan ulang.
-            DB::transaction(function () use ($perKol, $period, $tgl, &$out) {
+            DB::transaction(function () use ($perKol, $period, $tgl, $koreksi, &$out) {
                 foreach ($perKol as $kolId => $vids) {
-                    $out['ditulis'] += $this->tulisPotretHarian($kolId, $vids, $period, $tgl->toDateString());
+                    $out['ditulis'] += $this->tulisPotretHarian($kolId, $vids, $period, $tgl->toDateString(), naikSaja: $koreksi);
                 }
             });
         }
@@ -161,19 +162,27 @@ class TikTokAffiliateService
         return KolUsernameAlias::kolId($username);
     }
 
-    /** Tulis potret harian video satu kreator (views harian = selisih antar potret). Idempoten per tanggal potret. */
-    private function tulisPotretHarian(int $kolId, array $vids, string $period, string $capturedOn): int
+    /**
+     * Tulis potret harian video satu kreator (views harian = selisih antar potret). Idempoten per tanggal potret.
+     * $naikSaja (koreksi): angka kumulatif hanya boleh naik — data TikTok yang kini lebih lengkap menaikkan potret
+     * lama, tapi respons terpotong/berkurang tak pernah menurunkannya; video yang tak ikut terkirim dibiarkan.
+     */
+    private function tulisPotretHarian(int $kolId, array $vids, string $period, string $capturedOn, bool $naikSaja = false): int
     {
         $n = 0;
         foreach ($vids as $v) {
             if (($v['content_id'] ?? '') === '') {
                 continue;
             }
-            KolContentDailySnapshot::updateOrCreate(
-                ['content_id' => $v['content_id'], 'period' => $period, 'captured_on' => $capturedOn],
-                ['kol_id' => $kolId, 'title' => $v['title'] ?: null, 'posted_at' => $v['occurred_at'] ?? null,
-                    'views' => (int) ($v['views'] ?? 0), 'gmv' => (int) ($v['gmv'] ?? 0), 'items_sold' => (int) ($v['items_sold'] ?? 0)],
-            );
+            $kunci = ['content_id' => $v['content_id'], 'period' => $period, 'captured_on' => $capturedOn];
+            $angka = ['views' => (int) ($v['views'] ?? 0), 'gmv' => (int) ($v['gmv'] ?? 0), 'items_sold' => (int) ($v['items_sold'] ?? 0)];
+            if ($naikSaja && ($lama = KolContentDailySnapshot::where($kunci)->first())) {
+                foreach ($angka as $kolom => $nilai) {
+                    $angka[$kolom] = max($nilai, (int) $lama->{$kolom});
+                }
+            }
+            KolContentDailySnapshot::updateOrCreate($kunci,
+                ['kol_id' => $kolId, 'title' => $v['title'] ?: null, 'posted_at' => $v['occurred_at'] ?? null] + $angka);
             $n++;
         }
 

@@ -72,8 +72,13 @@ Schedule::command('tiktok:sync --full')->dailyAt('03:30')->withoutOverlapping(30
 Schedule::command('tiktok:affiliate-sync')->everySixHours()->withoutOverlapping(30);
 
 // Jumlah video & LIVE per kreator (Tim Gapok) — sekali sehari (berat: page-through
-// banyak halaman Analytics). Bulan berjalan.
+// banyak halaman Analytics). Bulan berjalan. Tak lagi menulis potret views harian (lihat bawah).
 Schedule::command('tiktok:affiliate-content-sync')->dailyAt('04:00')->withoutOverlapping(60);
+
+// Potret views harian (menu Views Harian SKINKU). Data TikTok kemarin baru lengkap siang hari — dulu diambil 04:00
+// sehingga tgl 2 Okt kosong & views-nya menumpuk di 3 Okt. Jam 12:30: potret hari ini (data s/d kemarin) + koreksi
+// 2 hari sebelumnya (angka hanya naik). Sebelum 13:15 Senin (kol-performance-sync) supaya tak berebut kuota.
+Schedule::command('tiktok:affiliate-views-backfill --terakhir=2 --koreksi --simpan')->dailyAt('12:30')->withoutOverlapping(60);
 
 // Profil Creator Marketplace (follower/GMV/demografi) ke Database KOL. CATATAN
 // (2026-09-05): rate limit BERSAMA 36009002 ternyata NEMPEL LAMA (masih blokir
