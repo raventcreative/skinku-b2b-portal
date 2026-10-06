@@ -49,12 +49,14 @@ class RingkasDashboardTool extends BaseTool
         $summary = $this->reports->summary($user, $bulan, allChannels: true);
         $poStatus = $this->reports->poStatusDistribution($user, $bulan);
 
-        $low = Inventory::query()
-            ->with('product')
+        // Aturan "menipis" = halaman Pemantauan Stok: minimum diisi (> 0) dan qty ≤ minimum. Jumlah dihitung terpisah
+        // (dulu = count dari hasil limit 10, jadi tak pernah lebih dari 10).
+        $lowQuery = Inventory::query()
+            ->where('minimum_stock', '>', 0)
             ->whereColumn('quantity', '<=', 'minimum_stock')
-            ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
-            ->limit(10)
-            ->get();
+            ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id));
+        $lowCount = (clone $lowQuery)->count();
+        $low = $lowQuery->with('product')->limit(10)->get();
         $lowExample = $low->map(fn (Inventory $i) => [
             'produk' => $i->product?->name,
             'sisa' => $i->quantity,
@@ -82,7 +84,7 @@ class RingkasDashboardTool extends BaseTool
                 'stok_saya_unit' => $summary['partner_stock_units'],
                 'piutang_saya' => round((float) $piutang, 2),
                 'distribusi_status_po' => $poStatus,
-                'stok_menipis_saya' => ['jumlah' => $low->count(), 'contoh' => $lowExample],
+                'stok_menipis_saya' => ['jumlah' => $lowCount, 'contoh' => $lowExample],
             ];
         }
 
@@ -106,7 +108,7 @@ class RingkasDashboardTool extends BaseTool
             'produk_aktif' => $summary['total_products'],
             'stok_hq_unit' => $summary['hq_stock_units'],
             'distribusi_status_po' => $poStatus,
-            'stok_menipis' => ['jumlah' => $low->count(), 'contoh' => $lowExample],
+            'stok_menipis' => ['jumlah' => $lowCount, 'contoh' => $lowExample],
         ];
     }
 
