@@ -17,7 +17,7 @@
 
     <div class="bg-white rounded-2xl border border-stone-200 p-4 text-[12px] text-stone-600 leading-relaxed">
         <b>{{ $rows->count() }} video</b> SKINKU <b>{{ '@'.$handle }}</b> yang ditonton atau diunggah di rentang ini.
-        Tanda <span class="{{ $badge }}">baru</span> = diunggah di rentang ini (jumlahnya sama dengan kolom Diposting); tanpa tanda = video lama yang masih ditonton.
+        Tanda <span class="{{ $badge }}">diupload di rentang ini</span> = video yang diunggah di antara tanggal yang dipilih (jumlahnya sama dengan kolom Diposting); tanpa tanda = video lama yang masih ditonton.
         Kolom tanggal = views pada hari itu — totalnya sama dengan baris kreator ini di Views Harian. Klik judul untuk membuka videonya di TikTok.
     </div>
 
@@ -47,7 +47,7 @@
                         <tr class="border-t border-stone-100 hover:bg-stone-50">
                             <td class="text-right px-3 py-2 text-stone-400">{{ $loop->iteration }}</td>
                             <td class="px-3 sticky left-0 bg-white"><a href="{{ 'https://www.tiktok.com/@'.$handle.'/video/'.$r['content_id'] }}" target="_blank" rel="noopener" class="block max-w-xs truncate text-stone-800 hover:text-red-700 hover:underline" title="{{ $judul }}">{{ $judul }}</a></td>
-                            <td class="px-2 text-stone-500">{{ $r['posted_at']?->translatedFormat('d M Y') ?? '—' }}@if($r['baru'])<span class="{{ $badge }}">baru</span>@endif</td>
+                            <td class="px-2 text-stone-500">{{ $r['posted_at']?->translatedFormat('d M Y') ?? '—' }}@if($r['baru'])<span class="{{ $badge }}">diupload di rentang ini</span>@endif</td>
                             @foreach($r['views'] as $v)
                                 {{-- Intensitas warna = hari terbaik video ini (heatmap ringan, sama dgn Views Harian). --}}
                                 <td class="text-right px-2 {{ $v ? 'text-stone-800' : 'text-stone-300' }}" style="{{ $v ? 'background: rgba(13,148,136,'.round(0.08 + 0.32 * $v / $max, 2).')' : '' }}">{{ $v ? $fmt($v) : '·' }}</td>
@@ -62,7 +62,7 @@
                 @if($rows->isNotEmpty())
                     <tfoot class="bg-stone-50 font-semibold text-stone-700">
                         <tr class="border-t border-stone-200">
-                            <td></td><td class="px-3 py-2 sticky left-0 bg-stone-50">Total {{ $rows->count() }} video</td><td class="px-2">{{ $jmlBaru }} baru</td>
+                            <td></td><td class="px-3 py-2 sticky left-0 bg-stone-50">Total {{ $rows->count() }} video</td><td class="px-2">{{ $jmlBaru }} diupload di rentang ini</td>
                             @foreach($totals as $t)<td class="text-right px-2">{{ $fmt($t) }}</td>@endforeach
                             <td class="text-right px-3">{{ $fmt(array_sum($totals)) }}</td><td class="text-right px-3">Rp {{ $fmt($rows->sum('total_gmv')) }}</td>
                         </tr>
