@@ -139,12 +139,29 @@ class AiToolsTest extends TestCase
         $sa = $this->super();
         $p = Product::create(['name' => 'Serum X', 'sku' => 'SRX-1', 'status' => Product::STATUS_ACTIVE, 'hq_stock' => 5]);
         Inventory::create(['user_id' => $sa->id, 'product_id' => $p->id, 'quantity' => 2, 'minimum_stock' => 10]);
+        // Minimum belum diisi (0) → bukan menipis, walau qty 0 (aturan halaman Pemantauan Stok).
+        $q = Product::create(['name' => 'Sabun Y', 'sku' => 'SBY-1', 'status' => Product::STATUS_ACTIVE, 'hq_stock' => 5]);
+        Inventory::create(['user_id' => $sa->id, 'product_id' => $q->id, 'quantity' => 0, 'minimum_stock' => 0]);
 
         $out = $this->tool()->run([], $sa);
 
         $this->assertSame(1, $out['stok_menipis']['jumlah']);
         $this->assertSame('Serum X', $out['stok_menipis']['contoh'][0]['produk']);
         $this->assertSame(2, $out['stok_menipis']['contoh'][0]['sisa']);
+    }
+
+    public function test_jumlah_stok_menipis_tak_terpotong_batas_contoh(): void
+    {
+        $sa = $this->super();
+        foreach (range(1, 12) as $i) {
+            $p = Product::create(['name' => "Produk {$i}", 'sku' => "PRD-{$i}", 'status' => Product::STATUS_ACTIVE, 'hq_stock' => 5]);
+            Inventory::create(['user_id' => $sa->id, 'product_id' => $p->id, 'quantity' => 1, 'minimum_stock' => 5]);
+        }
+
+        $out = $this->tool()->run([], $sa);
+
+        $this->assertSame(12, $out['stok_menipis']['jumlah']); // dulu mentok 10 (count dari hasil limit)
+        $this->assertCount(10, $out['stok_menipis']['contoh']);
     }
 
     public function test_bulan_tertentu_diterima(): void

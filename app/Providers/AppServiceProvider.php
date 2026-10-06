@@ -5,17 +5,23 @@ namespace App\Providers;
 use App\Models\CommunityLink;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderFactory;
+use App\Services\Ai\Tools\BahanBakuTool;
 use App\Services\Ai\Tools\BuatKartuKanbanTool;
 use App\Services\Ai\Tools\BuatMindmapTool;
 use App\Services\Ai\Tools\DaftarPoTool;
 use App\Services\Ai\Tools\DataKolTool;
 use App\Services\Ai\Tools\KomisiTool;
 use App\Services\Ai\Tools\LaporanStokHqTool;
+use App\Services\Ai\Tools\PemantauanStokTool;
 use App\Services\Ai\Tools\PesananMarketplaceTool;
+use App\Services\Ai\Tools\ProdukMasterTool;
+use App\Services\Ai\Tools\ProduksiHppTool;
+use App\Services\Ai\Tools\ReturTool;
 use App\Services\Ai\Tools\RingkasDashboardTool;
 use App\Services\Ai\Tools\RingkasKpiKanbanTool;
 use App\Services\Ai\Tools\RingkasMindmapTool;
 use App\Services\Ai\Tools\StokMarketplaceTool;
+use App\Services\Ai\Tools\StokOpnameTool;
 use App\Services\Ai\Tools\TambahMindmapTool;
 use App\Services\Ai\Tools\ToolRegistry;
 use App\Services\Ai\Tools\ViewsHarianKolTool;
@@ -61,6 +67,13 @@ class AppServiceProvider extends ServiceProvider
             new KomisiTool($app->make(CommissionService::class)),
             $app->make(ViewsHarianKolTool::class),
             $app->make(DataKolTool::class),
+            // Produk & Operasional
+            new ProdukMasterTool,
+            new PemantauanStokTool,
+            new ReturTool,
+            new BahanBakuTool,
+            new ProduksiHppTool,
+            new StokOpnameTool,
         ]));
     }
 
