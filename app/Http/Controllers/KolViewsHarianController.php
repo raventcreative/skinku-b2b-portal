@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Kol;
 use App\Services\KolViewsHarianService;
 use App\Support\XlsxWriter;
 use Illuminate\Http\Request;
@@ -9,7 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-/** Report views harian video SKINKU per kreator (+ export Excel). Gate: kol.affiliate.view. */
+/** Report views harian video SKINKU per kreator (+ export Excel, + daftar video per kreator). Gate: kol.affiliate.view. */
 class KolViewsHarianController extends Controller
 {
     public function __construct(private KolViewsHarianService $svc) {}
@@ -22,12 +23,20 @@ class KolViewsHarianController extends Controller
         if ($q !== '') {
             $rep['rows'] = $rep['rows']->filter(fn ($r) => str_contains(mb_strtolower($r['kol']->tiktok_username.' '.$r['kol']->name), $q))->values();
             // Baris total ikut hasil pencarian (dulu tetap total semua kreator, tak cocok dgn "Total N kreator").
-            foreach ($rep['dates'] as $d) {
-                $rep['totals'][$d] = (int) $rep['rows']->sum(fn ($r) => $r['views'][$d]);
-            }
+            $rep['totals'] = $this->svc->totals($rep['rows'], $rep['dates']);
         }
 
         return view('kols.views_harian', $rep + ['from' => $from, 'to' => $to, 'q' => $q]);
+    }
+
+    /** Klik kreator → daftar videonya: views harian per video di rentang yang sama. */
+    public function show(Request $request, Kol $kol): View
+    {
+        [$from, $to] = $this->range($request);
+
+        return view('kols.views_harian_kreator', $this->svc->videos($kol, $from, $to) + [
+            'kol' => $kol, 'from' => $from, 'to' => $to, 'q' => trim((string) $request->query('q', '')),
+        ]);
     }
 
     public function export(Request $request): BinaryFileResponse

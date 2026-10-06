@@ -29,9 +29,9 @@ class KolViewsHarianTest extends TestCase
         ]);
     }
 
-    private function snap(Kol $k, string $id, string $period, string $tgl, int $views, ?string $posted = '2026-09-01', int $gmv = 0): void
+    private function snap(Kol $k, string $id, string $period, string $tgl, int $views, ?string $posted = '2026-09-01', int $gmv = 0, ?string $title = null): void
     {
-        KolContentDailySnapshot::create(['kol_id' => $k->id, 'content_id' => $id, 'period' => $period,
+        KolContentDailySnapshot::create(['kol_id' => $k->id, 'content_id' => $id, 'title' => $title, 'period' => $period,
             'captured_on' => $tgl, 'posted_at' => $posted, 'views' => $views, 'gmv' => $gmv]);
     }
 
@@ -138,6 +138,80 @@ class KolViewsHarianTest extends TestCase
 
         // X lintas celah: selisih 2 hari masuk ke 3 Sep (perilaku lama). Y tak dihitung.
         $this->assertSame(['2026-09-01' => 10, '2026-09-02' => 0, '2026-09-03' => 20], $row['views']);
+    }
+
+    public function test_daftar_video_kreator_views_harian_per_video_sama_dgn_barisnya(): void
+    {
+        $k = Kol::create(['tiktok_username' => 'drill', 'followers' => 1]);
+        $lain = Kol::create(['tiktok_username' => 'lain', 'followers' => 1]);
+        foreach (['01' => 10, '02' => 20, '03' => 30, '04' => 40] as $d => $v) {
+            $this->snap($lain, 'X', '2026-09-01', "2026-09-$d", $v, '2026-08-01', 0, 'Video kreator lain');
+        }
+        // L: video lama yang masih ditonton tiap hari.
+        foreach (['01' => 100, '02' => 150, '03' => 210, '04' => 300] as $d => $v) {
+            $this->snap($k, 'L', '2026-09-01', "2026-09-$d", $v, '2026-08-01', 0, 'Video lama L');
+        }
+        // N: diunggah 2 Sep. B: diunggah 3 Sep, views baru datang setelah rentang. Z: video lama tanpa views di rentang.
+        $this->snap($k, 'N', '2026-09-01', '2026-09-03', 80, '2026-09-02 09:00:00', 5000, 'Video baru N');
+        $this->snap($k, 'N', '2026-09-01', '2026-09-04', 250, '2026-09-02 09:00:00', 9000, 'Video baru N');
+        $this->snap($k, 'B', '2026-09-01', '2026-09-06', 40, '2026-09-03 23:00:00', 0, 'Video baru B');
+        $this->snap($k, 'Z', '2026-09-01', '2026-09-01', 70, '2026-08-01', 0, 'Video lama Z');
+        $this->snap($k, 'Z', '2026-09-01', '2026-09-04', 70, '2026-08-01', 0, 'Video lama Z');
+        $svc = app(KolViewsHarianService::class);
+        [$dari, $sampai] = [Carbon::parse('2026-09-01'), Carbon::parse('2026-09-03')];
+
+        $rep = $svc->videos($k, $dari, $sampai);
+        $rows = $rep['rows']->keyBy('content_id');
+
+        $this->assertSame(['N', 'L', 'B'], $rep['rows']->pluck('content_id')->all()); // urut views; Z & video kreator lain tak ikut
+        $this->assertSame(['2026-09-01' => 0, '2026-09-02' => 80, '2026-09-03' => 170], $rows['N']['views']);
+        $this->assertSame(['2026-09-01' => 50, '2026-09-02' => 60, '2026-09-03' => 90], $rows['L']['views']);
+        $this->assertSame([true, false, true], [$rows['N']['baru'], $rows['L']['baru'], $rows['B']['baru']]);
+        $this->assertSame(9000, $rows['N']['total_gmv']);
+        $this->assertSame('Video baru N', $rows['N']['title']);
+        // Sama persis dgn baris kreator ini di Views Harian: views per tanggal & jumlah "baru" = kolom Diposting.
+        $baris = $svc->report($dari, $sampai)['rows']->firstWhere(fn ($r) => $r['kol']->id === $k->id);
+        $this->assertSame($baris['views'], $rep['totals']);
+        $this->assertSame($baris['diposting'], $rep['rows']->where('baru', true)->count());
+    }
+
+    public function test_daftar_video_cek_potret_kemarin_dari_semua_kreator(): void
+    {
+        $sepi = Kol::create(['tiktok_username' => 'sepi', 'followers' => 1]);
+        $ramai = Kol::create(['tiktok_username' => 'ramai', 'followers' => 1]);
+        // Potret 1-3 Sep tercatat (dari kreator lain). Y = video lama 'sepi' yang aktif lagi 2 Sep: baru muncul di
+        // potret 3 Sep -> di Views Harian dihitung penuh di 2 Sep. Daftar videonya harus sama, walau 'sepi' sendiri
+        // tak punya potret 2 Sep.
+        foreach (['01' => 10, '02' => 20, '03' => 30] as $d => $v) {
+            $this->snap($ramai, 'R', '2026-09-01', "2026-09-$d", $v, '2026-08-01');
+        }
+        $this->snap($sepi, 'Y', '2026-09-01', '2026-09-03', 500, '2026-08-01');
+        $svc = app(KolViewsHarianService::class);
+        [$dari, $sampai] = [Carbon::parse('2026-09-01'), Carbon::parse('2026-09-02')];
+
+        $baris = $svc->report($dari, $sampai)['rows']->firstWhere(fn ($r) => $r['kol']->id === $sepi->id);
+
+        $this->assertSame(['2026-09-01' => 0, '2026-09-02' => 500], $baris['views']);
+        $this->assertSame($baris['views'], $svc->videos($sepi, $dari, $sampai)['rows']->sole()['views']);
+    }
+
+    public function test_klik_kreator_membuka_daftar_videonya(): void
+    {
+        $k = Kol::create(['tiktok_username' => 'klik', 'followers' => 1]);
+        $lain = Kol::create(['tiktok_username' => 'lainnya', 'followers' => 1]);
+        $this->snap($k, '7301', '2026-09-01', '2026-09-02', 100, '2026-09-01 08:00:00', 0, 'Review scrub klik');
+        $this->snap($k, '7301', '2026-09-01', '2026-09-03', 160, '2026-09-01 08:00:00', 0, 'Review scrub klik');
+        $this->snap($lain, '7302', '2026-09-01', '2026-09-03', 999, '2026-09-02 08:00:00', 0, 'Video kreator lain');
+        $url = route('kol-views-harian.show', ['kol' => $k->id, 'dari' => '2026-09-01', 'sampai' => '2026-09-02']);
+
+        $this->actingAs($this->user(User::ROLE_GUDANG, 'gudklik'))->get($url)->assertForbidden();
+
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'saklik');
+        $this->actingAs($super)->get(route('kol-views-harian.index', ['dari' => '2026-09-01', 'sampai' => '2026-09-02']))
+            ->assertOk()->assertSee($url);
+        $this->actingAs($super)->get($url)->assertOk()
+            ->assertSee('@klik')->assertSee('Review scrub klik')->assertSee('https://www.tiktok.com/@klik/video/7301')
+            ->assertSee('baru')->assertDontSee('Video kreator lain');
     }
 
     public function test_cari_kreator_baris_total_ikut_hasil_pencarian(): void

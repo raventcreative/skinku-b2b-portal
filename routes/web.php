@@ -9,6 +9,7 @@ use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BackdatedSaleController;
+use App\Http\Controllers\BusinessReportController;
 use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\ContentInsightController;
 use App\Http\Controllers\ContentPostController;
@@ -54,7 +55,6 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RecruitController;
-use App\Http\Controllers\BusinessReportController;
 use App\Http\Controllers\ReportBotAdminController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReturController;
@@ -456,6 +456,7 @@ Route::middleware(['auth', 'role'])->group(function () {
             // Report views harian video SKINKU per kreator (potret sync 04:00).
             Route::get('/kol-views-harian', [KolViewsHarianController::class, 'index'])->name('kol-views-harian.index');
             Route::get('/kol-views-harian/export', [KolViewsHarianController::class, 'export'])->name('kol-views-harian.export');
+            Route::get('/kol-views-harian/{kol}', [KolViewsHarianController::class, 'show'])->whereNumber('kol')->name('kol-views-harian.show');
 
             // Tim Affiliate Gapok — performa affiliate gajian + gaji per bulan + ROI.
             Route::get('/kol-gapok', [KolGapokController::class, 'index'])->name('kol-gapok.index');
