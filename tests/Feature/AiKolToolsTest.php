@@ -209,17 +209,23 @@ class AiKolToolsTest extends TestCase
         $this->assertSame(['@laris', '@prospek1', '@besar'], array_column($out['daftar'], 'username'));
         $this->assertSame(300000, $out['daftar'][0]['gmv']);
 
-        // Filter peran + status — sebaran semua KOL ikut dikirim supaya AI bisa menilai filternya.
-        $out = $this->pakai('data_kol', $this->user('kol_specialist', 'ks2'), ['peran' => 'affiliate', 'status' => Kol::STATUS_AKTIF]);
-        $this->assertSame(['@laris'], array_column($out['daftar'], 'username'));
-        $this->assertSame(['jumlah' => 3, 'per_status' => ['aktif' => 2, 'prospek' => 1]], $out['semua_kol']);
+        // Status & kategori bukan filter (di data nyata semua "prospek" & kategori kosong — AI yang memfilter dgn itu
+        // selalu dapat daftar kosong) → diabaikan, daftar tetap penuh.
+        $out = $this->pakai('data_kol', $this->user('kol_specialist', 'ks2'), ['status' => Kol::STATUS_HOLD, 'kategori' => 'Makeup']);
+        $this->assertSame(['@laris', '@prospek1', '@besar'], array_column($out['daftar'], 'username'));
+        $this->assertArrayNotHasKey('filter', $out);
+
+        // Saring peran — sebaran semua KOL ikut dikirim supaya AI bisa menilai saringannya.
+        $out = $this->pakai('data_kol', $this->user('kol_specialist', 'ks3'), ['peran' => 'affiliate']);
+        $this->assertSame(['@laris', '@prospek1'], array_column($out['daftar'], 'username'));
+        $this->assertSame(3, $out['semua_kol']['jumlah_kol']);
         $this->assertArrayNotHasKey('catatan', $out);
 
-        // Filter yang tak cocok satu pun (mis. AI mengira status = performa) → daftar kosong + catatan utk ulangi tanpa filter.
-        $out = $this->pakai('data_kol', $this->user('kol_specialist', 'ks3'), ['status' => Kol::STATUS_HOLD]);
+        // Saringan yang tak cocok satu pun → daftar kosong + catatan agar AI mengulang tanpa filter.
+        $out = $this->pakai('data_kol', $this->user('kol_specialist', 'ks4'), ['peran' => 'both']);
         $this->assertSame([], $out['daftar']);
-        $this->assertStringContainsString('ulangi tanpa filter status', $out['catatan']);
-        $this->assertSame(3, $out['semua_kol']['jumlah']);
+        $this->assertStringContainsString('ulangi TANPA filter', $out['catatan']);
+        $this->assertSame(['KOL' => 1, 'Affiliate' => 2], $out['semua_kol']['per_peran']);
 
         // Tanpa izin Affiliate: diminta urut GMV tetap diurut followers, tanpa angka GMV sama sekali.
         $this->izinkan(User::ROLE_GUDANG, 'kol.view');
