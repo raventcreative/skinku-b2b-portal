@@ -157,6 +157,7 @@ class AiKolToolsTest extends TestCase
         KolGapokSalary::create(['kol_id' => $kol->id, 'period' => '2026-10-01', 'monthly_salary' => 1000000]);
         $this->order($kol, 'O1', 150000, '2026-10-03');
         $this->order($kol, 'O2', 50000, '2026-10-04', 'LIVE');
+        $this->order($kol, 'O5', 30000, '2026-10-05', 'SHOP');                 // etalase → gmv_lainnya
         $this->order($kol, 'O3', 999999, '2026-10-04', 'VIDEO', 'cancelled'); // batal → tak dihitung
         $this->order($kol, 'O4', 70000, '2026-09-20');                        // bulan lalu
         $rahasia = ['081299990000', 'Pak Manajer', '089877776666', 'catatan internal rahasia', '5550001112', 'BankRahasia', 'Dewi Rekening'];
@@ -175,8 +176,9 @@ class AiKolToolsTest extends TestCase
 
         // 2) kol_specialist (+ kol.affiliate.view): angka bulan ini sama dgn Tim Gapok (batal & bulan lalu tak ikut).
         $out = $this->pakai('data_kol', $this->user('kol_specialist'), ['username' => 'dewick02']);
-        $this->assertSame(['bulan' => '2026-10', 'gmv' => 200000, 'pesanan' => 2, 'komisi' => 20000, 'gmv_live' => 50000,
-            'gmv_video' => 150000, 'jumlah_video' => 0, 'jumlah_live' => 0, 'gaji_gapok' => 1000000, 'roi_gapok' => 0.2], $out['performa_bulan']);
+        $this->assertSame(['bulan' => '2026-10', 'gmv' => 230000, 'pesanan' => 3, 'komisi' => 23000, 'gmv_live' => 50000,
+            'gmv_video' => 150000, 'gmv_lainnya' => 30000, 'jumlah_video' => 0, 'jumlah_live' => 0, 'gaji_gapok' => 1000000,
+            'roi_gapok' => 0.2], $out['performa_bulan']);
         $this->assertArrayHasKey('skor_aps_saat_ini', $out);
         $this->assertArrayNotHasKey('total_biaya', $out['deal']['terbaru'][0]);
         $this->tanpaRahasia($out, $rahasia);
@@ -198,16 +200,20 @@ class AiKolToolsTest extends TestCase
         $laris = Kol::create(['tiktok_username' => 'laris', 'followers' => 5000, 'role' => 'affiliate', 'status' => Kol::STATUS_AKTIF, 'is_gapok' => true]);
         $pros = Kol::create(['tiktok_username' => 'prospek1', 'followers' => 20000, 'role' => 'affiliate', 'status' => Kol::STATUS_PROSPEK]);
         $this->order($laris, 'L1', 300000, '2026-10-02');
+        $this->order($laris, 'L2', 30000, '2026-10-04', 'LIVE');
+        $this->order($laris, 'L3', 20000, '2026-10-05', 'SHOP');
         $this->order($pros, 'P1', 100000, '2026-10-03');
 
         // Dengan izin Affiliate: urut GMV bulan ini.
         $out = $this->pakai('data_kol', $this->user('kol_specialist'));
         $this->assertSame(3, $out['ringkasan']['jumlah_kol']);
         $this->assertSame(1, $out['ringkasan']['tim_gapok']);
-        $this->assertSame(400000, $out['ringkasan']['gmv_bulan']);
+        $this->assertSame(450000, $out['ringkasan']['gmv_bulan']);
         $this->assertSame('gmv', $out['urut']);
         $this->assertSame(['@laris', '@prospek1', '@besar'], array_column($out['daftar'], 'username'));
-        $this->assertSame(300000, $out['daftar'][0]['gmv']);
+        // Rincian per channel ikut di daftar (LIVE + video + lainnya = GMV) → "10 teratas + LIVE vs VT" cukup 1 panggilan.
+        $d = $out['daftar'][0];
+        $this->assertSame([350000, 30000, 300000, 20000], [$d['gmv'], $d['gmv_live'], $d['gmv_video'], $d['gmv_lainnya']]);
 
         // Status & kategori bukan filter (di data nyata semua "prospek" & kategori kosong — AI yang memfilter dgn itu
         // selalu dapat daftar kosong) → diabaikan, daftar tetap penuh.
