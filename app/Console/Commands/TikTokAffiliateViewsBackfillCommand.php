@@ -52,7 +52,7 @@ class TikTokAffiliateViewsBackfillCommand extends Command
             $sampai = $kemarin->copy(); // hari ini belum selesai → tak bisa diisi
         }
         if ($dari->gt($sampai)) {
-            $this->error("--dari ({$dari->toDateString()}) harus ≤ --sampai ({$sampai->toDateString()}).");
+            $this->error("--dari ({$dari->toDateString()}) harus <= --sampai ({$sampai->toDateString()}).");
 
             return self::FAILURE;
         }
@@ -71,18 +71,19 @@ class TikTokAffiliateViewsBackfillCommand extends Command
         for ($c = $dari->copy(); $c->lte($sampai->copy()->addDay()); $c->addDay()) {
             $tgl = $c->toDateString();
             if ($ada->has($tgl)) {
-                $this->line("  · {$tgl}: potret asli sudah ada — dilewati");
+                $this->line("  [LEWAT] {$tgl}: potret asli sudah ada - dilewati");
 
                 continue;
             }
             try {
                 $r = $svc->isiMundurPotretHarian($conn, $c->copy(), $simpan);
-                $this->line(sprintf('  ✓ %s (data %s): %d kreator, %d video, views kumulatif %s%s',
+                // Penanda ASCII ([OK]/[GAGAL]/[LEWAT]): ✓/✗ tampil sbg kotak di terminal SSH hosting.
+                $this->line(sprintf('  [OK] %s (data %s): %d kreator, %d video, views kumulatif %s%s',
                     $tgl, $r['rentang'], $r['kreator'], $r['videos'], number_format($r['views'], 0, ',', '.'),
                     $simpan ? " → {$r['ditulis']} potret disimpan" : ''));
             } catch (\Throwable $e) {
                 $gagal++;
-                $this->line("  ✗ {$tgl}: ".mb_substr($e->getMessage(), 0, 200));
+                $this->line("  [GAGAL] {$tgl}: ".mb_substr($e->getMessage(), 0, 200));
             }
         }
 
