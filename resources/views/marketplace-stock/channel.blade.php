@@ -42,7 +42,8 @@
                         <td class="py-2.5 font-semibold">{{ $rp($row['eff_price']) }}</td>
                         <td class="py-2.5">
                             <form method="POST" action="{{ route('marketplace-stock.channel.harga', ['channel'=>$channel,'master'=>$m]) }}" class="flex items-center gap-1.5">@csrf
-                                <input type="number" name="price" min="0" step="any" value="{{ $row['override_price'] !== null ? (int) $row['override_price'] : '' }}" placeholder="ikut master" class="w-24 px-2 py-1 border border-stone-300 rounded-lg text-xs">
+                                @include('partials.rupiah-input')
+                                <input type="text" inputmode="numeric" data-rupiah name="price" value="{{ \App\Support\Rupiah::input($row['override_price']) }}" placeholder="ikut master" class="w-24 px-2 py-1 border border-stone-300 rounded-lg text-xs">
                                 <button aria-label="Simpan override harga {{ $m->name }}" title="Simpan harga" class="inline-flex items-center justify-center w-8 h-8 bg-stone-800 text-white rounded-lg hover:bg-stone-900"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg></button>
                             </form>
                             @if($row['override_price'] !== null)
