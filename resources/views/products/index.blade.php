@@ -194,9 +194,16 @@
 
     // Stok minimum pusat langsung di tabel: tersimpan otomatis saat pindah kolom / Enter (tanpa buka Edit satu-satu).
     const KELAS_STOK = {merah: 'bg-rose-50 text-rose-700', menipis: 'bg-amber-100 text-amber-700', biasa: 'bg-stone-100 text-stone-800'};
-    document.querySelectorAll('[data-min-stock]').forEach(inp => {
+    const isianMin = [...document.querySelectorAll('[data-min-stock]')];
+    isianMin.forEach(inp => {
         let tersimpan = inp.value;
-        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+        // Enter = simpan & lanjut ke produk berikutnya (ala spreadsheet) — isi banyak produk cukup ketik angka + Enter.
+        inp.addEventListener('keydown', e => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const berikut = isianMin[isianMin.indexOf(inp) + 1];
+            if (berikut) { berikut.focus(); berikut.select(); } else { inp.blur(); }
+        });
         inp.addEventListener('change', async () => {
             const tr = inp.closest('tr');
             const status = tr.querySelector('[data-status-min]');
