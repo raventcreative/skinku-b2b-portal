@@ -39,7 +39,7 @@ class ViewsHarianKolTool extends BaseTool
             .'LIVE tidak termasuk, jadi kreator yang jualan lewat LIVE bisa tak muncul. Untuk peringkat penjualan/GMV '
             .'SKINKU (video + LIVE) pakai data_kol urut GMV; untuk "siapa yang perform/terbaik" sebutkan ukurannya atau '
             .'gabungkan keduanya. Isi username untuk rincian per video kreator itu (judul, tanggal upload, views, GMV, link). '
-            .'Data hari ini baru ada besok pagi.';
+            .'Angka kemarin baru lengkap setelah ±12:30.';
     }
 
     public function parameters(): array
@@ -64,7 +64,7 @@ class ViewsHarianKolTool extends BaseTool
             'periode' => $from->toDateString().' s/d '.$to->toDateString(),
             'catatan' => 'Hanya VIDEO SKINKU kreator yang terdaftar di Database KOL — LIVE tidak termasuk (GMV di sini = GMV '
                 .'dari video; penjualan SKINKU total video + LIVE ada di data_kol). Views per tanggal = views pada hari itu '
-                .'(data hari ini muncul besok pagi). Diposting = jumlah video yang diupload di rentang ini; views tetap '
+                .'(angka kemarin lengkap setelah ±12:30; 2 hari terakhir dikoreksi otomatis). Diposting = jumlah video yang diupload di rentang ini; views tetap '
                 .'mencakup video lama yang masih ditonton.',
             'tercatat_sejak' => KolContentDailySnapshot::min('captured_on'),
         ];
