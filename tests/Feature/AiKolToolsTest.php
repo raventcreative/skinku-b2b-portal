@@ -209,9 +209,17 @@ class AiKolToolsTest extends TestCase
         $this->assertSame(['@laris', '@prospek1', '@besar'], array_column($out['daftar'], 'username'));
         $this->assertSame(300000, $out['daftar'][0]['gmv']);
 
-        // Filter peran + status.
+        // Filter peran + status — sebaran semua KOL ikut dikirim supaya AI bisa menilai filternya.
         $out = $this->pakai('data_kol', $this->user('kol_specialist', 'ks2'), ['peran' => 'affiliate', 'status' => Kol::STATUS_AKTIF]);
         $this->assertSame(['@laris'], array_column($out['daftar'], 'username'));
+        $this->assertSame(['jumlah' => 3, 'per_status' => ['aktif' => 2, 'prospek' => 1]], $out['semua_kol']);
+        $this->assertArrayNotHasKey('catatan', $out);
+
+        // Filter yang tak cocok satu pun (mis. AI mengira status = performa) → daftar kosong + catatan utk ulangi tanpa filter.
+        $out = $this->pakai('data_kol', $this->user('kol_specialist', 'ks3'), ['status' => Kol::STATUS_HOLD]);
+        $this->assertSame([], $out['daftar']);
+        $this->assertStringContainsString('ulangi tanpa filter status', $out['catatan']);
+        $this->assertSame(3, $out['semua_kol']['jumlah']);
 
         // Tanpa izin Affiliate: diminta urut GMV tetap diurut followers, tanpa angka GMV sama sekali.
         $this->izinkan(User::ROLE_GUDANG, 'kol.view');

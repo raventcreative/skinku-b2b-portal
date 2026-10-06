@@ -117,6 +117,8 @@ class AiAgentService
             '- Kalau nama papan/kolom/penerima belum jelas atau ambigu, TANYA dulu ke user; jangan menebak.',
             '- Kalau permintaan di luar kemampuan alatmu, bilang terus terang.',
             '- Alatmu sudah disaring sesuai hak akses user. Kalau tak ada alat untuk data yang diminta, artinya user tak punya akses menu itu — bilang begitu, jangan menebak angkanya.',
+            '- Kalau hasil alat kosong atau 0, cek dulu apakah filter yang kamu pakai terlalu sempit atau salah arti; ulangi tanpa filter itu sebelum menyimpulkan "tidak ada".',
+            '- Tulis teks biasa tanpa Markdown (jangan pakai **, #, atau tabel) — layar chat tidak merendernya. Untuk daftar pakai baris berawalan "- " atau nomor.',
         ];
 
         // "Memori" bisnis yang diisi admin — HANYA untuk staf internal. Mitra

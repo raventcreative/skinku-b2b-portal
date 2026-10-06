@@ -37,8 +37,10 @@ class DataKolTool extends BaseTool
     {
         return 'Data Database KOL / Affiliate (menu KOL). Isi username → profil satu kreator: peran, level, followers, '
             .'status, Tim Gapok, skor KSS, pipeline, deal, plus (bila punya izin Affiliate) GMV/pesanan/komisi/APS/gaji '
-            .'gapok bulan itu. Tanpa username → ringkasan jumlah KOL + daftar kreator teratas (urut GMV bulan itu atau '
-            .'followers), bisa difilter peran/status/kategori/gapok. Kontak pribadi tidak tersedia.';
+            .'gapok bulan itu. Tanpa username → ringkasan jumlah KOL + daftar kreator teratas, urut GMV bulan itu (GMV = '
+            .'pesanan affiliate tercatat, sama dgn Tim Gapok) atau followers. Untuk "siapa yang sedang perform/terlaris" '
+            .'pakai daftar TANPA filter status (urut GMV), atau alat views_harian_kol untuk views & GMV per video. '
+            .'Kontak pribadi tidak tersedia.';
     }
 
     public function parameters(): array
@@ -48,8 +50,9 @@ class DataKolTool extends BaseTool
             'properties' => [
                 'username' => ['type' => 'string', 'description' => 'Username TikTok kreator (opsional) → profil lengkap.'],
                 'bulan' => ['type' => 'string', 'description' => 'YYYY-MM untuk angka performa. Default bulan ini.'],
-                'peran' => ['type' => 'string', 'enum' => Kol::ROLES],
-                'status' => ['type' => 'string', 'enum' => Kol::STATUSES],
+                'peran' => ['type' => 'string', 'enum' => Kol::ROLES, 'description' => 'kol / affiliate / both (KOL + Affiliate).'],
+                'status' => ['type' => 'string', 'enum' => Kol::STATUSES, 'description' => 'Status kerja sama di Database KOL (diisi manual tim; '
+                    .'kreator baru otomatis "prospek") — BUKAN ukuran performa, jangan dipakai untuk mencari yang sedang perform.'],
                 'kategori' => ['type' => 'string', 'enum' => config('kol.kategori')],
                 'gapok' => ['type' => 'boolean', 'description' => 'true = hanya anggota Tim Gapok.'],
                 'urut' => ['type' => 'string', 'enum' => ['gmv', 'followers'], 'description' => 'Default gmv (bila boleh lihat GMV), selain itu followers.'],
@@ -211,9 +214,20 @@ class DataKolTool extends BaseTool
             $ringkasan += ['bulan' => $bulan->format('Y-m'), 'gmv_bulan' => (int) $rows->sum('gmv'), 'pesanan_bulan' => (int) $rows->sum('pesanan')];
         }
 
+        // Saat difilter, sertakan sebaran SEMUA KOL — biar AI tak menyimpulkan "tidak ada" dari filter yang salah arti
+        // (mis. status "aktif" dikira "sedang perform", padahal kreator baru otomatis "prospek").
+        $semua = $filter ? [
+            'jumlah' => Kol::count(),
+            'per_status' => Kol::query()->selectRaw('status, COUNT(*) AS n')->groupBy('status')->pluck('n', 'status')->map(fn ($n) => (int) $n)->all(),
+        ] : null;
+
         return array_filter([
             'filter' => $filter ?: null,
             'ringkasan' => $ringkasan,
+            'semua_kol' => $semua,
+            'catatan' => $filter && $kols->isEmpty()
+                ? 'Tidak ada KOL yang cocok dengan filter ini. Lihat semua_kol; untuk pertanyaan performa ulangi tanpa filter status.'
+                : null,
             'urut' => $urut,
             'daftar' => $rows->sortByDesc($urut)->take(max(1, min(30, (int) ($args['limit'] ?? 10))))->values()->all(),
         ], fn ($v) => $v !== null);

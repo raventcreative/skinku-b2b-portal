@@ -35,8 +35,9 @@ class ViewsHarianKolTool extends BaseTool
     public function description(): string
     {
         return 'Views HARIAN video SKINKU (keranjang kuning) per kreator dari menu KOL → Views Harian: views per hari, '
-            .'jumlah video yang diupload di rentang (Diposting), GMV, hari terbaik, kreator teratas. Isi username untuk '
-            .'rincian per video kreator itu (judul, tanggal upload, views, GMV, link). Data hari ini baru ada besok pagi.';
+            .'jumlah video yang diupload di rentang (Diposting), GMV video, hari terbaik, kreator teratas. Paling cocok '
+            .'untuk "siapa kreator yang sedang perform/ramai". Isi username untuk rincian per video kreator itu (judul, '
+            .'tanggal upload, views, GMV, link). Data hari ini baru ada besok pagi.';
     }
 
     public function parameters(): array
