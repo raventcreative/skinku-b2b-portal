@@ -211,7 +211,7 @@ class KolViewsHarianTest extends TestCase
             ->assertOk()->assertSee($url);
         $this->actingAs($super)->get($url)->assertOk()
             ->assertSee('@klik')->assertSee('Review scrub klik')->assertSee('https://www.tiktok.com/@klik/video/7301')
-            ->assertSee('baru')->assertDontSee('Video kreator lain');
+            ->assertSee('diupload di rentang ini')->assertDontSee('Video kreator lain');
     }
 
     public function test_cari_kreator_baris_total_ikut_hasil_pencarian(): void
