@@ -31,14 +31,14 @@ class KolViewsHarianController extends Controller
         [$from, $to] = $this->range($request);
         $rep = $this->svc->report($from, $to);
         $rows = $rep['rows']->map(fn ($r) => array_merge(
-            ['@'.$r['kol']->tiktok_username, $r['videos']],
+            ['@'.$r['kol']->tiktok_username, $r['diposting']],
             array_values($r['views']),
             [$r['total_views'], $r['total_gmv']],
         ));
 
         return XlsxWriter::download('views-harian-skinku-'.$from->format('Ymd').'-'.$to->format('Ymd').'.xlsx', [
             'Views Harian' => [
-                'headers' => array_merge(['Kreator', 'Video'], array_map(fn ($d) => Carbon::parse($d)->format('d M'), $rep['dates']), ['Total Views', 'GMV (Rp)']),
+                'headers' => array_merge(['Kreator', 'Diposting'], array_map(fn ($d) => Carbon::parse($d)->format('d M'), $rep['dates']), ['Total Views', 'GMV (Rp)']),
                 'rows' => $rows,
             ],
         ]);

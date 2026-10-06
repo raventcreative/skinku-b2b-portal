@@ -8,7 +8,8 @@
     <div class="bg-white rounded-2xl border border-stone-200 p-4 text-[12px] text-stone-600 leading-relaxed">
         Views <b>per hari</b> dari video yang mempromosikan <b>produk SKINKU</b> (keranjang kuning), per kreator. Dihitung tiap pagi jam 04:00
         dari selisih data TikTok hari ini vs kemarin → kolom tanggal = views <b>pada hari itu</b>, jadi data hari ini baru muncul besok pagi.
-        Video non-SKINKU tidak termasuk.
+        Video non-SKINKU tidak termasuk. Kolom <b>Diposting</b> = jumlah video SKINKU yang diunggah kreator di rentang tanggal ini;
+        views tetap mencakup video lama yang masih ditonton.
         @if($mulai)<span class="text-stone-400">Riwayat tercatat sejak {{ \Illuminate\Support\Carbon::parse($mulai)->translatedFormat('d M Y') }}.</span>
         @else<span class="text-amber-700">Belum ada data — riwayat mulai terkumpul setelah sync 04:00 berikutnya (butuh 2 pagi untuk angka harian pertama).</span>@endif
     </div>
@@ -28,7 +29,7 @@
                     <tr>
                         <th class="text-right px-3 py-2">No</th>
                         <th class="text-left px-3 py-2 sticky left-0 bg-stone-50">Kreator</th>
-                        <th class="text-right px-2">Video</th>
+                        <th class="text-right px-2" title="Jumlah video SKINKU yang diunggah di rentang tanggal ini">Diposting</th>
                         @foreach($dates as $d)<th class="text-right px-2">{{ \Illuminate\Support\Carbon::parse($d)->format('d M') }}</th>@endforeach
                         <th class="text-right px-3 text-stone-700">Total</th>
                         <th class="text-right px-3">GMV</th>
@@ -40,7 +41,7 @@
                         <tr class="border-t border-stone-100 hover:bg-stone-50">
                             <td class="text-right px-3 py-2 text-stone-400">{{ $loop->iteration }}</td>
                             <td class="px-3 sticky left-0 bg-white"><a href="{{ route('kols.show', $r['kol']) }}" class="font-semibold text-red-700 hover:underline">{{ '@'.$r['kol']->tiktok_username }}</a></td>
-                            <td class="text-right px-2 text-stone-500">{{ $r['videos'] }}</td>
+                            <td class="text-right px-2 {{ $r['diposting'] ? 'text-stone-700' : 'text-stone-300' }}">{{ $fmt($r['diposting']) }}</td>
                             @foreach($r['views'] as $v)
                                 {{-- Intensitas warna = hari terbaik kreator ini (heatmap ringan). --}}
                                 <td class="text-right px-2 {{ $v ? 'text-stone-800' : 'text-stone-300' }}" style="{{ $v ? 'background: rgba(13,148,136,'.round(0.08 + 0.32 * $v / $max, 2).')' : '' }}">{{ $v ? $fmt($v) : '·' }}</td>
@@ -55,7 +56,7 @@
                 @if($rows->isNotEmpty())
                     <tfoot class="bg-stone-50 font-semibold text-stone-700">
                         <tr class="border-t border-stone-200">
-                            <td></td><td class="px-3 py-2 sticky left-0 bg-stone-50">Total {{ $rows->count() }} kreator</td><td></td>
+                            <td></td><td class="px-3 py-2 sticky left-0 bg-stone-50">Total {{ $rows->count() }} kreator</td><td class="text-right px-2">{{ $fmt($rows->sum('diposting')) }}</td>
                             @foreach($totals as $t)<td class="text-right px-2">{{ $fmt($t) }}</td>@endforeach
                             <td class="text-right px-3">{{ $fmt(array_sum($totals)) }}</td><td class="text-right px-3">Rp {{ $fmt($rows->sum('total_gmv')) }}</td>
                         </tr>

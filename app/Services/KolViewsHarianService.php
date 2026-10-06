@@ -18,6 +18,8 @@ use Illuminate\Support\Collection;
  *    angkanya views hari D. Bila hari D belum dipotret (awal pencatatan / awal
  *    jendela / celah sync) → hanya titik awal (tak dihitung, biar tak menggelembung);
  *  - selisih negatif (koreksi TikTok) → 0.
+ * Kolom "diposting" = jumlah video yang DIUNGGAH di rentang (posted_at dari TikTok),
+ * dari potret mana pun — views video lama tetap masuk, tapi videonya tak ikut dihitung.
  */
 class KolViewsHarianService
 {
@@ -40,8 +42,16 @@ class KolViewsHarianService
             ->get(['kol_id', 'content_id', 'period', 'captured_on', 'posted_at', 'views', 'gmv']);
         // Tanggal potret yang tercatat (video mana pun) di jendela ini — utk tahu apakah "kemarin" sudah dipotret.
         $tercatat = $snaps->map(fn ($s) => Carbon::parse($s->captured_on)->toDateString())->unique()->flip();
+        // Video yang diunggah di rentang, dari potret mana pun: termasuk yang views-nya baru datang setelah rentang.
+        $diposting = KolContentDailySnapshot::query()
+            ->where('posted_at', '>=', $from->toDateTimeString())
+            ->where('posted_at', '<', $to->copy()->addDay()->toDateTimeString())
+            ->when($kolId, fn ($q) => $q->where('kol_id', $kolId))
+            ->groupBy('kol_id')
+            ->selectRaw('kol_id, COUNT(DISTINCT content_id) AS n')
+            ->pluck('n', 'kol_id');
 
-        // [kol_id][tanggal] => ['views','gmv','videos'=>set]
+        // [kol_id][tanggal] => ['views','gmv']
         $agg = [];
         foreach ($snaps->groupBy('content_id') as $list) {
             $prev = null;
@@ -69,18 +79,15 @@ class KolViewsHarianService
                 $cell = &$agg[$s->kol_id][$day];
                 $cell['views'] = ($cell['views'] ?? 0) + $dv;
                 $cell['gmv'] = ($cell['gmv'] ?? 0) + $dg;
-                // Hitung video hanya bila HARI ITU benar-benar dapat views/penjualan. Data TikTok kumulatif bulan: video
-                // yang pernah ditonton awal bulan tetap muncul di tiap potret berikutnya (angka diam) — dulu ikut
-                // terhitung, sehingga kolom VIDEO rentang 4 hari = sebulan penuh.
-                if ($dv > 0 || $dg > 0) {
-                    $cell['videos'][$s->content_id] = true;
-                }
                 unset($cell);
             }
         }
+        foreach ($diposting->keys() as $kid) {
+            $agg[$kid] ??= []; // mengunggah di rentang tapi belum dapat views → tetap tampil (views 0)
+        }
 
         $kols = Kol::whereIn('id', array_keys($agg))->get(['id', 'tiktok_username', 'name', 'role', 'is_gapok'])->keyBy('id');
-        $rows = collect($agg)->map(function (array $days, int $kid) use ($kols, $dates) {
+        $rows = collect($agg)->map(function (array $days, int $kid) use ($kols, $dates, $diposting) {
             $views = [];
             foreach ($dates as $d) {
                 $views[$d] = $days[$d]['views'] ?? 0;
@@ -91,7 +98,7 @@ class KolViewsHarianService
                 'views' => $views,
                 'total_views' => array_sum($views),
                 'total_gmv' => array_sum(array_map(fn ($c) => $c['gmv'] ?? 0, $days)),
-                'videos' => count(array_unique(array_merge(...array_map(fn ($c) => array_keys($c['videos'] ?? []), array_values($days))))),
+                'diposting' => (int) $diposting->get($kid, 0),
             ];
         })->filter(fn ($r) => $r['kol'] !== null)->sortByDesc('total_views')->values();
 
