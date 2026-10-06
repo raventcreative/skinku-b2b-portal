@@ -18,7 +18,7 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
-        $filters = $request->only(['q', 'status', 'category']);
+        $filters = $request->only(['q', 'status', 'category', 'stok']);
 
         $products = Product::query()
             ->when($filters['q'] ?? null, function ($query, $q) {
@@ -30,6 +30,7 @@ class ProductController extends Controller
             })
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['category'] ?? null, fn ($query, $cat) => $query->where('category', $cat))
+            ->when(($filters['stok'] ?? null) === 'menipis', fn ($query) => $query->stokPusatMenipis())
             ->orderBy('name')
             ->paginate(15)
             ->withQueryString();
@@ -57,7 +58,7 @@ class ProductController extends Controller
             action: 'create_product',
             targetType: 'product',
             targetId: $product->id,
-            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'status']),
+            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'hq_min_stock', 'status']),
         );
 
         return back()->with('status', "Produk {$product->name} berhasil ditambahkan.");
@@ -67,7 +68,7 @@ class ProductController extends Controller
     {
         $data = $this->validateData($request, $product);
 
-        $before = $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'status']);
+        $before = $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'hq_min_stock', 'status']);
 
         $product->update(Arr::except($data, ['images', 'remove_files']));
 
@@ -91,7 +92,7 @@ class ProductController extends Controller
             targetType: 'product',
             targetId: $product->id,
             before: $before,
-            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'status']),
+            after: $product->only(['name', 'sku', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'hq_min_stock', 'status']),
         );
 
         return back()->with('status', "Produk {$product->name} berhasil diperbarui.");
@@ -130,6 +131,8 @@ class ProductController extends Controller
             'cogs' => $lihatHpp ? ['required', 'numeric', 'min:0'] : ['exclude'],
             'weight_grams' => ['nullable', 'integer', 'min:0'],
             'hq_stock' => ['required', 'integer', 'min:0'],
+            // Stok minimum pusat (pengingat HQ menipis): kosong = tanpa pengingat.
+            'hq_min_stock' => ['nullable', 'integer', 'min:0'],
             'status' => ['required', Rule::in([Product::STATUS_ACTIVE, Product::STATUS_INACTIVE])],
             // Up to 8 photos; each auto-resized server-side, so allow large originals.
             'images' => ['nullable', 'array', 'max:'.self::MAX_IMAGES],

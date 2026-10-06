@@ -28,7 +28,7 @@
                     <tr class="border-t border-stone-100">
                         <td class="px-4 py-3 font-semibold text-stone-800">{{ $p->name }}</td>
                         <td class="text-stone-500">{{ $p->sku }}</td>
-                        <td class="text-right font-bold {{ $p->hq_stock <= 0 ? 'text-rose-600' : 'text-stone-800' }}">{{ $p->hq_stock }}</td>
+                        <td class="text-right font-bold {{ $p->hq_stock <= 0 ? 'text-rose-600' : ($p->isStokPusatMenipis() ? 'text-amber-700' : 'text-stone-800') }}">{{ $p->hq_stock }}@if($p->hq_min_stock)<span class="block text-[10px] font-normal {{ $p->isStokPusatMenipis() ? 'text-amber-700' : 'text-stone-400' }}">{{ $p->isStokPusatMenipis() ? 'menipis · ' : '' }}min {{ $p->hq_min_stock }}</span>@endif</td>
                         <td class="px-4 py-2">
                             {{-- Alasan WAJIB: penyesuaian manual tanpa keterangan jadi
                                  gerakan stok yang tak bisa dijelaskan siapa pun selamanya.

@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Announcement;
 use App\Models\Inventory;
+use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\Withdrawal;
+use App\Services\ProdukTerlarisService;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -81,7 +83,7 @@ class DashboardController extends Controller
         $ptOwn = $request->filled('pt_bulan');
         $ptBulan = $ptOwn ? $this->parseMonth($request->query('pt_bulan')) : $bulan;
         $produkTerlaris = $user->isStaff()
-            ? app(\App\Services\ProdukTerlarisService::class)->report($ptBulan, 10, $ptOwn ? null : $chFrom, $ptOwn ? null : $chSampai)
+            ? app(ProdukTerlarisService::class)->report($ptBulan, 10, $ptOwn ? null : $chFrom, $ptOwn ? null : $chSampai)
             : null;
 
         // Recent POs visible to this user.
@@ -91,13 +93,21 @@ class DashboardController extends Controller
             ->limit(8)
             ->get();
 
-        // Low-stock alerts.
+        // Low-stock alerts (stok mitra) — menipis = minimum diisi (> 0) & qty ≤ minimum, sama dgn halaman Pemantauan
+        // Stok (dulu minimum 0 & qty 0 ikut tampil).
         $lowStock = Inventory::query()
             ->with('product', 'user')
+            ->where('minimum_stock', '>', 0)
             ->whereColumn('quantity', '<=', 'minimum_stock')
             ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id))
             ->limit(10)
             ->get();
+
+        // Pengingat stok PUSAT menipis (≤ stok minimum per produk, diatur di Produk Master) — utk staf yang pegang
+        // stok pusat / produk. Kosong → banner tak tampil.
+        $stokPusatMenipis = ($user->canDo('manage_hq_stock') || $user->canDo('manage_products'))
+            ? Product::stokPusatMenipis()->orderBy('hq_stock')->get(['id', 'name', 'sku', 'hq_stock', 'hq_min_stock'])
+            : collect();
 
         // "Perlu Tindakan" — penarikan komisi yang menunggu diproses. Hanya untuk
         // staf yang berwenang memproses (izin process_withdrawal). Selain itu kosong
@@ -131,7 +141,7 @@ class DashboardController extends Controller
                 ->get()
             : collect();
 
-        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'trendByChannel', 'channelSales', 'yearlyOmzet', 'produkTerlaris', 'ptBulan', 'periodeLabel', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
+        return view('dashboard.index', compact('user', 'summary', 'poStatus', 'salesTrend', 'trendByChannel', 'channelSales', 'yearlyOmzet', 'produkTerlaris', 'ptBulan', 'periodeLabel', 'bulan', 'chFrom', 'chSampai', 'recentPo', 'lowStock', 'stokPusatMenipis', 'pendingWithdrawals', 'actionablePos') + ['limited' => false] + $announce);
     }
 
     /** ?bulan=YYYY-MM → Carbon. Input ngawur jatuh ke bulan berjalan, bukan error. */

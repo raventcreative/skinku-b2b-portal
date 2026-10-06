@@ -6,7 +6,7 @@
 @php
     // HPP (harga pokok) hanya utk izin Lihat HPP — default super admin; admin/gudang tak perlu tahu.
     $lihatHpp = auth()->user()->canDo('view_hpp');
-    $kolomEdit = array_values(array_diff(['id', 'name', 'sku', 'category', 'description', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'status'], $lihatHpp ? [] : ['cogs']));
+    $kolomEdit = array_values(array_diff(['id', 'name', 'sku', 'category', 'description', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'hq_min_stock', 'status'], $lihatHpp ? [] : ['cogs']));
 @endphp
 <div class="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
     <form method="GET" class="flex flex-wrap gap-2">
@@ -14,6 +14,10 @@
         <select name="status" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
             <option value="">Semua Status</option>
             @foreach(['active','inactive','deleted'] as $s)<option value="{{ $s }}" @selected(($filters['status'] ?? '')===$s)>{{ $s }}</option>@endforeach
+        </select>
+        <select name="stok" class="px-3 py-2 text-sm border border-stone-300 rounded-lg" title="Stok pusat ≤ stok minimum yang diisi">
+            <option value="">Semua stok</option>
+            <option value="menipis" @selected(($filters['stok'] ?? '') === 'menipis')>Stok pusat menipis</option>
         </select>
         <button class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h14l-5.5 6.2v4.3l-3 1.5v-5.8L3 4Z"/></svg>Filter</button>
     </form>
@@ -82,7 +86,7 @@
                     </td>
                     @endif
                     <td class="text-right {{ (int) $p->weight_grams <= 0 ? 'text-amber-600 font-semibold' : 'text-stone-600' }}">{{ (int) $p->weight_grams > 0 ? number_format($p->weight_grams, 0, ',', '.').' g' : 'belum diisi' }}</td>
-                    <td class="text-right tabular-nums"><span class="inline-flex min-w-10 justify-center rounded-md px-2 py-1 font-semibold {{ $p->hq_stock <= 0 ? 'bg-rose-50 text-rose-700' : 'bg-stone-100 text-stone-800' }}">{{ $p->hq_stock }}</span></td>
+                    <td class="text-right tabular-nums"><span class="inline-flex min-w-10 justify-center rounded-md px-2 py-1 font-semibold {{ $p->hq_stock <= 0 ? 'bg-rose-50 text-rose-700' : ($p->isStokPusatMenipis() ? 'bg-amber-100 text-amber-700' : 'bg-stone-100 text-stone-800') }}" @if($p->isStokPusatMenipis()) title="Stok pusat menipis (≤ minimum)" @endif>{{ $p->hq_stock }}</span>@if($p->hq_min_stock)<span class="block text-[10px] {{ $p->isStokPusatMenipis() ? 'text-amber-700 font-semibold' : 'text-stone-400' }}">{{ $p->isStokPusatMenipis() ? 'menipis · ' : '' }}min {{ number_format($p->hq_min_stock, 0, ',', '.') }}</span>@endif</td>
                     <td><span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $p->status==='active' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-stone-200 bg-stone-100 text-stone-600' }}"><span class="h-1.5 w-1.5 rounded-full {{ $p->status==='active' ? 'bg-emerald-600' : 'bg-stone-400' }}"></span>{{ $p->status }}</span></td>
                     <td class="whitespace-nowrap text-right">
                         <div class="inline-flex items-center justify-end gap-1">
@@ -129,6 +133,7 @@
             @if($lihatHpp)<div><label class="block text-xs font-semibold mb-1">HPP / COGS *</label><input type="number" step="0.01" name="cogs" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>@endif
             <div><label class="block text-xs font-semibold mb-1">Berat (gram)</label><input type="number" name="weight_grams" min="0" step="1" class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="untuk booking kurir"></div>
             <div><label class="block text-xs font-semibold mb-1">Stok Pusat *</label><input type="number" name="hq_stock" required class="w-full px-3 py-2 border border-stone-300 rounded-lg"></div>
+            <div><label class="block text-xs font-semibold mb-1">Stok Minimum Pusat</label><input type="number" name="hq_min_stock" min="0" step="1" class="w-full px-3 py-2 border border-stone-300 rounded-lg" placeholder="kosong = tanpa pengingat"><p class="text-[10px] text-stone-400 mt-1">Stok pusat ≤ angka ini → muncul pengingat di Dashboard.</p></div>
             <div><label class="block text-xs font-semibold mb-1">Status *</label>
                 <select name="status" class="w-full px-3 py-2 border border-stone-300 rounded-lg"><option value="active">active</option><option value="inactive">inactive</option></select>
             </div>
@@ -158,7 +163,7 @@
             f.action = '/products/' + p.id;
             document.getElementById('productMethod').value = 'PUT';
             document.getElementById('productModalTitle').textContent = 'Edit Produk';
-            for (const k of ['name','sku','category','description','price_grand','price_distributor','price_reseller','price_retail','cogs','weight_grams','hq_stock','status']) {
+            for (const k of ['name','sku','category','description','price_grand','price_distributor','price_reseller','price_retail','cogs','weight_grams','hq_stock','hq_min_stock','status']) {
                 if (f.querySelector('[name='+k+']')) f.querySelector('[name='+k+']').value = p[k] ?? '';
             }
             // render existing gallery with "hapus" checkboxes

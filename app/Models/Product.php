@@ -23,7 +23,7 @@ class Product extends Model
     protected $fillable = [
         'name', 'sku', 'category', 'description', 'image',
         'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs',
-        'weight_grams', 'hq_stock', 'status',
+        'weight_grams', 'hq_stock', 'hq_min_stock', 'status',
         'hpp_opening_qty', 'hpp_opening_cogs',
     ];
 
@@ -37,6 +37,7 @@ class Product extends Model
             'cogs' => 'decimal:2',
             'weight_grams' => 'integer',
             'hq_stock' => 'integer',
+            'hq_min_stock' => 'integer',
             'hpp_opening_qty' => 'integer',
             'hpp_opening_cogs' => 'decimal:2',
         ];
@@ -60,6 +61,18 @@ class Product extends Model
     }
 
     /** Returns the unit price for a given role. */
+    /** Stok pusat ≤ stok minimum yang diisi (pengingat stok HQ). Minimum kosong/0 = tanpa pengingat. */
+    public function isStokPusatMenipis(): bool
+    {
+        return (int) $this->hq_min_stock > 0 && (int) $this->hq_stock <= (int) $this->hq_min_stock;
+    }
+
+    /** Produk AKTIF yang stok pusatnya ≤ minimum — dasar banner Dashboard & saringan "stok pusat menipis". */
+    public function scopeStokPusatMenipis($query)
+    {
+        return $query->where('status', self::STATUS_ACTIVE)->where('hq_min_stock', '>', 0)->whereColumn('hq_stock', '<=', 'hq_min_stock');
+    }
+
     public function priceForRole(string $role): float
     {
         return match ($role) {
