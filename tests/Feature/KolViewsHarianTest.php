@@ -96,29 +96,32 @@ class KolViewsHarianTest extends TestCase
         $row = app(KolViewsHarianService::class)->report(Carbon::parse('2026-09-01'), Carbon::parse('2026-09-02'))['rows']->sole();
 
         $this->assertSame(['2026-09-01' => 10, '2026-09-02' => 510], $row['views']);
-        $this->assertSame(2, $row['videos']);
     }
 
-    public function test_jumlah_video_hanya_yang_dapat_views_di_rentang_dipilih(): void
+    public function test_kolom_diposting_hanya_hitung_video_yang_diunggah_di_rentang(): void
     {
-        $k = Kol::create(['tiktok_username' => 'jumlahvideo', 'followers' => 1]);
-        // P: hanya ditonton 1–2 Sep; setelahnya angka kumulatif diam tapi tetap muncul di tiap potret bulan itu.
-        foreach (['2026-09-01' => 10, '2026-09-02' => 50, '2026-09-03' => 90, '2026-09-04' => 90, '2026-09-05' => 90] as $tgl => $v) {
-            $this->snap($k, 'P', '2026-09-01', $tgl, $v, '2026-08-01');
-        }
-        // Q: ditonton terus tiap hari.
-        foreach (['2026-09-01' => 5, '2026-09-02' => 10, '2026-09-03' => 15, '2026-09-04' => 20, '2026-09-05' => 25] as $tgl => $v) {
-            $this->snap($k, 'Q', '2026-09-01', $tgl, $v, '2026-08-01');
-        }
-        $svc = app(KolViewsHarianService::class);
+        $k = Kol::create(['tiktok_username' => 'rajinposting', 'followers' => 1]);
+        // L: video lama (Agustus) yang masih ditonton → views-nya masuk, tapi bukan video yang diposting di rentang.
+        $this->snap($k, 'L', '2026-09-01', '2026-09-01', 100, '2026-08-01');
+        $this->snap($k, 'L', '2026-09-01', '2026-09-04', 400, '2026-08-01');
+        // B1: diunggah tepat awal rentang, terpotret berkali-kali → tetap 1 video.
+        $this->snap($k, 'B1', '2026-09-01', '2026-09-02', 50, '2026-09-01 00:00:00');
+        $this->snap($k, 'B1', '2026-09-01', '2026-09-03', 80, '2026-09-01 00:00:00');
+        // B2: diunggah di detik terakhir rentang, views baru datang setelahnya (potret 6 Sep) → tetap terhitung.
+        $this->snap($k, 'B2', '2026-09-01', '2026-09-06', 30, '2026-09-03 23:59:59');
+        // B3: diunggah sehari setelah rentang → tidak.
+        $this->snap($k, 'B3', '2026-09-01', '2026-09-05', 70, '2026-09-04 00:00:00');
+        // Kreator yang satu-satunya videonya diunggah di rentang tapi views-nya baru datang setelahnya → tetap tampil.
+        $k2 = Kol::create(['tiktok_username' => 'baruposting', 'followers' => 1]);
+        $this->snap($k2, 'C1', '2026-09-01', '2026-09-06', 10, '2026-09-02 20:00:00');
 
-        // 3–4 Sep: hanya Q yang dapat views → VIDEO 1 (dulu 2: P ikut terhitung walau 0 views).
-        $row = $svc->report(Carbon::parse('2026-09-03'), Carbon::parse('2026-09-04'))['rows']->sole();
-        $this->assertSame(['2026-09-03' => 5, '2026-09-04' => 5], $row['views']);
-        $this->assertSame(1, $row['videos']);
+        $rows = app(KolViewsHarianService::class)->report(Carbon::parse('2026-09-01'), Carbon::parse('2026-09-03'))['rows']
+            ->keyBy(fn ($r) => $r['kol']->tiktok_username);
 
-        // 1–4 Sep: P (ditonton 1–2 Sep) & Q → VIDEO 2.
-        $this->assertSame(2, $svc->report(Carbon::parse('2026-09-01'), Carbon::parse('2026-09-04'))['rows']->sole()['videos']);
+        $this->assertSame(2, $rows['rajinposting']['diposting']); // B1 + B2
+        $this->assertSame(380, $rows['rajinposting']['total_views']); // B1 50+30, L 300 (video lama tetap dihitung views-nya)
+        $this->assertSame(1, $rows['baruposting']['diposting']);
+        $this->assertSame(0, $rows['baruposting']['total_views']);
     }
 
     public function test_hari_yang_belum_dipotret_tetap_titik_awal_agar_tak_menggelembung(): void
@@ -135,7 +138,21 @@ class KolViewsHarianTest extends TestCase
 
         // X lintas celah: selisih 2 hari masuk ke 3 Sep (perilaku lama). Y tak dihitung.
         $this->assertSame(['2026-09-01' => 10, '2026-09-02' => 0, '2026-09-03' => 20], $row['views']);
-        $this->assertSame(1, $row['videos']);
+    }
+
+    public function test_cari_kreator_baris_total_ikut_hasil_pencarian(): void
+    {
+        $bulan = now()->startOfMonth()->toDateString();
+        $a = Kol::create(['tiktok_username' => 'dicari', 'followers' => 1]);
+        $b = Kol::create(['tiktok_username' => 'lainnya', 'followers' => 1]);
+        $this->snap($a, 'A', $bulan, now()->subDays(2)->toDateString(), 100);
+        $this->snap($a, 'A', $bulan, now()->subDay()->toDateString(), 175);
+        $this->snap($b, 'B', $bulan, now()->subDays(2)->toDateString(), 1000);
+        $this->snap($b, 'B', $bulan, now()->subDay()->toDateString(), 3000);
+
+        $this->actingAs($this->user(User::ROLE_SUPER_ADMIN, 'sacari'))->get(route('kol-views-harian.index', ['q' => 'dicari']))
+            ->assertOk()->assertSee('@dicari')->assertDontSee('@lainnya')
+            ->assertDontSee('2.075'); // dulu baris total tetap menjumlah semua kreator (75 + 2.000)
     }
 
     public function test_halaman_dan_export_butuh_izin_affiliate(): void
@@ -148,7 +165,7 @@ class KolViewsHarianTest extends TestCase
 
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'savh');
         $this->actingAs($super)->get(route('kol-views-harian.index'))->assertOk()
-            ->assertSee('Views Harian Video SKINKU')->assertSee('@tampil')->assertSee('75');
+            ->assertSee('Views Harian Video SKINKU')->assertSee('@tampil')->assertSee('75')->assertSee('Diposting');
         $this->actingAs($super)->get(route('kol-views-harian.export'))->assertOk()
             ->assertHeader('content-disposition');
     }

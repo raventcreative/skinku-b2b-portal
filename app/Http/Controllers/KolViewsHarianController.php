@@ -21,6 +21,10 @@ class KolViewsHarianController extends Controller
         $q = mb_strtolower(trim((string) $request->query('q', '')));
         if ($q !== '') {
             $rep['rows'] = $rep['rows']->filter(fn ($r) => str_contains(mb_strtolower($r['kol']->tiktok_username.' '.$r['kol']->name), $q))->values();
+            // Baris total ikut hasil pencarian (dulu tetap total semua kreator, tak cocok dgn "Total N kreator").
+            foreach ($rep['dates'] as $d) {
+                $rep['totals'][$d] = (int) $rep['rows']->sum(fn ($r) => $r['views'][$d]);
+            }
         }
 
         return view('kols.views_harian', $rep + ['from' => $from, 'to' => $to, 'q' => $q]);
@@ -31,14 +35,14 @@ class KolViewsHarianController extends Controller
         [$from, $to] = $this->range($request);
         $rep = $this->svc->report($from, $to);
         $rows = $rep['rows']->map(fn ($r) => array_merge(
-            ['@'.$r['kol']->tiktok_username, $r['videos']],
+            ['@'.$r['kol']->tiktok_username, $r['diposting']],
             array_values($r['views']),
             [$r['total_views'], $r['total_gmv']],
         ));
 
         return XlsxWriter::download('views-harian-skinku-'.$from->format('Ymd').'-'.$to->format('Ymd').'.xlsx', [
             'Views Harian' => [
-                'headers' => array_merge(['Kreator', 'Video'], array_map(fn ($d) => Carbon::parse($d)->format('d M'), $rep['dates']), ['Total Views', 'GMV (Rp)']),
+                'headers' => array_merge(['Kreator', 'Diposting'], array_map(fn ($d) => Carbon::parse($d)->format('d M'), $rep['dates']), ['Total Views', 'GMV (Rp)']),
                 'rows' => $rows,
             ],
         ]);
