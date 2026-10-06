@@ -31,7 +31,7 @@
             <tr class="ui-table-groups__row">
                 <th scope="colgroup" colspan="3" class="text-left">Katalog</th>
                 <th scope="colgroup" colspan="4" class="text-center">Harga jual <span>(Rp)</span></th>
-                <th scope="colgroup" colspan="{{ $lihatHpp ? 3 : 2 }}" class="text-center">{{ $lihatHpp ? 'Biaya & logistik' : 'Logistik' }}</th>
+                <th scope="colgroup" colspan="{{ $lihatHpp ? 4 : 3 }}" class="text-center">{{ $lihatHpp ? 'Biaya & logistik' : 'Logistik' }}</th>
                 <th scope="col" rowspan="2" class="text-left">Status</th>
                 <th scope="col" rowspan="2" class="ui-table-actions-head text-right">Aksi</th>
             </tr>
@@ -46,6 +46,7 @@
                 @if($lihatHpp)<th scope="col" class="text-right">HPP</th>@endif
                 <th scope="col" class="text-right">Berat</th>
                 <th scope="col" class="text-right">Stok Pusat</th>
+                <th scope="col" class="text-right" title="Stok minimum pusat: pengingat di Dashboard bila stok ≤ angka ini. Kosong = tanpa pengingat. Tersimpan otomatis.">Stok Min.</th>
             </tr>
         </thead>
         <tbody>
@@ -86,7 +87,13 @@
                     </td>
                     @endif
                     <td class="text-right {{ (int) $p->weight_grams <= 0 ? 'text-amber-600 font-semibold' : 'text-stone-600' }}">{{ (int) $p->weight_grams > 0 ? number_format($p->weight_grams, 0, ',', '.').' g' : 'belum diisi' }}</td>
-                    <td class="text-right tabular-nums"><span class="inline-flex min-w-10 justify-center rounded-md px-2 py-1 font-semibold {{ $p->hq_stock <= 0 ? 'bg-rose-50 text-rose-700' : ($p->isStokPusatMenipis() ? 'bg-amber-100 text-amber-700' : 'bg-stone-100 text-stone-800') }}" @if($p->isStokPusatMenipis()) title="Stok pusat menipis (≤ minimum)" @endif>{{ $p->hq_stock }}</span>@if($p->hq_min_stock)<span class="block text-[10px] {{ $p->isStokPusatMenipis() ? 'text-amber-700 font-semibold' : 'text-stone-400' }}">{{ $p->isStokPusatMenipis() ? 'menipis · ' : '' }}min {{ number_format($p->hq_min_stock, 0, ',', '.') }}</span>@endif</td>
+                    <td class="text-right tabular-nums"><span data-stok-pusat class="inline-flex min-w-10 justify-center rounded-md px-2 py-1 font-semibold {{ $p->hq_stock <= 0 ? 'bg-rose-50 text-rose-700' : ($p->isStokPusatMenipis() ? 'bg-amber-100 text-amber-700' : 'bg-stone-100 text-stone-800') }}">{{ $p->hq_stock }}</span><span data-tanda-menipis class="block text-[10px] text-amber-700 font-semibold {{ $p->isStokPusatMenipis() ? '' : 'hidden' }}">menipis</span></td>
+                    <td class="text-right">
+                        @if($p->status !== 'deleted')
+                            <input type="number" min="0" step="1" inputmode="numeric" value="{{ $p->hq_min_stock }}" placeholder="—" data-min-stock data-url="{{ route('products.min-stock', $p) }}" aria-label="Stok minimum pusat {{ $p->name }}" title="Stok minimum pusat — tersimpan otomatis. Kosong = tanpa pengingat." class="w-20 px-2 py-1 text-right border border-stone-300 rounded-md">
+                            <span data-status-min class="block text-[10px]"></span>
+                        @else <span class="text-stone-400">—</span> @endif
+                    </td>
                     <td><span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $p->status==='active' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-stone-200 bg-stone-100 text-stone-600' }}"><span class="h-1.5 w-1.5 rounded-full {{ $p->status==='active' ? 'bg-emerald-600' : 'bg-stone-400' }}"></span>{{ $p->status }}</span></td>
                     <td class="whitespace-nowrap text-right">
                         <div class="inline-flex items-center justify-end gap-1">
@@ -105,7 +112,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="{{ $lihatHpp ? 12 : 11 }}" class="px-4 py-6 text-center text-stone-400">Belum ada produk.</td></tr>
+                <tr><td colspan="{{ $lihatHpp ? 13 : 12 }}" class="px-4 py-6 text-center text-stone-400">Belum ada produk.</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -184,5 +191,39 @@
         }
         toggleModal('productModal');
     }
+
+    // Stok minimum pusat langsung di tabel: tersimpan otomatis saat pindah kolom / Enter (tanpa buka Edit satu-satu).
+    const KELAS_STOK = {merah: 'bg-rose-50 text-rose-700', menipis: 'bg-amber-100 text-amber-700', biasa: 'bg-stone-100 text-stone-800'};
+    document.querySelectorAll('[data-min-stock]').forEach(inp => {
+        let tersimpan = inp.value;
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+        inp.addEventListener('change', async () => {
+            const tr = inp.closest('tr');
+            const status = tr.querySelector('[data-status-min]');
+            const stok = tr.querySelector('[data-stok-pusat]');
+            status.className = 'block text-[10px] text-stone-400';
+            status.textContent = 'menyimpan…';
+            try {
+                const res = await fetch(inp.dataset.url, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': window.CSRF},
+                    body: JSON.stringify({hq_min_stock: inp.value === '' ? null : inp.value}),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || res.redirected) throw new Error(data.message || 'Gagal menyimpan');
+                tersimpan = inp.value = data.hq_min_stock ?? '';
+                Object.values(KELAS_STOK).forEach(k => stok.classList.remove(...k.split(' ')));
+                stok.classList.add(...KELAS_STOK[data.stok <= 0 ? 'merah' : (data.menipis ? 'menipis' : 'biasa')].split(' '));
+                tr.querySelector('[data-tanda-menipis]').classList.toggle('hidden', !data.menipis);
+                status.className = 'block text-[10px] text-emerald-700';
+                status.textContent = '✓ tersimpan';
+            } catch (e) {
+                inp.value = tersimpan;
+                status.className = 'block text-[10px] text-rose-600';
+                status.textContent = '✗ gagal'; // sel sempit — pesan lengkap di tooltip & isian kembali ke angka lama
+                status.title = e.message;
+            }
+        });
+    });
 </script>
 @endpush

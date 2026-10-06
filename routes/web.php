@@ -728,6 +728,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
         Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
+        // Stok minimum pusat diisi langsung di tabel Produk Master (tersimpan otomatis, JSON).
+        Route::patch('/products/{product}/stok-minimum', [ProductController::class, 'updateMinStock'])->name('products.min-stock');
         Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     });
 

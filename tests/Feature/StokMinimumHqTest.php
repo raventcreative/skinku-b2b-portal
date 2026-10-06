@@ -48,6 +48,35 @@ class StokMinimumHqTest extends TestCase
         $this->assertNull($p->refresh()->hq_min_stock); // kosong = tanpa pengingat
     }
 
+    public function test_stok_minimum_diisi_langsung_dari_tabel_tersimpan_otomatis(): void
+    {
+        $p = $this->produk('Serum Glow', 'SG-01', 8, null);
+        $admin = $this->user(User::ROLE_ADMIN);
+        $url = route('products.min-stock', $p);
+
+        // Tabel menampilkan kolom isian per produk.
+        $this->actingAs($admin)->get(route('products.index'))->assertOk()->assertSee('Stok Min.')->assertSee($url);
+
+        $this->actingAs($admin)->patchJson($url, ['hq_min_stock' => 20])->assertOk()
+            ->assertExactJson(['hq_min_stock' => 20, 'stok' => 8, 'menipis' => true]);
+        $this->assertSame(20, $p->refresh()->hq_min_stock);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'update_product_min_stock', 'target_type' => 'product', 'target_id' => $p->id]);
+
+        // Kosong = tanpa pengingat.
+        $this->actingAs($admin)->patchJson($url, ['hq_min_stock' => ''])->assertOk()->assertJson(['hq_min_stock' => null, 'menipis' => false]);
+        $this->assertNull($p->refresh()->hq_min_stock);
+
+        // Isian ngawur → 422 JSON (bukan redirect), angka lama tetap.
+        $p->update(['hq_min_stock' => 5]);
+        $this->actingAs($admin)->patchJson($url, ['hq_min_stock' => -3])->assertStatus(422)->assertJsonStructure(['message']);
+        $this->actingAs($admin)->patchJson($url, ['hq_min_stock' => 'abc'])->assertStatus(422);
+        $this->assertSame(5, $p->refresh()->hq_min_stock);
+
+        // Tanpa izin Kelola Produk → ditolak.
+        $this->actingAs($this->user(User::ROLE_GUDANG))->patchJson($url, ['hq_min_stock' => 99])->assertForbidden();
+        $this->assertSame(5, $p->refresh()->hq_min_stock);
+    }
+
     public function test_produk_master_dan_pemantauan_stok_menandai_serta_menyaring_yang_menipis(): void
     {
         $this->produk('Serum Glow', 'SG-01', 8, 20);                 // menipis
@@ -56,7 +85,7 @@ class StokMinimumHqTest extends TestCase
         $this->produk('Lotion Nonaktif', 'LN-01', 1, 10, 'inactive'); // nonaktif → tak masuk pengingat/saringan
         $admin = $this->user(User::ROLE_ADMIN);
 
-        $this->actingAs($admin)->get(route('products.index'))->assertOk()->assertSee('menipis · min 20')->assertSee('min 20');
+        $this->actingAs($admin)->get(route('products.index'))->assertOk()->assertSee('data-tanda-menipis', false)->assertSee('value="20"', false);
         $this->actingAs($admin)->get(route('products.index', ['stok' => 'menipis']))->assertOk()
             ->assertSee('Serum Glow')->assertDontSee('Sabun Yuki')->assertDontSee('Toner Tanpa Min')->assertDontSee('Lotion Nonaktif');
         $this->actingAs($admin)->get(route('inventory.index'))->assertOk()->assertSee('menipis · min 20');
