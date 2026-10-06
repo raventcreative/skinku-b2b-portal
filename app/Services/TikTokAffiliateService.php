@@ -79,8 +79,7 @@ class TikTokAffiliateService
         $usernames = array_unique(array_merge(array_keys($videos), array_keys($lives)));
         $stored = $vTotal = $lTotal = 0;
         foreach ($usernames as $u) {
-            $kolId = Kol::whereRaw('LOWER(tiktok_username) = ?', [$u])->value('id')
-                ?? KolUsernameAlias::where('username', $u)->value('kol_id');
+            $kolId = $this->kolIdUntuk($u);
             if (! $kolId) {
                 continue; // bukan KOL → tak disimpan
             }
@@ -104,21 +103,74 @@ class TikTokAffiliateService
                 KolCreatorContent::insert($rows);
             }
             // Riwayat harian video (views harian = selisih antar potret). Idempoten per hari.
-            foreach ($vids as $v) {
-                if (($v['content_id'] ?? '') === '') {
-                    continue;
-                }
-                KolContentDailySnapshot::updateOrCreate(
-                    ['content_id' => $v['content_id'], 'period' => $period, 'captured_on' => now()->toDateString()],
-                    ['kol_id' => $kolId, 'title' => $v['title'] ?: null, 'posted_at' => $v['occurred_at'] ?? null,
-                        'views' => (int) ($v['views'] ?? 0), 'gmv' => (int) ($v['gmv'] ?? 0), 'items_sold' => (int) ($v['items_sold'] ?? 0)],
-                );
-            }
+            $this->tulisPotretHarian($kolId, $vids, $period, now()->toDateString());
             $stored++;
         }
         $conn->update(['last_synced_at' => now()]);
 
         return ['videos' => $vTotal, 'lives' => $lTotal, 'creators' => $stored];
+    }
+
+    /**
+     * Isi mundur SATU potret harian yang terlewat (mis. sebelum report views harian aktif): minta data kumulatif
+     * bulan s/d hari sebelum $capturedOn (start = awal bulan hari itu, end_date_lt = $capturedOn) — persis yang
+     * didapat potret jam 04:00 pagi itu — lalu, bila $simpan, tulis sbg potret captured_on = $capturedOn. Hanya
+     * potret harian video; data bulanan Tim Gapok (kol_creator_content*) tak disentuh.
+     *
+     * @return array{videos:int,kreator:int,views:int,gmv:int,ditulis:int,rentang:string}
+     */
+    public function isiMundurPotretHarian(TiktokAffiliateConnection $conn, Carbon $capturedOn, bool $simpan, int $maxPages = 60): array
+    {
+        $tgl = $capturedOn->copy()->startOfDay();
+        $hari = $tgl->copy()->subDay();
+        $period = $hari->copy()->startOfMonth()->toDateString();
+        $access = $this->freshToken($conn);
+        $videos = $this->collect(fn ($pt) => $this->client->getShopVideoPerformance($access, (string) $conn->shop_cipher, $period, $tgl->toDateString(), 100, $pt), 'videos', 'video', $maxPages);
+
+        $out = ['videos' => 0, 'kreator' => 0, 'views' => 0, 'gmv' => 0, 'ditulis' => 0, 'rentang' => "{$period} s/d {$hari->toDateString()}"];
+        foreach ($videos as $u => $vids) {
+            $kolId = $this->kolIdUntuk($u);
+            if (! $kolId) {
+                continue; // bukan KOL → tak disimpan (sama spt sync harian)
+            }
+            $out['kreator']++;
+            $out['videos'] += count($vids);
+            $out['views'] += array_sum(array_column($vids, 'views'));
+            $out['gmv'] += array_sum(array_column($vids, 'gmv'));
+            if ($simpan) {
+                $out['ditulis'] += $this->tulisPotretHarian($kolId, $vids, $period, $tgl->toDateString());
+            }
+        }
+
+        return $out;
+    }
+
+    /** Username TikTok (lowercase) → id KOL (kolom tiktok_username atau alias); null = bukan KOL. */
+    private function kolIdUntuk(string $username): ?int
+    {
+        $id = Kol::whereRaw('LOWER(tiktok_username) = ?', [$username])->value('id')
+            ?? KolUsernameAlias::where('username', $username)->value('kol_id');
+
+        return $id ? (int) $id : null;
+    }
+
+    /** Tulis potret harian video satu kreator (views harian = selisih antar potret). Idempoten per tanggal potret. */
+    private function tulisPotretHarian(int $kolId, array $vids, string $period, string $capturedOn): int
+    {
+        $n = 0;
+        foreach ($vids as $v) {
+            if (($v['content_id'] ?? '') === '') {
+                continue;
+            }
+            KolContentDailySnapshot::updateOrCreate(
+                ['content_id' => $v['content_id'], 'period' => $period, 'captured_on' => $capturedOn],
+                ['kol_id' => $kolId, 'title' => $v['title'] ?: null, 'posted_at' => $v['occurred_at'] ?? null,
+                    'views' => (int) ($v['views'] ?? 0), 'gmv' => (int) ($v['gmv'] ?? 0), 'items_sold' => (int) ($v['items_sold'] ?? 0)],
+            );
+            $n++;
+        }
+
+        return $n;
     }
 
     /**
