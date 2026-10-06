@@ -3,6 +3,8 @@
 @section('heading', 'Produksi (HPP)')
 
 @section('content')
+{{-- Biaya & HPP hanya utk izin Lihat HPP (default super admin); pencatatan produksi tetap bisa. --}}
+@php $lihatHpp = auth()->user()->canDo('view_hpp'); @endphp
 <div class="flex justify-between items-center mb-5 gap-3 flex-wrap">
     <p class="text-xs text-stone-500 max-w-xl">Catat batch produksi: pemakaian bahan + biaya lain, sistem hitung HPP/pcs otomatis. Stok produk jadi bertambah dan HPP produk (rata-rata bergerak) diperbarui.</p>
     <a href="{{ route('productions.create') }}" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 shrink-0">+ Produksi</a>
@@ -17,8 +19,10 @@
                 <th class="text-left">Tanggal</th>
                 <th class="text-left">Produk</th>
                 <th class="text-right">Qty Jadi</th>
+                @if($lihatHpp)
                 <th class="text-right">Total Biaya</th>
                 <th class="text-right pr-4">HPP / Pcs</th>
+                @endif
                 <th class="text-left">Oleh</th>
             </tr>
         </thead>
@@ -31,7 +35,7 @@
                          yang mencari riwayat HPP membukanya dari sini — halaman
                          Produksi (HPP) — lalu buntu karena kolom produknya mati. --}}
                     <td class="font-semibold text-stone-800">
-                        @if($p->product && auth()->user()->canDo('manage_production'))
+                        @if($lihatHpp && $p->product && auth()->user()->canDo('manage_production'))
                             <a href="{{ route('products.hpp-history', $p->product) }}"
                                 class="font-semibold text-stone-800 underline decoration-stone-300 underline-offset-2 hover:text-red-700 hover:decoration-red-600" title="Lihat riwayat HPP {{ $p->product_name }}">{{ $p->product_name }}</a>
                         @else
@@ -39,6 +43,7 @@
                         @endif
                     </td>
                     <td class="text-right text-stone-600">{{ number_format($p->output_qty, 0, ',', '.') }}</td>
+                    @if($lihatHpp)
                     <td class="text-right text-stone-700">Rp {{ number_format($p->total_cost, 0, ',', '.') }}</td>
                     {{-- HPP batch ini, bukan rata-rata bergerak produknya. Dua angka
                          yang gampang tertukar, jadi angkanya sendiri menuju riwayat
@@ -51,10 +56,11 @@
                             Rp {{ number_format($p->hpp_per_unit, 0, ',', '.') }}
                         @endif
                     </td>
+                    @endif
                     <td class="text-stone-400">{{ $p->creator->fullname ?? 'System' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-8 text-center text-stone-400">Belum ada catatan produksi. Klik "+ Produksi".</td></tr>
+                <tr><td colspan="{{ $lihatHpp ? 7 : 5 }}" class="px-4 py-8 text-center text-stone-400">Belum ada catatan produksi. Klik "+ Produksi".</td></tr>
             @endforelse
         </tbody>
     </table>

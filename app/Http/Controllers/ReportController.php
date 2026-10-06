@@ -42,7 +42,10 @@ class ReportController extends Controller
 
         // Partner-breakdown charts + profit are HQ-only.
         if ($user->isStaff()) {
-            $data['grossProfit'] = $this->reports->grossProfit($bulan);
+            // Laba kotor dihitung dari HPP → kartu HPP/laba/margin khusus izin Lihat HPP (default super admin).
+            if ($user->canDo('view_hpp')) {
+                $data['grossProfit'] = $this->reports->grossProfit($bulan);
+            }
             // Rincian per mitra — distributor & reseller sekaligus, dengan angka.
             $data['partnerDetail'] = $this->reports->partnerSalesDetail($bulan);
             $data['salesByDistributor'] = $this->reports->salesByPartner(User::ROLE_DISTRIBUTOR, 10, $bulan);

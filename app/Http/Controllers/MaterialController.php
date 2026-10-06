@@ -96,8 +96,8 @@ class MaterialController extends Controller
             return back()->withErrors(['adjustment_reason' => 'Isi alasan penyesuaian saat mengubah stok.'])->withInput();
         }
 
-        // Only overwrite HPP when a value was actually entered.
-        if (! array_key_exists('avg_cost', $data) || $data['avg_cost'] === null || $data['avg_cost'] === '') {
+        // Only overwrite HPP when a value was actually entered — and only by someone allowed to see HPP.
+        if (! $request->user()->canDo('view_hpp') || ! array_key_exists('avg_cost', $data) || $data['avg_cost'] === null || $data['avg_cost'] === '') {
             unset($data['avg_cost']);
         }
         $beforeStock = (float) $material->stock;

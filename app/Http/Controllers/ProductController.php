@@ -41,7 +41,8 @@ class ProductController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $this->validateData($request);
+        // Tanpa izin Lihat HPP field HPP tak dikirim → produk baru mulai HPP 0 (diisi produksi/stok masuk/super admin).
+        $data = $this->validateData($request) + ['cogs' => 0];
 
         $product = Product::create(Arr::except($data, ['images', 'remove_files']));
 
@@ -115,6 +116,7 @@ class ProductController extends Controller
 
     private function validateData(Request $request, ?Product $product = null): array
     {
+        $lihatHpp = $request->user()->canDo('view_hpp');
         $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'sku' => ['required', 'string', 'max:80', Rule::unique('products', 'sku')->ignore($product?->id)],
@@ -124,7 +126,8 @@ class ProductController extends Controller
             'price_distributor' => ['required', 'numeric', 'min:0'],
             'price_reseller' => ['required', 'numeric', 'min:0'],
             'price_retail' => ['required', 'numeric', 'min:0'],
-            'cogs' => ['required', 'numeric', 'min:0'],
+            // HPP hanya dari yang boleh melihatnya; selainnya diabaikan (edit = HPP lama dipertahankan).
+            'cogs' => $lihatHpp ? ['required', 'numeric', 'min:0'] : ['exclude'],
             'weight_grams' => ['nullable', 'integer', 'min:0'],
             'hq_stock' => ['required', 'integer', 'min:0'],
             'status' => ['required', Rule::in([Product::STATUS_ACTIVE, Product::STATUS_INACTIVE])],

@@ -3,6 +3,8 @@
 @section('heading', 'Catat Produksi')
 
 @section('content')
+{{-- Biaya & HPP hanya utk izin Lihat HPP (default super admin); pencatatan produksi tetap bisa. --}}
+@php $lihatHpp = auth()->user()->canDo('view_hpp'); @endphp
 <a href="{{ route('productions.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke daftar</a>
 
 @if($products->isEmpty() || $materials->isEmpty())
@@ -38,7 +40,8 @@
 
 @push('scripts')
 <script>
-    const MATERIALS = {{ \Illuminate\Support\Js::from($materials->map(fn ($m) => ['id' => $m->id, 'name' => $m->name, 'unit' => $m->unit, 'stock' => (float) $m->stock, 'cost' => (float) $m->avg_cost])) }};
+    const MATERIALS = {{ \Illuminate\Support\Js::from($materials->map(fn ($m) => ['id' => $m->id, 'name' => $m->name, 'unit' => $m->unit, 'stock' => (float) $m->stock] + ($lihatHpp ? ['cost' => (float) $m->avg_cost] : []))) }};
+    const LIHAT_HPP = @json($lihatHpp); // tanpa izin Lihat HPP: kolom harga & ringkasan biaya tak dirender
     const PRODUCTS = {{ \Illuminate\Support\Js::from($products->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku])) }};
     let bi = 0;
 
@@ -84,7 +87,7 @@
                     <div class="overflow-x-auto border border-stone-100 rounded-xl">
                         <table class="w-full text-xs whitespace-nowrap">
                             <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]"><tr>
-                                <th class="text-left px-4 py-2.5">Bahan</th><th class="text-right">Stok</th><th class="text-right">Harga / unit</th><th class="text-right">Qty Pakai</th><th class="text-right">Subtotal</th><th class="pr-4"></th>
+                                <th class="text-left px-4 py-2.5">Bahan</th><th class="text-right">Stok</th>${LIHAT_HPP ? '<th class="text-right">Harga / unit</th>' : ''}<th class="text-right">Qty Pakai</th>${LIHAT_HPP ? '<th class="text-right">Subtotal</th>' : ''}<th class="pr-4"></th>
                             </tr></thead>
                             <tbody data-mat-rows></tbody>
                         </table>
@@ -99,12 +102,12 @@
                         </table>
                     </div>
                 </div>
-                <div class="border-t border-stone-100 pt-3 max-w-xs ml-auto space-y-1.5 text-sm">
+                ${LIHAT_HPP ? `<div class="border-t border-stone-100 pt-3 max-w-xs ml-auto space-y-1.5 text-sm">
                     <div class="flex justify-between"><span class="text-stone-500">Total Biaya Bahan</span><span class="font-semibold" data-sum-mat>Rp 0</span></div>
                     <div class="flex justify-between"><span class="text-stone-500">Total Biaya Lain</span><span class="font-semibold" data-sum-cost>Rp 0</span></div>
                     <div class="flex justify-between border-t border-stone-200 pt-1.5"><span class="font-semibold text-stone-700">Sub Total</span><span class="font-bold text-stone-900" data-sum-total>Rp 0</span></div>
                     <div class="flex justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2"><span class="font-bold text-emerald-700">HPP / Pcs</span><span class="font-bold text-emerald-700 text-base" data-sum-hpp>Rp 0</span></div>
-                </div>
+                </div>` : ''}
             </div>`;
         document.getElementById('blocks').appendChild(div);
         addMat(b); addMat(b); addMat(b);
@@ -121,9 +124,9 @@
         tr.innerHTML = `
             <td class="px-4 py-2"><select name="blocks[${b}][materials][${m}][material_id]" onchange="onMat(this)" class="w-44 px-2 py-1.5 border border-stone-300 rounded-lg">${matOptions()}</select></td>
             <td class="text-right text-stone-500" data-stock>—</td>
-            <td class="text-right"><input type="number" step="0.01" min="0" name="blocks[${b}][materials][${m}][unit_cost]" oninput="recalc()" placeholder="0" class="w-24 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
+            ${LIHAT_HPP ? `<td class="text-right"><input type="number" step="0.01" min="0" name="blocks[${b}][materials][${m}][unit_cost]" oninput="recalc()" placeholder="0" class="w-24 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>` : ''}
             <td class="text-right"><input type="number" step="0.001" min="0" name="blocks[${b}][materials][${m}][quantity]" oninput="recalc()" class="w-20 px-2 py-1.5 border border-stone-300 rounded-lg text-right"></td>
-            <td class="text-right font-semibold text-stone-700" data-sub>Rp 0</td>
+            ${LIHAT_HPP ? '<td class="text-right font-semibold text-stone-700" data-sub>Rp 0</td>' : ''}
             <td class="pr-4 text-right"><button type="button" onclick="this.closest('tr').remove();recalc()" class="text-rose-600 hover:text-rose-800 font-bold"> Hapus </button></td>`;
         blk.querySelector('[data-mat-rows]').appendChild(tr);
     }
@@ -134,7 +137,7 @@
         const tr = sel.closest('tr');
         tr.querySelector('[data-stock]').textContent = m ? fmt(m.stock) + ' ' + m.unit : '—';
         const costInput = tr.querySelector('[name$="[unit_cost]"]');
-        if (m) costInput.value = m.cost; // default to saved HPP, still editable
+        if (m && costInput) costInput.value = m.cost; // default to saved HPP, still editable
         recalc();
     }
 
@@ -183,6 +186,7 @@
     }
 
     function recalc() {
+        if (!LIHAT_HPP) return; // tanpa izin Lihat HPP tak ada angka biaya yang ditampilkan
         document.querySelectorAll('#blocks [data-b]').forEach(blk => {
             let mat = 0;
             blk.querySelectorAll('[data-mat-rows] tr').forEach(tr => {

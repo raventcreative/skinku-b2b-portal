@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Material;
 use App\Models\MaterialPurchase;
+use App\Models\RolePermission;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -13,6 +15,15 @@ use Tests\TestCase;
 class SupplierMaterialTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Tes di kelas ini = pengguna yang boleh mengelola HPP (izin Lihat HPP, default hanya super admin).
+        // Perilaku tanpa izin (HPP disembunyikan, harga tak bisa diubah) ada di HppIzinTest.
+        RolePermission::create(['role' => User::ROLE_ADMIN, 'permission_key' => 'view_hpp', 'allowed' => true]);
+        Permissions::flushCache();
+    }
 
     private function user(string $role): User
     {

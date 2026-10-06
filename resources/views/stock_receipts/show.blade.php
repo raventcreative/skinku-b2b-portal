@@ -3,6 +3,8 @@
 @section('heading', 'Detail Stok Masuk')
 
 @section('content')
+{{-- Harga beli, total biaya & HPP hanya utk izin Lihat HPP (default super admin); input tetap bisa. --}}
+@php $lihatHpp = auth()->user()->canDo('view_hpp'); @endphp
 <a href="{{ route('stock-receipts.index') }}" class="text-xs text-stone-500 hover:text-stone-800">← Kembali ke daftar</a>
 
 <div class="bg-white rounded-2xl border border-stone-200 p-5 mt-3">
@@ -11,10 +13,12 @@
             <h2 class="text-xl font-bold text-stone-900">{{ $receipt->receipt_number }}</h2>
             <p class="text-xs text-stone-500 mt-1">Diterima {{ $receipt->received_at?->format('d M Y') }} · dicatat oleh {{ $receipt->creator->fullname ?? 'System' }}</p>
         </div>
+        @if($lihatHpp)
         <div class="text-right">
             <p class="text-[11px] uppercase tracking-wide text-stone-400 font-semibold">Total Biaya</p>
             <p class="text-2xl font-bold text-stone-900">Rp {{ number_format($receipt->total_cost, 0, ',', '.') }}</p>
         </div>
+        @endif
     </div>
     <div class="grid sm:grid-cols-2 gap-x-8 gap-y-1 mt-4 text-xs text-stone-600">
         <div><span class="text-stone-400">Supplier:</span> {{ $receipt->supplier_name ?: '—' }}</div>
@@ -31,10 +35,12 @@
             <tr>
                 <th class="text-left px-4 py-3">Produk</th>
                 <th class="text-right">Qty</th>
+                @if($lihatHpp)
                 <th class="text-right">Harga Beli / unit</th>
                 <th class="text-right">Subtotal</th>
                 <th class="text-right">HPP Sebelum</th>
                 <th class="text-right pr-4">HPP Sesudah</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -42,10 +48,12 @@
                 <tr class="border-t border-stone-100">
                     <td class="px-4 py-2.5 font-semibold text-stone-800">{{ $item->product_name }}</td>
                     <td class="text-right text-stone-600">{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                    @if($lihatHpp)
                     <td class="text-right text-stone-600">Rp {{ number_format($item->unit_cost, 0, ',', '.') }}</td>
                     <td class="text-right font-semibold text-stone-800">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
                     <td class="text-right text-stone-400">Rp {{ number_format($item->cogs_before, 0, ',', '.') }}</td>
                     <td class="text-right pr-4 font-semibold text-emerald-700">Rp {{ number_format($item->cogs_after, 0, ',', '.') }}</td>
+                    @endif
                 </tr>
             @endforeach
         </tbody>
