@@ -60,7 +60,8 @@ class KolViewsHarianTest extends TestCase
     public function test_views_harian_dari_selisih_potret_video_baru_dan_ganti_bulan(): void
     {
         $k = Kol::create(['tiktok_username' => 'harian', 'followers' => 1]);
-        // A: video lama. Potret 2 Okt = titik awal; 3 Okt 250; 4 Okt 400 → views 2 Okt 150, 3 Okt 150.
+        // A: video lama. Potret 1 Okt sudah tercatat (ada C) tapi A belum muncul → kemarin = 0, jadi potret 2 Okt
+        // (100) seluruhnya views 1 Okt; 3 Okt 250; 4 Okt 400 → views 2 Okt 150, 3 Okt 150.
         $this->snap($k, 'A', '2026-10-01', '2026-10-02', 100);
         $this->snap($k, 'A', '2026-10-01', '2026-10-03', 250);
         $this->snap($k, 'A', '2026-10-01', '2026-10-04', 400);
@@ -69,16 +70,50 @@ class KolViewsHarianTest extends TestCase
         // C: ganti bulan — potret 1 Okt masih period Sep (500), 2 Okt period Okt (30) → views 1 Okt = 30.
         $this->snap($k, 'C', '2026-09-01', '2026-10-01', 500);
         $this->snap($k, 'C', '2026-10-01', '2026-10-02', 30);
-        // D: koreksi TikTok (turun) → 0, bukan negatif.
+        // D: muncul 2 Okt (90, sama spt A → views 1 Okt), lalu koreksi TikTok (turun ke 70) → 0, bukan negatif.
         $this->snap($k, 'D', '2026-10-01', '2026-10-02', 90);
         $this->snap($k, 'D', '2026-10-01', '2026-10-03', 70);
 
         $rep = app(KolViewsHarianService::class)->report(Carbon::parse('2026-10-01'), Carbon::parse('2026-10-03'));
         $row = $rep['rows']->sole();
 
-        $this->assertSame(['2026-10-01' => 30, '2026-10-02' => 150, '2026-10-03' => 230], $row['views']);
-        $this->assertSame(410, $row['total_views']);
-        $this->assertSame(410, array_sum($rep['totals']));
+        // 1 Okt = A 100 + C 30 + D 90; 2 Okt = A 150 + D 0; 3 Okt = A 150 + B 80.
+        $this->assertSame(['2026-10-01' => 220, '2026-10-02' => 150, '2026-10-03' => 230], $row['views']);
+        $this->assertSame(600, $row['total_views']);
+        $this->assertSame(600, array_sum($rep['totals']));
+    }
+
+    public function test_video_lama_aktif_lagi_saat_kemarin_tercatat_dihitung_penuh_hari_pertamanya(): void
+    {
+        $k = Kol::create(['tiktok_username' => 'aktiflagi', 'followers' => 1]);
+        // X dipotret tiap pagi (pencatatan berjalan). Y = video lama (Agustus) yang baru dapat views lagi 2 Sep:
+        // tak ada di potret 2 Sep (= 0 views bulan ini), muncul di potret 3 Sep dgn 500 → seluruhnya views 2 Sep.
+        $this->snap($k, 'X', '2026-09-01', '2026-09-01', 10, '2026-08-01');
+        $this->snap($k, 'X', '2026-09-01', '2026-09-02', 20, '2026-08-01');
+        $this->snap($k, 'X', '2026-09-01', '2026-09-03', 30, '2026-08-01');
+        $this->snap($k, 'Y', '2026-09-01', '2026-09-03', 500, '2026-08-01');
+
+        $row = app(KolViewsHarianService::class)->report(Carbon::parse('2026-09-01'), Carbon::parse('2026-09-02'))['rows']->sole();
+
+        $this->assertSame(['2026-09-01' => 10, '2026-09-02' => 510], $row['views']);
+        $this->assertSame(2, $row['videos']);
+    }
+
+    public function test_hari_yang_belum_dipotret_tetap_titik_awal_agar_tak_menggelembung(): void
+    {
+        $k = Kol::create(['tiktok_username' => 'celah', 'followers' => 1]);
+        // Sync 4 Sep (potret hari 3 Sep) gagal total → tak ada potret 3 Sep utk video mana pun. Y (video lama) baru
+        // muncul di potret 4 Sep: kemarinnya tak tercatat → tak tahu berapa yg lama, jadi hanya titik awal.
+        $this->snap($k, 'X', '2026-09-01', '2026-09-01', 10, '2026-08-01');
+        $this->snap($k, 'X', '2026-09-01', '2026-09-02', 20, '2026-08-01');
+        $this->snap($k, 'X', '2026-09-01', '2026-09-04', 40, '2026-08-01');
+        $this->snap($k, 'Y', '2026-09-01', '2026-09-04', 300, '2026-08-01');
+
+        $row = app(KolViewsHarianService::class)->report(Carbon::parse('2026-09-01'), Carbon::parse('2026-09-03'))['rows']->sole();
+
+        // X lintas celah: selisih 2 hari masuk ke 3 Sep (perilaku lama). Y tak dihitung.
+        $this->assertSame(['2026-09-01' => 10, '2026-09-02' => 0, '2026-09-03' => 20], $row['views']);
+        $this->assertSame(1, $row['videos']);
     }
 
     public function test_halaman_dan_export_butuh_izin_affiliate(): void

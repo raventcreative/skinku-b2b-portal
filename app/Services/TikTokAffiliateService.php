@@ -12,6 +12,7 @@ use App\Models\KolUsernameAlias;
 use App\Models\TiktokAffiliateConnection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Sinkron order affiliate TikTok (Affiliate Seller API) → pipeline
@@ -206,6 +207,11 @@ class TikTokAffiliateService
                 break;
             }
             $seen[$pt] = true;
+        }
+        if ($page >= $maxPages && $pt !== '') {
+            // Masih ada halaman tapi kena batas → data terpotong. Report views harian mengandalkan potret LENGKAP
+            // (video absen = 0 views), jadi jangan sampai terpotong diam-diam.
+            Log::warning("[tiktok-affiliate] {$type}: berhenti di batas {$maxPages} halaman, data terpotong — naikkan maxPages.");
         }
 
         return $byUser;
