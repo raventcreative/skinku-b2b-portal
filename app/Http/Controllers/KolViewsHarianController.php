@@ -21,6 +21,10 @@ class KolViewsHarianController extends Controller
         $q = mb_strtolower(trim((string) $request->query('q', '')));
         if ($q !== '') {
             $rep['rows'] = $rep['rows']->filter(fn ($r) => str_contains(mb_strtolower($r['kol']->tiktok_username.' '.$r['kol']->name), $q))->values();
+            // Baris total ikut hasil pencarian (dulu tetap total semua kreator, tak cocok dgn "Total N kreator").
+            foreach ($rep['dates'] as $d) {
+                $rep['totals'][$d] = (int) $rep['rows']->sum(fn ($r) => $r['views'][$d]);
+            }
         }
 
         return view('kols.views_harian', $rep + ['from' => $from, 'to' => $to, 'q' => $q]);

@@ -140,6 +140,21 @@ class KolViewsHarianTest extends TestCase
         $this->assertSame(['2026-09-01' => 10, '2026-09-02' => 0, '2026-09-03' => 20], $row['views']);
     }
 
+    public function test_cari_kreator_baris_total_ikut_hasil_pencarian(): void
+    {
+        $bulan = now()->startOfMonth()->toDateString();
+        $a = Kol::create(['tiktok_username' => 'dicari', 'followers' => 1]);
+        $b = Kol::create(['tiktok_username' => 'lainnya', 'followers' => 1]);
+        $this->snap($a, 'A', $bulan, now()->subDays(2)->toDateString(), 100);
+        $this->snap($a, 'A', $bulan, now()->subDay()->toDateString(), 175);
+        $this->snap($b, 'B', $bulan, now()->subDays(2)->toDateString(), 1000);
+        $this->snap($b, 'B', $bulan, now()->subDay()->toDateString(), 3000);
+
+        $this->actingAs($this->user(User::ROLE_SUPER_ADMIN, 'sacari'))->get(route('kol-views-harian.index', ['q' => 'dicari']))
+            ->assertOk()->assertSee('@dicari')->assertDontSee('@lainnya')
+            ->assertDontSee('2.075'); // dulu baris total tetap menjumlah semua kreator (75 + 2.000)
+    }
+
     public function test_halaman_dan_export_butuh_izin_affiliate(): void
     {
         $k = Kol::create(['tiktok_username' => 'tampil', 'followers' => 1]);
