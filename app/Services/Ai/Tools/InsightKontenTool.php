@@ -37,7 +37,8 @@ class InsightKontenTool extends BaseTool
         return [
             'type' => 'object',
             'properties' => [
-                'hari' => ['type' => 'integer', 'enum' => KontenInsightService::PERIODS, 'description' => 'Periode terbit: 7, 30, atau 90 hari terakhir. Default 30.'],
+                // Sengaja tanpa 'enum' angka — sebagian provider (mis. Gemini via router OpenAI-compatible) hanya menerima enum string.
+                'hari' => ['type' => 'integer', 'description' => 'Periode terbit: 7, 30, atau 90 hari terakhir (nilai lain → 30). Default 30.'],
                 'platform' => ['type' => 'string', 'enum' => ['semua', 'instagram', 'tiktok'], 'description' => 'Default semua.'],
             ],
             'required' => [],
