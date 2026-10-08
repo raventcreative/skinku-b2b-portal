@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasFiles;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 /**
  * Konten creator → antre/jadwal → terbit ke akun brand per platform.
@@ -97,6 +99,56 @@ class ContentPost extends Model
     public function statusLabel(): string
     {
         return self::STATUS_LABELS[$this->status] ?? $this->status;
+    }
+
+    /** Tahap Pipeline Konten → status post; 'attention' (perlu tindakan) lewat scopePerluTindakan. */
+    public const TAHAP_STATUS = [
+        'draft' => [self::DRAFT],
+        'scheduled' => [self::SCHEDULED],
+        'publishing' => [self::PUBLISHING],
+        'published' => [self::DONE],
+    ];
+
+    /** Pengelola lintas creator (lihat & kelola konten semua creator): super admin / content.manage. */
+    public static function lintasCreator(User $user): bool
+    {
+        return $user->isSuperAdmin() || $user->canDo('content.manage');
+    }
+
+    /** Konten yang boleh dilihat di Pipeline & Kalender: pengelola semua creator, creator hanya miliknya. */
+    public function scopeTerlihatOleh(Builder $q, User $user): Builder
+    {
+        return $q->when(! self::lintasCreator($user), fn ($q) => $q->where('user_id', $user->id));
+    }
+
+    /** Perlu tindakan: terbit sebagian/gagal, atau ada platform gagal / menunggu posting manual. */
+    public function scopePerluTindakan(Builder $q): Builder
+    {
+        return $q->where(fn ($w) => $w->whereIn('status', [self::PARTIAL, self::FAILED])
+            ->orWhereHas('targets', fn ($t) => $t->whereIn('status', [ContentPostTarget::FAILED, ContentPostTarget::MANUAL_PENDING])));
+    }
+
+    /** Saring tahap Pipeline: all | draft | scheduled | publishing | attention | published (lainnya = semua). */
+    public function scopeTahap(Builder $q, string $tahap): Builder
+    {
+        return match (true) {
+            $tahap === 'attention' => $q->perluTindakan(),
+            isset(self::TAHAP_STATUS[$tahap]) => $q->whereIn('status', self::TAHAP_STATUS[$tahap]),
+            default => $q,
+        };
+    }
+
+    /**
+     * Angka kartu tahap Pipeline Konten untuk user ini (halaman & alat AI pipeline_konten).
+     *
+     * @return array{per_status:Collection<string,int>,perlu_tindakan:int}
+     */
+    public static function hitungTahap(User $user): array
+    {
+        return [
+            'per_status' => self::query()->terlihatOleh($user)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
+            'perlu_tindakan' => self::query()->terlihatOleh($user)->perluTindakan()->count(),
+        ];
     }
 
     /**
