@@ -9,3 +9,9 @@
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+
+# Berkas Windows WAJIB berakhiran CRLF. Dengan LF, label dan goto di .bat
+# bisa tidak terbaca dan peluncurnya gagal jalan di komputer pengguna.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
