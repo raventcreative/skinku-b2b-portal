@@ -20,6 +20,7 @@
                 <th class="text-left px-4 py-3">Waktu</th>
                 <th class="text-left">Aksi</th>
                 <th class="text-left">Target</th>
+                <th class="text-left px-3">Perubahan</th>
                 <th class="text-left">Dilakukan Oleh</th>
                 <th class="text-left">IP</th>
             </tr>
@@ -29,12 +30,22 @@
                 <tr class="border-t border-stone-100 hover:bg-stone-50">
                     <td class="px-4 py-2 text-stone-500 whitespace-nowrap">{{ $log->created_at?->format('d M Y H:i:s') }}</td>
                     <td><span class="px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 font-semibold">{{ $log->action }}</span></td>
-                    <td class="text-stone-600">{{ $log->target_type }}{{ $log->target_id ? ' #'.$log->target_id : '' }}<br><span class="text-[10px] text-stone-400">{{ $log->target_email }}</span></td>
+                    <td class="text-stone-600">
+                        @if($nama = $namaTarget[$log->target_type.':'.$log->target_id] ?? null)<span class="font-semibold text-stone-700">{{ $nama }}</span><br>@endif
+                        {{ $log->target_type }}{{ $log->target_id ? ' #'.$log->target_id : '' }}<br><span class="text-[10px] text-stone-400">{{ $log->target_email }}</span>
+                    </td>
+                    {{-- Isi before → after; dipotong 6 baris supaya tabel tetap ringkas. --}}
+                    <td class="px-3 py-2 align-top whitespace-normal text-[11px] text-stone-600 min-w-[220px] max-w-md">
+                        @php $perubahan = $log->ringkasPerubahan(); @endphp
+                        @foreach(array_slice($perubahan, 0, 6) as $baris)<div class="break-words">{{ $baris }}</div>@endforeach
+                        @if(count($perubahan) > 6)<div class="text-stone-400">+{{ count($perubahan) - 6 }} lagi</div>@endif
+                        @if(! $perubahan)<span class="text-stone-300">—</span>@endif
+                    </td>
                     <td class="text-stone-600">{{ $log->performed_by_email ?? ($log->performer->fullname ?? 'System') }}</td>
                     <td class="text-stone-400">{{ $log->ip_address }}</td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="px-4 py-6 text-center text-stone-400">Belum ada log audit.</td></tr>
+                <tr><td colspan="6" class="px-4 py-6 text-center text-stone-400">Belum ada log audit.</td></tr>
             @endforelse
         </tbody>
     </table>
