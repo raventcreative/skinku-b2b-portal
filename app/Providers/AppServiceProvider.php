@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\CommunityLink;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderFactory;
+use App\Services\Ai\Tools\AcademyTool;
 use App\Services\Ai\Tools\AkunSosmedTool;
 use App\Services\Ai\Tools\BahanBakuTool;
 use App\Services\Ai\Tools\BuatKartuKanbanTool;
@@ -15,12 +16,14 @@ use App\Services\Ai\Tools\DealKolTool;
 use App\Services\Ai\Tools\DormansiMemberTool;
 use App\Services\Ai\Tools\InsightKontenTool;
 use App\Services\Ai\Tools\JaringanSayaTool;
+use App\Services\Ai\Tools\KalkulatorRoiTool;
 use App\Services\Ai\Tools\KomisiTool;
 use App\Services\Ai\Tools\KontenViewsKolTool;
 use App\Services\Ai\Tools\LaporanBisnisTool;
 use App\Services\Ai\Tools\LaporanKeuanganTool;
 use App\Services\Ai\Tools\LaporanPenjualanTool;
 use App\Services\Ai\Tools\LaporanStokHqTool;
+use App\Services\Ai\Tools\OkrTool;
 use App\Services\Ai\Tools\OmzetMitraTool;
 use App\Services\Ai\Tools\PaketJoinTool;
 use App\Services\Ai\Tools\PemantauanStokTool;
@@ -41,6 +44,7 @@ use App\Services\Ai\Tools\RingkasMindmapTool;
 use App\Services\Ai\Tools\StokMarketplaceTool;
 use App\Services\Ai\Tools\StokOpnameTool;
 use App\Services\Ai\Tools\StrukturJaringanTool;
+use App\Services\Ai\Tools\SupplierTool;
 use App\Services\Ai\Tools\TambahMindmapTool;
 use App\Services\Ai\Tools\TimGapokTool;
 use App\Services\Ai\Tools\ToolRegistry;
@@ -118,6 +122,11 @@ class AppServiceProvider extends ServiceProvider
             new PipelineKontenTool,
             $app->make(InsightKontenTool::class),
             $app->make(AkunSosmedTool::class),
+            // Lain-lain
+            new SupplierTool,
+            $app->make(KalkulatorRoiTool::class),
+            new OkrTool,
+            new AcademyTool,
         ]));
     }
 

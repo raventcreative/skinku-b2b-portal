@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasFiles;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class Lesson extends Model
 {
@@ -127,6 +128,16 @@ class Lesson extends Model
         }
 
         return in_array($user->role, $this->audience, true);
+    }
+
+    /** Materi di halaman Academy untuk user ini: pengelola (manage_learning) semua, lainnya terbit & sesuai audiens. */
+    public static function terlihatUntuk(User $user): Collection
+    {
+        $kelola = $user->canDo('manage_learning');
+
+        return self::query()->orderBy('sort_order')->orderByDesc('id')->get()
+            ->filter(fn (self $l) => $kelola || $l->visibleTo($user))
+            ->values();
     }
 
     public function module()
