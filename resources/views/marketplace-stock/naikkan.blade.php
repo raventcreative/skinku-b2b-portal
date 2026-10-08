@@ -18,6 +18,16 @@
         @unless($terhubung)
             <p class="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Toko Shopee belum terhubung — hubungkan dulu di menu Integrasi → Shopee.</p>
         @endunless
+        @if($slotLain->isNotEmpty())
+            {{-- Slot dibagi satu toko: yang dinaikkan Desty / manual di Seller Centre ikut memakai jatah 5. --}}
+            <div class="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p><b>{{ $slotLain->count() }} dari {{ $maks }} slot toko dipakai produk lain</b> (bukan pilihan di sini — mis. dari Desty atau dinaikkan manual di Seller Centre). Matikan Naikkan Produk di Desty supaya slotnya dipakai produk pilihan di bawah.</p>
+                <ul class="mt-1 space-y-0.5">
+                    @foreach($slotLain as $s)<li>• {{ \Illuminate\Support\Str::limit($s['judul'], 70) }} — sisa {{ intdiv($s['menit'], 60) }}j {{ $s['menit'] % 60 }}m</li>@endforeach
+                </ul>
+                @if($dicek)<p class="mt-1 text-amber-700">Dicek {{ $dicek->translatedFormat('d M H:i') }}.</p>@endif
+            </div>
+        @endif
         <div class="mt-4 flex flex-wrap gap-2">
             <form method="POST" action="{{ route('shopee-naikkan.aktif') }}">@csrf
                 <input type="hidden" name="aktif" value="{{ $aktif ? 0 : 1 }}">
@@ -41,7 +51,7 @@
                 <tr>
                     <th class="px-4 py-2 text-left font-medium">Produk</th>
                     <th class="px-4 py-2 text-left font-medium">Status</th>
-                    <th class="px-4 py-2 text-left font-medium">Terakhir naik</th>
+                    <th class="px-4 py-2 text-left font-medium">Naik terakhir → berikutnya</th>
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -49,21 +59,36 @@
             @forelse($dipilih as $it)
                 <tr class="align-top">
                     <td class="px-4 py-3">
-                        <div class="font-medium text-stone-800 leading-snug line-clamp-2" title="{{ $it->title }}">{{ $it->title }}</div>
-                        <div class="mt-0.5 text-[11px] text-stone-400 font-mono">Item {{ $it->item_id }}</div>
+                        <div class="flex items-start gap-3">
+                            @if($foto[$it->item_id] ?? null)
+                                <img src="{{ $foto[$it->item_id] }}" alt="" class="w-10 h-10 shrink-0 rounded-lg object-cover border border-stone-200">
+                            @else
+                                <div class="w-10 h-10 shrink-0 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-300 text-[10px]">no img</div>
+                            @endif
+                            <div class="min-w-0">
+                                <div class="font-medium text-stone-800 leading-snug line-clamp-2" title="{{ $it->title }}">{{ $it->title }}</div>
+                                <div class="mt-0.5 text-[11px] text-stone-400 font-mono">Item {{ $it->item_id }}</div>
+                            </div>
+                        </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
                         @if($it->sedangNaik())
                             @php $menit = (int) now()->diffInMinutes($it->boosted_until); @endphp
                             <span data-status-naik class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700">Sedang naik · sisa {{ intdiv($menit, 60) }}j {{ $menit % 60 }}m</span>
+                        @elseif($it->last_status === 'penuh')
+                            <span data-status-naik class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-amber-100 text-amber-800">Menunggu slot kosong</span>
+                            <div class="mt-1 text-[11px] text-amber-700 whitespace-normal break-words max-w-[260px]">{{ $it->last_error }}</div>
                         @elseif($it->last_status === 'failed')
                             <span data-status-naik class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-rose-50 text-rose-700">Gagal</span>
                             <div class="mt-1 text-[11px] text-rose-600 whitespace-normal break-words max-w-[260px]" title="{{ $it->last_error }}">{{ \Illuminate\Support\Str::limit($it->last_error, 120) }}</div>
                         @else
-                            <span data-status-naik class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-stone-100 text-stone-500">{{ $aktif ? 'Menunggu dinaikkan' : 'Saklar mati' }}</span>
+                            <span data-status-naik class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-stone-100 text-stone-500">{{ $aktif ? 'Menunggu putaran '.$putaranBerikut->format('H.i') : 'Saklar mati' }}</span>
                         @endif
                     </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-xs text-stone-600">{{ $it->last_boosted_at?->translatedFormat('d M Y H:i') ?? '—' }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-xs text-stone-600">
+                        {{ $it->last_boosted_at?->translatedFormat('d M H:i') ?? '—' }}
+                        @if($it->sedangNaik())<div class="mt-0.5 text-[11px] text-stone-400">berikutnya {{ $it->boosted_until->translatedFormat('d M H:i') }}</div>@endif
+                    </td>
                     <td class="px-4 py-3 text-right">
                         <form method="POST" action="{{ route('shopee-naikkan.hapus', $it) }}" onsubmit="return confirm('Hapus produk ini dari Naikkan Produk?')">@csrf @method('DELETE')
                             <button class="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50">Hapus</button>

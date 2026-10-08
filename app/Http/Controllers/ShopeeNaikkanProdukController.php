@@ -10,6 +10,7 @@ use App\Services\AuditService;
 use App\Services\ShopeeBoostService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
@@ -25,13 +26,24 @@ class ShopeeNaikkanProdukController extends Controller
     public function index(): View
     {
         $dipilih = ShopeeBoostItem::orderBy('id')->get();
+        $produk = $this->produkShopee();
+        // Slot toko yang dipakai produk LAIN (mis. dari Desty / Seller Centre) menurut putaran terakhir — yang sudah habis dibuang.
+        $slot = $this->boost->slotTerakhir();
+        $lain = collect($slot['lain'])->map(fn ($s) => ['judul' => $produk[$s['item_id']] ?? 'Item '.$s['item_id'],
+            'menit' => (int) ceil(now()->diffInSeconds(Carbon::parse($s['sampai']), false) / 60)])->filter(fn ($s) => $s['menit'] > 0)->values();
+        $sekarang = now();
 
         return view('marketplace-stock.naikkan', [
             'aktif' => $this->boost->aktif(),
             'terhubung' => ShopeeConnection::exists(),
             'dipilih' => $dipilih,
-            'kandidat' => $this->produkShopee()->except($dipilih->pluck('item_id')->all()),
+            'kandidat' => $produk->except($dipilih->pluck('item_id')->all()),
             'maks' => ShopeeBoostService::MAKS,
+            'slotLain' => $lain,
+            'dicek' => $slot['dicek'] ? Carbon::parse($slot['dicek']) : null,
+            // Putaran cron berikutnya (tiap 10 menit: :00, :10, …).
+            'putaranBerikut' => $sekarang->copy()->addMinutes(10 - $sekarang->minute % 10)->second(0),
+            'foto' => $this->fotoProduk($dipilih->pluck('item_id')->all()),
         ]);
     }
 
@@ -83,11 +95,22 @@ class ShopeeNaikkanProdukController extends Controller
 
         return match ($h['status']) {
             'ok' => back()->with('status', "Selesai: {$h['naik']} produk dinaikkan, {$h['sedang_naik']} masih dalam masa naik"
+                .(($h['menunggu_slot'] ?? 0) ? ", {$h['menunggu_slot']} menunggu slot kosong" : '')
                 .($h['gagal'] ? ", {$h['gagal']} gagal — alasannya ada di tabel." : '.')),
+            'slot_penuh' => back()->with('error', $h['pesan']),
             'kosong' => back()->with('error', 'Belum ada produk yang dipilih.'),
             'belum_terhubung' => back()->with('error', 'Toko Shopee belum terhubung (menu Integrasi → Shopee).'),
             default => back()->with('error', 'Gagal menghubungi Shopee: '.($h['pesan'] ?? $h['status'])),
         };
+    }
+
+    /** Foto produk pilihan (dari master yang tertaut ke listing Shopee): item_id => url. */
+    private function fotoProduk(array $itemIds): array
+    {
+        return MarketplaceListing::with('master')->where('channel', 'shopee')->whereIn('item_id', array_map('strval', $itemIds))->get()
+            ->groupBy(fn (MarketplaceListing $l) => (int) $l->item_id)
+            ->map(fn ($g) => $g->map(fn (MarketplaceListing $l) => $l->master?->imageUrl())->filter()->first())
+            ->filter()->all();
     }
 
     /** Produk Shopee di listing Stok Marketplace: item_id => judul (naik per produk; varian satu item digabung). */
