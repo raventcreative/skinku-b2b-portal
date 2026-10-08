@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class KolDeal extends Model
 {
@@ -103,6 +105,49 @@ class KolDeal extends Model
             && $this->total_biaya > 0
             && $this->periode_selesai !== null
             && $this->periode_selesai->isPast();
+    }
+
+    /** Deal bulan itu = periode_mulai di bulan tsb (fallback created_at bila periode kosong) — filter bulan halaman Deal. */
+    public function scopeBulan(Builder $q, Carbon $bulan): Builder
+    {
+        $start = $bulan->copy()->startOfMonth();
+        $end = $bulan->copy()->endOfMonth();
+
+        return $q->where(fn ($w) => $w->whereBetween('periode_mulai', [$start, $end])
+            ->orWhere(fn ($x) => $x->whereNull('periode_mulai')->whereBetween('created_at', [$start, $end])));
+    }
+
+    /**
+     * Laporan Hasil Deal (halaman & alat AI deal_kol): deal yang laporannya sudah diisi, urut verdict (Bagus → Belum)
+     * lalu terbaru, + total. Biaya/revenue/CPM/ROMI hanya boleh ditampilkan ke pemegang kol.deal.finance.
+     *
+     * @return array{deals:Collection<int,self>,totals:array{biaya:int,views:int,revenue:int,video_upload:int,video_fyp:int,cpm:?int,romi:?float}}
+     */
+    public static function laporanHasil(?string $tujuan = null, ?string $status = null): array
+    {
+        $deals = self::query()->with('kol')->whereNotNull('hasil_diisi_at')
+            ->when($tujuan, fn ($q, $v) => $q->where('hasil_tujuan', $v))
+            ->when($status, fn ($q, $v) => $q->where('status', $v))
+            ->get();
+
+        $rank = [self::VERDICT_BAGUS => 3, self::VERDICT_CUKUP => 2, self::VERDICT_JELEK => 1, self::VERDICT_BELUM => 0];
+        $deals = $deals->sortByDesc(
+            fn (self $d) => ($rank[$d->hasil_verdict] ?? 0) * 100_000_000_000 + (optional($d->hasil_diisi_at)->timestamp ?? 0)
+        )->values();
+
+        $totBiaya = (int) $deals->sum('total_biaya');
+        $totViews = (int) $deals->sum('hasil_views');
+        $totRevenue = (int) $deals->sum('hasil_revenue');
+
+        return ['deals' => $deals, 'totals' => [
+            'biaya' => $totBiaya,
+            'views' => $totViews,
+            'revenue' => $totRevenue,
+            'video_upload' => (int) $deals->sum('hasil_video_upload'),
+            'video_fyp' => (int) $deals->sum('hasil_video_fyp'),
+            'cpm' => $totViews > 0 ? (int) round($totBiaya / $totViews * 1000) : null,
+            'romi' => $totBiaya > 0 ? round($totRevenue / $totBiaya, 2) : null,
+        ]];
     }
 
     public function dealTypeLabel(): string

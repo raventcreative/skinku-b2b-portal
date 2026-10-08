@@ -27,12 +27,7 @@ class KolDealController extends Controller
         $deals = KolDeal::query()
             ->with(['kol.latestScreening', 'pic', 'campaign'])
             ->when($request->query('status'), fn ($q, $v) => $q->where('status', $v))
-            ->when($bulan, function ($q) use ($m) {
-                $start = $m->copy()->startOfMonth();
-                $end = $m->copy()->endOfMonth();
-                $q->where(fn ($w) => $w->whereBetween('periode_mulai', [$start, $end])
-                    ->orWhere(fn ($x) => $x->whereNull('periode_mulai')->whereBetween('created_at', [$start, $end])));
-            })
+            ->when($bulan, fn ($q) => $q->bulan($m))
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
@@ -132,35 +127,9 @@ class KolDealController extends Controller
         $tujuan = $request->query('tujuan');
         $status = $request->query('status');
 
-        $deals = KolDeal::query()
-            ->with('kol')
-            ->whereNotNull('hasil_diisi_at')
-            ->when($tujuan, fn ($q, $v) => $q->where('hasil_tujuan', $v))
-            ->when($status, fn ($q, $v) => $q->where('status', $v))
-            ->get();
-
-        $rank = [KolDeal::VERDICT_BAGUS => 3, KolDeal::VERDICT_CUKUP => 2, KolDeal::VERDICT_JELEK => 1, KolDeal::VERDICT_BELUM => 0];
-        $deals = $deals->sortByDesc(
-            fn (KolDeal $d) => ($rank[$d->hasil_verdict] ?? 0) * 100_000_000_000 + (optional($d->hasil_diisi_at)->timestamp ?? 0)
-        )->values();
-
-        $totBiaya = (int) $deals->sum('total_biaya');
-        $totViews = (int) $deals->sum('hasil_views');
-        $totRevenue = (int) $deals->sum('hasil_revenue');
-
-        return view('kol_deals.laporan', [
-            'deals' => $deals,
+        return view('kol_deals.laporan', KolDeal::laporanHasil($tujuan, $status) + [
             'tujuan' => $tujuan,
             'status' => $status,
-            'totals' => [
-                'biaya' => $totBiaya,
-                'views' => $totViews,
-                'revenue' => $totRevenue,
-                'video_upload' => (int) $deals->sum('hasil_video_upload'),
-                'video_fyp' => (int) $deals->sum('hasil_video_fyp'),
-                'cpm' => $totViews > 0 ? (int) round($totBiaya / $totViews * 1000) : null,
-                'romi' => $totBiaya > 0 ? round($totRevenue / $totBiaya, 2) : null,
-            ],
         ]);
     }
 

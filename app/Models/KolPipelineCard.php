@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class KolPipelineCard extends Model
 {
@@ -89,6 +91,26 @@ class KolPipelineCard extends Model
     public function isActive(): bool
     {
         return ! self::isTerminalStage($this->stage);
+    }
+
+    /**
+     * Angka header papan (halaman Pipeline & alat AI pipeline_kol): kartu aktif, terlambat, next action hari ini/besok,
+     * tanpa next action. Kartu tahap akhir tak dihitung.
+     *
+     * @return array{aktif:int,terlambat:int,dekat:int,tanpa_aksi:int}
+     */
+    public static function statistik(Collection $cards, ?Carbon $today = null): array
+    {
+        $today ??= now()->startOfDay();
+        $besok = $today->copy()->addDay()->endOfDay();
+        $aktif = $cards->filter->isActive();
+
+        return [
+            'aktif' => $aktif->count(),
+            'terlambat' => $aktif->filter(fn ($c) => $c->next_action_at?->lt($today))->count(),
+            'dekat' => $aktif->filter(fn ($c) => $c->next_action_at?->between($today, $besok))->count(),
+            'tanpa_aksi' => $aktif->filter(fn ($c) => ! $c->next_action_at)->count(),
+        ];
     }
 
     public function scopeActive($q)
