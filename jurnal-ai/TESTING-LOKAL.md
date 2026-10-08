@@ -35,13 +35,42 @@ lalu simpan. (Laragon/XAMPP biasanya sudah aktif.)
 
 Tidak punya SQLite dan malas mengaktifkan? Lihat bagian **Pakai MySQL** di bawah.
 
+## 0b. Pastikan repo-nya ada di komputer ini
+
+Semua perintah berikutnya dijalankan DARI DALAM folder `jurnal-ai`. Kalau salah
+folder, semua gagal dengan `Could not open input file: artisan`.
+
+Cari repo-nya dulu — **Windows (PowerShell):**
+
+```powershell
+Get-ChildItem C:\ -Directory -Filter "skinku-b2b-portal" -Recurse -Depth 4 -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty FullName
+```
+
+**Mac / Linux:**
+
+```bash
+find ~ -maxdepth 4 -type d -name skinku-b2b-portal 2>/dev/null
+```
+
+**Belum pernah di-clone di komputer ini?** Clone saja, tidak mengganggu apa pun:
+
+```
+cd $HOME/Documents          # PowerShell: cd $HOME\Documents
+git clone https://github.com/raventcreative/skinku-b2b-portal.git
+cd skinku-b2b-portal
+```
+
+Repo ini private — saat clone akan diminta login GitHub (di Windows biasanya
+terbuka jendela browser otomatis lewat Git Credential Manager).
+
 ## 1. Setup (sekali saja, ±2 menit)
 
 **Windows (PowerShell)** — `&&` tidak jalan di PowerShell 5.1, jalankan
 baris per baris:
 
 ```powershell
-cd C:\path\ke\skinku-b2b-portal
+cd <path hasil langkah 0b>     # mis. C:\Users\DELL\Documents\skinku-b2b-portal
 git fetch origin claude/quirky-cori-kbvckj
 git checkout claude/quirky-cori-kbvckj
 cd jurnal-ai
@@ -240,6 +269,8 @@ sebelum kamu mengubah apa pun, itu bug — laporkan.
 
 | Gejala | Sebabnya biasanya |
 |---|---|
+| `Could not open input file: artisan` | Salah folder — kamu belum `cd` ke dalam `jurnal-ai`. Lihat bagian 0b |
+| `Composer could not find a composer.json file` | Sama: salah folder |
 | `could not find driver` | Ekstensi `pdo_sqlite` belum aktif — lihat bagian 0 |
 | `The token '&&' is not a valid statement separator` | PowerShell 5.1 tidak mendukung `&&` — jalankan perintahnya satu per satu, atau ganti `&&` jadi `;` |
 | `touch` / `rm` tidak dikenali | Itu perintah Mac/Linux — pakai padanan PowerShell di bagian 1 & 5 |
