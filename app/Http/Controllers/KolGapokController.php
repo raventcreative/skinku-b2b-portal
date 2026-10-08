@@ -80,7 +80,7 @@ class KolGapokController extends Controller
 
         $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
             ? (string) $request->query('bulan') : now()->format('Y-m');
-        $m = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $m = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
 
         return [$m->copy()->startOfMonth(), $m->copy()->endOfMonth(), 'month', $m->translatedFormat('F Y')];
     }
@@ -109,7 +109,7 @@ class KolGapokController extends Controller
     {
         $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
             ? (string) $request->query('bulan') : now()->format('Y-m');
-        $period = Carbon::createFromFormat('Y-m', $month)->startOfMonth()->toDateString();
+        $period = Carbon::createFromFormat('!Y-m', $month)->startOfMonth()->toDateString();
 
         $items = KolCreatorContent::where('kol_id', $kol->id)->where('period', $period)
             ->orderByDesc('gmv')->get();
@@ -163,7 +163,7 @@ class KolGapokController extends Controller
             'monthly_salary' => ['required', 'integer', 'min:0'],
             'note' => ['nullable', 'string', 'max:255'],
         ]);
-        $m = Carbon::createFromFormat('Y-m', $d['bulan'])->startOfMonth();
+        $m = Carbon::createFromFormat('!Y-m', $d['bulan'])->startOfMonth();
         $svc->setSalary((int) $d['kol_id'], $m, (int) $d['monthly_salary'], $d['note'] ?? null, $request->user()->id);
 
         if ($request->wantsJson()) {
@@ -199,7 +199,7 @@ class KolGapokController extends Controller
             'paid_at' => ['required', 'date'],
             'note' => ['nullable', 'string', 'max:255'],
         ]);
-        $m = Carbon::createFromFormat('Y-m', $d['bulan'])->startOfMonth();
+        $m = Carbon::createFromFormat('!Y-m', $d['bulan'])->startOfMonth();
         $p = $svc->addPayment((int) $d['kol_id'], $m, (int) $d['amount'], Carbon::parse($d['paid_at']), $d['note'] ?? null, $request->user()->id);
 
         AuditService::log(action: 'add_gapok_payment', targetType: 'kol', targetId: (int) $d['kol_id'],

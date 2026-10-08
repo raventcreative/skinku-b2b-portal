@@ -22,7 +22,7 @@ class KolDealController extends Controller
         // Month picker: bulan budget & (opsional) filter deal. Tanpa ?bulan =
         // budget bulan berjalan + daftar semua deal (perilaku lama, kompatibel).
         $bulan = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan')) ? (string) $request->query('bulan') : null;
-        $m = $bulan ? Carbon::createFromFormat('Y-m', $bulan)->startOfMonth() : now()->startOfMonth();
+        $m = $bulan ? Carbon::createFromFormat('!Y-m', $bulan)->startOfMonth() : now()->startOfMonth();
 
         $deals = KolDeal::query()
             ->with(['kol.latestScreening', 'pic', 'campaign'])

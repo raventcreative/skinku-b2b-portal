@@ -29,7 +29,7 @@ class TikTokAffiliateContentSyncCommand extends Command
 
         $opt = (string) $this->option('month');
         $month = preg_match('/^\d{4}-\d{2}$/', $opt)
-            ? Carbon::createFromFormat('Y-m', $opt)->startOfMonth()
+            ? Carbon::createFromFormat('!Y-m', $opt)->startOfMonth()
             : now()->startOfMonth();
 
         try {

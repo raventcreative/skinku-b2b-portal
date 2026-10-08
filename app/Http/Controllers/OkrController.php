@@ -272,7 +272,7 @@ class OkrController extends Controller
     private function period(array $data): array
     {
         if ($data['period_type'] === OkrCycle::PERIOD_MONTHLY) {
-            $start = Carbon::createFromFormat('Y-m', $data['period_month'])->startOfMonth();
+            $start = Carbon::createFromFormat('!Y-m', $data['period_month'])->startOfMonth();
 
             return [
                 'period_label' => $start->translatedFormat('F Y'),
