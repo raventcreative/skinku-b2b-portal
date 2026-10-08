@@ -278,6 +278,34 @@ class OkrTest extends TestCase
         $this->assertStringContainsString('MONTHLYOWNER', $cycle->scopeLabel());
     }
 
+    public function test_periode_bulanan_tetap_benar_walau_disusun_tanggal_31(): void
+    {
+        // Bulan 30 hari dipilih tanggal 31: dulu "31 September" meluap jadi Oktober.
+        Carbon::setTestNow('2026-10-31 10:00:00');
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'okr31');
+        [$board, $todo] = $this->board($super);
+        $this->app->instance(AiProvider::class, $this->fakeDraft($super, $todo->id, [
+            'objectives' => [[
+                'key_results' => [[
+                    'due_date' => '2026-09-30',
+                    'tasks' => [['due_date' => '2026-09-20']],
+                ]],
+            ]],
+        ]));
+
+        $this->actingAs($super)->post(route('okr.generate'), [
+            'period_type' => 'monthly',
+            'period_month' => '2026-09',
+            'scope_type' => 'company',
+            'preferred_board_id' => $board->id,
+            'direction' => 'Buat OKR bulanan.',
+        ])->assertRedirect();
+
+        $cycle = OkrCycle::firstOrFail();
+        $this->assertSame(['2026-09-01', '2026-09-30'], [$cycle->start_date->toDateString(), $cycle->end_date->toDateString()]);
+        Carbon::setTestNow();
+    }
+
     public function test_pratinjau_bisa_diedit_lalu_approval_membuat_kartu_ai(): void
     {
         $super = $this->user(User::ROLE_SUPER_ADMIN, 'okrapprove');

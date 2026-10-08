@@ -26,7 +26,7 @@ class KolContentController extends Controller
     public function index(Request $request, KolKontenService $konten)
     {
         $month = $this->month($request);
-        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $start = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
         $filters = $request->only(['creator', 'platform', 'label', 'type']);
 
         // contents, total, paid, earned, target, proj, isCurrent, aman, daysLeft, perDayNeeded.
@@ -178,7 +178,7 @@ class KolContentController extends Controller
     public function grid(Request $request)
     {
         $month = $this->month($request);
-        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $start = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
 
         return view('kols.konten.grid', [
             'month' => $month,

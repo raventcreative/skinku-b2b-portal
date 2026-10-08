@@ -28,7 +28,7 @@ class KolAffiliateController extends Controller
     {
         $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
             ? (string) $request->query('bulan') : now()->format('Y-m');
-        $m = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $m = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
 
         $ranking = $svc->monthly($m);
         $unmatched = $svc->unmatched();
@@ -87,7 +87,7 @@ class KolAffiliateController extends Controller
     {
         $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
             ? (string) $request->query('bulan') : now()->format('Y-m');
-        $m = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $m = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
         $start = $m->copy()->startOfMonth();
         $end = $m->copy()->endOfMonth();
 

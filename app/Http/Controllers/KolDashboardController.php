@@ -25,7 +25,7 @@ class KolDashboardController extends Controller
     {
         $u = $request->user();
         $m = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
-            ? Carbon::createFromFormat('Y-m', (string) $request->query('bulan'))->startOfMonth()
+            ? Carbon::createFromFormat('!Y-m', (string) $request->query('bulan'))->startOfMonth()
             : now()->startOfMonth();
         $isCurrent = $m->isSameMonth(now());
         $today = now()->startOfDay();
