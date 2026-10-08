@@ -238,6 +238,23 @@ class ShopeeClient
         ]);
     }
 
+    /** "Naikkan Produk": item yang sedang dinaikkan + sisa cool down (response.item_list[].cool_down_second). */
+    public function getBoostedList(string $accessToken, string $shopId): array
+    {
+        return $this->shopCall('GET', '/api/v2/product/get_boosted_list', $accessToken, $shopId);
+    }
+
+    /**
+     * "Naikkan Produk": 1–5 item sekali panggil, tiap item naik 4 jam. Respons: success_list.item_id_list &
+     * failure_list[{item_id, failed_reason}] (mis. "can not boost item repeatedly").
+     */
+    public function boostItem(string $accessToken, string $shopId, array $itemIds): array
+    {
+        return $this->shopCall('POST', '/api/v2/product/boost_item', $accessToken, $shopId, [
+            'item_id_list' => array_values(array_map('intval', $itemIds)),
+        ]);
+    }
+
     /**
      * Perbarui sebagian data item (product/update_item) — hanya field di $fields yang berubah
      * (mis. description, weight). item_id ikut dikirim di body JSON; tanpa multipart.

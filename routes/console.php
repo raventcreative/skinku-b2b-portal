@@ -110,6 +110,10 @@ Schedule::command('members:auto-freeze')->dailyAt('03:00')->withoutOverlapping(6
 // berikutnya kalau proses macet — maksimal 1 siklus terlewat, bukan 24 jam (default).
 Schedule::command('marketplace:push-stock')->everyFiveMinutes()->withoutOverlapping(4);
 
+// "Naikkan Produk" Shopee otomatis (maks 5 produk, tiap naik 4 jam): tiap 10 menit naikkan lagi yang masa naiknya
+// habis. Saklar ON/OFF di halaman Naikkan Produk; mati = command langsung keluar tanpa memanggil Shopee.
+Schedule::command('shopee:naikkan-produk')->everyTenMinutes()->withoutOverlapping(9);
+
 // Portal Content Creator: terbitkan konten terjadwal ke FB/IG/Threads tiap menit
 // (retry & polling container video dikelola di tabel). withoutOverlapping(5)
 // supaya satu siklus lambat tak menumpuk proses kembar.
