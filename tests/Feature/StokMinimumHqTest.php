@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Inventory;
 use App\Models\Product;
+use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\Ai\Tools\ToolRegistry;
+use App\Services\HqStockReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -135,5 +137,55 @@ class StokMinimumHqTest extends TestCase
 
         $pm = collect(app(ToolRegistry::class)->find('produk_master', $admin)->run([], $admin)['produk'])->firstWhere('sku', 'SG-01');
         $this->assertSame([20, true], [$pm['stok_minimum'], $pm['stok_menipis']]);
+    }
+
+    /** Gerakan stok HQ; $qty positif = keluar, negatif = masuk. */
+    private function gerak(Product $p, int $qty, string $ref, int $hariLalu, string $tipe = StockMovement::TYPE_OUT): void
+    {
+        StockMovement::create(['product_id' => $p->id, 'user_id' => null, 'movement_type' => $tipe, 'quantity' => abs($qty),
+            'before_qty' => 1000, 'after_qty' => 1000 - $qty, 'reference_type' => $ref, 'created_at' => now()->subDays($hariLalu)]);
+    }
+
+    public function test_saran_stok_minimum_dari_barang_keluar_30_hari_kali_14_hari(): void
+    {
+        $serum = $this->produk('Serum Glow', 'SG-01', 100, null);
+        $sabun = $this->produk('Sabun Yuki', 'YK-01', 50, 5);
+        $toner = $this->produk('Toner Fresh', 'TN-01', 40, null);
+        $this->gerak($serum, 20, 'tiktok_order', 5);
+        $this->gerak($serum, 15, 'purchase_order', 10);
+        $this->gerak($serum, 10, 'shopee_order', 2);
+        $this->gerak($serum, 30, 'opname', 1, StockMovement::TYPE_ADJUSTMENT); // koreksi stok, bukan penjualan
+        $this->gerak($serum, -200, 'production', 3, StockMovement::TYPE_IN);   // barang masuk
+        $this->gerak($serum, 999, 'tiktok_order', 40);                          // di luar 30 hari
+        $this->gerak($sabun, 3, 'purchase_order', 7);
+
+        $saran = app(HqStockReportService::class)->saranStokMinimum();
+        $this->assertSame(['saran' => 21, 'rata' => 1.5], $saran[$serum->id]); // 45 ÷ 30 = 1,5/hari × 14 = 21
+        $this->assertSame(['saran' => 2, 'rata' => 0.1], $saran[$sabun->id]);  // 3 ÷ 30 × 14 = 1,4 → dibulatkan ke atas
+        $this->assertArrayNotHasKey($toner->id, $saran);                        // tak ada barang keluar → tanpa saran
+    }
+
+    public function test_saran_tampil_di_tabel_dan_bisa_diisi_sekaligus_hanya_yang_kosong(): void
+    {
+        $serum = $this->produk('Serum Glow', 'SG-01', 100, null); // kosong + bersaran
+        $sabun = $this->produk('Sabun Yuki', 'YK-01', 50, 5);     // sudah diisi → tak ditimpa
+        $toner = $this->produk('Toner Fresh', 'TN-01', 40, null); // kosong tapi tanpa saran → tetap kosong
+        $this->gerak($serum, 45, 'tiktok_order', 5);
+        $this->gerak($sabun, 3, 'purchase_order', 7);
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        $this->actingAs($admin)->get(route('products.index'))->assertOk()
+            ->assertSee('data-saran="21"', false)->assertSee('saran 21')->assertSee('data-saran="2"', false)
+            ->assertSee('Isi Stok Min. dari saran (1)');
+
+        $this->actingAs($admin)->post(route('products.min-stock.saran'))->assertRedirect()
+            ->assertSessionHas('status', 'Stok Min. diisi dari saran untuk 1 produk.');
+        $this->assertSame([21, 5, null], [$serum->refresh()->hq_min_stock, $sabun->refresh()->hq_min_stock, $toner->refresh()->hq_min_stock]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'update_product_min_stock', 'target_type' => 'product', 'target_id' => $serum->id]);
+
+        // Sudah sesuai saran → tautan saran produk itu & tombol isi sekaligus hilang.
+        $this->actingAs($admin)->get(route('products.index'))->assertOk()
+            ->assertDontSee('data-saran="21"', false)->assertDontSee('Isi Stok Min. dari saran');
+        $this->actingAs($this->user(User::ROLE_GUDANG))->post(route('products.min-stock.saran'))->assertForbidden();
     }
 }

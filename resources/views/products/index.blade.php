@@ -6,10 +6,19 @@
 @php
     // HPP (harga pokok) hanya utk izin Lihat HPP — default super admin; admin/gudang tak perlu tahu.
     $lihatHpp = auth()->user()->canDo('view_hpp');
+    // Header = tautan sort (pola Database KOL): klik pertama A→Z / terkecil, klik lagi balik arah. Filter ikut terbawa.
+    $sortLink = function (string $col, string $label) use ($sort, $dir, $filters) {
+        $nextDir = ($sort === $col && $dir === 'asc') ? 'desc' : 'asc';
+        $arrow = $sort === $col ? ($dir === 'asc' ? ' ↑' : ' ↓') : '';
+        $url = route('products.index', array_filter($filters) + ['sort' => $col, 'dir' => $nextDir]);
+
+        return '<a href="'.e($url).'" class="hover:text-stone-800 '.($sort === $col ? 'text-stone-800 font-bold' : '').'">'.e($label).$arrow.'</a>';
+    };
     $kolomEdit = array_values(array_diff(['id', 'name', 'sku', 'category', 'description', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'hq_min_stock', 'status'], $lihatHpp ? [] : ['cogs']));
 @endphp
 <div class="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
     <form method="GET" class="flex flex-wrap gap-2">
+        <input type="hidden" name="sort" value="{{ $sort }}"><input type="hidden" name="dir" value="{{ $dir }}">
         <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari nama/SKU…" class="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg sm:w-56">
         <select name="status" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
             <option value="">Semua Status</option>
@@ -21,7 +30,15 @@
         </select>
         <button class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h14l-5.5 6.2v4.3l-3 1.5v-5.8L3 4Z"/></svg>Filter</button>
     </form>
-    <button type="button" onclick="openProduct()" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20"><path stroke-linecap="round" d="M10 4v12M4 10h12"/></svg>Tambah Produk</button>
+    <div class="flex flex-wrap items-center gap-2">
+        @if($kosongBersaran > 0)
+            {{-- Saran = rata-rata barang keluar 30 hari × 14 hari; hanya mengisi yang masih kosong. --}}
+            <form method="POST" action="{{ route('products.min-stock.saran') }}" onsubmit="return confirm('Isi Stok Min. dari saran untuk {{ $kosongBersaran }} produk yang masih kosong? Angka yang sudah diisi tidak diubah.')">@csrf
+                <button class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800 hover:bg-amber-100" title="Saran = rata-rata barang keluar 30 hari terakhir × 14 hari cadangan">Isi Stok Min. dari saran ({{ $kosongBersaran }})</button>
+            </form>
+        @endif
+        <button type="button" onclick="openProduct()" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20"><path stroke-linecap="round" d="M10 4v12M4 10h12"/></svg>Tambah Produk</button>
+    </div>
 </div>
 
 <div class="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
@@ -32,21 +49,21 @@
                 <th scope="colgroup" colspan="3" class="text-left">Katalog</th>
                 <th scope="colgroup" colspan="4" class="text-center">Harga jual <span>(Rp)</span></th>
                 <th scope="colgroup" colspan="{{ $lihatHpp ? 4 : 3 }}" class="text-center">{{ $lihatHpp ? 'Biaya & logistik' : 'Logistik' }}</th>
-                <th scope="col" rowspan="2" class="text-left">Status</th>
+                <th scope="col" rowspan="2" class="text-left">{!! $sortLink('status', 'Status') !!}</th>
                 <th scope="col" rowspan="2" class="ui-table-actions-head text-right">Aksi</th>
             </tr>
             <tr class="ui-table-columns">
-                <th scope="col" class="text-left">Produk</th>
-                <th scope="col" class="text-left">SKU</th>
-                <th scope="col" class="text-left">Kategori</th>
-                <th scope="col" class="text-right">Grand</th>
-                <th scope="col" class="text-right">Distributor</th>
-                <th scope="col" class="text-right">Reseller</th>
-                <th scope="col" class="text-right">Retail</th>
-                @if($lihatHpp)<th scope="col" class="text-right">HPP</th>@endif
-                <th scope="col" class="text-right">Berat</th>
-                <th scope="col" class="text-right">Stok Pusat</th>
-                <th scope="col" class="text-right" title="Stok minimum pusat: pengingat di Dashboard bila stok ≤ angka ini. Kosong = tanpa pengingat. Tersimpan otomatis.">Stok Min.</th>
+                <th scope="col" class="text-left">{!! $sortLink('nama', 'Produk') !!}</th>
+                <th scope="col" class="text-left">{!! $sortLink('sku', 'SKU') !!}</th>
+                <th scope="col" class="text-left">{!! $sortLink('kategori', 'Kategori') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('grand', 'Grand') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('distributor', 'Distributor') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('reseller', 'Reseller') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('retail', 'Retail') !!}</th>
+                @if($lihatHpp)<th scope="col" class="text-right">{!! $sortLink('hpp', 'HPP') !!}</th>@endif
+                <th scope="col" class="text-right">{!! $sortLink('berat', 'Berat') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('stok', 'Stok Pusat') !!}</th>
+                <th scope="col" class="text-right" title="Stok minimum pusat: pengingat di Dashboard bila stok ≤ angka ini. Kosong = tanpa pengingat. Tersimpan otomatis.">{!! $sortLink('stok_min', 'Stok Min.') !!}</th>
             </tr>
         </thead>
         <tbody>
@@ -92,6 +109,9 @@
                         @if($p->status !== 'deleted')
                             <input type="number" min="0" step="1" inputmode="numeric" value="{{ $p->hq_min_stock }}" placeholder="—" data-min-stock data-url="{{ route('products.min-stock', $p) }}" aria-label="Stok minimum pusat {{ $p->name }}" title="Stok minimum pusat — tersimpan otomatis. Kosong = tanpa pengingat." class="w-20 px-2 py-1 text-right border border-stone-300 rounded-md">
                             <span data-status-min class="block text-[10px]"></span>
+                            @if(($s = $saran[$p->id] ?? null) && (int) $p->hq_min_stock !== $s['saran'])
+                                <button type="button" data-saran="{{ $s['saran'] }}" class="text-[10px] text-stone-500 hover:text-stone-800 hover:underline" title="Rata-rata keluar {{ number_format($s['rata'], 1, ',', '.') }}/hari (30 hari terakhir) × 14 hari cadangan — klik untuk pakai">saran {{ number_format($s['saran'], 0, ',', '.') }}</button>
+                            @endif
                         @else <span class="text-stone-400">—</span> @endif
                     </td>
                     <td><span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $p->status==='active' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-stone-200 bg-stone-100 text-stone-600' }}"><span class="h-1.5 w-1.5 rounded-full {{ $p->status==='active' ? 'bg-emerald-600' : 'bg-stone-400' }}"></span>{{ $p->status }}</span></td>
@@ -222,6 +242,8 @@
                 Object.values(KELAS_STOK).forEach(k => stok.classList.remove(...k.split(' ')));
                 stok.classList.add(...KELAS_STOK[data.stok <= 0 ? 'merah' : (data.menipis ? 'menipis' : 'biasa')].split(' '));
                 tr.querySelector('[data-tanda-menipis]').classList.toggle('hidden', !data.menipis);
+                const saran = tr.querySelector('[data-saran]');
+                if (saran) saran.classList.toggle('hidden', String(data.hq_min_stock ?? '') === saran.dataset.saran);
                 status.className = 'block text-[10px] text-emerald-700';
                 status.textContent = '✓ tersimpan';
             } catch (e) {
@@ -232,5 +254,11 @@
             }
         });
     });
+    // Klik "saran N" → isi kolom Stok Min. & simpan otomatis (jalur sama dgn ketik manual).
+    document.querySelectorAll('[data-saran]').forEach(btn => btn.addEventListener('click', () => {
+        const inp = btn.closest('td').querySelector('[data-min-stock]');
+        inp.value = btn.dataset.saran;
+        inp.dispatchEvent(new Event('change'));
+    }));
 </script>
 @endpush

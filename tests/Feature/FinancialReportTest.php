@@ -5,11 +5,13 @@ namespace Tests\Feature;
 use App\Models\AccAccount;
 use App\Models\AccBranch;
 use App\Models\AccJournal;
+use App\Models\RolePermission;
 use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\CashFlowService;
 use App\Services\ComparativeReportService;
 use App\Services\FinancialReportService;
+use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -122,6 +124,9 @@ class FinancialReportTest extends TestCase
     public function test_accounting_pages_render_for_admin(): void
     {
         $this->seedJune();
+        // Laporan hasil hitungan butuh izin Lihat HPP juga (tanpa izin → HppIzinTest).
+        RolePermission::create(['role' => User::ROLE_ADMIN, 'permission_key' => 'view_hpp', 'allowed' => true]);
+        Permissions::flushCache();
         $admin = $this->user(User::ROLE_ADMIN);
 
         foreach (['/accounting/laporan', '/accounting/laba-rugi', '/accounting/neraca', '/accounting/arus-kas', '/accounting/neraca-saldo'] as $url) {
@@ -274,8 +279,8 @@ class FinancialReportTest extends TestCase
 
         // ...dan datanya memang masih utuh
         $this->assertDatabaseHas('acc_journals', ['id' => $j->id]);
-        // tapi tetap bisa membaca laporan
-        $this->actingAs($admin)->get('/accounting/laporan')->assertOk();
+        // tapi tetap bisa membuka jurnal (laporan keuangan butuh juga izin Lihat HPP — lihat HppIzinTest)
+        $this->actingAs($admin)->get('/accounting/jurnal')->assertOk();
     }
 
     public function test_excel_import_purge_removes_only_excel_journals(): void
@@ -416,7 +421,7 @@ class FinancialReportTest extends TestCase
         $this->je('2026-06-10', $a('6001'), $a('1002'), 4_000_000);
         $this->je('2026-06-12', $a('7001'), $a('1002'), 500_000);
 
-        $res = $this->actingAs($this->user(User::ROLE_ADMIN))->get('/accounting/banding?a=2026-06&b=2026-05');
+        $res = $this->actingAs($this->user(User::ROLE_SUPER_ADMIN))->get('/accounting/banding?a=2026-06&b=2026-05');
 
         $res->assertOk()
             ->assertSee('toggleRincian(', false)

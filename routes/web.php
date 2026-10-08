@@ -316,14 +316,20 @@ Route::middleware(['auth', 'role'])->group(function () {
 
     /* ---------------- Accounting (laporan keuangan) ---------------- */
     Route::middleware('permission:view_accounting')->group(function () {
-        Route::get('/accounting', fn () => redirect()->route('accounting.report'))->name('accounting.index');
-        Route::get('/accounting/laporan', [AccountingController::class, 'report'])->name('accounting.report');
-        Route::get('/accounting/laba-rugi', [AccountingController::class, 'incomeStatement'])->name('accounting.income-statement');
-        Route::get('/accounting/neraca', [AccountingController::class, 'balanceSheet'])->name('accounting.balance-sheet');
-        Route::get('/accounting/arus-kas', [AccountingController::class, 'cashFlow'])->name('accounting.cash-flow');
-        Route::get('/accounting/banding', [AccountingController::class, 'comparison'])->name('accounting.comparison');
-        Route::get('/accounting/tren', [AccountingController::class, 'trend'])->name('accounting.trend');
-        Route::get('/accounting/neraca-saldo', [AccountingController::class, 'trialBalance'])->name('accounting.trial-balance');
+        // Tanpa izin Lihat HPP → langsung ke Jurnal (laporan hasil hitungan tertutup, lihat grup di bawah).
+        Route::get('/accounting', fn () => redirect()->route(auth()->user()->canDo('view_hpp') ? 'accounting.report' : 'accounting.journals'))->name('accounting.index');
+        // Laporan hasil hitungan memuat HPP & laba (saling terkait: laba/persediaan di satu laporan cukup utk
+        // menghitung HPP) → juga butuh izin Lihat HPP (keputusan user 2026-10-08). Input/impor jurnal, COA &
+        // template tetap cukup view_accounting — pola sama dgn gudang di produksi: boleh input, tak lihat hasil hitungan.
+        Route::middleware('permission:view_hpp')->group(function () {
+            Route::get('/accounting/laporan', [AccountingController::class, 'report'])->name('accounting.report');
+            Route::get('/accounting/laba-rugi', [AccountingController::class, 'incomeStatement'])->name('accounting.income-statement');
+            Route::get('/accounting/neraca', [AccountingController::class, 'balanceSheet'])->name('accounting.balance-sheet');
+            Route::get('/accounting/arus-kas', [AccountingController::class, 'cashFlow'])->name('accounting.cash-flow');
+            Route::get('/accounting/banding', [AccountingController::class, 'comparison'])->name('accounting.comparison');
+            Route::get('/accounting/tren', [AccountingController::class, 'trend'])->name('accounting.trend');
+            Route::get('/accounting/neraca-saldo', [AccountingController::class, 'trialBalance'])->name('accounting.trial-balance');
+        });
 
         // Jurnal Umum (input manual)
         Route::get('/accounting/jurnal', [AccountingController::class, 'journals'])->name('accounting.journals');
@@ -670,6 +676,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/marketplace-stock/{channel}/master/{master}/stok', [MarketplaceStockController::class, 'setChannelStock'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel.stok');
         Route::post('/marketplace-stock/{channel}/master/{master}/harga', [MarketplaceStockController::class, 'setChannelPrice'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel.harga');
         Route::post('/marketplace-stock/{channel}/master/{master}/ikut-master', [MarketplaceStockController::class, 'ikutMaster'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.ikut-master');
+        // Override diisi langsung di tabel halaman channel (tersimpan otomatis, JSON). Kosong = ikut master.
+        Route::post('/marketplace-stock/{channel}/master/{master}/override', [MarketplaceStockController::class, 'setOverride'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.override');
         Route::post('/marketplace-stock/push-all', [MarketplaceStockController::class, 'pushAll'])->name('marketplace-stock.push-all');
         Route::post('/marketplace-stock/resolve', [MarketplaceStockController::class, 'resolve'])->name('marketplace-stock.resolve');
         Route::delete('/marketplace-stock/master/{master}', [MarketplaceStockController::class, 'deleteMaster'])->name('marketplace-stock.master.hapus');
@@ -730,6 +738,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
         // Stok minimum pusat diisi langsung di tabel Produk Master (tersimpan otomatis, JSON).
         Route::patch('/products/{product}/stok-minimum', [ProductController::class, 'updateMinStock'])->name('products.min-stock');
+        // Isi Stok Min. dari saran (barang keluar 30 hari × 14 hari) utk produk yang minimumnya masih kosong.
+        Route::post('/products/stok-minimum/saran', [ProductController::class, 'applyMinStockSuggestions'])->name('products.min-stock.saran');
         Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     });
 

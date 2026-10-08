@@ -3,7 +3,15 @@
 @section('heading','Produk Master E-commerce')
 @section('content')
 @php
-    $tabUrl = fn ($t) => route('marketplace-stock.index', array_filter(['tab' => $t === 'semua' ? null : $t]));
+    // Pindah tab mempertahankan urutan; header = tautan sort (pola Database KOL), klik lagi balik arah.
+    $tabUrl = fn ($t) => route('marketplace-stock.index', array_filter(['tab' => $t === 'semua' ? null : $t, 'sort' => $sort !== 'nama' ? $sort : null, 'dir' => $dir !== 'asc' ? $dir : null]));
+    $sortLink = function (string $col, string $label) use ($sort, $dir, $tab) {
+        $nextDir = ($sort === $col && $dir === 'asc') ? 'desc' : 'asc';
+        $arrow = $sort === $col ? ($dir === 'asc' ? ' ↑' : ' ↓') : '';
+        $url = route('marketplace-stock.index', array_filter(['tab' => $tab === 'semua' ? null : $tab, 'sort' => $col, 'dir' => $nextDir]));
+
+        return '<a href="'.e($url).'" class="hover:text-stone-800 '.($sort === $col ? 'text-stone-800 font-bold' : '').'">'.e($label).$arrow.'</a>';
+    };
 @endphp
 <div class="mx-auto max-w-[1440px] space-y-5 px-1 sm:px-2">
     @if(session('status'))<div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>@endif
@@ -46,10 +54,10 @@
             <table class="w-full min-w-[1050px] text-sm">
                 <thead class="text-left text-stone-500 border-b border-stone-200">
                     <tr>
-                        <th class="px-4 py-3 font-medium">Informasi Produk</th>
-                        <th class="px-4 py-3 font-medium">Master SKU</th>
-                        <th class="px-4 py-3 font-medium">Harga</th>
-                        <th class="px-4 py-3 font-medium">Stok</th>
+                        <th class="px-4 py-3 font-medium">{!! $sortLink('nama', 'Informasi Produk') !!}</th>
+                        <th class="px-4 py-3 font-medium">{!! $sortLink('sku', 'Master SKU') !!}</th>
+                        <th class="px-4 py-3 font-medium">{!! $sortLink('harga', 'Harga') !!}</th>
+                        <th class="px-4 py-3 font-medium">{!! $sortLink('stok', 'Stok') !!}</th>
                         <th class="px-4 py-3 font-medium">Produk Terkait</th>
                         <th class="px-4 py-3 font-medium">Toko Terkait</th>
                         <th class="px-4 py-3 font-medium text-right">Atur</th>

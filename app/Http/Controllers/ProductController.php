@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Services\AuditService;
+use App\Services\HqStockReportService;
 use App\Services\ImageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -17,9 +18,18 @@ class ProductController extends Controller
 
     public function __construct(private ImageService $images) {}
 
-    public function index(Request $request)
+    public function index(Request $request, HqStockReportService $laporan)
     {
         $filters = $request->only(['q', 'status', 'category', 'stok']);
+        // Sort per kolom (header = tautan, pola Database KOL). Daftar putih; HPP hanya utk izin Lihat HPP — urutan pun
+        // membocorkan HPP. Nilai ngawur → default Nama A→Z.
+        $kolomSort = ['nama' => 'name', 'sku' => 'sku', 'kategori' => 'category', 'grand' => 'price_grand',
+            'distributor' => 'price_distributor', 'reseller' => 'price_reseller', 'retail' => 'price_retail',
+            'berat' => 'weight_grams', 'stok' => 'hq_stock', 'stok_min' => 'hq_min_stock', 'status' => 'status']
+            + ($request->user()->canDo('view_hpp') ? ['hpp' => 'cogs'] : []);
+        $sort = $request->query('sort');
+        $sort = is_string($sort) && isset($kolomSort[$sort]) ? $sort : 'nama';
+        $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
 
         $products = Product::query()
             ->when($filters['q'] ?? null, function ($query, $q) {
@@ -32,13 +42,42 @@ class ProductController extends Controller
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['category'] ?? null, fn ($query, $cat) => $query->where('category', $cat))
             ->when(($filters['stok'] ?? null) === 'menipis', fn ($query) => $query->stokPusatMenipis())
-            ->orderBy('name')
+            ->orderBy($kolomSort[$sort], $dir)->orderBy('name')
             ->paginate(15)
             ->withQueryString();
 
         $categories = Product::query()->whereNotNull('category')->distinct()->orderBy('category')->pluck('category');
+        // Saran Stok Min. dari barang keluar HQ; tombol "isi dari saran" hanya muncul bila ada yang kosong & bersaran.
+        $saran = $laporan->saranStokMinimum();
+        $kosongBersaran = $this->minimumKosong()->whereIn('id', array_keys($saran))->count();
 
-        return view('products.index', compact('products', 'filters', 'categories'));
+        return view('products.index', compact('products', 'filters', 'categories', 'saran', 'kosongBersaran', 'sort', 'dir'));
+    }
+
+    /**
+     * Isi Stok Min. dari saran utk produk aktif yang minimumnya masih kosong — angka yang sudah diisi tak ditimpa.
+     * Tiap produk tercatat di Audit Log (aksi sama dgn isian manual, ditandai sumber "saran").
+     */
+    public function applyMinStockSuggestions(HqStockReportService $laporan): RedirectResponse
+    {
+        $saran = $laporan->saranStokMinimum();
+        $produk = $this->minimumKosong()->whereIn('id', array_keys($saran))->get();
+        foreach ($produk as $p) {
+            $sebelum = $p->hq_min_stock;
+            $p->update(['hq_min_stock' => $saran[$p->id]['saran']]);
+            AuditService::log(action: 'update_product_min_stock', targetType: 'product', targetId: $p->id,
+                before: ['hq_min_stock' => $sebelum], after: ['hq_min_stock' => $p->hq_min_stock, 'sumber' => 'saran']);
+        }
+
+        return back()->with('status', $produk->isEmpty()
+            ? 'Tidak ada Stok Min. kosong yang punya saran.'
+            : "Stok Min. diisi dari saran untuk {$produk->count()} produk.");
+    }
+
+    /** Produk aktif yang Stok Min.-nya belum diisi (kosong / 0 = tanpa pengingat). */
+    private function minimumKosong()
+    {
+        return Product::where('status', Product::STATUS_ACTIVE)->where(fn ($q) => $q->whereNull('hq_min_stock')->orWhere('hq_min_stock', 0));
     }
 
     public function store(Request $request): RedirectResponse

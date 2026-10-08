@@ -6,8 +6,6 @@
 @php
     $rp = fn ($v) => $v === null ? '—' : 'Rp'.number_format((float) $v, 0, ',', '.');
     $angka = fn ($v) => $v === null ? '—' : number_format((int) $v, 0, ',', '.');
-    $ikonSimpan = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg>';
-    $ikonIkut = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>';
 @endphp
 @include('partials.rupiah-input')
 <div class="mx-auto max-w-[1440px] space-y-5 px-1 sm:px-2">
@@ -19,7 +17,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
                 <h2 class="text-sm font-bold text-stone-800">Stok &amp; Harga {{ $namaCh }}</h2>
-                <p class="mt-1 text-xs text-stone-500">Angka <b>efektif</b> = yang dikirim ke {{ $namaCh }}: pakai override bila diisi, kalau kosong ikut master. Klik “Ikut master” untuk kembali ke angka master.</p>
+                <p class="mt-1 text-xs text-stone-500">Ketik angka di kolom Override lalu <b>Enter</b> — tersimpan otomatis &amp; langsung dikirim ke {{ $namaCh }}, kursor pindah ke produk berikutnya. Kosongkan = kembali ikut master. Angka <b>efektif</b> = yang dikirim: override bila diisi, kalau kosong ikut master.</p>
             </div>
             <span class="px-3 py-1.5 rounded-full bg-stone-100 text-stone-600 text-xs font-semibold">{{ count($rows) }} produk</span>
         </div>
@@ -53,15 +51,7 @@
                     @php
                         $m = $row['master'];
                         $img = $m->imageUrl();
-                        $lst = $row['listing'];
-                        // Status kirim terakhir per jenis → badge. Konten & foto hanya didorong manual ("Dorong konten & foto"):
-                        // badge-nya muncul bila pernah didorong.
-                        $kirim = [
-                            ['stok', 'Stok', $lst?->last_status, $lst?->last_error, $lst?->last_pushed_at],
-                            ['harga', 'Harga', $lst?->last_price_status, $lst?->last_price_error, $lst?->last_price_pushed_at],
-                        ];
-                        if ($lst?->last_content_status) { $kirim[] = ['konten', 'Konten', $lst->last_content_status, $lst->last_content_error, null]; }
-                        if ($lst?->last_photo_status) { $kirim[] = ['foto', 'Foto', $lst->last_photo_status, $lst->last_photo_error, null]; }
+                        $urlOverride = route('marketplace-stock.override', ['channel' => $channel, 'master' => $m]);
                     @endphp
                     <tr class="align-top hover:bg-stone-50">
                         <td class="px-4 py-3">
@@ -79,51 +69,29 @@
                         </td>
 
                         <td class="px-4 py-3 text-right whitespace-nowrap border-l border-stone-100">
-                            <div class="font-semibold text-stone-800 tabular-nums">{{ $angka($row['eff_stock']) }}</div>
-                            @if($row['override_stock'] !== null)<div class="mt-0.5 text-[11px] font-semibold text-amber-700">override</div>@endif
+                            <div data-efektif="stock" class="font-semibold text-stone-800 tabular-nums">{{ $angka($row['eff_stock']) }}</div>
+                            <div data-tanda-override="stock" class="mt-0.5 text-[11px] font-semibold text-amber-700 {{ $row['override_stock'] === null ? 'hidden' : '' }}">override</div>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
-                            <form method="POST" action="{{ route('marketplace-stock.channel.stok', ['channel'=>$channel,'master'=>$m]) }}" class="flex items-center gap-1.5">@csrf
-                                <input type="number" name="quantity" min="0" step="1" value="{{ $row['override_stock'] }}" placeholder="ikut master" aria-label="Override stok {{ $namaCh }} {{ $m->name }}" class="h-8 w-24 px-2 text-xs text-right tabular-nums border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200">
-                                <button aria-label="Simpan override stok {{ $m->name }}" title="Simpan stok" class="inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-white border border-stone-300 text-stone-600 hover:bg-stone-100 hover:text-stone-800">{!! $ikonSimpan !!}</button>
+                            {{-- Form = cadangan tanpa JS (Enter → simpan biasa); dengan JS tersimpan otomatis lewat data-url. --}}
+                            <form method="POST" action="{{ route('marketplace-stock.channel.stok', ['channel'=>$channel,'master'=>$m]) }}">@csrf
+                                <input type="number" name="quantity" min="0" step="1" value="{{ $row['override_stock'] }}" placeholder="ikut master" data-override="stock" data-url="{{ $urlOverride }}" aria-label="Override stok {{ $namaCh }} {{ $m->name }}" class="h-8 w-24 px-2 text-xs text-right tabular-nums border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200">
                             </form>
-                            @if($row['override_stock'] !== null)
-                                <form method="POST" action="{{ route('marketplace-stock.ikut-master', ['channel'=>$channel,'master'=>$m]) }}" class="mt-1">@csrf<input type="hidden" name="field" value="stock"><button class="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:underline">{!! $ikonIkut !!}Ikut master</button></form>
-                            @endif
+                            <span data-status-simpan class="block mt-0.5 text-[11px] whitespace-normal"></span>
                         </td>
 
                         <td class="px-4 py-3 text-right whitespace-nowrap border-l border-stone-100">
-                            <div class="font-semibold text-stone-800 tabular-nums">{{ $rp($row['eff_price']) }}</div>
-                            @if($row['override_price'] !== null)<div class="mt-0.5 text-[11px] font-semibold text-amber-700">override</div>@endif
+                            <div data-efektif="price" class="font-semibold text-stone-800 tabular-nums">{{ $rp($row['eff_price']) }}</div>
+                            <div data-tanda-override="price" class="mt-0.5 text-[11px] font-semibold text-amber-700 {{ $row['override_price'] === null ? 'hidden' : '' }}">override</div>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
-                            <form method="POST" action="{{ route('marketplace-stock.channel.harga', ['channel'=>$channel,'master'=>$m]) }}" class="flex items-center gap-1.5">@csrf
-                                <input type="text" inputmode="numeric" data-rupiah name="price" value="{{ \App\Support\Rupiah::input($row['override_price']) }}" placeholder="ikut master" aria-label="Override harga {{ $namaCh }} {{ $m->name }}" class="h-8 w-28 px-2 text-xs text-right tabular-nums border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200">
-                                <button aria-label="Simpan override harga {{ $m->name }}" title="Simpan harga" class="inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-white border border-stone-300 text-stone-600 hover:bg-stone-100 hover:text-stone-800">{!! $ikonSimpan !!}</button>
+                            <form method="POST" action="{{ route('marketplace-stock.channel.harga', ['channel'=>$channel,'master'=>$m]) }}">@csrf
+                                <input type="text" inputmode="numeric" data-rupiah name="price" value="{{ \App\Support\Rupiah::input($row['override_price']) }}" placeholder="ikut master" data-override="price" data-url="{{ $urlOverride }}" aria-label="Override harga {{ $namaCh }} {{ $m->name }}" class="h-8 w-28 px-2 text-xs text-right tabular-nums border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200">
                             </form>
-                            @if($row['override_price'] !== null)
-                                <form method="POST" action="{{ route('marketplace-stock.ikut-master', ['channel'=>$channel,'master'=>$m]) }}" class="mt-1">@csrf<input type="hidden" name="field" value="price"><button class="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:underline">{!! $ikonIkut !!}Ikut master</button></form>
-                            @endif
+                            <span data-status-simpan class="block mt-0.5 text-[11px] whitespace-normal"></span>
                         </td>
 
-                        <td class="px-4 py-3 border-l border-stone-100">
-                            <div class="flex flex-wrap gap-1">
-                                @foreach($kirim as [$kunci, $label, $status, $err, $waktu])
-                                    @php
-                                        [$warna, $tanda, $ket] = match ($status) {
-                                            'ok' => ['bg-emerald-50 text-emerald-700', '✓', 'terkirim'.($waktu ? ' '.$waktu->translatedFormat('d M Y H:i') : '')],
-                                            'failed' => ['bg-rose-50 text-rose-700', 'gagal', 'gagal dikirim — lihat pesan di bawah'],
-                                            null => ['bg-stone-100 text-stone-400', '—', 'belum pernah dikirim'],
-                                            default => ['bg-stone-100 text-stone-600', $status, $status],
-                                        };
-                                    @endphp
-                                    <span data-kirim="{{ $kunci }}" class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap {{ $warna }}" title="{{ $label }}: {{ $ket }}">{{ $label }} {{ $tanda }}</span>
-                                @endforeach
-                            </div>
-                            @foreach($kirim as [$kunci, $label, $status, $err])
-                                @if($err)<div class="mt-1 text-[11px] text-rose-600 break-words max-w-[260px]" title="{{ $err }}">{{ $kunci }}: {{ \Illuminate\Support\Str::limit($err, 80) }}</div>@endif
-                            @endforeach
-                        </td>
+                        <td class="px-4 py-3 border-l border-stone-100" data-status-kirim>@include('marketplace-stock._status-kirim', ['lst' => $row['listing']])</td>
                     </tr>
                 @endforeach
                 </tbody>
@@ -135,3 +103,47 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+// Override diisi langsung di tabel: tersimpan otomatis & langsung dikirim ke marketplace saat pindah kolom / Enter
+// (Enter = lanjut ke produk berikutnya di kolom yang sama, ala spreadsheet). Kosong = kembali ikut master.
+(function () {
+    const WARNA = {proses: 'text-stone-400', ok: 'text-emerald-700', gagal: 'text-rose-600'};
+    document.querySelectorAll('[data-override]').forEach(inp => {
+        const field = inp.dataset.override;
+        const kolom = [...document.querySelectorAll('[data-override="' + field + '"]')];
+        const tr = inp.closest('tr');
+        const status = inp.closest('td').querySelector('[data-status-simpan]');
+        const tulis = (jenis, teks) => { status.className = 'block mt-0.5 text-[11px] whitespace-normal ' + WARNA[jenis]; status.textContent = teks; status.title = teks; };
+        let tersimpan = inp.value;
+        inp.addEventListener('keydown', e => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const berikut = kolom[kolom.indexOf(inp) + 1];
+            if (berikut) { berikut.focus(); berikut.select(); } else { inp.blur(); }
+        });
+        inp.addEventListener('change', async () => {
+            tulis('proses', 'menyimpan…');
+            try {
+                const res = await fetch(inp.dataset.url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': window.CSRF},
+                    body: JSON.stringify({field: field, value: inp.value}),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || res.redirected) throw new Error(data.message || 'Gagal menyimpan');
+                tersimpan = inp.value = data.override ?? '';
+                tr.querySelector('[data-efektif="' + field + '"]').textContent = data.efektif;
+                tr.querySelector('[data-tanda-override="' + field + '"]').classList.toggle('hidden', data.override === null);
+                tr.querySelector('[data-status-kirim]').innerHTML = data.status;
+                tulis('ok', '✓ tersimpan');
+            } catch (e) {
+                inp.value = tersimpan;
+                tulis('gagal', '✗ ' + e.message);
+            }
+        });
+    });
+})();
+</script>
+@endpush

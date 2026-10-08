@@ -18,6 +18,11 @@ use Illuminate\Support\Carbon;
  */
 class HqStockReportService
 {
+    /** Saran Stok Min. = rata-rata barang keluar per hari (SARAN_HARI_DATA hari terakhir) × SARAN_HARI_CADANGAN hari. */
+    public const SARAN_HARI_DATA = 30;
+
+    public const SARAN_HARI_CADANGAN = 14; // keputusan user 2026-10-08: cadangan ±2 minggu
+
     /**
      * @return array{
      *   mode:string, start:Carbon, end:Carbon, label:string,
@@ -49,19 +54,7 @@ class HqStockReportService
         $afterEnd = $sumFrom($end->copy()->addSecond()); // untuk stok akhir (> end)
 
         // Gerakan dalam periode → dikelompokkan per produk & kategori.
-        $inPeriod = StockMovement::query()
-            ->whereNull('user_id')
-            ->whereBetween('created_at', [$start, $end])
-            ->get(['product_id', 'movement_type', 'reference_type', 'before_qty', 'after_qty']);
-
-        $buckets = [];
-        foreach ($inPeriod as $m) {
-            $delta = (int) $m->after_qty - (int) $m->before_qty;
-            $b = &$buckets[$m->product_id];
-            $b ??= $this->emptyBuckets();
-            $this->bucketize($b, $m->reference_type, $m->movement_type, $delta);
-        }
-        unset($b);
+        $buckets = $this->bucketsAntara($start, $end);
 
         $rows = [];
         $totals = $this->emptyBuckets() + ['awal' => 0, 'akhir' => 0, 'nilai_hpp' => 0.0, 'nilai_jual' => 0.0];
@@ -101,6 +94,50 @@ class HqStockReportService
         $baseline = $baselineRaw ? Carbon::parse($baselineRaw) : null;
 
         return compact('mode', 'start', 'end', 'label', 'prev', 'next', 'rows', 'totals', 'baseline');
+    }
+
+    /**
+     * Saran Stok Min. per produk dari barang KELUAR HQ (TikTok + Shopee + Reseller + keluar lain — kategori sama dgn
+     * laporan ini; barang masuk, penyesuaian/opname & transfer tak dihitung) selama SARAN_HARI_DATA hari terakhir.
+     * Produk tanpa barang keluar tak punya saran.
+     *
+     * @return array<int, array{saran:int, rata:float}> product_id => saran & rata-rata keluar per hari
+     */
+    public function saranStokMinimum(): array
+    {
+        $saran = [];
+        foreach ($this->bucketsAntara(now()->subDays(self::SARAN_HARI_DATA), now()) as $productId => $b) {
+            $keluar = $b['tiktok'] + $b['shopee'] + $b['reseller'] + $b['keluar_lain'];
+            if ($keluar > 0) {
+                $rata = $keluar / self::SARAN_HARI_DATA;
+                $saran[$productId] = ['saran' => (int) ceil($rata * self::SARAN_HARI_CADANGAN), 'rata' => round($rata, 1)];
+            }
+        }
+
+        return $saran;
+    }
+
+    /**
+     * Gerakan HQ dalam [$start, $end] → kolom per produk (lihat bucketize).
+     *
+     * @return array<int, array<string,int>>
+     */
+    private function bucketsAntara(Carbon $start, Carbon $end): array
+    {
+        $gerakan = StockMovement::query()
+            ->whereNull('user_id')
+            ->whereBetween('created_at', [$start, $end])
+            ->get(['product_id', 'movement_type', 'reference_type', 'before_qty', 'after_qty']);
+
+        $buckets = [];
+        foreach ($gerakan as $m) {
+            $b = &$buckets[$m->product_id];
+            $b ??= $this->emptyBuckets();
+            $this->bucketize($b, $m->reference_type, $m->movement_type, (int) $m->after_qty - (int) $m->before_qty);
+        }
+        unset($b);
+
+        return $buckets;
     }
 
     /** @return array{0:Carbon,1:Carbon,2:string,3:string,4:string} */

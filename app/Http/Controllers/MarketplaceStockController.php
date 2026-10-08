@@ -8,6 +8,7 @@ use App\Models\MarketplaceMaster;
 use App\Models\Product;
 use App\Models\ShopeeConnection;
 use App\Models\TiktokConnection;
+use App\Services\AuditService;
 use App\Services\ImageService;
 use App\Services\MarketplaceMasterService;
 use App\Support\Rupiah;
@@ -32,6 +33,9 @@ class MarketplaceStockController extends Controller
     public function index(Request $request): View
     {
         $tab = in_array($request->query('tab'), ['satuan', 'bundle'], true) ? $request->query('tab') : 'semua';
+        // Sort per kolom (pola Database KOL); daftar putih, nilai ngawur → default Nama A→Z.
+        $sort = in_array($request->query('sort'), ['nama', 'sku', 'harga', 'stok'], true) ? $request->query('sort') : 'nama';
+        $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
 
         // Hanya master teratas (induk/tunggal); varian ditampilkan menempel di bawah induknya.
         $q = MarketplaceMaster::whereNull('parent_id')->with(['listings:id,master_id,channel', 'variants.listings:id,master_id,channel', 'bundleItems.component.channels', 'variants.bundleItems.component.channels']);
@@ -50,9 +54,12 @@ class MarketplaceStockController extends Controller
         // Bundle yg stoknya tak bisa dihitung: sebut isi mana yg stoknya belum diisi.
         $isiKosong = $semua->filter(fn ($m) => $m->bundleItems->isNotEmpty() && $stokBundle[$m->id] === null)
             ->mapWithKeys(fn ($m) => [$m->id => $m->bundleItems->filter(fn ($it) => $it->component && $svc->effectiveStock($it->component, '') === null)->map(fn ($it) => $it->component->master_sku)->implode(', ')]);
+        $masters = $this->urutkanKatalog($masters, $sort, $dir, $stokBundle);
 
         return view('marketplace-stock.index', [
             'tab' => $tab,
+            'sort' => $sort,
+            'dir' => $dir,
             'masters' => $masters,
             'stokBundle' => $stokBundle,
             'isiKosong' => $isiKosong,
@@ -69,6 +76,35 @@ class MarketplaceStockController extends Controller
                 'shopee' => ShopeeConnection::latest('id')->value('shop_name'),
             ],
         ]);
+    }
+
+    /**
+     * Urutkan katalog sesuai kolom yang tampil: produk bervarian = harga termurah / total stok variannya, bundle
+     * ber-resep = stok hitungan. Nilai kosong (belum diisi) selalu di bawah apa pun arahnya.
+     */
+    private function urutkanKatalog(Collection $masters, string $sort, string $dir, Collection $stokBundle): Collection
+    {
+        $nilai = match ($sort) {
+            'nama' => fn ($m) => mb_strtolower((string) $m->name),
+            'sku' => fn ($m) => mb_strtolower((string) $m->master_sku),
+            'harga' => fn ($m) => $m->variants->isNotEmpty()
+                ? $m->variants->pluck('base_price')->filter(fn ($x) => $x !== null)->map(fn ($x) => (float) $x)->min()
+                : ($m->base_price === null ? null : (float) $m->base_price),
+            'stok' => fn ($m) => match (true) {
+                $m->variants->isNotEmpty() => (int) $m->variants->sum('base_stock'),
+                $m->bundleItems->isNotEmpty() => $stokBundle[$m->id] ?? null,
+                default => $m->base_stock === null ? null : (int) $m->base_stock,
+            },
+        };
+
+        return $masters->sort(function ($a, $b) use ($nilai, $dir) {
+            [$x, $y] = [$nilai($a), $nilai($b)];
+            if ($x === null || $y === null) {
+                return ($x === null) <=> ($y === null);
+            }
+
+            return $dir === 'asc' ? $x <=> $y : $y <=> $x;
+        })->values();
     }
 
     public function create(): View
@@ -677,6 +713,46 @@ class MarketplaceStockController extends Controller
         $svc->pushMaster($master);
 
         return back()->with('status', "{$channel} — {$master->name} ({$data['field']}) kembali ikut Master.");
+    }
+
+    /**
+     * Override stok/harga satu channel diisi langsung di tabel halaman channel: tersimpan otomatis (JSON) lalu langsung
+     * dikirim ke marketplace. Kosong = kembali ikut master. Validasi manual → 422 JSON (ValidationException di route
+     * web jadi redirect, dikira sukses oleh fetch). Respons membawa angka efektif + status kirim terbaru utk baris itu.
+     */
+    public function setOverride(Request $r, string $channel, MarketplaceMaster $master, MarketplaceMasterService $svc): JsonResponse
+    {
+        abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
+        $field = $r->input('field');
+        $isian = $r->input('value');
+        if (! in_array($field, ['stock', 'price'], true) || ! ($isian === null || is_scalar($isian))) {
+            return response()->json(['message' => 'Isian tidak dikenal.'], 422);
+        }
+        $isian = trim((string) $isian);
+        $sebelum = $master->channels()->where('channel', $channel)->value($field);
+        if ($isian === '') {
+            $svc->ikutMaster($master, $channel, $field);
+        } else {
+            $angka = filter_var($field === 'price' ? Rupiah::polos($isian) : $isian, FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 0, 'max_range' => $field === 'price' ? 9_999_999_999 : 2_147_483_647]]);
+            if ($angka === false) {
+                return response()->json(['message' => 'Isi angka bulat ≥ 0 (kosong = ikut master).'], 422);
+            }
+            $field === 'stock' ? $svc->setChannelStock($master, $channel, $angka) : $svc->setChannelPrice($master, $channel, (float) $angka);
+        }
+        $svc->pushMaster($master);
+
+        $m = $master->fresh(['channels', 'listings']);
+        $override = $m->channels->firstWhere('channel', $channel)?->{$field};
+        AuditService::log(action: 'update_marketplace_override', targetType: 'marketplace_master', targetId: $m->id,
+            before: ['channel' => $channel, $field => $sebelum], after: ['channel' => $channel, $field => $override]);
+        $efektif = $field === 'stock' ? $svc->effectiveStock($m, $channel) : $svc->effectivePrice($m, $channel);
+
+        return response()->json([
+            'override' => $override === null ? null : ($field === 'price' ? Rupiah::input($override) : (string) (int) $override),
+            'efektif' => $efektif === null ? '—' : ($field === 'price' ? 'Rp' : '').number_format($efektif, 0, ',', '.'),
+            'status' => view('marketplace-stock._status-kirim', ['lst' => $m->listings->firstWhere('channel', $channel)])->render(),
+        ]);
     }
 
     public function kaitkan(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse

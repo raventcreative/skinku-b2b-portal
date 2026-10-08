@@ -6,11 +6,14 @@
             return ($names[(int) $m] ?? $m).' '.$y;
         }
     }
-    $tabs = [
+    // Laporan hasil hitungan (memuat HPP & laba) hanya utk izin Lihat HPP — selain itu cukup tab Jurnal.
+    $lihatLaporan = auth()->user()->canDo('view_hpp');
+    $tabs = ($lihatLaporan ? [
         'report' => ['Laporan Keuangan', route('accounting.report')],
         'comparison' => ['Banding', route('accounting.comparison')],
         'trend' => ['Tren', route('accounting.trend')],
         'trial-balance' => ['Neraca Saldo', route('accounting.trial-balance')],
+    ] : []) + [
         'journals' => ['Jurnal Umum', route('accounting.journals')],
     ];
     $ownSelector = in_array($tab, ['comparison', 'trend'], true); // punya selektor sendiri
