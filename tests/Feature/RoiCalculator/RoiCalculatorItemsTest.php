@@ -117,11 +117,14 @@ class RoiCalculatorItemsTest extends TestCase
         $p = $this->product();
         $item = RoiItem::create(['product_id' => $p->id, 'selling_price' => 39000]);
 
-        $this->actingAs($this->admin())
+        $html = $this->actingAs($this->admin())
             ->from('/kalkulator-roi')
             ->followingRedirects()
             ->post("/kalkulator-roi/items/{$item->id}", ['selling_price' => ''])
             ->assertOk()
-            ->assertSee('Periksa input yang dimasukkan');
+            ->assertSee('The selling price field is required.')
+            ->getContent();
+        // Banner error ditampilkan layout — sekali saja (halaman tak lagi mengulang blok error sendiri).
+        $this->assertSame(1, substr_count($html, 'The selling price field is required.'));
     }
 }

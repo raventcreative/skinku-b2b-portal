@@ -4,9 +4,7 @@
 
 @section('content')
 <div class="max-w-2xl">
-    @if(session('status'))
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-xl px-4 py-2 mb-3">{{ session('status') }}</div>
-    @endif
+    {{-- Pesan sukses/gagal & error validasi ditampilkan layout (tak diulang di sini). --}}
     <a href="{{ route('ecom-chat.index') }}" class="text-xs text-stone-500 hover:text-stone-800">&larr; Kembali ke inbox</a>
 
     <div class="mt-3 bg-brand-cream border border-stone-200 rounded-2xl overflow-hidden h-[calc(100vh-13rem)] min-h-96">

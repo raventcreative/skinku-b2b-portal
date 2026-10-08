@@ -3,12 +3,7 @@
 @section('heading', 'Chat E-commerce')
 
 @section('content')
-@if(session('status'))
-    <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-xl px-4 py-2 mb-3">{{ session('status') }}</div>
-@endif
-@if(session('error'))
-    <div class="bg-rose-50 border border-rose-200 text-rose-800 text-sm rounded-xl px-4 py-2 mb-3">{{ session('error') }}</div>
-@endif
+{{-- Pesan sukses/gagal & error validasi ditampilkan layout (tak diulang di sini). --}}
 
 <div class="flex flex-col gap-4 lg:h-[calc(100vh-8.5rem)] lg:flex-row">
     {{-- KIRI: daftar percakapan --}}

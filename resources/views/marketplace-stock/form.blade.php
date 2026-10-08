@@ -39,8 +39,7 @@
 @section('content')
 @php $gallery = $master->exists ? $master->fileGallery(\App\Models\MarketplaceMaster::MASTER_IMAGE) : []; @endphp
 <div class="mx-auto max-w-4xl space-y-5 px-1 sm:px-2">
-    {{-- Flash session('status') sudah ditampilkan layouts.app — jangan diulang di sini (banner dobel habis Hapus/Jadikan Utama). --}}
-    @if($errors->any())<div class="mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">Periksa input.</div>@endif
+    {{-- Pesan sukses/gagal & error validasi ditampilkan layout (tak diulang di sini). --}}
 
     {{-- FOTO PRODUK — kartu WAJIB DI LUAR form utama (tiap tombol Hapus/Jadikan Utama = form sendiri; HTML larang <form> nested).
          Kotak "+" adalah <label for="fotoUpload"> yang memicu input file DI DALAM form utama (label for= tembus batas form). --}}
