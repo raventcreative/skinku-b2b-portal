@@ -107,7 +107,8 @@
                     <td class="text-right tabular-nums"><span data-stok-pusat class="inline-flex min-w-10 justify-center rounded-md px-2 py-1 font-semibold {{ $p->hq_stock <= 0 ? 'bg-rose-50 text-rose-700' : ($p->isStokPusatMenipis() ? 'bg-amber-100 text-amber-700' : 'bg-stone-100 text-stone-800') }}">{{ $p->hq_stock }}</span><span data-tanda-menipis class="block text-[10px] text-amber-700 font-semibold {{ $p->isStokPusatMenipis() ? '' : 'hidden' }}">menipis</span></td>
                     <td class="text-right">
                         @if($p->status !== 'deleted')
-                            <input type="number" min="0" step="1" inputmode="numeric" value="{{ $p->hq_min_stock }}" placeholder="—" data-min-stock data-url="{{ route('products.min-stock', $p) }}" aria-label="Stok minimum pusat {{ $p->name }}" title="Stok minimum pusat — tersimpan otomatis. Kosong = tanpa pengingat." class="w-20 px-2 py-1 text-right border border-stone-300 rounded-md">
+                            <input type="number" min="0" step="1" inputmode="numeric" value="{{ $p->hq_min_stock }}" placeholder="—" data-min-stock data-url="{{ route('products.min-stock', $p) }}" aria-label="Stok minimum pusat {{ $p->name }}" title="Stok minimum pusat — Enter / tombol simpan, tanpa reload. Kosong = tanpa pengingat." class="w-20 px-2 py-1 text-right border border-stone-300 rounded-md">
+                            <button type="button" data-simpan-min aria-label="Simpan stok minimum {{ $p->name }}" title="Simpan" class="inline-flex items-center justify-center w-7 h-7 shrink-0 align-middle rounded-md bg-white border border-stone-300 text-stone-600 hover:bg-stone-100 hover:text-stone-800"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg></button>
                             <span data-status-min class="block text-[10px]"></span>
                             @if(($s = $saran[$p->id] ?? null) && (int) $p->hq_min_stock !== $s['saran'])
                                 <button type="button" data-saran="{{ $s['saran'] }}" class="text-[10px] text-stone-500 hover:text-stone-800 hover:underline" title="Rata-rata keluar {{ number_format($s['rata'], 1, ',', '.') }}/hari (30 hari terakhir) × 14 hari cadangan — klik untuk pakai">saran {{ number_format($s['saran'], 0, ',', '.') }}</button>
@@ -216,15 +217,19 @@
     const KELAS_STOK = {merah: 'bg-rose-50 text-rose-700', menipis: 'bg-amber-100 text-amber-700', biasa: 'bg-stone-100 text-stone-800'};
     const isianMin = [...document.querySelectorAll('[data-min-stock]')];
     isianMin.forEach(inp => {
-        let tersimpan = inp.value;
+        let tersimpan = inp.value; // angka terakhir yang sudah tersimpan
+        let dikirim = null;        // angka yang sedang dikirim — cegah simpan dobel (tap tombol di HP = kolom lepas fokus + klik)
         // Enter = simpan & lanjut ke produk berikutnya (ala spreadsheet) — isi banyak produk cukup ketik angka + Enter.
+        // Di HP (Enter sulit) pakai tombol simpan di sebelahnya; dua-duanya tanpa reload.
         inp.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;
             e.preventDefault();
             const berikut = isianMin[isianMin.indexOf(inp) + 1];
             if (berikut) { berikut.focus(); berikut.select(); } else { inp.blur(); }
         });
-        inp.addEventListener('change', async () => {
+        const simpan = async () => {
+            if (inp.value === tersimpan || inp.value === dikirim) return;
+            dikirim = inp.value;
             const tr = inp.closest('tr');
             const status = tr.querySelector('[data-status-min]');
             const stok = tr.querySelector('[data-stok-pusat]');
@@ -238,7 +243,8 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || res.redirected) throw new Error(data.message || 'Gagal menyimpan');
-                tersimpan = inp.value = data.hq_min_stock ?? '';
+                inp.value = data.hq_min_stock ?? '';
+                tersimpan = inp.value;
                 Object.values(KELAS_STOK).forEach(k => stok.classList.remove(...k.split(' ')));
                 stok.classList.add(...KELAS_STOK[data.stok <= 0 ? 'merah' : (data.menipis ? 'menipis' : 'biasa')].split(' '));
                 tr.querySelector('[data-tanda-menipis]').classList.toggle('hidden', !data.menipis);
@@ -251,8 +257,12 @@
                 status.className = 'block text-[10px] text-rose-600';
                 status.textContent = '✗ gagal'; // sel sempit — pesan lengkap di tooltip & isian kembali ke angka lama
                 status.title = e.message;
+            } finally {
+                dikirim = null;
             }
-        });
+        };
+        inp.addEventListener('change', simpan);
+        inp.closest('td').querySelector('[data-simpan-min]').addEventListener('click', simpan);
     });
     // Klik "saran N" → isi kolom Stok Min. & simpan otomatis (jalur sama dgn ketik manual).
     document.querySelectorAll('[data-saran]').forEach(btn => btn.addEventListener('click', () => {

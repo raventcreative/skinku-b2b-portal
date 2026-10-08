@@ -57,7 +57,7 @@ class StokMinimumHqTest extends TestCase
         $url = route('products.min-stock', $p);
 
         // Tabel menampilkan kolom isian per produk.
-        $this->actingAs($admin)->get(route('products.index'))->assertOk()->assertSee('Stok Min.')->assertSee($url);
+        $this->actingAs($admin)->get(route('products.index'))->assertOk()->assertSee('Stok Min.')->assertSee($url)->assertSee('data-simpan-min', false);
 
         $this->actingAs($admin)->patchJson($url, ['hq_min_stock' => 20])->assertOk()
             ->assertExactJson(['hq_min_stock' => 20, 'stok' => 8, 'menipis' => true]);

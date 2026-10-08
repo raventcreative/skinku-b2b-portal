@@ -6,6 +6,7 @@
 @php
     $rp = fn ($v) => $v === null ? '—' : 'Rp'.number_format((float) $v, 0, ',', '.');
     $angka = fn ($v) => $v === null ? '—' : number_format((int) $v, 0, ',', '.');
+    $ikonSimpan = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h12l3 3v13H4V4h1Zm3 0v6h8V4M8 20v-7h8v7"/></svg>';
 @endphp
 @include('partials.rupiah-input')
 <div class="mx-auto max-w-[1440px] space-y-5 px-1 sm:px-2">
@@ -17,7 +18,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
                 <h2 class="text-sm font-bold text-stone-800">Stok &amp; Harga {{ $namaCh }}</h2>
-                <p class="mt-1 text-xs text-stone-500">Ketik angka di kolom Override lalu <b>Enter</b> — tersimpan otomatis &amp; langsung dikirim ke {{ $namaCh }}, kursor pindah ke produk berikutnya. Kosongkan = kembali ikut master. Angka <b>efektif</b> = yang dikirim: override bila diisi, kalau kosong ikut master.</p>
+                <p class="mt-1 text-xs text-stone-500">Ketik angka di kolom Override lalu tekan <b>Enter</b> atau tombol simpan — tersimpan tanpa reload &amp; langsung dikirim ke {{ $namaCh }} (Enter juga memindah kursor ke produk berikutnya). Kosongkan = kembali ikut master. Angka <b>efektif</b> = yang dikirim: override bila diisi, kalau kosong ikut master.</p>
             </div>
             <span class="px-3 py-1.5 rounded-full bg-stone-100 text-stone-600 text-xs font-semibold">{{ count($rows) }} produk</span>
         </div>
@@ -74,8 +75,9 @@
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
                             {{-- Form = cadangan tanpa JS (Enter → simpan biasa); dengan JS tersimpan otomatis lewat data-url. --}}
-                            <form method="POST" action="{{ route('marketplace-stock.channel.stok', ['channel'=>$channel,'master'=>$m]) }}">@csrf
+                            <form method="POST" action="{{ route('marketplace-stock.channel.stok', ['channel'=>$channel,'master'=>$m]) }}" class="flex items-center gap-1.5">@csrf
                                 <input type="number" name="quantity" min="0" step="1" value="{{ $row['override_stock'] }}" placeholder="ikut master" data-override="stock" data-url="{{ $urlOverride }}" aria-label="Override stok {{ $namaCh }} {{ $m->name }}" class="h-8 w-24 px-2 text-xs text-right tabular-nums border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200">
+                                <button type="button" data-simpan aria-label="Simpan override stok {{ $m->name }}" title="Simpan" class="inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-white border border-stone-300 text-stone-600 hover:bg-stone-100 hover:text-stone-800">{!! $ikonSimpan !!}</button>
                             </form>
                             <span data-status-simpan class="block mt-0.5 text-[11px] whitespace-normal"></span>
                         </td>
@@ -85,8 +87,9 @@
                             <div data-tanda-override="price" class="mt-0.5 text-[11px] font-semibold text-amber-700 {{ $row['override_price'] === null ? 'hidden' : '' }}">override</div>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
-                            <form method="POST" action="{{ route('marketplace-stock.channel.harga', ['channel'=>$channel,'master'=>$m]) }}">@csrf
+                            <form method="POST" action="{{ route('marketplace-stock.channel.harga', ['channel'=>$channel,'master'=>$m]) }}" class="flex items-center gap-1.5">@csrf
                                 <input type="text" inputmode="numeric" data-rupiah name="price" value="{{ \App\Support\Rupiah::input($row['override_price']) }}" placeholder="ikut master" data-override="price" data-url="{{ $urlOverride }}" aria-label="Override harga {{ $namaCh }} {{ $m->name }}" class="h-8 w-28 px-2 text-xs text-right tabular-nums border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-200">
+                                <button type="button" data-simpan aria-label="Simpan override harga {{ $m->name }}" title="Simpan" class="inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-white border border-stone-300 text-stone-600 hover:bg-stone-100 hover:text-stone-800">{!! $ikonSimpan !!}</button>
                             </form>
                             <span data-status-simpan class="block mt-0.5 text-[11px] whitespace-normal"></span>
                         </td>
@@ -106,24 +109,29 @@
 
 @push('scripts')
 <script>
-// Override diisi langsung di tabel: tersimpan otomatis & langsung dikirim ke marketplace saat pindah kolom / Enter
-// (Enter = lanjut ke produk berikutnya di kolom yang sama, ala spreadsheet). Kosong = kembali ikut master.
+// Override diisi langsung di tabel: tersimpan tanpa reload & langsung dikirim ke marketplace saat pindah kolom, Enter
+// (lanjut ke produk berikutnya di kolom yang sama, ala spreadsheet) atau tombol simpan (utk HP — Enter sulit).
+// Kosong = kembali ikut master.
 (function () {
     const WARNA = {proses: 'text-stone-400', ok: 'text-emerald-700', gagal: 'text-rose-600'};
     document.querySelectorAll('[data-override]').forEach(inp => {
         const field = inp.dataset.override;
         const kolom = [...document.querySelectorAll('[data-override="' + field + '"]')];
         const tr = inp.closest('tr');
-        const status = inp.closest('td').querySelector('[data-status-simpan]');
+        const td = inp.closest('td');
+        const status = td.querySelector('[data-status-simpan]');
         const tulis = (jenis, teks) => { status.className = 'block mt-0.5 text-[11px] whitespace-normal ' + WARNA[jenis]; status.textContent = teks; status.title = teks; };
-        let tersimpan = inp.value;
+        let tersimpan = inp.value; // angka terakhir yang sudah tersimpan
+        let dikirim = null;        // angka yang sedang dikirim — cegah simpan dobel (tap tombol di HP = kolom lepas fokus + klik)
         inp.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;
             e.preventDefault();
             const berikut = kolom[kolom.indexOf(inp) + 1];
             if (berikut) { berikut.focus(); berikut.select(); } else { inp.blur(); }
         });
-        inp.addEventListener('change', async () => {
+        const simpan = async () => {
+            if (inp.value === tersimpan || inp.value === dikirim) return;
+            dikirim = inp.value;
             tulis('proses', 'menyimpan…');
             try {
                 const res = await fetch(inp.dataset.url, {
@@ -141,8 +149,12 @@
             } catch (e) {
                 inp.value = tersimpan;
                 tulis('gagal', '✗ ' + e.message);
+            } finally {
+                dikirim = null;
             }
-        });
+        };
+        inp.addEventListener('change', simpan);
+        td.querySelector('[data-simpan]').addEventListener('click', simpan);
     });
 })();
 </script>
