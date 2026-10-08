@@ -11,8 +11,8 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * Status push FOTO per-listing (last_photo_status / last_photo_error) tampil di halaman channel,
- * sejajar dgn baris status Konten — markup & kelas sama (hanya kelas yang sudah ter-compile).
+ * Status push FOTO per-listing (last_photo_status / last_photo_error) tampil di halaman channel sebagai badge
+ * "Foto" di kolom Status kirim, sejajar dgn badge Konten — markup & kelas sama (hanya kelas yang sudah ter-compile).
  */
 class PhotoStatusDisplayTest extends TestCase
 {
@@ -36,10 +36,10 @@ class PhotoStatusDisplayTest extends TestCase
         return $this->actingAs($this->admin())->get(route('marketplace-stock.channel', $channel))->assertOk()->getContent();
     }
 
-    /** Atribut class dari <div> yang isinya persis $label; null bila barisnya tak dirender. */
-    private function kelasBaris(string $html, string $label): ?string
+    /** Badge status kirim jenis $kunci (stok/harga/konten/foto) → [kelas, teks]; null bila badgenya tak dirender. */
+    private function pil(string $html, string $kunci): ?array
     {
-        return preg_match('/<div class="([^"]*)">\s*'.preg_quote($label, '/').'\s*<\/div>/', $html, $m) === 1 ? $m[1] : null;
+        return preg_match('/<span data-kirim="'.$kunci.'" class="([^"]*)" title="[^"]*">([^<]*)<\/span>/', $html, $m) === 1 ? [$m[1], $m[2]] : null;
     }
 
     public function test_foto_gagal_tampil_penanda_merah_dan_pesan_error(): void
@@ -48,35 +48,36 @@ class PhotoStatusDisplayTest extends TestCase
 
         $html = $this->halaman();
 
-        $kelas = $this->kelasBaris($html, 'Foto: gagal');
-        $this->assertNotNull($kelas, 'baris "Foto: gagal" harus dirender');
-        $this->assertStringContainsString('text-rose-600', $kelas);
-        $this->assertStringNotContainsString('Foto: ok', $html);
+        $pil = $this->pil($html, 'foto');
+        $this->assertNotNull($pil, 'badge "Foto" harus dirender');
+        $this->assertSame('Foto gagal', $pil[1]);
+        $this->assertStringContainsString('text-rose-700', $pil[0]);
         $this->assertStringContainsString('>foto: Foto ditolak</div>', $html);
     }
 
-    public function test_foto_ok_tampil_penanda_netral_tanpa_baris_error(): void
+    public function test_foto_ok_tampil_penanda_hijau_tanpa_baris_error(): void
     {
         $this->masterDenganListing(['last_photo_status' => 'ok', 'last_photo_pushed_at' => now(), 'photo_hash' => 'h']);
 
         $html = $this->halaman();
 
-        $kelas = $this->kelasBaris($html, 'Foto: ok');
-        $this->assertNotNull($kelas, 'baris "Foto: ok" harus dirender');
-        $this->assertStringContainsString('text-stone-500', $kelas);
-        $this->assertStringNotContainsString('rose', $kelas);
+        $pil = $this->pil($html, 'foto');
+        $this->assertNotNull($pil, 'badge "Foto" harus dirender');
+        $this->assertSame('Foto ✓', $pil[1]);
+        $this->assertStringContainsString('text-emerald-700', $pil[0]);
+        $this->assertStringNotContainsString('rose', $pil[0]);
         $this->assertStringNotContainsString('>foto: ', $html);
     }
 
-    public function test_belum_pernah_dorong_foto_tak_ada_baris_foto(): void
+    public function test_belum_pernah_dorong_foto_tak_ada_badge_foto(): void
     {
         $this->masterDenganListing([]);
 
         $html = $this->halaman();
 
         $this->assertStringContainsString('Serum X', $html); // baris listing benar dirender (cek absen tak vakum)
-        $this->assertNull($this->kelasBaris($html, 'Foto: ok'));
-        $this->assertNull($this->kelasBaris($html, 'Foto: gagal'));
+        $this->assertNotNull($this->pil($html, 'stok'));
+        $this->assertNull($this->pil($html, 'foto'));
         $this->assertStringNotContainsString('>foto: ', $html);
     }
 
@@ -110,8 +111,9 @@ class PhotoStatusDisplayTest extends TestCase
 
         $html = $this->halaman();
 
-        $this->assertStringContainsString('text-stone-500', (string) $this->kelasBaris($html, 'Konten: ok'));
-        $this->assertStringContainsString('text-rose-600', (string) $this->kelasBaris($html, 'Foto: gagal'));
+        $this->assertSame(['Konten ✓', 'Foto gagal'], [$this->pil($html, 'konten')[1] ?? null, $this->pil($html, 'foto')[1] ?? null]);
+        $this->assertStringContainsString('text-emerald-700', (string) ($this->pil($html, 'konten')[0] ?? ''));
+        $this->assertStringContainsString('text-rose-700', (string) ($this->pil($html, 'foto')[0] ?? ''));
         $this->assertStringNotContainsString('>konten: ', $html);
     }
 }

@@ -3,24 +3,35 @@
 @section('heading', 'Views Harian Video SKINKU — per Kreator')
 
 @section('content')
-@php $fmt = fn ($n) => number_format((int) $n, 0, ',', '.'); @endphp
+@php
+    $fmt = fn ($n) => number_format((int) $n, 0, ',', '.');
+    // Header = tautan sort (pola sama dgn Database KOL). Klik lagi = balik arah; kolom baru: angka terbesar dulu, Kreator A→Z.
+    $sortLink = function (string $col, string $label) use ($sort, $dir, $from, $to, $q) {
+        $nextDir = $sort === $col ? ($dir === 'asc' ? 'desc' : 'asc') : ($col === 'kreator' ? 'asc' : 'desc');
+        $arrow = $sort === $col ? ($dir === 'asc' ? ' ↑' : ' ↓') : '';
+        $url = route('kol-views-harian.index', array_filter(['dari' => $from->toDateString(), 'sampai' => $to->toDateString(), 'q' => $q, 'sort' => $col, 'dir' => $nextDir]));
+
+        return '<a href="'.e($url).'" class="hover:text-stone-800 '.($sort === $col ? 'text-stone-800 font-bold' : '').'">'.e($label).$arrow.'</a>';
+    };
+@endphp
 <div class="space-y-4">
     <div class="bg-white rounded-2xl border border-stone-200 p-4 text-[12px] text-stone-600 leading-relaxed">
         Views <b>per hari</b> dari video yang mempromosikan <b>produk SKINKU</b> (keranjang kuning), per kreator. Diambil tiap hari ±12:30
         (saat data TikTok kemarin sudah lengkap) dari selisih data kumulatif → kolom tanggal = views <b>pada hari itu</b>; angka kemarin muncul setelah ±12:30
         dan 2 hari terakhir dikoreksi otomatis.
         Video non-SKINKU tidak termasuk. Kolom <b>Diposting</b> = jumlah video SKINKU yang diunggah kreator di rentang tanggal ini;
-        views tetap mencakup video lama yang masih ditonton. <b>Klik nama kreator</b> untuk melihat daftar videonya.
+        views tetap mencakup video lama yang masih ditonton. <b>Klik nama kreator</b> untuk melihat daftar videonya; <b>klik judul kolom</b> untuk mengurutkan.
         @if($mulai)<span class="text-stone-400">Riwayat tercatat sejak {{ \Illuminate\Support\Carbon::parse($mulai)->translatedFormat('d M Y') }}.</span>
         @else<span class="text-amber-700">Belum ada data — riwayat mulai terkumpul setelah pengambilan data ±12:30 berikutnya (butuh 2 hari untuk angka harian pertama).</span>@endif
     </div>
 
     <form method="GET" class="flex flex-wrap items-end gap-2 text-xs">
+        <input type="hidden" name="sort" value="{{ $sort }}"><input type="hidden" name="dir" value="{{ $dir }}">
         <label>Dari<input type="date" name="dari" value="{{ $from->toDateString() }}" class="block mt-1 px-2 py-1.5 border border-stone-300 rounded-lg"></label>
         <label>Sampai<input type="date" name="sampai" value="{{ $to->toDateString() }}" class="block mt-1 px-2 py-1.5 border border-stone-300 rounded-lg"></label>
         <label>Kreator<input type="search" name="q" value="{{ $q }}" placeholder="cari username…" class="block mt-1 px-2 py-1.5 border border-stone-300 rounded-lg w-44"></label>
         <button class="px-3 py-1.5 bg-stone-800 text-white rounded-lg">Tampilkan</button>
-        <a href="{{ route('kol-views-harian.export', ['dari' => $from->toDateString(), 'sampai' => $to->toDateString()]) }}" class="ml-auto px-3 py-1.5 bg-emerald-700 text-white rounded-lg">Export Excel</a>
+        <a href="{{ route('kol-views-harian.export', ['dari' => $from->toDateString(), 'sampai' => $to->toDateString(), 'sort' => $sort, 'dir' => $dir]) }}" class="ml-auto px-3 py-1.5 bg-emerald-700 text-white rounded-lg">Export Excel</a>
     </form>
 
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
@@ -29,11 +40,11 @@
                 <thead class="bg-stone-50 text-stone-500 uppercase text-[10px] sticky top-0 z-10">
                     <tr>
                         <th class="text-right px-3 py-2">No</th>
-                        <th class="text-left px-3 py-2 sticky left-0 bg-stone-50">Kreator</th>
-                        <th class="text-right px-2" title="Jumlah video SKINKU yang diunggah di rentang tanggal ini">Diposting</th>
-                        @foreach($dates as $d)<th class="text-right px-2">{{ \Illuminate\Support\Carbon::parse($d)->format('d M') }}</th>@endforeach
-                        <th class="text-right px-3 text-stone-700">Total</th>
-                        <th class="text-right px-3">GMV</th>
+                        <th class="text-left px-3 py-2 sticky left-0 bg-stone-50">{!! $sortLink('kreator', 'Kreator') !!}</th>
+                        <th class="text-right px-2" title="Jumlah video SKINKU yang diunggah di rentang tanggal ini">{!! $sortLink('diposting', 'Diposting') !!}</th>
+                        @foreach($dates as $d)<th class="text-right px-2">{!! $sortLink($d, \Illuminate\Support\Carbon::parse($d)->format('d M')) !!}</th>@endforeach
+                        <th class="text-right px-3 text-stone-700">{!! $sortLink('total', 'Total') !!}</th>
+                        <th class="text-right px-3">{!! $sortLink('gmv', 'GMV') !!}</th>
                     </tr>
                 </thead>
                 <tbody>

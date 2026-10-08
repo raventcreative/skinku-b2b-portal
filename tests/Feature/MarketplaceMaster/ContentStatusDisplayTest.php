@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 /**
- * Status push KONTEN per-listing (last_content_status / last_content_error) tampil di halaman
- * channel sebagai baris ketiga di sel "Kirim" — sejajar dgn status stok & harga, markup sama.
+ * Status push per-listing tampil di halaman channel sebagai badge di kolom "Status kirim": Stok & Harga selalu ada,
+ * KONTEN (last_content_status / last_content_error) hanya bila pernah didorong — markup sama, pesan error di bawahnya.
  */
 class ContentStatusDisplayTest extends TestCase
 {
@@ -36,10 +36,25 @@ class ContentStatusDisplayTest extends TestCase
         return $this->actingAs($this->admin())->get(route('marketplace-stock.channel', $channel))->assertOk()->getContent();
     }
 
-    /** Atribut class dari <div> yang isinya persis $label (mis. "Konten: gagal"); null bila barisnya tak dirender. */
-    private function kelasBaris(string $html, string $label): ?string
+    /** Badge status kirim jenis $kunci (stok/harga/konten/foto) → [kelas, teks]; null bila badgenya tak dirender. */
+    private function pil(string $html, string $kunci): ?array
     {
-        return preg_match('/<div class="([^"]*)">\s*'.preg_quote($label, '/').'\s*<\/div>/', $html, $m) === 1 ? $m[1] : null;
+        return preg_match('/<span data-kirim="'.$kunci.'" class="([^"]*)" title="[^"]*">([^<]*)<\/span>/', $html, $m) === 1 ? [$m[1], $m[2]] : null;
+    }
+
+    public function test_status_stok_harga_berupa_badge_berlabel_bukan_ok_garis_miring_ok(): void
+    {
+        $this->masterDenganListing(['last_status' => 'failed', 'last_error' => 'Stok ditolak', 'last_price_status' => null]);
+
+        $html = $this->halaman();
+
+        [$kelas, $teks] = $this->pil($html, 'stok');
+        $this->assertSame('Stok gagal', $teks);
+        $this->assertStringContainsString('text-rose-700', $kelas);
+        $this->assertStringContainsString('>stok: Stok ditolak</div>', $html);
+        $this->assertSame('Harga —', $this->pil($html, 'harga')[1]); // belum pernah dikirim
+        $this->assertStringNotContainsString('ok/ok', $html);
+        $this->assertStringNotContainsString('—/—', $html);
     }
 
     public function test_konten_gagal_tampil_penanda_merah_dan_pesan_error(): void
@@ -48,35 +63,36 @@ class ContentStatusDisplayTest extends TestCase
 
         $html = $this->halaman();
 
-        $kelas = $this->kelasBaris($html, 'Konten: gagal');
-        $this->assertNotNull($kelas, 'baris "Konten: gagal" harus dirender');
-        $this->assertStringContainsString('text-rose-600', $kelas);
-        $this->assertStringNotContainsString('Konten: ok', $html);
+        $pil = $this->pil($html, 'konten');
+        $this->assertNotNull($pil, 'badge "Konten" harus dirender');
+        $this->assertSame('Konten gagal', $pil[1]);
+        $this->assertStringContainsString('text-rose-700', $pil[0]);
         $this->assertStringContainsString('>konten: Deskripsi ditolak</div>', $html);
     }
 
-    public function test_konten_ok_tampil_penanda_ok_netral_tanpa_baris_error(): void
+    public function test_konten_ok_tampil_penanda_hijau_tanpa_baris_error(): void
     {
         $this->masterDenganListing(['last_content_status' => 'ok', 'last_content_pushed_at' => now(), 'content_hash' => 'h']);
 
         $html = $this->halaman();
 
-        $kelas = $this->kelasBaris($html, 'Konten: ok');
-        $this->assertNotNull($kelas, 'baris "Konten: ok" harus dirender');
-        $this->assertStringContainsString('text-stone-500', $kelas);
-        $this->assertStringNotContainsString('rose', $kelas);
-        $this->assertStringNotContainsString('Konten: gagal', $html);
+        $pil = $this->pil($html, 'konten');
+        $this->assertNotNull($pil, 'badge "Konten" harus dirender');
+        $this->assertSame('Konten ✓', $pil[1]);
+        $this->assertStringContainsString('text-emerald-700', $pil[0]);
+        $this->assertStringNotContainsString('rose', $pil[0]);
         $this->assertDoesNotMatchRegularExpression('/>\s*konten: /', $html); // tak ada baris pesan error konten
     }
 
-    public function test_listing_yang_belum_pernah_dorong_konten_tak_menampilkan_baris_konten(): void
+    public function test_listing_yang_belum_pernah_dorong_konten_tak_menampilkan_badge_konten(): void
     {
         $this->masterDenganListing([]);
 
         $html = $this->halaman();
 
         $this->assertStringContainsString('Serum X', $html); // barisnya memang dirender (negatif di bawah tak kosong-melompong)
-        $this->assertDoesNotMatchRegularExpression('/>\s*Konten: /', $html);
+        $this->assertNotNull($this->pil($html, 'stok'));
+        $this->assertNull($this->pil($html, 'konten'));
         $this->assertDoesNotMatchRegularExpression('/>\s*konten: /', $html);
     }
 
@@ -109,13 +125,11 @@ class ContentStatusDisplayTest extends TestCase
         MarketplaceListing::create(['channel' => 'shopee', 'seller_sku' => 'S1', 'item_id' => '555', 'master_id' => $m->id, 'last_content_status' => 'failed', 'last_content_error' => 'Berat ditolak Shopee']);
 
         $tiktok = $this->halaman('tiktok');
-        $this->assertNotNull($this->kelasBaris($tiktok, 'Konten: ok'));
-        $this->assertNull($this->kelasBaris($tiktok, 'Konten: gagal'));
+        $this->assertSame('Konten ✓', $this->pil($tiktok, 'konten')[1] ?? null);
         $this->assertStringNotContainsString('Berat ditolak Shopee', $tiktok);
 
         $shopee = $this->halaman('shopee');
-        $this->assertNotNull($this->kelasBaris($shopee, 'Konten: gagal'));
-        $this->assertNull($this->kelasBaris($shopee, 'Konten: ok'));
+        $this->assertSame('Konten gagal', $this->pil($shopee, 'konten')[1] ?? null);
         $this->assertStringContainsString('>konten: Berat ditolak Shopee</div>', $shopee);
     }
 
@@ -125,8 +139,12 @@ class ContentStatusDisplayTest extends TestCase
 
         $html = $this->halaman();
 
-        // Span "stok/harga" tetap netral (hanya kegagalan stok/harga yang merahkannya); konten punya baris sendiri.
-        $this->assertMatchesRegularExpression('/<span class="text-stone-500">ok\/ok<\/span>/', $html);
-        $this->assertNotNull($this->kelasBaris($html, 'Konten: gagal'));
+        // Badge stok & harga tetap hijau (hanya kegagalan stok/harga yang memerahkannya); konten punya badge sendiri.
+        foreach (['stok' => 'Stok ✓', 'harga' => 'Harga ✓'] as $kunci => $teks) {
+            [$kelas, $isi] = $this->pil($html, $kunci);
+            $this->assertSame($teks, $isi);
+            $this->assertStringContainsString('text-emerald-700', $kelas);
+        }
+        $this->assertSame('Konten gagal', $this->pil($html, 'konten')[1]);
     }
 }
