@@ -30,9 +30,9 @@ class OmzetMitraTool extends BaseTool
 
     public function description(): string
     {
-        return 'Omzet per mitra per bulan (menu Omzet Mitra): jual ke downline (PO yang mitra proses sebagai penjual) '
-            .'+ jual ke customer akhir (nota penjualan mitra), digabung per mitra dan diurutkan terbesar. Pakai untuk '
-            .'ranking/performa jualan distributor & reseller. Mitra yang hanya membeli (tanpa jualan) tidak muncul.';
+        return 'Omzet per mitra per bulan (menu Omzet Mitra) = penjualan MILIK mitra: jual ke downline (PO yang mitra proses '
+            .'sebagai penjual) + jual ke customer akhir (nota penjualan mitra), diurutkan terbesar. BUKAN pembelian mitra dari '
+            .'HQ — ranking mitra berdasarkan belanja ke HQ ada di laporan_penjualan (per_mitra).';
     }
 
     public function parameters(): array
@@ -63,8 +63,12 @@ class OmzetMitraTool extends BaseTool
                 'mitra' => $r['nama'], 'tier' => $r['tier'],
                 'jual_downline' => $r['jual_downline'], 'jual_customer' => $r['jual_customer'], 'total' => $r['total'],
             ])->values()->all(),
-        ] + ($cari !== '' && $tampil->isEmpty()
-            ? ['catatan' => "Tidak ada mitra berjualan yang cocok dengan \"{$cari}\" di periode ini — ulangi tanpa cari, atau mitra itu memang belum berjualan."]
-            : []);
+        ] + match (true) {
+            // Kosong total = mitra belum mencatat penjualan sendiri; arahkan AI ke data belanja mitra ke HQ.
+            $rows->isEmpty() => ['catatan' => 'Belum ada penjualan MITRA (ke downline / customer akhir) yang tercatat di periode ini. '
+                .'Kalau yang ditanyakan mitra dengan belanja/omzet terbesar untuk SKINKU, panggil laporan_penjualan (per_mitra = pembelian tiap mitra ke HQ).'],
+            $cari !== '' && $tampil->isEmpty() => ['catatan' => "Tidak ada mitra berjualan yang cocok dengan \"{$cari}\" di periode ini — ulangi tanpa cari, atau mitra itu memang belum berjualan."],
+            default => [],
+        };
     }
 }

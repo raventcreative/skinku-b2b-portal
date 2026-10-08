@@ -29,7 +29,8 @@ class LaporanPenjualanTool extends BaseTool
     {
         return 'Laporan Penjualan PO HQ (untuk staf) atau Laporan Pembelian (untuk mitra = PO milik akun itu) per bulan: '
             .'total penjualan PO selesai, jumlah PO per status, produk terlaris (unit & rupiah). Staf juga dapat penjualan '
-            .'per mitra (distributor/reseller) dan per wilayah, plus laba kotor bila berizin Lihat HPP. Hanya PO — untuk '
+            .'per mitra (= pembelian/belanja tiap distributor & reseller ke HQ, urut terbesar — dasar "mitra omzet terbesar" untuk SKINKU) '
+            .'dan per wilayah, plus laba kotor bila berizin Lihat HPP. Hanya PO — untuk '
             .'TikTok/Shopee & perbandingan periode pakai laporan_bisnis.';
     }
 
