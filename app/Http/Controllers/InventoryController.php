@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Models\User;
 use App\Services\AuditService;
 use App\Services\InventoryService;
 use Illuminate\Http\RedirectResponse;
@@ -20,10 +21,26 @@ class InventoryController extends Controller
     {
         $user = $request->user();
 
+        // Sort per kolom (pola Database KOL). Dua tabel → parameter terpisah agar sort satu tabel tak mereset yang lain:
+        // hq_sort/hq_dir (Stok Pusat) & sort/dir (stok mitra). Daftar putih; nilai ngawur → urutan bawaan.
+        $hqKolom = ['produk' => 'name', 'sku' => 'sku', 'stok' => 'hq_stock'];
+        $hqSort = $request->query('hq_sort');
+        $hqSort = is_string($hqSort) && isset($hqKolom[$hqSort]) ? $hqSort : 'produk';
+        $hqDir = $request->query('hq_dir') === 'desc' ? 'desc' : 'asc';
+
         // HQ (pusat) stock — visible to staff only.
         $hqProducts = $user->isStaff()
-            ? Product::query()->where('status', '!=', Product::STATUS_DELETED)->orderBy('name')->get()
+            ? Product::query()->where('status', '!=', Product::STATUS_DELETED)->orderBy($hqKolom[$hqSort], $hqDir)->orderBy('name')->get()
             : collect();
+
+        $mitraKolom = [
+            'produk' => Product::select('name')->whereColumn('products.id', 'inventory.product_id'),
+            'qty' => 'quantity',
+            'min' => 'minimum_stock',
+        ] + ($user->isPartner() ? [] : ['mitra' => User::selectRaw('COALESCE(company_name, fullname)')->whereColumn('users.id', 'inventory.user_id')]);
+        $sort = $request->query('sort');
+        $sort = is_string($sort) && isset($mitraKolom[$sort]) ? $sort : null; // bawaan: yang terakhir berubah dulu
+        $dir = $request->query('dir') === 'desc' ? 'desc' : 'asc';
 
         $activeProducts = Product::query()
             ->where('status', Product::STATUS_ACTIVE)
@@ -37,11 +54,12 @@ class InventoryController extends Controller
         $partnerStock = Inventory::query()
             ->with('product', 'user')
             ->when($user->isPartner(), fn ($q) => $q->where('user_id', $user->id)->where('quantity', '>', 0))
-            ->orderByDesc('updated_at')
+            ->when($sort, fn ($q) => $q->orderBy($mitraKolom[$sort], $dir), fn ($q) => $q->orderByDesc('updated_at'))
+            ->orderBy('id')
             ->paginate(20)
             ->withQueryString();
 
-        return view('inventory.index', compact('user', 'hqProducts', 'partnerStock', 'activeProducts'));
+        return view('inventory.index', compact('user', 'hqProducts', 'partnerStock', 'activeProducts', 'hqSort', 'hqDir', 'sort', 'dir'));
     }
 
     /** HQ stock adjustment (gudang / management only). */

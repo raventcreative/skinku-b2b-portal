@@ -6,10 +6,19 @@
 @php
     // HPP (harga pokok) hanya utk izin Lihat HPP — default super admin; admin/gudang tak perlu tahu.
     $lihatHpp = auth()->user()->canDo('view_hpp');
+    // Header = tautan sort (pola Database KOL): klik pertama A→Z / terkecil, klik lagi balik arah. Filter ikut terbawa.
+    $sortLink = function (string $col, string $label) use ($sort, $dir, $filters) {
+        $nextDir = ($sort === $col && $dir === 'asc') ? 'desc' : 'asc';
+        $arrow = $sort === $col ? ($dir === 'asc' ? ' ↑' : ' ↓') : '';
+        $url = route('products.index', array_filter($filters) + ['sort' => $col, 'dir' => $nextDir]);
+
+        return '<a href="'.e($url).'" class="hover:text-stone-800 '.($sort === $col ? 'text-stone-800 font-bold' : '').'">'.e($label).$arrow.'</a>';
+    };
     $kolomEdit = array_values(array_diff(['id', 'name', 'sku', 'category', 'description', 'price_grand', 'price_distributor', 'price_reseller', 'price_retail', 'cogs', 'weight_grams', 'hq_stock', 'hq_min_stock', 'status'], $lihatHpp ? [] : ['cogs']));
 @endphp
 <div class="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
     <form method="GET" class="flex flex-wrap gap-2">
+        <input type="hidden" name="sort" value="{{ $sort }}"><input type="hidden" name="dir" value="{{ $dir }}">
         <input name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari nama/SKU…" class="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg sm:w-56">
         <select name="status" class="px-3 py-2 text-sm border border-stone-300 rounded-lg">
             <option value="">Semua Status</option>
@@ -40,21 +49,21 @@
                 <th scope="colgroup" colspan="3" class="text-left">Katalog</th>
                 <th scope="colgroup" colspan="4" class="text-center">Harga jual <span>(Rp)</span></th>
                 <th scope="colgroup" colspan="{{ $lihatHpp ? 4 : 3 }}" class="text-center">{{ $lihatHpp ? 'Biaya & logistik' : 'Logistik' }}</th>
-                <th scope="col" rowspan="2" class="text-left">Status</th>
+                <th scope="col" rowspan="2" class="text-left">{!! $sortLink('status', 'Status') !!}</th>
                 <th scope="col" rowspan="2" class="ui-table-actions-head text-right">Aksi</th>
             </tr>
             <tr class="ui-table-columns">
-                <th scope="col" class="text-left">Produk</th>
-                <th scope="col" class="text-left">SKU</th>
-                <th scope="col" class="text-left">Kategori</th>
-                <th scope="col" class="text-right">Grand</th>
-                <th scope="col" class="text-right">Distributor</th>
-                <th scope="col" class="text-right">Reseller</th>
-                <th scope="col" class="text-right">Retail</th>
-                @if($lihatHpp)<th scope="col" class="text-right">HPP</th>@endif
-                <th scope="col" class="text-right">Berat</th>
-                <th scope="col" class="text-right">Stok Pusat</th>
-                <th scope="col" class="text-right" title="Stok minimum pusat: pengingat di Dashboard bila stok ≤ angka ini. Kosong = tanpa pengingat. Tersimpan otomatis.">Stok Min.</th>
+                <th scope="col" class="text-left">{!! $sortLink('nama', 'Produk') !!}</th>
+                <th scope="col" class="text-left">{!! $sortLink('sku', 'SKU') !!}</th>
+                <th scope="col" class="text-left">{!! $sortLink('kategori', 'Kategori') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('grand', 'Grand') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('distributor', 'Distributor') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('reseller', 'Reseller') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('retail', 'Retail') !!}</th>
+                @if($lihatHpp)<th scope="col" class="text-right">{!! $sortLink('hpp', 'HPP') !!}</th>@endif
+                <th scope="col" class="text-right">{!! $sortLink('berat', 'Berat') !!}</th>
+                <th scope="col" class="text-right">{!! $sortLink('stok', 'Stok Pusat') !!}</th>
+                <th scope="col" class="text-right" title="Stok minimum pusat: pengingat di Dashboard bila stok ≤ angka ini. Kosong = tanpa pengingat. Tersimpan otomatis.">{!! $sortLink('stok_min', 'Stok Min.') !!}</th>
             </tr>
         </thead>
         <tbody>

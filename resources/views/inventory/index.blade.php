@@ -5,6 +5,15 @@
 @section('content')
 @php
     $u = $user;
+    // Header = tautan sort (pola Database KOL): klik pertama A→Z / terkecil, klik lagi balik arah. Dua tabel →
+    // parameter terpisah ($param hq_sort / sort) agar sort satu tabel tak mereset yang lain; halaman kembali ke 1.
+    $sortLink = function (string $param, string $col, string $label, ?string $aktif, string $arah) {
+        $nextDir = ($aktif === $col && $arah === 'asc') ? 'desc' : 'asc';
+        $arrow = $aktif === $col ? ($arah === 'asc' ? ' ↑' : ' ↓') : '';
+        $url = request()->fullUrlWithQuery([$param => $col, ($param === 'hq_sort' ? 'hq_dir' : 'dir') => $nextDir, 'page' => null]);
+
+        return '<a href="'.e($url).'" class="hover:text-stone-800 '.($aktif === $col ? 'text-stone-800 font-bold' : '').'">'.e($label).$arrow.'</a>';
+    };
     // Value tetap IN/OUT/ADJUSTMENT (kontrak backend), tapi label bahasa manusia.
     // Sebelumnya dropdown menampilkan kode Inggris mentah — mitra yang mencari
     // "stok keluar" tak menemukannya di balik kata "OUT".
@@ -21,7 +30,7 @@
         <div class="overflow-x-auto">
         <table class="w-full text-xs whitespace-nowrap">
             <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
-                <tr><th class="text-left px-4 py-2">Produk</th><th class="text-left">SKU</th><th class="text-right">Stok</th><th class="text-right px-4 w-72">Penyesuaian</th></tr>
+                <tr><th class="text-left px-4 py-2">{!! $sortLink('hq_sort', 'produk', 'Produk', $hqSort, $hqDir) !!}</th><th class="text-left">{!! $sortLink('hq_sort', 'sku', 'SKU', $hqSort, $hqDir) !!}</th><th class="text-right">{!! $sortLink('hq_sort', 'stok', 'Stok', $hqSort, $hqDir) !!}</th><th class="text-right px-4 w-72">Penyesuaian</th></tr>
             </thead>
             <tbody>
                 @forelse($hqProducts as $p)
@@ -92,8 +101,8 @@
     <table class="w-full text-xs whitespace-nowrap">
         <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]">
             <tr>
-                @if(!$u->isPartner())<th class="text-left px-4 py-2">Mitra</th>@endif
-                <th class="text-left px-4 py-2">Produk</th><th class="text-right">Qty</th><th class="text-right">Min</th><th class="text-right px-4 w-72">Aksi</th>
+                @if(!$u->isPartner())<th class="text-left px-4 py-2">{!! $sortLink('sort', 'mitra', 'Mitra', $sort, $dir) !!}</th>@endif
+                <th class="text-left px-4 py-2">{!! $sortLink('sort', 'produk', 'Produk', $sort, $dir) !!}</th><th class="text-right">{!! $sortLink('sort', 'qty', 'Qty', $sort, $dir) !!}</th><th class="text-right">{!! $sortLink('sort', 'min', 'Min', $sort, $dir) !!}</th><th class="text-right px-4 w-72">Aksi</th>
             </tr>
         </thead>
         <tbody>
