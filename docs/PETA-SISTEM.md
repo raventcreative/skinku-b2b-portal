@@ -28,7 +28,7 @@ Cara audit ulang: `php artisan route:list`, `ls app/Http/Controllers/*.php`, `ls
 ### Fondasi Portal
 - **PO & Distributor** — `PurchaseOrderController` + `PurchaseOrderService`; PoPayment, PoReturn. Bukti transfer, mass-status, backdate sale.
 - **Produk/Stok/Produksi** — Product, Production (HPP moving-avg), Material, Inventory, StockMovement, StockOpname, StockReceipt, HqStockReport.
-- **Akuntansi/GL** — Accounting, AccAccount, AccTemplate + Acc* model; FinancialReport/Ledger/CashFlow/ComparativeReport Service (double-entry, L/R, neraca, mutasi bank).
+- **Akuntansi/GL** — laporan keuangan (Laba Rugi, Neraca, Arus Kas, dll.) butuh izin Lihat HPP sejak 2026-10-08, jurnal/COA/impor cukup `view_accounting`. Accounting, AccAccount, AccTemplate + Acc* model; FinancialReport/Ledger/CashFlow/ComparativeReport Service (double-entry, L/R, neraca, mutasi bank).
 - **Sistem** — Auth, User, Permission/Role, Announcement, AuditLog, Setting (+ backup DB), Impersonation, Dashboard, Export, Supplier.
 
 ### Jaringan Mitra (MLM) — model AKTIF = Model A (margin/inter-partner)

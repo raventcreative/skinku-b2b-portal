@@ -243,6 +243,8 @@ Kolom harga: `price_grand, price_distributor, price_reseller, price_retail`, plu
 - **`StockReceipt` / `StockReceiptItem`** — header/baris penerimaan barang dengan snapshot cogs sebelum/sesudah.
 
 ### Stok minimum pusat (pengingat HQ menipis, migrasi `000160`)
+- **Saran Stok Min.** (2026-10-08): `HqStockReportService::saranStokMinimum()` = barang keluar HQ 30 hari terakhir ÷ 30 × **14 hari cadangan** (dibulatkan ke atas; konstanta `SARAN_HARI_DATA`/`SARAN_HARI_CADANGAN`), kategori sama dgn Laporan Stok HQ (TikTok + Shopee + reseller + keluar lain; masuk, penyesuaian/opname, transfer tak dihitung). Tabel Produk Master: tautan "saran N" di bawah kolom Stok Min. (klik → isi & simpan otomatis; tooltip rata-rata/hari) + tombol **"Isi Stok Min. dari saran (N)"** (`POST products.min-stock.saran`) yang hanya mengisi produk aktif yang minimumnya masih kosong, audit `update_product_min_stock` (sumber "saran"). Test: `StokMinimumHqTest`.
+- **Sort per kolom** di Produk Master (`?sort=&dir=`, daftar putih; sort HPP hanya utk `view_hpp`), Pemantauan Stok (tabel Stok Pusat `hq_sort/hq_dir`, tabel stok mitra `sort/dir` — terpisah) dan katalog Produk Master E-commerce (Nama/SKU/Harga/Stok; bervarian = harga termurah/total stok, bundle = stok hitungan, kosong selalu di bawah). Test: `SortTabelTest`.
 - `products.hq_min_stock` (nullable; kosong = tanpa pengingat), diisi di form Produk Master (`manage_products`) **atau langsung di kolom "Stok Min." tabel Produk Master** (tersimpan otomatis saat pindah kolom/Enter; Enter langsung lompat ke produk berikutnya ala spreadsheet: `PATCH products.min-stock` → JSON, validasi manual 422, tercatat di Audit Log `update_product_min_stock`). `Product::isStokPusatMenipis()` = minimum > 0 & `hq_stock` ≤ minimum; scope `Product::stokPusatMenipis()` = itu + status aktif.
 - Banner **"Stok pusat menipis"** di Dashboard (staf `manage_hq_stock` / `manage_products`, urut stok terkecil, 5 teratas + "Lihat semua" → Produk Master `?stok=menipis`); tanda "menipis · min X" di Produk Master & tabel Stok Pusat (Pemantauan Stok), badge di Laporan Stok HQ; Asisten AI: `pemantauan_stok` (stok_pusat + `stok_pusat_menipis`) & `produk_master` (`stok_minimum`, `stok_menipis`). Panel "Peringatan Stok Rendah" (stok mitra) kini juga mengabaikan minimum 0. Tak ada notifikasi push (sengaja; bisa ditambah lewat Report Bot Telegram). Test: `tests/Feature/StokMinimumHqTest.php`.
 
@@ -519,7 +521,7 @@ Ganti picker `<select>` lama. Dipicu dari dua tempat pada `index.blade.php`: tom
 2. **Tambah Produk Baru** (`create`/`store`) — admin isi nama/SKU/harga/stok/tipe/kategori/deskripsi/foto (s.d. 9)/berat/dimensi/barcode master secara manual (form lengkap, lihat subseksi di atas). Di Ubah, foto lama bisa dihapus / dijadikan utama lewat galeri (`master.foto.hapus`/`master.foto.utama`).
 3. **Kaitkan Produk** — dari menu Atur (atau klik angka Produk/Toko Terkait) → modal "Kaitkan Produk": cari/filter listing, centang lalu **"Tautkan terpilih"** (`kaitkan`, bulk) → stok/harga master mulai disinkron ke channel listing itu; **"Lepas terpilih"** (`lepas`, bulk) untuk memutus tautan kapan pun diperlukan.
 4. **Rapikan katalog** — Ubah / Duplikat / Jadikan Bundle-Satuan / Hapus lewat menu Atur kapan pun diperlukan.
-5. **Override per channel** (`/marketplace-stock/{channel}`) — admin isi stok/harga khusus 1 channel bila perlu beda dari Master; "Ikut Master" mengembalikan ke nilai Master.
+5. **Override per channel** (`/marketplace-stock/{channel}`) — admin isi stok/harga khusus 1 channel bila perlu beda dari Master, **langsung di tabel**: ketik + Enter → tersimpan otomatis (`POST marketplace-stock.override`, JSON, validasi manual 422) & langsung didorong (`pushMaster`), kursor lompat ke produk berikutnya; kosongkan = ikut Master. Respons membawa angka efektif + badge status kirim terbaru (partial `_status-kirim`); audit `update_marketplace_override`. Test: `OverrideOtomatisTest`.
 6. **Push berkala** — cron `marketplace:push-stock` tiap 5 menit → `pushDirty()` (hanya listing yang nilainya berubah sejak push terakhir; §20); tombol "Sinkron semua" (`push-all`) dorong paksa (`force=true`) kapan saja.
 7. **Order masuk** — `TikTokOrderService`/`ShopeeOrderService` potong stok HQ (jalur lama, tak berubah) **dan** panggil `applyOrderDelta()` supaya bucket master/override ikut turun — HQ tak disentuh oleh jalur ini.
 8. **Dorong Konten (opsional, manual)** — di form Ubah / menu Atur, tombol "Dorong Konten" mengirim deskripsi/berat/dimensi tersimpan **+ foto (hanya bila set foto berubah; mengganti seluruh foto listing)** ke listing tertaut (tak ikut cron); hasilnya tampil per listing di halaman override channel (badge `Konten ✓/gagal`, `Foto ✓/gagal`).
@@ -574,14 +576,14 @@ Migrasi dasar `000000`; COA di-seed `ChartOfAccountSeeder` (upsert idempotent by
 
 ### Route / izin
 `AccountingController` (517 baris), semua di bawah `permission:view_accounting`:
-- **Laporan:** `/accounting/laporan` (gabungan), `/laba-rugi`, `/neraca`, `/arus-kas`, `/banding`, `/tren`, `/neraca-saldo`.
+- **Laporan:** `/accounting/laporan` (gabungan), `/laba-rugi`, `/neraca`, `/arus-kas`, `/banding`, `/tren`, `/neraca-saldo` — **juga butuh `view_hpp`** (sejak 2026-10-08: laporan saling terkait, laba/persediaan cukup utk menghitung HPP). Tanpa izin: tab laporan disembunyikan (`accounting/_nav`), `/accounting` langsung ke Jurnal; input/impor jurnal, COA & template tetap cukup `view_accounting`.
 - **Entri manual:** `/accounting/jurnal` (list), `/jurnal/baru` (form + preset template), `POST /jurnal`, `POST /jurnal/{j}/void`.
 - **Hapus** (gate ketat): `DELETE /accounting/jurnal/{j}` butuh `delete_accounting` (default **kosong** — hanya super_admin).
 - **Impor Excel:** `/accounting/impor-excel` (klien parse → `journals[]`, server validasi balance + dedup; flag `is_opening` tag `opening_balance`).
 - **Impor mutasi bank:** `/accounting/impor` (1 jurnal per baris bank vs akun bank terpilih; `keluar` → Dr counter/Cr bank, `masuk` → Dr bank/Cr counter).
 - **COA / Template:** `AccAccountController` (`/accounting/coa*`), `AccTemplateController` (`/accounting/template*`); destroy digating `delete_accounting`.
 
-**Izin:** `view_accounting` (default admin), `delete_accounting` (default **nobody** — komentar "hapus jurnal itu permanen").
+**Izin:** `view_accounting` (default admin; jurnal/COA/impor), `view_hpp` (default kosong = super admin; laporan keuangan), `delete_accounting` (default **nobody** — komentar "hapus jurnal itu permanen").
 
 ---
 
@@ -600,7 +602,7 @@ Docblock: *"Semua laporan berbasis agregat SQL — tak pernah mock. 'Sales' = PO
 | `salesTrend(granularity, points, ?User, ?month)` | Total sales per bucket waktu (hari/minggu/bulan); zero-fill hari saat 1 bulan dipilih. |
 | `salesByProduct(limit, ?User, ?month)` | Produk teratas by revenue. |
 | `ProdukTerlarisService::report(month)` *(service terpisah)* | Panel **Produk Terlaris** dashboard (staff): unit terjual per channel (Semua/Reseller-PO/TikTok/Shopee), order berbayar (selesai+berjalan), SKU marketplace di-resolve lewat peta SKU/bundle (isi × qty), SKU belum dipetakan tetap tampil bertanda; ▲▼ vs bulan lalu. Ikut `?bulan` dashboard. |
-| `BusinessReportService` *(menu Laporan → Generate Report, `/laporan-bisnis`)* | Laporan Mingguan/Bulanan/Kuartal/Tahunan/Custom vs periode sebelumnya, plus **Semua Periode** (sejak transaksi pertama, tanpa pembanding; laju stok pakai 90 hari terakhir) (periode berjalan dipotong s/d hari ini). Merangkai channelSales, ProdukTerlaris, mitra/PO (top, tidak order, retur), stok vs laju jual, KOL (izin `kol.affiliate.view`), laba rugi (izin `view_accounting`). PDF = print browser (grafik Chart.js), Excel = `XlsxWriter` multi-sheet, analisis AI via `ReportAi::analyze` (AJAX, cache 12 jam, audit `generate_business_report_ai`). Staff + `view_reports`. |
+| `BusinessReportService` *(menu Laporan → Generate Report, `/laporan-bisnis`)* | Laporan Mingguan/Bulanan/Kuartal/Tahunan/Custom vs periode sebelumnya, plus **Semua Periode** (sejak transaksi pertama, tanpa pembanding; laju stok pakai 90 hari terakhir) (periode berjalan dipotong s/d hari ini). Merangkai channelSales, ProdukTerlaris, mitra/PO (top, tidak order, retur), stok vs laju jual, KOL (izin `kol.affiliate.view`), laba rugi (izin `view_accounting` + `view_hpp`; ikut tertutup di Excel & analisis AI). PDF = print browser (grafik Chart.js), Excel = `XlsxWriter` multi-sheet, analisis AI via `ReportAi::analyze` (AJAX, cache 12 jam, audit `generate_business_report_ai`). Staff + `view_reports`. |
 | `partnerSalesDetail(?month)` | Detail penjualan per-mitra (grup `company_name`). |
 | `salesByPartner(role, limit, ?month)` | Penjualan per-mitra dalam 1 role. HQ-only. |
 | `omzetPerMitra(?month)` | Gabung 2 jalur sebagai seller: PO ke downline + `PartnerSale` ke end-customer. |
@@ -801,11 +803,11 @@ Rumus di-port PERSIS dari app lokal `Iyuro/skinku`. Spec: `docs/superpowers/spec
 
 Tool write selalu lewat alur confirm; tool read eksekusi inline.
 
-**HPP & biaya modal (izin `view_hpp`)** — "Lihat HPP, Harga Beli & Biaya Produksi (halaman & Asisten AI)"; default kosong = hanya super admin, bisa diberikan di Hak Akses. Admin & gudang tetap bisa **mencatat** (produk, beli bahan, produksi, stok masuk) tapi tak melihat hasil hitungan HPP/biaya:
+**HPP & biaya modal (izin `view_hpp`)** — "Lihat HPP, Harga Beli, Biaya Produksi & Laporan Keuangan (halaman & Asisten AI)"; default kosong = hanya super admin, bisa diberikan di Hak Akses. Admin & gudang tetap bisa **mencatat** (produk, beli bahan, produksi, stok masuk) tapi tak melihat hasil hitungan HPP/biaya:
 - **Halaman:** Produk Master (kolom & field HPP, tombol Riwayat HPP, HPP tak ikut JSON edit), Bahan Baku (HPP rata-rata, nilai stok, harga beli & HPP di riwayat beli, field HPP manual), Produksi (total biaya, HPP/pcs, biaya bahan/lain, kolom harga di form input/ubah, HPP bahan tak ikut JSON `MATERIALS`, notifikasi simpan tanpa angka HPP), **Riwayat HPP** (`products.hpp-history` → 403), Laporan Stok HQ (HPP/unit & nilai HPP), Stok Masuk (total biaya, harga beli, HPP sebelum/sesudah, HPP di form), Laporan Penjualan (kartu HPP/laba kotor/margin).
 - **Server:** `cogs` produk tak divalidasi/diterima (produk baru = 0, edit = HPP lama); `avg_cost` bahan manual diabaikan; harga bahan ketikan di produksi diabaikan (→ HPP rata-rata bahan); ubah produksi mempertahankan harga baris lama per bahan.
 - **Asisten AI:** `produk_master`/`bahan_baku`/`produksi_hpp`/`laporan_stok_hq` tak mengirim angka modal + `catatan_akses` (`BaseTool::CATATAN_HPP`, cek `BaseTool::bolehLihatHpp()`).
-- Belum ikut: Akuntansi (`view_accounting`), Laba Rugi di Generate Report. Test: `tests/Feature/HppIzinTest.php`; tes lama ProductionTest & SupplierMaterialTest memberi admin `view_hpp` di `setUp()`.
+- **Laporan keuangan** (2026-10-08): Laba Rugi, Neraca, Arus Kas, Neraca Saldo, Banding, Tren + bagian Keuangan Generate Report (Excel & AI) butuh juga `view_hpp`; admin tetap input/impor jurnal, COA & template. Test: `tests/Feature/HppIzinTest.php`; tes lama ProductionTest & SupplierMaterialTest memberi admin `view_hpp` di `setUp()`.
 
 **Aturan alat per menu:** izin alat = izin route menunya (`permission()`), syarat tambahan (mis. `business`, salah satu dari dua izin) lewat `availableFor(User)`; `ToolRegistry` mengecek keduanya — alat yang tak lolos tak dikirim ke model dan tak bisa dipanggil by name. Scoping data mitra (milik sendiri) dilakukan **di dalam** alat. Jangan buat alat generik "query bebas" — melewati batas role. Test: `tests/Feature/AiMenuToolsTest.php`, `tests/Feature/AiKolToolsTest.php` (alat KOL: izin per role, kolom per izin, tanpa data pribadi), `tests/Feature/AiOperasionalToolsTest.php` (Produk & Operasional). `ringkas_dashboard` stok menipis memakai aturan halaman (minimum > 0) & jumlahnya dihitung penuh (bukan dari contoh limit 10). Username → KOL (persis/alias) lewat `KolUsernameAlias::kolId()` — sama dgn sync affiliate; nama sebagian → kandidat utk ditanyakan balik.
 
@@ -899,7 +901,7 @@ Dari `app/Support/Permissions.php`. super_admin selalu punya semua (terkunci). D
 | `view_commission_report` | admin | Laporan komisi |
 | `manage_join_packages` | admin | Katalog paket join |
 | `view_reports` | staf | Laporan penjualan |
-| `view_accounting` | admin | Semua laporan/jurnal akuntansi |
+| `view_accounting` | admin | Jurnal, COA, template & impor akuntansi (laporan keuangan butuh juga `view_hpp`) |
 | `delete_accounting` | (kosong) | Hapus jurnal permanen |
 | `manage_tiktok` | admin | Integrasi TikTok |
 | `manage_shopee` | admin | Integrasi Shopee |
