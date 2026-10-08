@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\MarketplaceListing;
 use App\Models\ShopeeBoostItem;
 use App\Models\ShopeeConnection;
+use App\Models\ShopeeProduct;
 use App\Services\AuditService;
 use App\Services\ShopeeBoostService;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +30,7 @@ class ShopeeNaikkanProdukController extends Controller
         $produk = $this->produkShopee();
         // Slot toko yang dipakai produk LAIN (mis. dari Desty / Seller Centre) menurut putaran terakhir — yang sudah habis dibuang.
         $slot = $this->boost->slotTerakhir();
-        $lain = collect($slot['lain'])->map(fn ($s) => ['judul' => $produk[$s['item_id']] ?? 'Item '.$s['item_id'],
+        $lain = collect($slot['lain'])->map(fn ($s) => ['judul' => $produk[$s['item_id']]['judul'] ?? 'Item '.$s['item_id'],
             'menit' => (int) ceil(now()->diffInSeconds(Carbon::parse($s['sampai']), false) / 60)])->filter(fn ($s) => $s['menit'] > 0)->values();
         $sekarang = now();
 
@@ -43,7 +44,7 @@ class ShopeeNaikkanProdukController extends Controller
             'dicek' => $slot['dicek'] ? Carbon::parse($slot['dicek']) : null,
             // Putaran cron berikutnya (tiap 10 menit: :00, :10, …).
             'putaranBerikut' => $sekarang->copy()->addMinutes(10 - $sekarang->minute % 10)->second(0),
-            'foto' => $this->fotoProduk($dipilih->pluck('item_id')->all()),
+            'foto' => $this->fotoProduk($produk->keys()->merge($dipilih->pluck('item_id'))->unique()->all()),
         ]);
     }
 
@@ -71,7 +72,7 @@ class ShopeeNaikkanProdukController extends Controller
         if (ShopeeBoostItem::count() >= ShopeeBoostService::MAKS) {
             return back()->with('error', 'Maksimal '.ShopeeBoostService::MAKS.' produk (batas Shopee) — hapus salah satu dulu.');
         }
-        $item = ShopeeBoostItem::create(['item_id' => $itemId, 'title' => $produk[$itemId], 'created_by' => $request->user()->id]);
+        $item = ShopeeBoostItem::create(['item_id' => $itemId, 'title' => $produk[$itemId]['judul'], 'created_by' => $request->user()->id]);
         AuditService::log(action: 'shopee_naikkan_tambah', targetType: 'shopee_boost_item', targetId: $item->id,
             after: ['item_id' => $item->item_id, 'produk' => $item->title]);
 
@@ -104,20 +105,30 @@ class ShopeeNaikkanProdukController extends Controller
         };
     }
 
-    /** Foto produk pilihan (dari master yang tertaut ke listing Shopee): item_id => url. */
+    /**
+     * Foto produk: foto asli Shopee (cache ShopeeProduct, diisi tiap putaran) — kalau belum ada, foto master yang
+     * tertaut ke listing. item_id => url.
+     */
     private function fotoProduk(array $itemIds): array
     {
-        return MarketplaceListing::with('master')->where('channel', 'shopee')->whereIn('item_id', array_map('strval', $itemIds))->get()
+        $master = MarketplaceListing::with('master')->where('channel', 'shopee')->whereIn('item_id', array_map('strval', $itemIds))->get()
             ->groupBy(fn (MarketplaceListing $l) => (int) $l->item_id)
             ->map(fn ($g) => $g->map(fn (MarketplaceListing $l) => $l->master?->imageUrl())->filter()->first())
-            ->filter()->all();
+            ->filter();
+        $shopee = ShopeeProduct::whereIn('item_id', array_map('strval', $itemIds))->where('image_url', '!=', '')
+            ->pluck('image_url', 'item_id')->mapWithKeys(fn ($url, $id) => [(int) $id => $url]);
+
+        return $shopee->union($master)->all();
     }
 
-    /** Produk Shopee di listing Stok Marketplace: item_id => judul (naik per produk; varian satu item digabung). */
+    /** Produk Shopee di listing Stok Marketplace: item_id => [judul, sku] (naik per produk; varian satu item digabung). */
     private function produkShopee(): Collection
     {
         return MarketplaceListing::with('master:id,name')->where('channel', 'shopee')->whereNotNull('item_id')->orderBy('id')->get()
             ->groupBy(fn (MarketplaceListing $l) => (int) $l->item_id)
-            ->map(fn ($g) => $g->first()->title ?: ($g->first()->master?->name ?? 'Item '.$g->first()->item_id));
+            ->map(fn ($g) => [
+                'judul' => $g->first()->title ?: ($g->first()->master?->name ?? 'Item '.$g->first()->item_id),
+                'sku' => $g->pluck('seller_sku')->filter()->unique()->implode(', '),
+            ]);
     }
 }

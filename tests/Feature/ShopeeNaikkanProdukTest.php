@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\MarketplaceListing;
 use App\Models\ShopeeBoostItem;
 use App\Models\ShopeeConnection;
+use App\Models\ShopeeProduct;
 use App\Models\User;
 use App\Services\ShopeeBoostService;
 use Illuminate\Console\Scheduling\Schedule;
@@ -27,6 +28,7 @@ class ShopeeNaikkanProdukTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Http::preventStrayRequests(); // tak boleh ada panggilan Shopee sungguhan dari test
         ShopeeConnection::create(['shop_id' => '426938728', 'access_token' => 'A', 'refresh_token' => 'R',
             'access_expires_at' => now()->addHours(3), 'refresh_expires_at' => now()->addDays(20)]);
     }
@@ -49,9 +51,17 @@ class ShopeeNaikkanProdukTest extends TestCase
         }
     }
 
+    /** Respons get_item_base_info: foto "https://cf.shopee.co.id/file/foto-{id}" utk item uji. */
+    private function fotoShopee(): array
+    {
+        return ['*product/get_item_base_info*' => Http::response(['error' => '', 'response' => ['item_list' => array_map(
+            fn ($id) => ['item_id' => $id, 'item_name' => "Produk {$id}", 'image' => ['image_url_list' => ["https://cf.shopee.co.id/file/foto-{$id}"]]],
+            [...range(1001, 1006), ...range(9001, 9005)])]])];
+    }
+
     private function fakeShopee(array $sedangNaik, array $berhasil, array $gagal = []): void
     {
-        Http::fake([
+        Http::fake($this->fotoShopee() + [
             '*product/get_boosted_list*' => Http::response(['error' => '', 'response' => ['item_list' => array_map(
                 fn ($id, $detik) => ['item_id' => $id, 'cool_down_second' => $detik], array_keys($sedangNaik), $sedangNaik)]]),
             '*product/boost_item*' => Http::response(['error' => '', 'response' => [
@@ -67,7 +77,8 @@ class ShopeeNaikkanProdukTest extends TestCase
         $admin = $this->user(User::ROLE_ADMIN);
 
         $this->actingAs($admin)->get(route('shopee-naikkan.index'))->assertOk()
-            ->assertSee('Naikkan Produk Otomatis')->assertSee('0/5 terpakai')->assertSee('Serum Glow')->assertSee('○ MATI');
+            ->assertSee('Naikkan Produk Otomatis')->assertSee('0/5 terpakai')->assertSee('Serum Glow')->assertSee('○ MATI')
+            ->assertSee('Cari nama produk atau SKU')->assertSee('data-cari="serum glow sg-1 1001"', false); // tambah lewat pencarian nama/SKU
         $this->actingAs($admin)->get(route('marketplace-stock.channel', 'shopee'))->assertOk()->assertSee(route('shopee-naikkan.index'));
         $this->actingAs($admin)->get(route('marketplace-stock.channel', 'tiktok'))->assertOk()->assertDontSee(route('shopee-naikkan.index'));
         $this->actingAs($this->user(User::ROLE_GUDANG))->get(route('shopee-naikkan.index'))->assertForbidden();
@@ -120,17 +131,21 @@ class ShopeeNaikkanProdukTest extends TestCase
         $hasil = app(ShopeeBoostService::class)->jalankan();
 
         $this->assertSame(['status' => 'ok', 'naik' => 1, 'gagal' => 1, 'sedang_naik' => 1, 'menunggu_slot' => 0], $hasil);
-        // 1001 masih naik → tak ikut dikirim; hanya 1002 & 1003 yang dinaikkan.
-        Http::assertSent(fn ($req) => str_contains($req->url(), 'boost_item') && $req['item_id_list'] === [1002, 1003]);
+        // 1001 masih naik → tak ikut dikirim; 1002 & 1003 dinaikkan SATU PER SATU.
+        Http::assertSent(fn ($req) => str_contains($req->url(), 'boost_item') && $req['item_id_list'] === [1002]);
+        Http::assertSent(fn ($req) => str_contains($req->url(), 'boost_item') && $req['item_id_list'] === [1003]);
+        Http::assertNotSent(fn ($req) => str_contains($req->url(), 'boost_item') && in_array(1001, $req['item_id_list'], true));
         $item = fn (int $id) => ShopeeBoostItem::where('item_id', $id)->first();
         $this->assertSame('2026-10-08 11:00:00', $item(1001)->boosted_until->toDateTimeString());
         $this->assertSame(['ok', '2026-10-08 10:00:00', '2026-10-08 14:00:00'],
             [$item(1002)->last_status, $item(1002)->last_boosted_at->toDateTimeString(), $item(1002)->boosted_until->toDateTimeString()]);
         $this->assertSame(['failed', 'can not boost item repeatedly'], [$item(1003)->last_status, $item(1003)->last_error]);
 
-        // Halaman menampilkan status per produk.
+        // Halaman menampilkan status per produk + foto asli Shopee (diambil saat putaran, lalu di-cache).
         $this->actingAs($this->user(User::ROLE_ADMIN))->get(route('shopee-naikkan.index'))->assertOk()
-            ->assertSee('Sedang naik · sisa 1j 0m')->assertSee('Sedang naik · sisa 4j 0m')->assertSee('can not boost item repeatedly');
+            ->assertSee('Sedang naik · sisa 1j 0m')->assertSee('Sedang naik · sisa 4j 0m')->assertSee('can not boost item repeatedly')
+            ->assertSee('https://cf.shopee.co.id/file/foto-1002');
+        $this->assertSame('https://cf.shopee.co.id/file/foto-1001', ShopeeProduct::where('item_id', '1001')->value('image_url'));
     }
 
     public function test_slot_toko_dipakai_desty_hanya_kirim_sebanyak_slot_kosong(): void
@@ -149,6 +164,7 @@ class ShopeeNaikkanProdukTest extends TestCase
         $this->assertSame('ok', ShopeeBoostItem::where('item_id', 1001)->value('last_status'));
         $menunggu = ShopeeBoostItem::where('item_id', 1002)->first();
         $this->assertSame('penuh', $menunggu->last_status);
+        $this->assertStringContainsString('penuh (5/5)', $menunggu->last_error); // slot kosong terakhir dipakai 1001 di putaran ini
         $this->assertStringContainsString('4 dipakai produk lain', $menunggu->last_error);
         $this->assertStringContainsString('±2j 55m', $menunggu->last_error); // slot Desty kosong lagi 175 menit
 
@@ -168,12 +184,30 @@ class ShopeeNaikkanProdukTest extends TestCase
         $this->assertSame('penuh', ShopeeBoostItem::first()->last_status);
 
         // Keduluan Desty di sela putaran → Shopee menolak "bump slot limit" → tetap "menunggu slot", bukan gagal.
-        Http::fake([
+        Http::fake($this->fotoShopee() + [
             '*product/get_boosted_list*' => Http::response(['error' => '', 'response' => ['item_list' => []]]),
             '*product/boost_item*' => Http::response(['error' => 'product.error_busi', 'message' => "reached shop's bump slot limit"]),
         ]);
         $this->assertSame('slot_penuh', app(ShopeeBoostService::class)->jalankan()['status']);
         $this->assertSame('penuh', ShopeeBoostItem::first()->last_status);
+    }
+
+    public function test_batas_slot_toko_lebih_kecil_dari_perkiraan_yang_muat_tetap_naik(): void
+    {
+        AppSetting::put(ShopeeBoostService::KUNCI_AKTIF, '1');
+        $this->pilih(1001, 1002, 1003);
+        Http::fake($this->fotoShopee() + [
+            '*product/get_boosted_list*' => Http::response(['error' => '', 'response' => ['item_list' => []]]),
+            '*product/boost_item*' => Http::sequence()
+                ->push(['error' => '', 'response' => ['success_list' => ['item_id_list' => [1001]], 'failure_list' => []]])
+                ->push(['error' => 'product.error_busi', 'message' => "reached shop's bump slot limit"]),
+        ]);
+
+        $hasil = app(ShopeeBoostService::class)->jalankan();
+
+        $this->assertSame(['status' => 'ok', 'naik' => 1, 'gagal' => 0, 'sedang_naik' => 0, 'menunggu_slot' => 2], $hasil);
+        $this->assertSame(['ok', 'penuh', 'penuh'], ShopeeBoostItem::orderBy('item_id')->pluck('last_status')->all());
+        Http::assertSentCount(4); // foto + get_boosted_list + 2× boost_item — produk ketiga tak dicoba setelah Shopee bilang penuh
     }
 
     public function test_label_menunggu_menyebut_jam_putaran_berikutnya(): void
@@ -193,8 +227,12 @@ class ShopeeNaikkanProdukTest extends TestCase
         $this->assertSame(['status' => 'nonaktif'], app(ShopeeBoostService::class)->jalankan());
         Http::assertNothingSent();
 
-        $this->actingAs($this->user(User::ROLE_ADMIN))->post(route('shopee-naikkan.jalankan'))
+        $admin = $this->user(User::ROLE_ADMIN);
+        $this->actingAs($admin)->post(route('shopee-naikkan.jalankan'))
             ->assertSessionHas('status', 'Selesai: 1 produk dinaikkan, 0 masih dalam masa naik.');
+        // Pesan tampil SEKALI (layout yang menampilkan; halaman tak mengulang).
+        $html = $this->actingAs($admin)->from(route('shopee-naikkan.index'))->followingRedirects()->post(route('shopee-naikkan.jalankan'))->getContent();
+        $this->assertSame(1, substr_count($html, 'Selesai: 1 produk dinaikkan, 0 masih dalam masa naik.'));
         $this->assertSame('ok', ShopeeBoostItem::first()->last_status);
         $this->assertDatabaseHas('audit_logs', ['action' => 'shopee_naikkan_jalankan']);
     }
@@ -203,7 +241,7 @@ class ShopeeNaikkanProdukTest extends TestCase
     {
         AppSetting::put(ShopeeBoostService::KUNCI_AKTIF, '1');
         $this->pilih(1001);
-        Http::fake(['*product/get_boosted_list*' => Http::response(['error' => 'error_auth', 'message' => 'Invalid access_token'])]);
+        Http::fake($this->fotoShopee() + ['*product/get_boosted_list*' => Http::response(['error' => 'error_auth', 'message' => 'Invalid access_token'])]);
 
         $this->artisan('shopee:naikkan-produk')->assertExitCode(1);
 

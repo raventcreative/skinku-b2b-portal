@@ -10,9 +10,7 @@
 @endphp
 @include('partials.rupiah-input')
 <div class="mx-auto max-w-[1440px] space-y-5 px-1 sm:px-2">
-    @if(session('status'))<div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>@endif
-    @if(session('error'))<div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ session('error') }}</div>@endif
-    @if($errors->any())<div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">Periksa input yang dimasukkan.</div>@endif
+    {{-- Pesan sukses/gagal ditampilkan layout (tak diulang di sini). --}}
 
     <div class="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">

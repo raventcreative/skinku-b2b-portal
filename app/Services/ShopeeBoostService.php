@@ -3,9 +3,12 @@
 namespace App\Services;
 
 use App\Models\AppSetting;
+use App\Models\MarketplaceListing;
 use App\Models\ShopeeBoostItem;
 use App\Models\ShopeeConnection;
+use App\Models\ShopeeProduct;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -24,6 +27,8 @@ class ShopeeBoostService
 
     /** Potret slot toko putaran terakhir (JSON): kapan dicek + produk LAIN (bukan pilihan) yang sedang memakai slot. */
     public const KUNCI_SLOT = 'shopee_naikkan_slot';
+
+    private const PESAN_SLOT_PENUH = 'Slot Naikkan Produk toko penuh — dipakai produk lain (mis. dari Desty atau Seller Centre). Dinaikkan otomatis begitu ada slot kosong.';
 
     public function __construct(private ShopeeClient $shopee, private ShopeeSyncService $sync) {}
 
@@ -54,6 +59,9 @@ class ShopeeBoostService
         $kirim = null;
         try {
             $token = $this->sync->freshToken($conn);
+            // Foto produk dari Shopee (sekali, lalu di-cache) — utk tabel & pencarian di halaman. Best-effort.
+            $this->lengkapiFoto(array_merge($items->pluck('item_id')->all(),
+                MarketplaceListing::where('channel', 'shopee')->whereNotNull('item_id')->distinct()->pluck('item_id')->all()), $token, (string) $conn->shop_id);
             // SEMUA produk toko yang sedang naik — termasuk dari Desty / manual — memakai slot yang sama.
             $naik = collect($this->shopee->getBoostedList($token, (string) $conn->shop_id)['response']['item_list'] ?? [])
                 ->mapWithKeys(fn ($r) => [(int) $r['item_id'] => (int) ($r['cool_down_second'] ?? 0)])
@@ -76,37 +84,55 @@ class ShopeeBoostService
             $kirim = $perlu->take(max(0, $kosong));
             $menunggu = $perlu->slice(max(0, $kosong));
             if ($menunggu->isNotEmpty()) {
+                // Slot yang tadinya kosong dipakai produk pilihan di $kirim → terpakai = yang naik + yang dikirim.
                 ShopeeBoostItem::whereIn('id', $menunggu->pluck('id'))
-                    ->update(['last_status' => 'penuh', 'last_error' => $this->pesanPenuh($naik, $pilihan)]);
+                    ->update(['last_status' => 'penuh', 'last_error' => $this->pesanPenuh($naik, $pilihan, $naik->count() + $kirim->count())]);
             }
             if ($kirim->isEmpty()) {
-                return ['status' => 'slot_penuh', 'naik' => 0, 'gagal' => 0, 'sedang_naik' => $sedangNaik, 'pesan' => $this->pesanPenuh($naik, $pilihan)];
+                return ['status' => 'slot_penuh', 'naik' => 0, 'gagal' => 0, 'sedang_naik' => $sedangNaik, 'pesan' => $this->pesanPenuh($naik, $pilihan, $naik->count())];
             }
-            $res = $this->shopee->boostItem($token, (string) $conn->shop_id, $kirim->pluck('item_id')->all())['response'] ?? [];
         } catch (Throwable $e) {
-            // Slot penuh karena keduluan Desty/manual di sela putaran → "menunggu slot", bukan gagal permanen.
-            $penuh = str_contains($e->getMessage(), 'bump slot limit');
-            $pesan = $penuh
-                ? 'Slot Naikkan Produk toko penuh (5/5) — dipakai produk lain, mis. dari Desty atau Seller Centre. Dicoba lagi otomatis.'
-                : mb_substr($e->getMessage(), 0, 500);
-            ShopeeBoostItem::whereIn('id', ($kirim ?? $perlu ?? $items)->pluck('id'))
-                ->update(['last_status' => $penuh ? 'penuh' : 'failed', 'last_error' => $pesan]);
+            // Token / izin / jaringan gagal sebelum mengirim → tandai produk yang belum naik supaya alasannya kelihatan.
+            ShopeeBoostItem::whereIn('id', ($perlu ?? $items)->pluck('id'))
+                ->update(['last_status' => 'failed', 'last_error' => mb_substr($e->getMessage(), 0, 500)]);
 
-            return ['status' => $penuh ? 'slot_penuh' : 'error', 'pesan' => $pesan];
+            return ['status' => 'error', 'pesan' => $e->getMessage()];
         }
 
-        $berhasil = array_map('intval', $res['success_list']['item_id_list'] ?? []);
-        $gagal = collect($res['failure_list'] ?? [])->mapWithKeys(fn ($f) => [(int) $f['item_id'] => (string) ($f['failed_reason'] ?? 'gagal')]);
-        foreach ($kirim as $it) {
-            if (in_array($it->item_id, $berhasil, true)) {
+        // Kirim SATU PER SATU: batas slot toko sebenarnya bisa lebih kecil dari perkiraan (atau keduluan Desty/manual)
+        // dan Shopee menolak SELURUH permintaan bila kelebihan — satu per satu, yang muat tetap naik, sisanya menunggu.
+        $naikBaru = 0;
+        $gagal = 0;
+        $menungguSlot = $menunggu->count();
+        foreach ($kirim->values() as $i => $it) {
+            try {
+                $res = $this->shopee->boostItem($token, (string) $conn->shop_id, [$it->item_id])['response'] ?? [];
+            } catch (Throwable $e) {
+                $sisa = $kirim->values()->slice($i)->pluck('id');
+                if (! str_contains($e->getMessage(), 'bump slot limit')) {
+                    ShopeeBoostItem::whereIn('id', $sisa)->update(['last_status' => 'failed', 'last_error' => mb_substr($e->getMessage(), 0, 500)]);
+
+                    return ['status' => 'error', 'pesan' => $e->getMessage(), 'naik' => $naikBaru];
+                }
+                ShopeeBoostItem::whereIn('id', $sisa)->update(['last_status' => 'penuh', 'last_error' => self::PESAN_SLOT_PENUH]);
+                $menungguSlot += $sisa->count();
+                break;
+            }
+            if (in_array($it->item_id, array_map('intval', $res['success_list']['item_id_list'] ?? []), true)) {
                 $it->update(['last_boosted_at' => now(), 'boosted_until' => now()->addHours(self::DURASI_JAM), 'last_status' => 'ok', 'last_error' => null]);
-            } elseif (isset($gagal[$it->item_id])) {
-                $it->update(['last_status' => 'failed', 'last_error' => $gagal[$it->item_id]]);
+                $naikBaru++;
+            } else {
+                $alasan = collect($res['failure_list'] ?? [])->firstWhere('item_id', $it->item_id)['failed_reason'] ?? 'ditolak Shopee tanpa alasan';
+                $it->update(['last_status' => 'failed', 'last_error' => (string) $alasan]);
+                $gagal++;
             }
         }
 
-        return ['status' => 'ok', 'naik' => count($berhasil), 'gagal' => $gagal->count(), 'sedang_naik' => $sedangNaik,
-            'menunggu_slot' => $menunggu->count()];
+        if ($naikBaru === 0 && $gagal === 0) {
+            return ['status' => 'slot_penuh', 'naik' => 0, 'gagal' => 0, 'sedang_naik' => $sedangNaik, 'pesan' => self::PESAN_SLOT_PENUH];
+        }
+
+        return ['status' => 'ok', 'naik' => $naikBaru, 'gagal' => $gagal, 'sedang_naik' => $sedangNaik, 'menunggu_slot' => $menungguSlot];
     }
 
     /**
@@ -130,13 +156,33 @@ class ShopeeBoostService
         ]));
     }
 
+    /**
+     * Foto & judul produk Shopee yang belum ada di cache ShopeeProduct → ambil dari get_item_base_info (maks 50 per
+     * panggilan). Best-effort: gagal → halaman tampil tanpa foto, putaran tetap jalan.
+     */
+    public function lengkapiFoto(array $itemIds, string $token, string $shopId): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $itemIds)));
+        $ada = ShopeeProduct::whereIn('item_id', array_map('strval', $ids))->where('image_url', '!=', '')->pluck('item_id')->map(fn ($i) => (int) $i)->all();
+        $kurang = array_values(array_diff($ids, $ada));
+        try {
+            foreach (array_chunk($kurang, 50) as $potong) {
+                foreach (data_get($this->shopee->getItemBaseInfo($token, $shopId, $potong), 'response.item_list', []) as $info) {
+                    ShopeeProduct::simpanDariBaseInfo($info);
+                }
+            }
+        } catch (Throwable $e) {
+            Log::warning('shopee: foto Naikkan Produk gagal diambil', ['e' => $e->getMessage()]);
+        }
+    }
+
     /** @param Collection<int,int> $naik item_id => sisa detik (semua yang sedang naik di toko) */
-    private function pesanPenuh(Collection $naik, array $pilihan): string
+    private function pesanPenuh(Collection $naik, array $pilihan, int $terpakai): string
     {
         $lain = $naik->except($pilihan)->count();
         $menit = (int) ceil(($naik->min() ?? 0) / 60);
 
-        return "Slot Naikkan Produk toko penuh ({$naik->count()}/".self::MAKS.')'
+        return 'Slot Naikkan Produk toko penuh ('.min($terpakai, self::MAKS).'/'.self::MAKS.')'
             .($lain > 0 ? " — {$lain} dipakai produk lain (mis. dari Desty atau Seller Centre)" : '')
             .'. Slot kosong berikutnya ±'.intdiv($menit, 60).'j '.($menit % 60).'m lagi, dinaikkan otomatis.';
     }
