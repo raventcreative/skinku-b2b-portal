@@ -595,12 +595,7 @@ class EcomChatService
             if (! is_array($item)) {
                 return;
             }
-            ShopeeProduct::updateOrCreate(['item_id' => $itemId], [
-                'title' => (string) ($item['item_name'] ?? ''),
-                'image_url' => (string) (data_get($item, 'image.image_url_list.0') ?? ''),
-                'price' => null,
-                'currency' => 'IDR',
-            ]);
+            ShopeeProduct::simpanDariBaseInfo(['item_id' => $itemId] + $item);
         } catch (\Throwable $e) {
             Log::warning('shopee: enrich produk gagal', ['item_id' => $itemId, 'e' => $e->getMessage()]);
         }

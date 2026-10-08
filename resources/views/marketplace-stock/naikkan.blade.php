@@ -2,10 +2,8 @@
 @section('title', 'Naikkan Produk Shopee')
 @section('heading', 'Naikkan Produk Otomatis — Shopee')
 @section('content')
+{{-- Pesan sukses/gagal ditampilkan layout (tak diulang di sini). --}}
 <div class="mx-auto max-w-[1440px] space-y-5 px-1 sm:px-2">
-    @if(session('status'))<div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>@endif
-    @if(session('error'))<div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ session('error') }}</div>@endif
-    @if($errors->any())<div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">Periksa input yang dimasukkan.</div>@endif
 
     <div class="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
@@ -107,15 +105,44 @@
             @elseif($kandidat->isEmpty())
                 <p class="text-xs text-stone-500">Belum ada produk Shopee lain di listing — klik "Refresh listing" di halaman Stok &amp; Harga Shopee.</p>
             @else
-                <form method="POST" action="{{ route('shopee-naikkan.tambah') }}" class="flex flex-wrap items-center gap-2">@csrf
-                    <select name="item_id" required aria-label="Pilih produk Shopee" class="min-w-0 flex-1 px-3 py-2 text-sm border border-stone-300 rounded-lg">
-                        <option value="">Pilih produk Shopee…</option>
-                        @foreach($kandidat as $itemId => $judul)<option value="{{ $itemId }}">{{ $judul }}</option>@endforeach
-                    </select>
-                    <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-red-700 text-white rounded-lg hover:bg-red-800">+ Tambah</button>
-                </form>
+                <p class="text-xs font-semibold text-stone-600">Tambah produk ({{ $maks - $dipilih->count() }} slot lagi)</p>
+                <input id="cariNaikkan" type="search" placeholder="Cari nama produk atau SKU" aria-label="Cari produk Shopee" oninput="naikkanCari(this.value)" class="mt-1 w-full px-3 py-2 text-sm border border-stone-300 rounded-lg">
+                <div class="mt-2 max-h-72 overflow-y-auto divide-y divide-stone-100 border border-stone-200 rounded-lg">
+                    @foreach($kandidat as $itemId => $k)
+                        <form method="POST" action="{{ route('shopee-naikkan.tambah') }}" data-cari="{{ mb_strtolower($k['judul'].' '.$k['sku'].' '.$itemId) }}" class="flex items-center gap-3 px-3 py-2 hover:bg-stone-50">@csrf
+                            <input type="hidden" name="item_id" value="{{ $itemId }}">
+                            @if($foto[$itemId] ?? null)
+                                <img src="{{ $foto[$itemId] }}" alt="" class="w-8 h-8 shrink-0 rounded-md object-cover border border-stone-200">
+                            @else
+                                <div class="w-8 h-8 shrink-0 rounded-md bg-stone-100 border border-stone-200"></div>
+                            @endif
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm text-stone-800 truncate" title="{{ $k['judul'] }}">{{ $k['judul'] }}</div>
+                                <div class="text-[11px] text-stone-400 font-mono truncate">{{ $k['sku'] ?: 'tanpa SKU' }} · Item {{ $itemId }}</div>
+                            </div>
+                            <button class="shrink-0 px-3 py-1.5 text-xs font-semibold bg-red-700 text-white rounded-lg hover:bg-red-800">+ Tambah</button>
+                        </form>
+                    @endforeach
+                    <p data-cari-kosong class="px-3 py-3 text-xs text-stone-400" style="display:none">Tidak ada produk yang cocok.</p>
+                </div>
             @endif
         </div>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+// Cari produk Shopee untuk ditambahkan (nama / SKU / item id) — saring daftar tanpa reload.
+function naikkanCari(q) {
+    q = q.trim().toLowerCase();
+    let ada = 0;
+    document.querySelectorAll('[data-cari]').forEach(el => {
+        const cocok = q === '' || el.dataset.cari.includes(q);
+        el.style.display = cocok ? '' : 'none';
+        if (cocok) ada++;
+    });
+    document.querySelector('[data-cari-kosong]').style.display = ada ? 'none' : '';
+}
+</script>
+@endpush
