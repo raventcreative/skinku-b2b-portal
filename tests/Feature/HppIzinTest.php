@@ -154,4 +154,31 @@ class HppIzinTest extends TestCase
         $this->actingAs($admin)->get(route('stock-receipts.index'))->assertOk()->assertDontSee('Total Biaya');
         $this->actingAs($admin)->get(route('stock-receipts.create'))->assertOk()->assertDontSee('HPP Skrg')->assertDontSee('12345');
     }
+
+    public function test_akuntansi_tanpa_izin_tetap_bisa_jurnal_tapi_laporan_keuangan_tertutup(): void
+    {
+        $admin = $this->user(User::ROLE_ADMIN); // punya Akuntansi (view_accounting), tanpa Lihat HPP
+
+        foreach (['accounting.report', 'accounting.income-statement', 'accounting.balance-sheet', 'accounting.cash-flow',
+            'accounting.comparison', 'accounting.trend', 'accounting.trial-balance'] as $laporan) {
+            $this->actingAs($admin)->get(route($laporan))->assertForbidden();
+        }
+        $this->actingAs($admin)->get(route('accounting.index'))->assertRedirect(route('accounting.journals'));
+        $this->actingAs($admin)->get(route('accounting.journals'))->assertOk()
+            ->assertSee('Jurnal Umum')->assertDontSee(route('accounting.report'))->assertDontSee(route('accounting.trial-balance'));
+        $this->actingAs($admin)->get(route('accounting.accounts'))->assertOk();
+        $this->actingAs($admin)->get(route('accounting.excel-import'))->assertOk();
+        // Generate Report: bagian Keuangan (Laba Rugi) ikut tertutup.
+        $this->actingAs($admin)->get(route('reports.business', ['jenis' => 'semua']))->assertOk()->assertDontSee('Keuangan — Laba Rugi');
+
+        $sa = $this->user(User::ROLE_SUPER_ADMIN);
+        $this->actingAs($sa)->get(route('accounting.index'))->assertRedirect(route('accounting.report'));
+        $this->actingAs($sa)->get(route('accounting.journals'))->assertOk()->assertSee(route('accounting.report'));
+        $this->actingAs($sa)->get(route('reports.business', ['jenis' => 'semua']))->assertOk()->assertSee('Keuangan — Laba Rugi');
+
+        // Izin bisa diberikan ke role lain lewat Hak Akses.
+        RolePermission::create(['role' => User::ROLE_ADMIN, 'permission_key' => 'view_hpp', 'allowed' => true]);
+        Permissions::flushCache();
+        $this->actingAs($admin)->get(route('accounting.income-statement'))->assertOk();
+    }
 }

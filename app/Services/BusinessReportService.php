@@ -21,7 +21,8 @@ use Throwable;
  * akuntansi), bukan menghitung ulang. Tiap periode dibanding periode sebelumnya
  * sepanjang sama; periode berjalan dipotong s/d hari ini (adil, tak tampak "turun").
  *
- * Bagian ikut izin pengguna: KOL butuh kol.affiliate.view, keuangan butuh view_accounting.
+ * Bagian ikut izin pengguna: KOL butuh kol.affiliate.view, keuangan butuh view_accounting + view_hpp (Laba Rugi
+ * memuat HPP & laba — sama dgn laporan Akuntansi; ikut tertutup di Excel & analisis AI).
  */
 class BusinessReportService
 {
@@ -142,7 +143,7 @@ class BusinessReportService
             'mitra' => $this->mitra($p),
             'stok' => $this->stok($p),
             'kol' => $viewer->canDo('kol.affiliate.view') ? $this->kol($p) : null,
-            'keuangan' => $viewer->canDo('view_accounting') ? $this->keuangan($p) : null,
+            'keuangan' => $viewer->canDo('view_accounting') && $viewer->canDo('view_hpp') ? $this->keuangan($p) : null,
             'generated_at' => now(),
         ];
         $out['insight_input'] = $this->insightInput($out);
