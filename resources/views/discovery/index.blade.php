@@ -12,9 +12,7 @@
         atau <b>tren produk</b> skincare/beauty. Tiap pencarian memakai kuota API.
     </p>
 
-    @if(session('status'))
-        <div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>
-    @endif
+    {{-- Pesan sukses/gagal & error validasi ditampilkan layout (tak diulang di sini). --}}
 
     @unless($configured)
         <div class="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
@@ -42,9 +40,6 @@
         @endif
     </div>
 
-    @if($errors->any())
-        <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ $errors->first() }}</div>
-    @endif
 
     {{-- ============================ TAB: KOL ============================ --}}
     <section data-panel="kol" class="{{ $tab === 'kol' ? '' : 'hidden' }} space-y-4">

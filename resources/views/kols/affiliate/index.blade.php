@@ -10,12 +10,7 @@
 
 <div class="space-y-4">
 
-    @if(session('status'))
-        <div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>
-    @endif
-    @if($errors->any())
-        <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ $errors->first() }}</div>
-    @endif
+    {{-- Pesan sukses/gagal & error validasi ditampilkan layout (tak diulang di sini). --}}
 
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2 text-sm">

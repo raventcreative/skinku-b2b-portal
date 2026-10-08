@@ -17,12 +17,7 @@
 @endphp
 
 <div class="space-y-4">
-    @if(session('status'))
-        <div class="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ session('status') }}</div>
-    @endif
-    @if($errors->any())
-        <div class="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{{ $errors->first() }}</div>
-    @endif
+    {{-- Pesan sukses/gagal & error validasi ditampilkan layout (tak diulang di sini). --}}
 
     {{-- Filter periode: nav bulan + preset harian + rentang custom --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-3 space-y-3">
