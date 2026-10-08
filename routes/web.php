@@ -676,6 +676,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/marketplace-stock/{channel}/master/{master}/stok', [MarketplaceStockController::class, 'setChannelStock'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel.stok');
         Route::post('/marketplace-stock/{channel}/master/{master}/harga', [MarketplaceStockController::class, 'setChannelPrice'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.channel.harga');
         Route::post('/marketplace-stock/{channel}/master/{master}/ikut-master', [MarketplaceStockController::class, 'ikutMaster'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.ikut-master');
+        // Override diisi langsung di tabel halaman channel (tersimpan otomatis, JSON). Kosong = ikut master.
+        Route::post('/marketplace-stock/{channel}/master/{master}/override', [MarketplaceStockController::class, 'setOverride'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.override');
         Route::post('/marketplace-stock/push-all', [MarketplaceStockController::class, 'pushAll'])->name('marketplace-stock.push-all');
         Route::post('/marketplace-stock/resolve', [MarketplaceStockController::class, 'resolve'])->name('marketplace-stock.resolve');
         Route::delete('/marketplace-stock/master/{master}', [MarketplaceStockController::class, 'deleteMaster'])->name('marketplace-stock.master.hapus');

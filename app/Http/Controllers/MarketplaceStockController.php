@@ -8,6 +8,7 @@ use App\Models\MarketplaceMaster;
 use App\Models\Product;
 use App\Models\ShopeeConnection;
 use App\Models\TiktokConnection;
+use App\Services\AuditService;
 use App\Services\ImageService;
 use App\Services\MarketplaceMasterService;
 use App\Support\Rupiah;
@@ -677,6 +678,46 @@ class MarketplaceStockController extends Controller
         $svc->pushMaster($master);
 
         return back()->with('status', "{$channel} — {$master->name} ({$data['field']}) kembali ikut Master.");
+    }
+
+    /**
+     * Override stok/harga satu channel diisi langsung di tabel halaman channel: tersimpan otomatis (JSON) lalu langsung
+     * dikirim ke marketplace. Kosong = kembali ikut master. Validasi manual → 422 JSON (ValidationException di route
+     * web jadi redirect, dikira sukses oleh fetch). Respons membawa angka efektif + status kirim terbaru utk baris itu.
+     */
+    public function setOverride(Request $r, string $channel, MarketplaceMaster $master, MarketplaceMasterService $svc): JsonResponse
+    {
+        abort_unless(in_array($channel, ['tiktok', 'shopee'], true), 404);
+        $field = $r->input('field');
+        $isian = $r->input('value');
+        if (! in_array($field, ['stock', 'price'], true) || ! ($isian === null || is_scalar($isian))) {
+            return response()->json(['message' => 'Isian tidak dikenal.'], 422);
+        }
+        $isian = trim((string) $isian);
+        $sebelum = $master->channels()->where('channel', $channel)->value($field);
+        if ($isian === '') {
+            $svc->ikutMaster($master, $channel, $field);
+        } else {
+            $angka = filter_var($field === 'price' ? Rupiah::polos($isian) : $isian, FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 0, 'max_range' => $field === 'price' ? 9_999_999_999 : 2_147_483_647]]);
+            if ($angka === false) {
+                return response()->json(['message' => 'Isi angka bulat ≥ 0 (kosong = ikut master).'], 422);
+            }
+            $field === 'stock' ? $svc->setChannelStock($master, $channel, $angka) : $svc->setChannelPrice($master, $channel, (float) $angka);
+        }
+        $svc->pushMaster($master);
+
+        $m = $master->fresh(['channels', 'listings']);
+        $override = $m->channels->firstWhere('channel', $channel)?->{$field};
+        AuditService::log(action: 'update_marketplace_override', targetType: 'marketplace_master', targetId: $m->id,
+            before: ['channel' => $channel, $field => $sebelum], after: ['channel' => $channel, $field => $override]);
+        $efektif = $field === 'stock' ? $svc->effectiveStock($m, $channel) : $svc->effectivePrice($m, $channel);
+
+        return response()->json([
+            'override' => $override === null ? null : ($field === 'price' ? Rupiah::input($override) : (string) (int) $override),
+            'efektif' => $efektif === null ? '—' : ($field === 'price' ? 'Rp' : '').number_format($efektif, 0, ',', '.'),
+            'status' => view('marketplace-stock._status-kirim', ['lst' => $m->listings->firstWhere('channel', $channel)])->render(),
+        ]);
     }
 
     public function kaitkan(Request $r, MarketplaceMaster $master, MarketplaceMasterService $svc): RedirectResponse
