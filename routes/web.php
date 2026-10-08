@@ -61,6 +61,7 @@ use App\Http\Controllers\ReturController;
 use App\Http\Controllers\RoiCalculatorController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShopeeController;
+use App\Http\Controllers\ShopeeNaikkanProdukController;
 use App\Http\Controllers\ShopeePushController;
 use App\Http\Controllers\SocialConnectionController;
 use App\Http\Controllers\StockMovementController;
@@ -678,6 +679,12 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::post('/marketplace-stock/{channel}/master/{master}/ikut-master', [MarketplaceStockController::class, 'ikutMaster'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.ikut-master');
         // Override diisi langsung di tabel halaman channel (tersimpan otomatis, JSON). Kosong = ikut master.
         Route::post('/marketplace-stock/{channel}/master/{master}/override', [MarketplaceStockController::class, 'setOverride'])->whereIn('channel', ['tiktok', 'shopee'])->name('marketplace-stock.override');
+        // "Naikkan Produk" Shopee otomatis (maks 5 produk, tiap naik 4 jam; putaran: command shopee:naikkan-produk).
+        Route::get('/marketplace-stock/shopee/naikkan', [ShopeeNaikkanProdukController::class, 'index'])->name('shopee-naikkan.index');
+        Route::post('/marketplace-stock/shopee/naikkan/aktif', [ShopeeNaikkanProdukController::class, 'aktif'])->name('shopee-naikkan.aktif');
+        Route::post('/marketplace-stock/shopee/naikkan/produk', [ShopeeNaikkanProdukController::class, 'tambah'])->name('shopee-naikkan.tambah');
+        Route::delete('/marketplace-stock/shopee/naikkan/produk/{item}', [ShopeeNaikkanProdukController::class, 'hapus'])->name('shopee-naikkan.hapus');
+        Route::post('/marketplace-stock/shopee/naikkan/jalankan', [ShopeeNaikkanProdukController::class, 'jalankan'])->name('shopee-naikkan.jalankan');
         Route::post('/marketplace-stock/push-all', [MarketplaceStockController::class, 'pushAll'])->name('marketplace-stock.push-all');
         Route::post('/marketplace-stock/resolve', [MarketplaceStockController::class, 'resolve'])->name('marketplace-stock.resolve');
         Route::delete('/marketplace-stock/master/{master}', [MarketplaceStockController::class, 'deleteMaster'])->name('marketplace-stock.master.hapus');
