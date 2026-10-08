@@ -173,7 +173,7 @@ app/
 php artisan test
 ```
 
-107 test menutupi: validasi double-entry, isolasi antar klien, anti-dobel,
+108 test menutupi: validasi double-entry, isolasi antar klien, anti-dobel,
 parsing rupiah segala rasa, normalisasi hasil AI (kode karangan, angka kotor,
 tanggal ngawur), penyusunan draft jurnal (pajak, diskon, hutang, mutasi bank),
 ketepatan laporan, kontrol akses, dan smoke test semua halaman dalam keadaan

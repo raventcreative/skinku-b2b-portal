@@ -37,10 +37,12 @@ class DocumentExtractor
     public function extract(Document $document): Document
     {
         $client = $document->client;
-        $provider = AiProviderFactory::make();
 
+        // Pembuatan provider ikut di dalam try: key yang belum diisi juga sebuah
+        // kegagalan pembacaan, dan alasannya harus mendarat di dokumen — bukan
+        // cuma lewat sebagai flash message yang hilang saat halaman di-refresh.
         try {
-            $turn = $provider->chat([
+            $turn = AiProviderFactory::make()->chat([
                 ['role' => 'system', 'content' => $this->systemPrompt($client)],
                 ['role' => 'user', 'content' => $this->userContent($document)],
             ], ['json' => true]);

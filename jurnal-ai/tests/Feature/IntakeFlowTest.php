@@ -263,6 +263,25 @@ class IntakeFlowTest extends TestCase
         $this->assertSame('belanja 50rb', $document->raw_text);
     }
 
+    public function test_api_key_kosong_ditandai_gagal_di_dokumen_bukan_cuma_flash(): void
+    {
+        // Alasannya harus menempel di dokumen supaya masih terbaca setelah
+        // halaman di-refresh — flash message hilang sekali lihat.
+        config(['ai.openai.key' => '']);
+
+        $this->actingAs($this->admin)->post(route('documents.store', $this->client), [
+            'kind' => Document::KIND_TEXT, 'raw_text' => 'belanja 50rb',
+        ])->assertSessionHasErrors('ai');
+
+        $document = Document::sole();
+        $this->assertSame(Document::STATUS_FAILED, $document->status);
+        $this->assertStringContainsString('OPENAI_API_KEY', $document->error);
+
+        $this->actingAs($this->admin)->get(route('documents.show', [$this->client, $document]))
+            ->assertOk()
+            ->assertSee('OPENAI_API_KEY');
+    }
+
     public function test_balasan_bukan_json_ditandai_gagal(): void
     {
         Http::fake(['*/chat/completions' => Http::response([
