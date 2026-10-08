@@ -1,11 +1,61 @@
 # Testing Lokal — Jurnal AI
 
-Panduan uji manual di Mac. **Tidak menyentuh portal B2B SKINKU sama sekali**:
-beda folder, beda database, beda port. Portal boleh tetap jalan bersamaan.
+Panduan uji manual di komputer sendiri. **Tidak menyentuh portal B2B SKINKU
+sama sekali**: beda folder, beda database, beda port. Portal boleh tetap jalan
+bersamaan.
+
+> **Semua perintah di sini untuk komputer lokal, BUKAN server.** Kalau sedang
+> SSH ke Hostinger, `exit` dulu. `git checkout` di server akan memindahkan
+> portal B2B yang live ke branch ini, dan `migrate`/`db:seed` menyentuh
+> database produksi.
+>
+> Cek sedang di mana — PowerShell: `hostname; pwd` · Mac/Linux: `hostname && pwd`
 
 ---
 
+## 0. Pastikan perkakasnya ada
+
+**Windows (PowerShell):**
+
+```powershell
+php -v                        # butuh 8.3 atau lebih baru
+composer -V
+php -m | Select-String sqlite # harus muncul pdo_sqlite
+```
+
+**Mac / Linux:**
+
+```bash
+php -v && composer -V && php -m | grep sqlite
+```
+
+Kalau `pdo_sqlite` tidak muncul: jalankan `php --ini` untuk menemukan lokasi
+`php.ini`, buka filenya, hapus tanda `;` di depan baris `extension=pdo_sqlite`,
+lalu simpan. (Laragon/XAMPP biasanya sudah aktif.)
+
+Tidak punya SQLite dan malas mengaktifkan? Lihat bagian **Pakai MySQL** di bawah.
+
 ## 1. Setup (sekali saja, ±2 menit)
+
+**Windows (PowerShell)** — `&&` tidak jalan di PowerShell 5.1, jalankan
+baris per baris:
+
+```powershell
+cd C:\path\ke\skinku-b2b-portal
+git fetch origin claude/quirky-cori-kbvckj
+git checkout claude/quirky-cori-kbvckj
+cd jurnal-ai
+
+composer install
+copy .env.example .env
+php artisan key:generate
+New-Item -ItemType File database\database.sqlite
+php artisan migrate
+php artisan db:seed
+php artisan db:seed --class=DemoSeeder
+```
+
+**Mac / Linux:**
 
 ```bash
 git fetch origin claude/quirky-cori-kbvckj
@@ -22,18 +72,36 @@ php artisan db:seed --class=DemoSeeder    # sebulan pembukuan contoh
 ```
 
 **Tidak perlu `npm install`** — hasil build CSS/JS sudah ikut di-commit.
-**Tidak perlu MariaDB** — default SQLite, databasenya satu file di
+**Tidak perlu MySQL/MariaDB** — default SQLite, databasenya satu file di
 `database/database.sqlite`.
+
+### Pakai MySQL (kalau Laragon/XAMPP sudah jalan)
+
+Buat database kosong bernama `jurnal_ai`, lalu ubah `.env`:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=jurnal_ai
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+Lalu `php artisan config:clear` dan lanjutkan dari `php artisan migrate`.
+Database ini terpisah penuh dari database portal B2B.
 
 ## 2. Jalankan
 
-```bash
+```
 php artisan serve --host=127.0.0.1 --port=8001
 ```
 
 Port **8001**, bukan 8000 — 8000 dipakai portal B2B.
 
 Buka http://127.0.0.1:8001/login · `admin@jurnal.test` / `password123`
+
+Hentikan dengan `Ctrl+C`.
 
 ## 3. Pasang otak AI (biar fitur intinya kepakai)
 
@@ -135,6 +203,18 @@ php artisan tinker --execute="App\Models\User::create([
 
 ## 5. Reset data kalau mau mulai bersih
 
+**Windows (PowerShell):**
+
+```powershell
+Remove-Item database\database.sqlite
+New-Item -ItemType File database\database.sqlite
+php artisan migrate
+php artisan db:seed
+php artisan db:seed --class=DemoSeeder
+```
+
+**Mac / Linux:**
+
 ```bash
 rm database/database.sqlite && touch database/database.sqlite
 php artisan migrate
@@ -160,7 +240,9 @@ sebelum kamu mengubah apa pun, itu bug — laporkan.
 
 | Gejala | Sebabnya biasanya |
 |---|---|
-| `could not find driver` | Ekstensi `pdo_sqlite` belum aktif di PHP Mac-mu |
+| `could not find driver` | Ekstensi `pdo_sqlite` belum aktif — lihat bagian 0 |
+| `The token '&&' is not a valid statement separator` | PowerShell 5.1 tidak mendukung `&&` — jalankan perintahnya satu per satu, atau ganti `&&` jadi `;` |
+| `touch` / `rm` tidak dikenali | Itu perintah Mac/Linux — pakai padanan PowerShell di bagian 1 & 5 |
 | Halaman polos tanpa warna | `public/build` hilang → jalankan `npm install && npm run build` |
 | Perubahan `.env` tidak terasa | `php artisan config:clear`, lalu restart `artisan serve` |
 | Upload lama sekali | Normal: menunggu model membaca, ±5–20 detik. Belum pakai queue |
