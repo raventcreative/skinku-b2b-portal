@@ -55,7 +55,8 @@ class OverrideOtomatisTest extends TestCase
         $url = route('marketplace-stock.override', ['channel' => 'tiktok', 'master' => $m]);
 
         $this->actingAs($this->user(User::ROLE_ADMIN))->get(route('marketplace-stock.channel', 'tiktok'))->assertOk()
-            ->assertSee('data-override="stock"', false)->assertSee('data-override="price"', false)->assertSee($url);
+            ->assertSee('data-override="stock"', false)->assertSee('data-override="price"', false)->assertSee($url)
+            ->assertSee('data-simpan', false); // tombol simpan utk HP (Enter sulit), tetap tanpa reload
 
         $res = $this->simpan($m, ['field' => 'stock', 'value' => '80'])->assertOk()->assertJson(['override' => '80', 'efektif' => '80']);
         $this->assertStringContainsString('data-kirim="stok"', $res->json('status')); // status kirim baris ikut diperbarui
