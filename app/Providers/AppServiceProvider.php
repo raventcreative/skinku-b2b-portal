@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\CommunityLink;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderFactory;
+use App\Services\Ai\Tools\AkunSosmedTool;
 use App\Services\Ai\Tools\BahanBakuTool;
 use App\Services\Ai\Tools\BuatKartuKanbanTool;
 use App\Services\Ai\Tools\BuatMindmapTool;
@@ -12,6 +13,7 @@ use App\Services\Ai\Tools\DaftarPoTool;
 use App\Services\Ai\Tools\DataKolTool;
 use App\Services\Ai\Tools\DealKolTool;
 use App\Services\Ai\Tools\DormansiMemberTool;
+use App\Services\Ai\Tools\InsightKontenTool;
 use App\Services\Ai\Tools\JaringanSayaTool;
 use App\Services\Ai\Tools\KomisiTool;
 use App\Services\Ai\Tools\KontenViewsKolTool;
@@ -27,6 +29,7 @@ use App\Services\Ai\Tools\PenjualanDownlineTool;
 use App\Services\Ai\Tools\PesananDownlineTool;
 use App\Services\Ai\Tools\PesananMarketplaceTool;
 use App\Services\Ai\Tools\PipelineKolTool;
+use App\Services\Ai\Tools\PipelineKontenTool;
 use App\Services\Ai\Tools\ProdukMasterTool;
 use App\Services\Ai\Tools\ProduksiHppTool;
 use App\Services\Ai\Tools\RekrutanSayaTool;
@@ -111,6 +114,10 @@ class AppServiceProvider extends ServiceProvider
             $app->make(DealKolTool::class),
             $app->make(ReminderKolTool::class),
             $app->make(KontenViewsKolTool::class),
+            // Konten
+            new PipelineKontenTool,
+            $app->make(InsightKontenTool::class),
+            $app->make(AkunSosmedTool::class),
         ]));
     }
 

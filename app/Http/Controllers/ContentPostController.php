@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\ContentPost;
-use App\Models\ContentPostSnapshot;
 use App\Models\ContentPostTarget;
 use App\Models\SocialConnection;
 use App\Models\User;
@@ -43,24 +42,9 @@ class ContentPostController extends Controller
         ]);
         $user = $request->user();
         $canManage = $this->canManage($user);
-        $base = ContentPost::query()->when(! $canManage, fn ($q) => $q->where('user_id', $user->id));
         $stage = (string) $request->query('stage', 'all');
-        $stageStatuses = [
-            'draft' => [ContentPost::DRAFT],
-            'scheduled' => [ContentPost::SCHEDULED],
-            'publishing' => [ContentPost::PUBLISHING],
-            'published' => [ContentPost::DONE],
-        ];
-        if ($stage === 'attention') {
-            $base->where(function ($q) {
-                $q->whereIn('status', [ContentPost::PARTIAL, ContentPost::FAILED])
-                    ->orWhereHas('targets', fn ($t) => $t->whereIn('status', [ContentPostTarget::FAILED, ContentPostTarget::MANUAL_PENDING]));
-            });
-        } elseif (isset($stageStatuses[$stage])) {
-            $base->whereIn('status', $stageStatuses[$stage]);
-        }
 
-        $posts = (clone $base)
+        $posts = ContentPost::query()->terlihatOleh($user)->tahap($stage)
             ->when($canManage && $request->filled('creator'), fn ($q) => $q->where('user_id', $request->query('creator')))
             ->when($request->filled('platform'), fn ($q) => $q->whereHas('targets', fn ($t) => $t->where('platform', $request->query('platform'))))
             ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->query('q').'%'))
@@ -68,19 +52,14 @@ class ContentPostController extends Controller
             ->when($request->filled('sampai'), fn ($q) => $q->whereDate('scheduled_at', '<=', $request->query('sampai')))
             ->with(['targets', 'files', 'user'])->orderByRaw('scheduled_at is null')->orderBy('scheduled_at')->latest('id')->paginate(20)->withQueryString();
 
-        $scoped = ContentPost::query()->when(! $canManage, fn ($q) => $q->where('user_id', $user->id));
-        $counts = (clone $scoped)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
-        $attentionCount = (clone $scoped)->where(function ($q) {
-            $q->whereIn('status', [ContentPost::PARTIAL, ContentPost::FAILED])
-                ->orWhereHas('targets', fn ($t) => $t->whereIn('status', [ContentPostTarget::FAILED, ContentPostTarget::MANUAL_PENDING]));
-        })->count();
+        $tahap = ContentPost::hitungTahap($user);
 
         return view('content.index', [
             'posts' => $posts,
             'canManage' => $canManage,
             'creators' => $canManage ? User::whereIn('id', ContentPost::select('user_id'))->orderBy('fullname')->get(['id', 'fullname', 'username']) : collect(),
-            'counts' => $counts,
-            'attentionCount' => $attentionCount,
+            'counts' => $tahap['per_status'],
+            'attentionCount' => $tahap['perlu_tindakan'],
             'stage' => $stage,
             'filters' => $request->only(['q', 'creator', 'platform', 'dari', 'sampai']),
         ]);
@@ -95,8 +74,7 @@ class ContentPostController extends Controller
         $month = Carbon::createFromFormat('!Y-m', (string) $request->query('month', now()->format('Y-m')));
         $start = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
         $end = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
-        $posts = ContentPost::query()
-            ->when(! $canManage, fn ($q) => $q->where('user_id', $user->id))
+        $posts = ContentPost::query()->terlihatOleh($user)
             ->when($canManage && $request->filled('creator'), fn ($q) => $q->where('user_id', $request->query('creator')))
             ->whereBetween('scheduled_at', [$start, $end])
             ->with(['targets', 'user'])->orderBy('scheduled_at')->get()
@@ -327,6 +305,6 @@ class ContentPostController extends Controller
 
     private function canManage(User $user): bool
     {
-        return $user->isSuperAdmin() || $user->canDo('content.manage');
+        return ContentPost::lintasCreator($user);
     }
 }
