@@ -10,11 +10,11 @@
 
 <div class="space-y-4">
     <div>
-        <a href="{{ route('kol-gapok.index', ['bulan' => $month]) }}" class="text-sm text-stone-500 hover:text-stone-800">← Kembali ke Tim Gapok</a>
+        <a href="{{ route('kol-gapok.index', $kembali) }}" class="text-sm text-stone-500 hover:text-stone-800">← Kembali ke Tim Gapok</a>
         <h2 class="text-lg font-bold text-stone-800 mt-1">
             <a href="{{ $profil }}" target="_blank" rel="noopener" class="hover:text-red-600 hover:underline">{{ '@'.$kol->handle() }} <span class="text-xs"></span></a>
         </h2>
-        <p class="text-xs text-stone-500">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }} · {{ $videos->count() }} video · {{ $lives->count() }} LIVE</p>
+        <p class="text-xs text-stone-500">{{ $periodLabel }} · {{ $videos->count() }} video diunggah · {{ $lives->count() }} LIVE</p>
     </div>
 
     {{-- Video --}}
@@ -48,7 +48,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-8 text-center text-stone-400 text-sm">Belum ada data video bulan ini.</td></tr>
+                        <tr><td colspan="6" class="px-4 py-8 text-center text-stone-400 text-sm">Tidak ada video yang diunggah di periode ini.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -81,13 +81,13 @@
                             <td class="px-4 py-2 text-right text-stone-700">{{ number_format($l->items_sold, 0, ',', '.') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-4 py-8 text-center text-stone-400 text-sm">Belum ada data LIVE bulan ini.</td></tr>
+                        <tr><td colspan="5" class="px-4 py-8 text-center text-stone-400 text-sm">Tidak ada LIVE di periode ini.</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </div>
 
-    <p class="text-xs text-stone-400">Data konten dari TikTok Shop Analytics (akun affiliate), disegarkan tiap hari. Klik "Tonton ↗" buka video di TikTok.</p>
+    <p class="text-xs text-stone-400">Daftar = video yang diunggah &amp; LIVE yang dimulai di periode ini. Views, GMV &amp; order = total sejak diunggah. Data dari TikTok Shop Analytics (akun affiliate), disegarkan tiap hari 04:00. Klik "Tonton ↗" buka video di TikTok.</p>
 </div>
 @endsection

@@ -103,12 +103,12 @@
                             <td class="px-4 py-3 text-right text-stone-700">{{ $rp($r['commission']) }}</td>
                             <td class="px-4 py-3 text-right">
                                 @if($r['videos'])
-                                    <a href="{{ route('kol-gapok.contents', ['kol' => $r['kol']->id, 'bulan' => $month, 'type' => 'video']) }}" class="text-red-600 hover:underline font-semibold" title="Lihat daftar video">{{ number_format($r['videos'], 0, ',', '.') }}</a>
+                                    <a href="{{ route('kol-gapok.contents', ['kol' => $r['kol']->id, 'type' => 'video'] + request()->only(['bulan', 'dari', 'sampai', 'preset'])) }}" class="text-red-600 hover:underline font-semibold" title="Lihat daftar video">{{ number_format($r['videos'], 0, ',', '.') }}</a>
                                 @else <span class="text-stone-400">—</span> @endif
                             </td>
                             <td class="px-4 py-3 text-right">
                                 @if($r['lives'])
-                                    <a href="{{ route('kol-gapok.contents', ['kol' => $r['kol']->id, 'bulan' => $month, 'type' => 'live']) }}" class="text-red-600 hover:underline font-semibold" title="Lihat daftar LIVE">{{ number_format($r['lives'], 0, ',', '.') }}</a>
+                                    <a href="{{ route('kol-gapok.contents', ['kol' => $r['kol']->id, 'type' => 'live'] + request()->only(['bulan', 'dari', 'sampai', 'preset'])) }}" class="text-red-600 hover:underline font-semibold" title="Lihat daftar LIVE">{{ number_format($r['lives'], 0, ',', '.') }}</a>
                                 @else <span class="text-stone-400">—</span> @endif
                             </td>
                             <td class="px-4 py-3 text-right">
@@ -241,8 +241,8 @@
 
     <p class="text-xs text-stone-400 leading-relaxed">
         Angka performa (GMV/order/komisi) diambil dari data affiliate yang sama dengan halaman <strong>Affiliate &amp; GMV</strong> —
-        otomatis dari TikTok API setelah tersambung, atau dari import manual. <strong>Video &amp; LIVE</strong> = jumlah konten
-        per kreator dari TikTok Analytics (sync harian, per bulan). <strong>Gaji &amp; ROI</strong> khusus Tim Gapok.
+        otomatis dari TikTok API setelah tersambung, atau dari import manual. <strong>Video &amp; LIVE</strong> = jumlah video yang diunggah &amp; LIVE yang dimulai
+        di periode terpilih (TikTok Analytics, sync harian 04:00 — konten hari ini baru masuk besok; video lama yang masih laku tak dihitung). <strong>Gaji &amp; ROI</strong> khusus Tim Gapok.
         ROI = GMV ÷ gaji (≥3× sehat · 1–3× cukup · &lt;1× gaji lebih besar dari hasil).
     </p>
 </div>

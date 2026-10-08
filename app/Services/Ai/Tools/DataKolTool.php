@@ -153,7 +153,7 @@ class DataKolTool extends BaseTool
     /** Angka bulan itu dari sumber yang sama dgn Tim Gapok (KolGapokService::performa) + gaji & ROI bila anggota gapok. */
     private function performa(Kol $kol, Carbon $bulan): array
     {
-        $p = $this->gapok->performa([$kol->id], $bulan->copy()->startOfMonth(), $bulan->copy()->endOfMonth(), $bulan->toDateString())[$kol->id];
+        $p = $this->gapok->performa([$kol->id], $bulan->copy()->startOfMonth(), $bulan->copy()->endOfMonth())[$kol->id];
         $out = [
             'bulan' => $bulan->format('Y-m'),
             'gmv' => $p['gmv'],
@@ -186,7 +186,7 @@ class DataKolTool extends BaseTool
             && (! isset($filter['gapok']) || $k->is_gapok));
         $urut = $boleh['gmv'] && ($args['urut'] ?? 'gmv') === 'gmv' ? 'gmv' : 'followers';
         $perf = $boleh['gmv']
-            ? $this->gapok->performa(null, $bulan->copy()->startOfMonth(), $bulan->copy()->endOfMonth(), $bulan->toDateString())
+            ? $this->gapok->performa(null, $bulan->copy()->startOfMonth(), $bulan->copy()->endOfMonth())
             : [];
 
         $rows = $kols->map(function (Kol $k) use ($boleh, $perf) {

@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Kol;
 use App\Models\KolAffiliateTransaction;
-use App\Models\KolCreatorContentStat;
+use App\Models\KolCreatorContent;
 use App\Models\KolGapokPayment;
 use App\Models\KolGapokSalary;
 use Illuminate\Support\Carbon;
@@ -46,7 +46,7 @@ class KolGapokService
             return collect();
         }
         $ids = $gapok->pluck('id')->all();
-        $perf = $this->performa($ids, $from, $to, $period);
+        $perf = $this->performa($ids, $from, $to);
 
         $salaries = KolGapokSalary::where('period', $period)
             ->whereIn('kol_id', $ids)->get()->keyBy('kol_id');
@@ -79,13 +79,13 @@ class KolGapokService
 
     /**
      * Angka affiliate per KOL di rentang [from,to]: GMV/pesanan/komisi dari transaksi yang cocok & tak batal,
-     * split GMV per content_type (LIVE/VIDEO), + jumlah video & LIVE bulan $period (Analytics API). Satu sumber
-     * untuk Tim Gapok & alat AI `data_kol`, jadi angkanya selalu sama.
+     * split GMV per content_type (LIVE/VIDEO), + jumlah video yang DIUNGGAH & LIVE yang DIMULAI di rentang
+     * (jumlahKonten). Satu sumber untuk Tim Gapok & alat AI `data_kol`/`tim_gapok`, jadi angkanya selalu sama.
      *
      * @param  array<int,int>|null  $ids  null = semua KOL yang punya transaksi/konten
      * @return array<int,array{gmv:int,orders:int,commission:int,gmv_live:int,gmv_video:int,videos:int,lives:int}>
      */
-    public function performa(?array $ids, Carbon $from, Carbon $to, string $period): array
+    public function performa(?array $ids, Carbon $from, Carbon $to): array
     {
         $tx = fn () => KolAffiliateTransaction::matched()->notCancelled()
             ->when($ids !== null, fn ($q) => $q->whereIn('kol_id', $ids))
@@ -95,28 +95,64 @@ class KolGapokService
         // GMV per content_type (LIVE/VIDEO) — dari mana penjualan datang.
         $byType = $tx()->selectRaw('kol_id, LOWER(content_type) as ct, SUM(gmv) as gmv')
             ->groupBy('kol_id', 'ct')->get()->groupBy('kol_id');
-        // Jumlah video & LIVE per kreator (bulan $period) dari Analytics API.
-        $content = KolCreatorContentStat::where('period', $period)
-            ->when($ids !== null, fn ($q) => $q->whereIn('kol_id', $ids))->get()->keyBy('kol_id');
+        $content = $this->jumlahKonten($ids, $from, $to);
 
         $out = [];
         foreach ($ids ?? $agg->keys()->merge($content->keys())->unique()->all() as $id) {
             $a = $agg[$id] ?? null;
             $types = $byType[$id] ?? collect();
             $gmvOf = fn (string $t) => (int) (optional($types->firstWhere('ct', $t))->gmv ?? 0);
-            $c = $content[$id] ?? null;
+            $c = $content[$id] ?? collect();
             $out[$id] = [
                 'gmv' => (int) ($a->gmv ?? 0),
                 'orders' => (int) ($a->orders ?? 0),
                 'commission' => (int) ($a->commission ?? 0),
                 'gmv_live' => $gmvOf('live'),
                 'gmv_video' => $gmvOf('video'),
-                'videos' => (int) ($c->videos ?? 0),
-                'lives' => (int) ($c->lives ?? 0),
+                'videos' => (int) $c->get('video', 0),
+                'lives' => (int) $c->get('live', 0),
             ];
         }
 
         return $out;
+    }
+
+    /**
+     * Video yang DIUNGGAH & LIVE yang DIMULAI di rentang, per kreator (kol_creator_contents = potret bulanan TikTok
+     * Analytics, sync harian 04:00). Satu konten bisa ada di potret beberapa bulan → dihitung sekali (DISTINCT).
+     * Sama dgn kolom "Diposting" Views Harian: video lama yang masih laku tidak ikut dihitung.
+     *
+     * @return Collection<int,Collection<string,int>> kol_id => [video|live => jumlah]
+     */
+    private function jumlahKonten(?array $ids, Carbon $from, Carbon $to): Collection
+    {
+        return KolCreatorContent::query()
+            ->when($ids !== null, fn ($q) => $q->whereIn('kol_id', $ids))
+            ->whereBetween('occurred_at', [$from->copy(), $to->copy()])
+            ->selectRaw('kol_id, type, COUNT(DISTINCT content_id) AS n')
+            ->groupBy('kol_id', 'type')->get()
+            ->groupBy('kol_id')->map(fn ($g) => $g->pluck('n', 'type'));
+    }
+
+    /**
+     * Daftar konten satu kreator di rentang (= angka Video & LIVE di tabel, aturan jumlahKonten). Views/GMV/order =
+     * total semua potret bulanan konten itu (sejak diunggah s/d sync terakhir), urut GMV terbesar.
+     *
+     * @return array{videos:Collection<int,KolCreatorContent>,lives:Collection<int,KolCreatorContent>}
+     */
+    public function konten(Kol $kol, Carbon $from, Carbon $to): array
+    {
+        $items = KolCreatorContent::where('kol_id', $kol->id)
+            ->whereBetween('occurred_at', [$from->copy(), $to->copy()])
+            ->orderByDesc('period')->get()
+            ->groupBy(fn (KolCreatorContent $c) => $c->type.':'.$c->content_id)
+            ->map(fn (Collection $g) => $g->first()->forceFill([ // potret terbaru (judul) + angka dijumlah
+                'views' => $g->sum('views'), 'gmv' => $g->sum('gmv'),
+                'items_sold' => $g->sum('items_sold'), 'sku_orders' => $g->sum('sku_orders'),
+            ]))
+            ->sortByDesc('gmv')->values();
+
+        return ['videos' => $items->where('type', 'video')->values(), 'lives' => $items->where('type', 'live')->values()];
     }
 
     /** Ringkasan total tim untuk footer tabel. */

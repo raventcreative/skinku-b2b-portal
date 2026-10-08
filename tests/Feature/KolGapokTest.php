@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\Kol;
 use App\Models\KolCreatorContent;
-use App\Models\KolCreatorContentStat;
 use App\Models\User;
 use App\Services\KolAffiliateService;
 use App\Services\KolGapokService;
@@ -147,27 +146,69 @@ class KolGapokTest extends TestCase
     public function test_video_live_count_muncul_di_gapok(): void
     {
         $kol = Kol::create(['tiktok_username' => 'vc', 'followers' => 10_000, 'is_gapok' => true]);
-        KolCreatorContentStat::create([
-            'kol_id' => $kol->id, 'period' => now()->startOfMonth()->toDateString(), 'videos' => 12, 'lives' => 3,
-        ]);
+        $period = now()->startOfMonth()->toDateString();
+        foreach (['v1' => 'video', 'v2' => 'video', 'l1' => 'live'] as $id => $type) {
+            KolCreatorContent::create(['kol_id' => $kol->id, 'period' => $period, 'type' => $type, 'content_id' => $id,
+                'occurred_at' => now()->startOfMonth()->addHours(10)]);
+        }
 
         $rows = app(KolGapokService::class)->monthly(now());
         $r = $rows->first();
-        $this->assertSame(12, $r['videos']);
-        $this->assertSame(3, $r['lives']);
+        $this->assertSame(2, $r['videos']);
+        $this->assertSame(1, $r['lives']);
 
         $totals = app(KolGapokService::class)->totals($rows);
-        $this->assertSame(12, $totals['videos']);
-        $this->assertSame(3, $totals['lives']);
+        $this->assertSame(2, $totals['videos']);
+        $this->assertSame(1, $totals['lives']);
+    }
+
+    public function test_video_live_ikut_periode_terpilih_dan_tidak_dobel_lintas_bulan(): void
+    {
+        Carbon::setTestNow('2026-10-20 10:00:00');
+        $kol = Kol::create(['tiktok_username' => 'periode', 'followers' => 1, 'is_gapok' => true]);
+        $konten = fn (string $period, string $type, string $id, string $tgl, int $views, int $gmv, string $judul) => KolCreatorContent::create([
+            'kol_id' => $kol->id, 'period' => $period, 'type' => $type, 'content_id' => $id, 'title' => $judul,
+            'occurred_at' => $tgl, 'views' => $views, 'gmv' => $gmv]);
+        $konten('2026-10-01', 'video', 'A', '2026-10-18 10:00:00', 1000, 100_000, 'Video Baru A');
+        $konten('2026-10-01', 'video', 'B', '2026-10-02 10:00:00', 500, 0, 'Video Awal Bulan B');
+        $konten('2026-10-01', 'live', 'L1', '2026-10-19 20:00:00', 0, 200_000, 'LIVE Malam');
+        // Video lama (diunggah September) masih laku di Oktober → ada di potret dua bulan.
+        $konten('2026-10-01', 'video', 'LAMA', '2026-09-25 09:00:00', 345, 55_000, 'Video Lama');
+        $konten('2026-09-01', 'video', 'LAMA', '2026-09-25 09:00:00', 700, 70_000, 'Video Lama');
+        $svc = app(KolGapokService::class);
+        $hitung = fn (string $dari, string $sampai) => array_intersect_key(
+            $svc->range(Carbon::parse($dari)->startOfDay(), Carbon::parse($sampai)->endOfDay(), Carbon::parse($dari))->first(),
+            ['videos' => 0, 'lives' => 0]);
+
+        // Oktober: hanya yang diunggah Oktober (video lama tak dihitung); September: video lama dihitung sekali.
+        $this->assertSame(['videos' => 2, 'lives' => 1], $hitung('2026-10-01', '2026-10-31'));
+        $this->assertSame(['videos' => 1, 'lives' => 0], $hitung('2026-09-01', '2026-09-30'));
+        // 7 hari terakhir: hanya video A & LIVE 19 Okt; 30 hari (lintas bulan): A, B, video lama, LIVE.
+        $this->assertSame(['videos' => 1, 'lives' => 1], $hitung('2026-10-14', '2026-10-20'));
+        $this->assertSame(['videos' => 3, 'lives' => 1], $hitung('2026-09-21', '2026-10-20'));
+
+        // Halaman: preset 7 hari → angka & link daftar ikut preset; daftar = konten yang sama.
+        $spec = $this->user('kol_specialist', 'spper');
+        $page = $this->actingAs($spec)->get(route('kol-gapok.index', ['preset' => '7d']))->assertOk()
+            ->assertSee(route('kol-gapok.contents', ['kol' => $kol->id, 'type' => 'video', 'preset' => '7d'])); // di HTML & → &amp;
+        $this->assertSame([1, 1], [$page->viewData('rows')->first()['videos'], $page->viewData('rows')->first()['lives']]);
+        $this->actingAs($spec)->get(route('kol-gapok.contents', ['kol' => $kol->id, 'preset' => '7d']))->assertOk()
+            ->assertSee('Video Baru A')->assertSee('LIVE Malam')->assertDontSee('Video Awal Bulan B')->assertDontSee('Video Lama')
+            ->assertSee('7 hari terakhir');
+        // Daftar September: video lama sekali, angka = total semua potret (700+345 views, 70rb+55rb GMV).
+        $this->actingAs($spec)->get(route('kol-gapok.contents', ['kol' => $kol->id, 'bulan' => '2026-09']))->assertOk()
+            ->assertSee('Video Lama')->assertSee('1.045')->assertSee('Rp 125.000')->assertSee('1 video diunggah')
+            ->assertSee(route('kol-gapok.index', ['bulan' => '2026-09']), false);
+        Carbon::setTestNow();
     }
 
     public function test_halaman_detail_konten_video_dan_live(): void
     {
         $kol = Kol::create(['tiktok_username' => 'kn', 'followers' => 10_000, 'is_gapok' => true]);
         $period = now()->startOfMonth()->toDateString();
-        KolCreatorContent::create(['kol_id' => $kol->id, 'period' => $period, 'type' => 'video',
+        KolCreatorContent::create(['kol_id' => $kol->id, 'period' => $period, 'type' => 'video', 'occurred_at' => now()->startOfMonth(),
             'content_id' => '123', 'title' => 'Video Uji Coba', 'views' => 1000, 'gmv' => 500_000, 'sku_orders' => 10]);
-        KolCreatorContent::create(['kol_id' => $kol->id, 'period' => $period, 'type' => 'live',
+        KolCreatorContent::create(['kol_id' => $kol->id, 'period' => $period, 'type' => 'live', 'occurred_at' => now()->startOfMonth(),
             'content_id' => '456', 'title' => 'LIVE Malam', 'gmv' => 200_000, 'sku_orders' => 5, 'items_sold' => 7]);
 
         $this->actingAs($this->user('kol_specialist', 'spk'))

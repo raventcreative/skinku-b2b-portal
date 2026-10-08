@@ -15,7 +15,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-2 text-sm">
             <a href="{{ route('kol-affiliate.index', ['bulan' => $prevMonth]) }}" aria-label="Bulan sebelumnya" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-300 bg-white text-stone-600 hover:bg-stone-50">←</a>
-            <span class="min-w-32 text-center font-semibold text-stone-800">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}</span>
+            <span class="min-w-32 text-center font-semibold text-stone-800">{{ \Illuminate\Support\Carbon::createFromFormat('!Y-m', $month)->translatedFormat('F Y') }}</span>
             <a href="{{ route('kol-affiliate.index', ['bulan' => $nextMonth]) }}" aria-label="Bulan berikutnya" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-300 bg-white text-stone-600 hover:bg-stone-50">→</a>
         </div>
         <div class="flex items-center gap-2">

@@ -62,7 +62,7 @@ class TimGapokTool extends BaseTool
             'bulan_gaji' => $from->format('Y-m'),
             'catatan' => 'GMV = semua pesanan affiliate SKINKU anggota (LIVE + video + lainnya), sama dgn halaman Tim Gapok. '
                 .'Gaji = gaji pokok BULANAN '.$from->translatedFormat('F Y').'; gaji_otomatis = belum disimpan untuk bulan itu, '
-                .'ikut gaji bulan sebelumnya. Jumlah video & LIVE = bulan itu. ROI = GMV periode ÷ gaji (≥3× bagus, 1–3× cukup, <1× rugi).',
+                .'ikut gaji bulan sebelumnya. Video = jumlah video yang DIUNGGAH & LIVE = jumlah LIVE yang DIMULAI di periode itu (video lama yang masih laku tidak dihitung). ROI = GMV periode ÷ gaji (≥3× bagus, 1–3× cukup, <1× rugi).',
             'total' => [
                 'anggota' => $t['members'],
                 'gmv' => $t['gmv'],
