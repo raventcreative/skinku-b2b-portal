@@ -141,6 +141,18 @@ class AiLaporanKeuanganToolsTest extends TestCase
         $this->assertStringContainsString('ulangi tanpa cari', $kosong['catatan']);
     }
 
+    public function test_omzet_mitra_kosong_mengarahkan_ke_pembelian_mitra_di_laporan_penjualan(): void
+    {
+        // Mitra hanya belanja ke HQ (tanpa jual ke downline/customer) → Omzet Mitra kosong, tapi AI diarahkan ke per_mitra.
+        $this->po($this->user(User::ROLE_DISTRIBUTOR, 'alfa'), $this->produk(), 10, 30000);
+        $admin = $this->user(User::ROLE_ADMIN);
+
+        $omzet = $this->pakai('omzet_mitra', $admin);
+        $this->assertSame([], $omzet['per_mitra']);
+        $this->assertStringContainsString('laporan_penjualan', $omzet['catatan']);
+        $this->assertSame(['ALFA'], array_column($this->pakai('laporan_penjualan', $admin)['per_mitra'], 'mitra'));
+    }
+
     public function test_penjualan_downline_hanya_milik_mitra_itu(): void
     {
         $p = $this->produk();
