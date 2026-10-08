@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Kol;
 use App\Models\KolCreatorContent;
 use App\Models\KolGapokPayment;
+use App\Models\KolGapokSalary;
 use App\Models\KolUsernameAlias;
 use App\Services\AuditService;
 use App\Services\KolAffiliateService;
@@ -164,7 +165,12 @@ class KolGapokController extends Controller
             'note' => ['nullable', 'string', 'max:255'],
         ]);
         $m = Carbon::createFromFormat('!Y-m', $d['bulan'])->startOfMonth();
+        // Gaji tersimpan sebelumnya utk bulan itu (null = belum disimpan / ikut gaji bulan lalu).
+        $lama = KolGapokSalary::where('kol_id', $d['kol_id'])->where('period', $m->toDateString())->value('monthly_salary');
         $svc->setSalary((int) $d['kol_id'], $m, (int) $d['monthly_salary'], $d['note'] ?? null, $request->user()->id);
+        AuditService::log(action: 'set_gapok_salary', targetType: 'kol', targetId: (int) $d['kol_id'],
+            before: ['bulan' => $m->format('Y-m'), 'gaji' => $lama === null ? null : (int) $lama],
+            after: ['bulan' => $m->format('Y-m'), 'gaji' => max(0, (int) $d['monthly_salary'])]);
 
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'salary' => (int) $d['monthly_salary']]);
@@ -180,7 +186,11 @@ class KolGapokController extends Controller
             'kol_id' => ['required', 'integer', 'exists:kols,id'],
             'joined_at' => ['nullable', 'date'],
         ]);
+        $lama = Kol::whereKey($d['kol_id'])->value('gapok_joined_at');
         Kol::whereKey($d['kol_id'])->update(['gapok_joined_at' => $d['joined_at'] ?? null]);
+        AuditService::log(action: 'set_gapok_join_date', targetType: 'kol', targetId: (int) $d['kol_id'],
+            before: ['tanggal_gabung' => $lama ? Carbon::parse($lama)->toDateString() : null],
+            after: ['tanggal_gabung' => isset($d['joined_at']) ? Carbon::parse($d['joined_at'])->toDateString() : null]);
 
         if ($request->wantsJson()) {
             return response()->json(['ok' => true]);
@@ -224,7 +234,7 @@ class KolGapokController extends Controller
         $payment->delete();
 
         AuditService::log(action: 'delete_gapok_payment', targetType: 'kol', targetId: $kolId,
-            before: ['amount' => (int) $payment->amount]);
+            before: ['bulan' => $m->format('Y-m'), 'amount' => (int) $payment->amount, 'dibayar' => $payment->paid_at?->toDateString()]);
 
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'paid_total' => $svc->paidTotal($kolId, $m)]);

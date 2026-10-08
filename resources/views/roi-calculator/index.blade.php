@@ -5,6 +5,8 @@
 @php
     $rp = fn ($v) => 'Rp'.number_format((float) $v, 0, ',', '.');
     $roi = fn ($v) => $v === null ? '—' : number_format($v, 2, ',', '.').'×';
+    // Modal default = HPP produk; profit, BEP & target ROI turunannya → hanya utk izin Lihat HPP (default super admin).
+    $hpp = auth()->user()->canDo('view_hpp');
 @endphp
 <div class="space-y-4">
 
@@ -64,18 +66,23 @@
     {{-- Tabel hasil --}}
     <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
         <div class="px-5 py-3 border-b border-stone-100 text-sm font-bold text-stone-800">Produk — {{ count($rows) }}</div>
+        @unless($hpp)
+            <p class="px-5 py-2 border-b border-stone-100 text-[11px] text-stone-500">Modal, profit, BEP &amp; target ROI dihitung dari HPP — hanya tampil untuk izin Lihat HPP.</p>
+        @endunless
         @if(count($rows))
             <div class="overflow-x-auto">
                 <table class="w-full text-xs whitespace-nowrap">
                     <thead class="bg-stone-50 text-stone-500 uppercase text-[10px]"><tr>
                         <th class="text-left px-4 py-2">Produk</th>
                         <th class="text-right">Harga Jual</th>
-                        <th class="text-right">Modal</th>
+                        @if($hpp)<th class="text-right">Modal</th>@endif
                         <th class="text-right">Total Biaya</th>
-                        <th class="text-right">Profit Bersih</th>
-                        <th class="text-right">BEP ROI</th>
-                        <th class="text-right">Target Min 10%</th>
-                        <th class="text-right">Target Optimum 20%</th>
+                        @if($hpp)
+                            <th class="text-right">Profit Bersih</th>
+                            <th class="text-right">BEP ROI</th>
+                            <th class="text-right">Target Min 10%</th>
+                            <th class="text-right">Target Optimum 20%</th>
+                        @endif
                         <th class="text-right pr-4"></th>
                     </tr></thead>
                     <tbody>
@@ -87,12 +94,14 @@
                                     <div class="text-[11px] text-stone-400 font-mono">{{ $p?->sku }}</div>
                                 </td>
                                 <td class="text-right">{{ $rp($in['selling_price']) }}</td>
-                                <td class="text-right">{{ $rp($in['modal']) }}</td>
+                                @if($hpp)<td class="text-right">{{ $rp($in['modal']) }}</td>@endif
                                 <td class="text-right text-stone-600">{{ $rp($res['total_biaya']) }}</td>
-                                <td class="text-right font-semibold {{ $res['profit_bersih'] > 0 ? 'text-emerald-700' : 'text-rose-600' }}">{{ $rp($res['profit_bersih']) }}</td>
-                                <td class="text-right">{{ $roi($res['bep_roi']) }}</td>
-                                <td class="text-right">{{ $roi($res['avg_min']) }}</td>
-                                <td class="text-right">{{ $roi($res['avg_optimum']) }}</td>
+                                @if($hpp)
+                                    <td class="text-right font-semibold {{ $res['profit_bersih'] > 0 ? 'text-emerald-700' : 'text-rose-600' }}">{{ $rp($res['profit_bersih']) }}</td>
+                                    <td class="text-right">{{ $roi($res['bep_roi']) }}</td>
+                                    <td class="text-right">{{ $roi($res['avg_min']) }}</td>
+                                    <td class="text-right">{{ $roi($res['avg_optimum']) }}</td>
+                                @endif
                                 <td class="text-right pr-4">
                                     <form method="POST" action="{{ route('roi-calculator.items.destroy', $row['item']) }}" onsubmit="return confirm('Hapus baris ini?')">
                                         @csrf @method('DELETE')
@@ -102,9 +111,9 @@
                             </tr>
                             {{-- Rincian lengkap (native <details>, zero-JS) --}}
                             <tr class="border-t border-stone-50 bg-stone-50/40">
-                                <td colspan="9" class="px-4 py-1.5">
+                                <td colspan="{{ $hpp ? 9 : 4 }}" class="px-4 py-1.5">
                                     <details>
-                                        <summary class="cursor-pointer text-[11px] text-indigo-700 hover:underline">Rincian biaya & target</summary>
+                                        <summary class="cursor-pointer text-[11px] text-indigo-700 hover:underline">{{ $hpp ? 'Rincian biaya & target' : 'Rincian biaya' }}</summary>
                                         <form method="POST" action="{{ route('roi-calculator.items.update', $row['item']) }}" class="mt-2 flex flex-wrap items-end gap-2 pb-2 border-b border-stone-100">
                                             @csrf
                                             @php
@@ -122,6 +131,9 @@
                                                     'operasional_pct' => ['Operasional %', $row['item']->operasional_pct],
                                                     'affiliate_pct' => ['Affiliate %', $row['item']->affiliate_pct],
                                                 ];
+                                                if (! $hpp) {
+                                                    unset($edit['modal']); // modal = HPP; server juga mengabaikannya
+                                                }
                                             @endphp
                                             @foreach($edit as $name => [$label, $val])
                                                 <label class="block">
@@ -135,7 +147,7 @@
                                             <button class="px-3 py-1.5 text-[11px] bg-stone-800 text-white rounded-lg hover:bg-stone-900">Simpan</button>
                                         </form>
                                         <div class="mt-2 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-1 text-[11px] text-stone-600">
-                                            <div>Profit kotor: <span class="font-semibold text-stone-800">{{ $rp($res['profit']) }}</span></div>
+                                            @if($hpp)<div>Profit kotor: <span class="font-semibold text-stone-800">{{ $rp($res['profit']) }}</span></div>@endif
                                             <div>Admin: {{ $rp($res['admin']) }}</div>
                                             <div>Voucher Xtra: {{ $rp($res['voucher']) }}</div>
                                             <div>Komisi Dinamis: {{ $rp($res['komisi']) }}</div>
@@ -145,9 +157,12 @@
                                             <div>Proses order: {{ $rp($in['proses_order']) }}</div>
                                             <div>Packing: {{ $rp($in['packing']) }}</div>
                                             <div>Komisi Affiliate: {{ $rp($res['affiliate']) }}</div>
-                                            <div>Profit − Aff: <span class="font-semibold text-stone-800">{{ $rp($res['profit_after_aff']) }}</span></div>
-                                            <div>BEP ROI (dgn aff): {{ $roi($res['bep_roi_aff']) }}</div>
+                                            @if($hpp)
+                                                <div>Profit − Aff: <span class="font-semibold text-stone-800">{{ $rp($res['profit_after_aff']) }}</span></div>
+                                                <div>BEP ROI (dgn aff): {{ $roi($res['bep_roi_aff']) }}</div>
+                                            @endif
                                         </div>
+                                        @if($hpp)
                                         <div class="mt-2 overflow-x-auto">
                                             <table class="text-[11px] text-stone-600">
                                                 <thead class="text-stone-400"><tr>
@@ -165,11 +180,13 @@
                                                 </tbody>
                                             </table>
                                         </div>
+                                        @endif
                                     </details>
                                 </td>
                             </tr>
                         @endforeach
                     </tbody>
+                    @if($hpp)
                     <tfoot class="bg-stone-50 text-stone-700 font-semibold">
                         <tr class="border-t border-stone-200">
                             <td class="px-4 py-2.5" colspan="6">Rata-rata semua produk (patokan setelan iklan)</td>
@@ -178,6 +195,7 @@
                             <td class="pr-4"></td>
                         </tr>
                     </tfoot>
+                    @endif
                 </table>
             </div>
         @else

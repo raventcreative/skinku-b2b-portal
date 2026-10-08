@@ -27,7 +27,7 @@ class RoiCalculatorController extends Controller
             ->values();
 
         $existingIds = $items->pluck('product_id')->all();
-        $products = Product::whereNotIn('id', $existingIds)->orderBy('name')->get(['id', 'name', 'sku', 'cogs']);
+        $products = Product::whereNotIn('id', $existingIds)->orderBy('name')->get(['id', 'name', 'sku']);
 
         return view('roi-calculator.index', [
             'settings' => $settings,
@@ -86,6 +86,10 @@ class RoiCalculatorController extends Controller
             'affiliate_pct' => ['nullable', 'numeric', 'min:0'],
         ]);
 
+        // Modal = HPP: tanpa izin Lihat HPP diabaikan (nilai lama tetap) — aturan HPP sama dgn halaman lain.
+        if (! $request->user()->canDo('view_hpp')) {
+            unset($data['modal']);
+        }
         // Field kosong tiba sbg null (ConvertEmptyStringsToNull) -> warisi COGS/global.
         $item->update($data);
 

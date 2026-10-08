@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Kol;
 use App\Models\KolCreatorContent;
 use App\Models\KolCreatorContentStat;
@@ -247,28 +248,55 @@ class KolGapokTest extends TestCase
     public function test_gaji_bulan_baru_otomatis_ikut_bulan_sebelumnya_sampai_disimpan_ulang(): void
     {
         $kol = Kol::create(['tiktok_username' => 'gapokauto', 'followers' => 1, 'is_gapok' => true]);
-        $svc = app(\App\Services\KolGapokService::class);
-        $svc->setSalary($kol->id, \Illuminate\Support\Carbon::parse('2026-08-01'), 2_000_000, null, null);
-        $svc->setSalary($kol->id, \Illuminate\Support\Carbon::parse('2026-09-01'), 2_500_000, null, null);
+        $svc = app(KolGapokService::class);
+        $svc->setSalary($kol->id, Carbon::parse('2026-08-01'), 2_000_000, null, null);
+        $svc->setSalary($kol->id, Carbon::parse('2026-09-01'), 2_500_000, null, null);
 
         // Oktober belum disimpan → ikut gaji terakhir (Sep), ditandai otomatis.
-        $okt = $svc->monthly(\Illuminate\Support\Carbon::parse('2026-10-01'))->first();
+        $okt = $svc->monthly(Carbon::parse('2026-10-01'))->first();
         $this->assertSame(2_500_000, $okt['salary']);
         $this->assertTrue($okt['salary_auto']);
         $this->assertSame('2026-09-01', $okt['salary_from']);
 
         // Bulan yang sudah disimpan tetap pakai angkanya sendiri.
-        $this->assertFalse($svc->monthly(\Illuminate\Support\Carbon::parse('2026-08-01'))->first()['salary_auto']);
+        $this->assertFalse($svc->monthly(Carbon::parse('2026-08-01'))->first()['salary_auto']);
 
         // Disimpan ulang (mis. naik gaji) → angka baru, tak lagi otomatis; bulan sesudahnya ikut angka baru.
-        $svc->setSalary($kol->id, \Illuminate\Support\Carbon::parse('2026-10-01'), 3_000_000, null, null);
-        $okt = $svc->monthly(\Illuminate\Support\Carbon::parse('2026-10-01'))->first();
+        $svc->setSalary($kol->id, Carbon::parse('2026-10-01'), 3_000_000, null, null);
+        $okt = $svc->monthly(Carbon::parse('2026-10-01'))->first();
         $this->assertSame([3_000_000, false], [$okt['salary'], $okt['salary_auto']]);
-        $this->assertSame(3_000_000, $svc->monthly(\Illuminate\Support\Carbon::parse('2026-11-01'))->first()['salary']);
+        $this->assertSame(3_000_000, $svc->monthly(Carbon::parse('2026-11-01'))->first()['salary']);
 
         // Belum pernah punya gaji sama sekali → tetap 0 (tak otomatis).
         $baru = Kol::create(['tiktok_username' => 'gapokbaru', 'followers' => 1, 'is_gapok' => true]);
-        $row = $svc->monthly(\Illuminate\Support\Carbon::parse('2026-10-01'))->firstWhere('kol.id', $baru->id);
+        $row = $svc->monthly(Carbon::parse('2026-10-01'))->firstWhere('kol.id', $baru->id);
         $this->assertSame([0, false], [$row['salary'], $row['salary_auto']]);
+    }
+
+    public function test_simpan_gaji_tanggal_gabung_dan_hapus_bayar_tercatat_di_audit_log(): void
+    {
+        $kol = Kol::create(['tiktok_username' => 'auditgaji', 'followers' => 1, 'is_gapok' => true]);
+        $spec = $this->user('kol_specialist', 'spaudit');
+        $bulan = now()->format('Y-m');
+
+        // Simpan gaji 2x: sebelum (null = belum disimpan) -> sesudah; catatan gaji tidak ikut dicatat.
+        $this->actingAs($spec)->postJson(route('kol-gapok.salary'), ['kol_id' => $kol->id, 'bulan' => $bulan, 'monthly_salary' => 1_000_000, 'note' => 'CATATAN-GAJI'])->assertOk();
+        $this->actingAs($spec)->postJson(route('kol-gapok.salary'), ['kol_id' => $kol->id, 'bulan' => $bulan, 'monthly_salary' => 1_500_000])->assertOk();
+        $log = AuditLog::where('action', 'set_gapok_salary')->orderBy('id')->get();
+        $this->assertSame([['bulan' => $bulan, 'gaji' => null], ['bulan' => $bulan, 'gaji' => 1_000_000]], $log->pluck('before_data')->all());
+        $this->assertSame([1_000_000, 1_500_000], $log->pluck('after_data.gaji')->all());
+        $this->assertSame([$kol->id, $kol->id], $log->pluck('target_id')->map(fn ($id) => (int) $id)->all());
+        $this->assertStringNotContainsString('CATATAN-GAJI', $log->toJson());
+
+        $this->actingAs($spec)->postJson(route('kol-gapok.join-date'), ['kol_id' => $kol->id, 'joined_at' => '2026-08-01'])->assertOk();
+        $join = AuditLog::where('action', 'set_gapok_join_date')->sole();
+        $this->assertSame([['tanggal_gabung' => null], ['tanggal_gabung' => '2026-08-01']], [$join->before_data, $join->after_data]);
+
+        // Hapus pembayaran: bulan gaji & tanggal bayar ikut tercatat (bukan cuma nominal).
+        $bayar = $this->actingAs($spec)->postJson(route('kol-gapok.payment'), ['kol_id' => $kol->id, 'bulan' => $bulan,
+            'amount' => 400_000, 'paid_at' => '2026-10-05'])->assertOk()->json('payment.id');
+        $this->actingAs($spec)->postJson(route('kol-gapok.payment.delete', $bayar))->assertOk();
+        $this->assertSame(['bulan' => $bulan, 'amount' => 400_000, 'dibayar' => '2026-10-05'],
+            AuditLog::where('action', 'delete_gapok_payment')->sole()->before_data);
     }
 }
