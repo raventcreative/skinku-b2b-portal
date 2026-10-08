@@ -5,6 +5,11 @@ return [
     'provider' => env('AI_PROVIDER', 'openai'),
     'model' => env('AI_MODEL', 'gpt-4o-mini'),
     'max_output_tokens' => (int) env('AI_MAX_OUTPUT_TOKENS', 4000),
+    // Nama parameter batas keluaran. 'max_tokens' diterima hampir semua endpoint
+    // OpenAI-compatible; model penalaran OpenAI terbaru menuntut
+    // 'max_completion_tokens'. Salah pilih tidak fatal — provider menukarnya
+    // otomatis kalau endpoint menolak.
+    'token_param' => env('AI_TOKEN_PARAM', 'max_tokens'),
     'request_timeout' => (int) env('AI_REQUEST_TIMEOUT', 120),
     'connect_timeout' => (int) env('AI_CONNECT_TIMEOUT', 10),
 

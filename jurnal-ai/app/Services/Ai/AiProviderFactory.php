@@ -56,6 +56,7 @@ class AiProviderFactory
 
         return new OpenAiProvider(
             $key, (string) config('ai.openai.base'), $model, $maxTokens, $timeout, $connect,
+            (string) config('ai.token_param', 'max_tokens'),
         );
     }
 
@@ -81,6 +82,7 @@ class AiProviderFactory
             (int) config('ai.max_output_tokens', 4000),
             (int) ($slot['timeout'] ?? 120),
             (int) config('ai.connect_timeout', 10),
+            (string) config('ai.token_param', 'max_tokens'),
         )];
     }
 }

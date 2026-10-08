@@ -20,6 +20,10 @@ class OpenAiProvider implements AiProvider
         private int $maxTokens = 4000,
         private int $timeout = 120,
         private int $connectTimeout = 10,
+        // OpenAI terbaru memakai max_completion_tokens; mayoritas endpoint
+        // OpenAI-compatible masih max_tokens. Default dipilih yang paling luas
+        // diterima, dan chat() tetap menukar otomatis kalau ditolak.
+        private string $tokenParam = 'max_tokens',
     ) {}
 
     public function model(): string
@@ -32,14 +36,49 @@ class OpenAiProvider implements AiProvider
         $payload = [
             'model' => $this->model,
             'messages' => array_map($this->mapMessage(...), $messages),
-            'max_completion_tokens' => (int) ($options['max_tokens'] ?? $this->maxTokens),
+            $this->tokenParam => (int) ($options['max_tokens'] ?? $this->maxTokens),
         ];
         if (! empty($options['json'])) {
             $payload['response_format'] = ['type' => 'json_object'];
         }
 
+        // Endpoint OpenAI-compatible (OpenRouter/9router/Groq/DeepSeek) tidak
+        // semuanya menerima parameter opsional yang sama. Daripada gagal total,
+        // buang parameter yang ditolak lalu ulangi — maksimal sekali per
+        // parameter supaya tidak berputar.
+        $dropped = [];
+        while (true) {
+            $response = $this->send($payload);
+
+            if ($response->successful()) {
+                return $this->turnFrom($response);
+            }
+
+            $offending = $this->unsupportedParameter($response, $payload);
+            if ($offending === null || isset($dropped[$offending])) {
+                return $this->turnFrom($response); // biarkan turnFrom melempar pesan aslinya
+            }
+
+            $dropped[$offending] = true;
+            Log::info('Parameter ditolak endpoint AI, dicoba ulang tanpa parameter itu.', [
+                'model' => $this->model,
+                'parameter' => $offending,
+            ]);
+
+            if ($offending === $this->tokenParam) {
+                // Tukar ke penamaan satunya, jangan dibuang: tanpa batas token
+                // sebagian endpoint memotong balasan di tengah JSON.
+                $alternatif = $this->tokenParam === 'max_tokens' ? 'max_completion_tokens' : 'max_tokens';
+                $payload[$alternatif] = $payload[$offending];
+            }
+            unset($payload[$offending]);
+        }
+    }
+
+    private function send(array $payload)
+    {
         try {
-            $res = Http::withToken($this->apiKey)
+            return Http::withToken($this->apiKey)
                 ->acceptJson()
                 ->connectTimeout($this->connectTimeout)
                 ->timeout($this->timeout)
@@ -53,8 +92,34 @@ class OpenAiProvider implements AiProvider
                 previous: $e,
             );
         }
+    }
 
-        return $this->turnFrom($res);
+    /**
+     * Nama parameter opsional yang ditolak endpoint, atau null kalau errornya
+     * bukan soal parameter. Hanya parameter yang memang aman dibuang/ditukar
+     * yang dikenali — error lain (key salah, kuota habis) harus tetap dilempar.
+     */
+    private function unsupportedParameter($response, array $payload): ?string
+    {
+        if ($response->status() !== 400) {
+            return null;
+        }
+
+        $pesan = strtolower((string) (
+            $response->json('error.message') ?? $response->json('message') ?? $response->body()
+        ));
+
+        foreach (['response_format', 'max_completion_tokens', 'max_tokens'] as $param) {
+            if (! isset($payload[$param]) || ! str_contains($pesan, $param)) {
+                continue;
+            }
+            // "unsupported", "unrecognized", "not supported", "invalid parameter", dsb.
+            if (preg_match('/unsupported|unrecogni|not supported|unknown|invalid|unexpected/', $pesan) === 1) {
+                return $param;
+            }
+        }
+
+        return null;
     }
 
     /** Pesan internal → bentuk OpenAI. Konten array dipetakan part demi part. */
