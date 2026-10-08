@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class LearningModule extends Model
 {
@@ -16,6 +17,16 @@ class LearningModule extends Model
             'sort_order' => 'integer',
             'is_published' => 'boolean',
         ];
+    }
+
+    /** Modul di halaman Academy untuk user ini: pengelola (manage_learning) semua, lainnya yang terbit saja. */
+    public static function terlihatUntuk(User $user): Collection
+    {
+        $kelola = $user->canDo('manage_learning');
+
+        return self::query()->orderBy('sort_order')->orderBy('id')->get()
+            ->filter(fn (self $m) => $kelola || $m->is_published)
+            ->values();
     }
 
     public function lessons()

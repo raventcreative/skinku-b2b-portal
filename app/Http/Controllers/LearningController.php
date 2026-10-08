@@ -22,15 +22,8 @@ class LearningController extends Controller
         $user = $request->user();
         $canManage = $user->canDo('manage_learning');
 
-        $modules = LearningModule::query()
-            ->orderBy('sort_order')->orderBy('id')->get()
-            ->filter(fn (LearningModule $m) => $canManage || $m->is_published)
-            ->values();
-
-        $lessons = Lesson::query()
-            ->orderBy('sort_order')->orderByDesc('id')->get()
-            ->filter(fn (Lesson $l) => $canManage || $l->visibleTo($user))
-            ->values();
+        $modules = LearningModule::terlihatUntuk($user);
+        $lessons = Lesson::terlihatUntuk($user);
 
         $audienceRoles = Role::ordered()->where('name', '!=', User::ROLE_SUPER_ADMIN)->get();
 
