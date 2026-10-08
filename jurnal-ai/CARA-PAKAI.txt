@@ -1,0 +1,62 @@
+JURNAL AI - Cara Pakai
+======================
+
+Aplikasi pencatatan jurnal akuntansi berbantuan AI.
+Berjalan 100% di komputer ini. Tidak menyentuh system.skinku.id
+maupun server Hostinger sama sekali.
+
+
+CARA MENJALANKAN
+----------------
+Klik dua kali file:  JALANKAN.bat
+
+Browser akan terbuka sendiri. Login dengan:
+  Email : admin@jurnal.test
+  Sandi : password123
+
+Selesai testing? Tutup saja jendela hitamnya.
+
+
+SYARAT SATU-SATUNYA
+-------------------
+PHP versi 8.3 atau lebih baru sudah terpasang di komputer ini.
+Kalau belum ada, JALANKAN.bat akan memberi tahu cara memasangnya.
+
+Tidak perlu: composer, git, node, MySQL, XAMPP, internet.
+Semua sudah ikut di dalam folder ini, termasuk database contoh.
+
+
+MENGAKTIFKAN PEMBACAAN AI (opsional)
+------------------------------------
+Tanpa ini aplikasi tetap jalan, tapi fitur baca struk otomatis mati.
+
+1. Buka file bernama  .env  pakai Notepad
+2. Cari baris:  OPENAI_API_KEY=
+3. Tempel API key OpenAI di belakang tanda sama dengan, jadi:
+     OPENAI_API_KEY=sk-xxxxxxxxxxxx
+4. Simpan, lalu jalankan ulang JALANKAN.bat
+
+Fitur baca AI butuh internet (memanggil server OpenAI).
+Biaya kira-kira Rp30-100 per foto struk.
+
+
+ISI AWAL
+--------
+Sudah ada data contoh supaya bisa langsung dilihat-lihat:
+  - Klien "SKINKU" berisi 18 jurnal sebulan (ANGKA KARANGAN, bukan data asli)
+  - 1 dokumen contoh yang menunggu direview
+  - Klien "Klien Contoh" dengan buku kosong
+
+Semua boleh dihapus, diubah, dikacaukan - tidak ada efek ke mana pun.
+
+
+MULAI BERSIH DARI NOL
+---------------------
+Klik dua kali:  RESET-DATA.bat
+Semua klien, jurnal, dan dokumen dihapus, lalu diisi ulang data contoh.
+
+
+CHECKLIST APA SAJA YANG PERLU DIUJI
+-----------------------------------
+Buka file TESTING-LOKAL.md (bisa dibaca pakai Notepad).
+Bagian 4 berisi daftar uji lengkap beserta hasil yang seharusnya.
