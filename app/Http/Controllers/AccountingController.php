@@ -73,15 +73,7 @@ class AccountingController extends Controller
     /** Distinct periods that have posted journals, newest first (for the dropdown). */
     private function periods(): array
     {
-        $periods = AccJournal::query()
-            ->where('status', AccJournal::STATUS_POSTED)
-            ->distinct()->orderByDesc('period')->pluck('period')->all();
-
-        if (empty($periods)) {
-            $periods = [now()->format('Y-m')];
-        }
-
-        return $periods;
+        return AccJournal::periodeBuku();
     }
 
     private function resolvePeriod(Request $request): string

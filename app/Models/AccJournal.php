@@ -12,6 +12,14 @@ class AccJournal extends Model
 
     public const STATUS_POSTED = 'posted';
 
+    /** Bulan buku yang punya jurnal posted, terbaru dulu (dropdown periode Akuntansi + alat AI). Kosong → bulan ini. */
+    public static function periodeBuku(): array
+    {
+        $periods = static::query()->where('status', self::STATUS_POSTED)->distinct()->orderByDesc('period')->pluck('period')->all();
+
+        return $periods ?: [now()->format('Y-m')];
+    }
+
     public const STATUS_VOID = 'void';
 
     protected $fillable = [

@@ -11,8 +11,14 @@ use App\Services\Ai\Tools\BuatMindmapTool;
 use App\Services\Ai\Tools\DaftarPoTool;
 use App\Services\Ai\Tools\DataKolTool;
 use App\Services\Ai\Tools\KomisiTool;
+use App\Services\Ai\Tools\LaporanBisnisTool;
+use App\Services\Ai\Tools\LaporanKeuanganTool;
+use App\Services\Ai\Tools\LaporanPenjualanTool;
 use App\Services\Ai\Tools\LaporanStokHqTool;
+use App\Services\Ai\Tools\OmzetMitraTool;
 use App\Services\Ai\Tools\PemantauanStokTool;
+use App\Services\Ai\Tools\PenarikanTool;
+use App\Services\Ai\Tools\PenjualanDownlineTool;
 use App\Services\Ai\Tools\PesananMarketplaceTool;
 use App\Services\Ai\Tools\ProdukMasterTool;
 use App\Services\Ai\Tools\ProduksiHppTool;
@@ -74,6 +80,13 @@ class AppServiceProvider extends ServiceProvider
             new BahanBakuTool,
             new ProduksiHppTool,
             new StokOpnameTool,
+            // Laporan & Keuangan
+            $app->make(LaporanPenjualanTool::class),
+            $app->make(OmzetMitraTool::class),
+            $app->make(PenjualanDownlineTool::class),
+            $app->make(LaporanBisnisTool::class),
+            $app->make(LaporanKeuanganTool::class),
+            new PenarikanTool,
         ]));
     }
 
