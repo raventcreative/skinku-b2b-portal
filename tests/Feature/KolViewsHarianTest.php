@@ -230,6 +230,46 @@ class KolViewsHarianTest extends TestCase
             ->assertDontSee('2.075'); // dulu baris total tetap menjumlah semua kreator (75 + 2.000)
     }
 
+    public function test_tabel_bisa_diurutkan_per_kolom_seperti_tabel_lain(): void
+    {
+        $a = Kol::create(['tiktok_username' => 'alpha', 'followers' => 1]);
+        $b = Kol::create(['tiktok_username' => 'bravo', 'followers' => 1]);
+        $c = Kol::create(['tiktok_username' => 'charlie', 'followers' => 1]);
+        // Potret kumulatif 1–4 Sep → views 1, 2, 3 Sep = selisih hari berikutnya.
+        $potret = function (Kol $k, string $id, array $views, string $posted, array $gmv = [0, 0, 0, 0]) {
+            foreach (['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'] as $i => $tgl) {
+                $this->snap($k, $id, '2026-09-01', $tgl, $views[$i], $posted, $gmv[$i]);
+            }
+        };
+        $potret($a, 'A1', [100, 400, 410, 420], '2026-08-01');                           // 300 · 10 · 10 = 320, diposting 0
+        $potret($b, 'B1', [0, 50, 100, 150], '2026-09-01', [0, 100000, 200000, 300000]); // 50 · 50 · 50 = 150, GMV terbesar
+        $potret($b, 'B2', [0, 0, 0, 0], '2026-09-02');                                   // → diposting 2
+        $potret($c, 'C1', [1000, 1001, 1002, 2002], '2026-08-01');                       // 1 · 1 · 1000 = 1.002, diposting 0
+        $super = $this->user(User::ROLE_SUPER_ADMIN, 'saurut');
+        $rentang = ['dari' => '2026-09-01', 'sampai' => '2026-09-03'];
+        $urut = fn (array $p = []) => $this->actingAs($super)->get(route('kol-views-harian.index', $rentang + $p))->assertOk();
+
+        $urut()->assertSeeInOrder(['@charlie', '@alpha', '@bravo'])->assertSee('Total ↓'); // default: Total terbesar
+        $urut(['sort' => 'total', 'dir' => 'asc'])->assertSeeInOrder(['@bravo', '@alpha', '@charlie'])->assertSee('Total ↑');
+        $urut(['sort' => '2026-09-01'])->assertSeeInOrder(['@alpha', '@bravo', '@charlie'])->assertSee('01 Sep ↓'); // kolom tanggal
+        $urut(['sort' => 'diposting'])->assertSeeInOrder(['@bravo', '@charlie', '@alpha']); // seri tetap urut Total
+        $urut(['sort' => 'gmv'])->assertSeeInOrder(['@bravo', '@charlie', '@alpha']);
+        $urut(['sort' => 'kreator'])->assertSeeInOrder(['@alpha', '@bravo', '@charlie']);   // Kreator: A→Z dulu
+        $urut(['sort' => 'kreator', 'dir' => 'desc'])->assertSeeInOrder(['@charlie', '@bravo', '@alpha']);
+        // Kolom/arah ngawur atau tanggal di luar rentang → kembali ke default.
+        $urut(['sort' => 'password', 'dir' => 'asc; drop'])->assertSeeInOrder(['@charlie', '@alpha', '@bravo']);
+        $urut(['sort' => '2026-08-15'])->assertSeeInOrder(['@charlie', '@alpha', '@bravo']);
+        $urut(['sort' => ['kreator']])->assertSeeInOrder(['@charlie', '@alpha', '@bravo']);
+        // Filter "Tampilkan" & Export membawa urutan yang sedang aktif.
+        $urut(['sort' => 'gmv', 'dir' => 'asc'])->assertSee('name="sort" value="gmv"', false)->assertSee('name="dir" value="asc"', false);
+        $xlsx = $this->actingAs($super)->get(route('kol-views-harian.export', $rentang + ['sort' => 'kreator', 'dir' => 'asc']))->assertOk();
+        $zip = new \ZipArchive;
+        $this->assertTrue($zip->open($xlsx->getFile()->getPathname()) === true);
+        $sheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        $this->assertTrue(strpos($sheet, '@alpha') < strpos($sheet, '@bravo') && strpos($sheet, '@bravo') < strpos($sheet, '@charlie'));
+    }
+
     public function test_halaman_dan_export_butuh_izin_affiliate(): void
     {
         $k = Kol::create(['tiktok_username' => 'tampil', 'followers' => 1]);
