@@ -6,6 +6,7 @@ use App\Models\MemberDormancyRule;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Logika dormansi member: hitung aktivitas terakhir per basis, aktivitas efektif
@@ -18,9 +19,7 @@ class MemberDormancyService
     public function lastActivityDate(User $user, string $basis): ?Carbon
     {
         $ts = match ($basis) {
-            MemberDormancyRule::BASIS_ORDER => PurchaseOrder::where('user_id', $user->id)
-                ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DELETED])
-                ->max('created_at'),
+            MemberDormancyRule::BASIS_ORDER => $this->terakhirOrder([$user->id])[$user->id] ?? null,
             MemberDormancyRule::BASIS_LOGIN => $user->last_login_at,
             MemberDormancyRule::BASIS_RECRUIT => User::where(fn ($q) => $q
                 ->where('sponsor_id', $user->id)->orWhere('upline_id', $user->id))
@@ -29,6 +28,60 @@ class MemberDormancyService
         };
 
         return $ts ? Carbon::parse($ts) : null;
+    }
+
+    /**
+     * Tanggal order (PO) terakhir per user — PO batal/terhapus tak dihitung. Satu query utk banyak user (basis "order"
+     * dormansi + daftar "lama tidak order" di Asisten AI).
+     *
+     * @param  array<int,int>  $userIds
+     * @return array<int, Carbon> user_id => tanggal PO terakhir (user tanpa PO tak ada di hasil)
+     */
+    public function terakhirOrder(array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        return PurchaseOrder::whereIn('user_id', $userIds)
+            ->whereNotIn('status', [PurchaseOrder::STATUS_CANCELLED, PurchaseOrder::STATUS_DELETED])
+            ->groupBy('user_id')->selectRaw('user_id, MAX(created_at) as terakhir')
+            ->pluck('terakhir', 'user_id')->map(fn ($t) => Carbon::parse($t))->all();
+    }
+
+    /**
+     * Isi panel Dormansi Member (halaman + Asisten AI): aturan per role, member sudah beku, akan beku ≤ 14 hari, dan
+     * yang dorman tapi ditahan karena masih punya downline aktif.
+     *
+     * @param  array<int,string>  $managedRoles
+     * @return array{rules: Collection, frozen: Collection, atRisk: Collection, held: Collection}
+     */
+    public function panel(array $managedRoles, ?Carbon $now = null): array
+    {
+        $now ??= now();
+        $rules = MemberDormancyRule::whereIn('role', $managedRoles)->get()->keyBy('role');
+
+        $frozen = User::whereIn('role', $managedRoles)
+            ->where('status', User::STATUS_INACTIVE)->whereNotNull('disabled_at')
+            ->orderByDesc('disabled_at')->get();
+
+        $atRisk = collect();
+        $held = collect();
+        foreach ($rules->where('enabled', true) as $rule) {
+            User::where('role', $rule->role)->where('status', User::STATUS_ACTIVE)->get()
+                ->each(function (User $u) use ($rule, $now, $atRisk, $held) {
+                    if (! $this->isDormant($u, $rule, $now)) {
+                        $days = $this->atRiskDays($u, $rule, $now);
+                        if ($days <= 14) {
+                            $atRisk->push(['user' => $u, 'days' => $days, 'basis' => $rule->basis]);
+                        }
+                    } elseif ($this->hasActiveDownlines($u)) {
+                        $held->push(['user' => $u, 'basis' => $rule->basis]);
+                    }
+                });
+        }
+
+        return ['rules' => $rules, 'frozen' => $frozen, 'atRisk' => $atRisk->sortBy('days')->values(), 'held' => $held->values()];
     }
 
     /** Aktivitas efektif = PALING BARU dari [aktivitas basis, activated_at, created_at]. */

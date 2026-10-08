@@ -10,24 +10,30 @@ use App\Services\Ai\Tools\BuatKartuKanbanTool;
 use App\Services\Ai\Tools\BuatMindmapTool;
 use App\Services\Ai\Tools\DaftarPoTool;
 use App\Services\Ai\Tools\DataKolTool;
+use App\Services\Ai\Tools\DormansiMemberTool;
+use App\Services\Ai\Tools\JaringanSayaTool;
 use App\Services\Ai\Tools\KomisiTool;
 use App\Services\Ai\Tools\LaporanBisnisTool;
 use App\Services\Ai\Tools\LaporanKeuanganTool;
 use App\Services\Ai\Tools\LaporanPenjualanTool;
 use App\Services\Ai\Tools\LaporanStokHqTool;
 use App\Services\Ai\Tools\OmzetMitraTool;
+use App\Services\Ai\Tools\PaketJoinTool;
 use App\Services\Ai\Tools\PemantauanStokTool;
 use App\Services\Ai\Tools\PenarikanTool;
 use App\Services\Ai\Tools\PenjualanDownlineTool;
+use App\Services\Ai\Tools\PesananDownlineTool;
 use App\Services\Ai\Tools\PesananMarketplaceTool;
 use App\Services\Ai\Tools\ProdukMasterTool;
 use App\Services\Ai\Tools\ProduksiHppTool;
+use App\Services\Ai\Tools\RekrutanSayaTool;
 use App\Services\Ai\Tools\ReturTool;
 use App\Services\Ai\Tools\RingkasDashboardTool;
 use App\Services\Ai\Tools\RingkasKpiKanbanTool;
 use App\Services\Ai\Tools\RingkasMindmapTool;
 use App\Services\Ai\Tools\StokMarketplaceTool;
 use App\Services\Ai\Tools\StokOpnameTool;
+use App\Services\Ai\Tools\StrukturJaringanTool;
 use App\Services\Ai\Tools\TambahMindmapTool;
 use App\Services\Ai\Tools\ToolRegistry;
 use App\Services\Ai\Tools\ViewsHarianKolTool;
@@ -87,6 +93,13 @@ class AppServiceProvider extends ServiceProvider
             $app->make(LaporanBisnisTool::class),
             $app->make(LaporanKeuanganTool::class),
             new PenarikanTool,
+            // Mitra & Jaringan
+            $app->make(StrukturJaringanTool::class),
+            $app->make(JaringanSayaTool::class),
+            $app->make(RekrutanSayaTool::class),
+            $app->make(DormansiMemberTool::class),
+            new PaketJoinTool,
+            new PesananDownlineTool,
         ]));
     }
 

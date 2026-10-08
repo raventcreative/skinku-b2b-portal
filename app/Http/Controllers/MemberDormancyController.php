@@ -39,37 +39,16 @@ class MemberDormancyController extends Controller
     public function index()
     {
         $managed = self::managedRoles();
-        $rules = MemberDormancyRule::whereIn('role', $managed)->get()->keyBy('role');
-        $now = now();
-
-        $frozen = User::whereIn('role', $managed)
-            ->where('status', User::STATUS_INACTIVE)->whereNotNull('disabled_at')
-            ->orderByDesc('disabled_at')->get();
-
-        $atRisk = collect();
-        $held = collect();
-        foreach ($rules->where('enabled', true) as $rule) {
-            User::where('role', $rule->role)->where('status', User::STATUS_ACTIVE)->get()
-                ->each(function (User $u) use ($rule, $now, $atRisk, $held) {
-                    if (! $this->svc->isDormant($u, $rule, $now)) {
-                        $days = $this->svc->atRiskDays($u, $rule, $now);
-                        if ($days <= 14) {
-                            $atRisk->push(['user' => $u, 'days' => $days, 'basis' => $rule->basis]);
-                        }
-                    } elseif ($this->svc->hasActiveDownlines($u)) {
-                        $held->push(['user' => $u, 'basis' => $rule->basis]);
-                    }
-                });
-        }
+        $panel = $this->svc->panel($managed); // sama dgn alat Asisten AI dormansi_member
 
         return view('member_dormancy.index', [
-            'rules' => $rules,
+            'rules' => $panel['rules'],
             'managedRoles' => $managed,
             'roleLabels' => Role::ordered()->pluck('label', 'name'),
             'bases' => MemberDormancyRule::BASES,
-            'frozen' => $frozen,
-            'atRisk' => $atRisk->sortBy('days')->values(),
-            'held' => $held->values(),
+            'frozen' => $panel['frozen'],
+            'atRisk' => $panel['atRisk'],
+            'held' => $panel['held'],
         ]);
     }
 

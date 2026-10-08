@@ -189,6 +189,26 @@ class CommissionService
      * belum ditolak (diajukan/disetujui/cair semua mengunci saldo). Commission
      * TETAP append-only — status-nya tidak pernah diubah jadi 'ditarik'.
      */
+    /**
+     * Isi halaman Rekrutan Saya (dipakai juga alat Asisten AI rekrutan_saya): rekrutan (sponsor = $mitra) terbaru dulu,
+     * penghasilan per rekrutan (bonus join + RO cashback milik $mitra), total, dan saldo bisa ditarik.
+     *
+     * @return array{recruits: Collection, earnByRecruit: Collection, totalJoin: float, totalRo: float, available: float}
+     */
+    public function ringkasanRekrutan(User $mitra): array
+    {
+        return [
+            'recruits' => $mitra->recruits()->orderByDesc('created_at')->get(),
+            'earnByRecruit' => Commission::where('user_id', $mitra->id)
+                ->whereIn('type', ['join', 'ro_cashback'])
+                ->selectRaw('source_user_id, SUM(amount) as total')
+                ->groupBy('source_user_id')->pluck('total', 'source_user_id'),
+            'totalJoin' => (float) Commission::where('user_id', $mitra->id)->where('type', 'join')->sum('amount'),
+            'totalRo' => (float) Commission::where('user_id', $mitra->id)->where('type', 'ro_cashback')->sum('amount'),
+            'available' => $this->availableBalance($mitra),
+        ];
+    }
+
     public function availableBalance(User $mitra): float
     {
         $ditarik = (float) Withdrawal::where('user_id', $mitra->id)
