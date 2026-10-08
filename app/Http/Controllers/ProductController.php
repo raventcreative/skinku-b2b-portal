@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Services\AuditService;
+use App\Services\HqStockReportService;
 use App\Services\ImageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -17,7 +18,7 @@ class ProductController extends Controller
 
     public function __construct(private ImageService $images) {}
 
-    public function index(Request $request)
+    public function index(Request $request, HqStockReportService $laporan)
     {
         $filters = $request->only(['q', 'status', 'category', 'stok']);
 
@@ -37,8 +38,37 @@ class ProductController extends Controller
             ->withQueryString();
 
         $categories = Product::query()->whereNotNull('category')->distinct()->orderBy('category')->pluck('category');
+        // Saran Stok Min. dari barang keluar HQ; tombol "isi dari saran" hanya muncul bila ada yang kosong & bersaran.
+        $saran = $laporan->saranStokMinimum();
+        $kosongBersaran = $this->minimumKosong()->whereIn('id', array_keys($saran))->count();
 
-        return view('products.index', compact('products', 'filters', 'categories'));
+        return view('products.index', compact('products', 'filters', 'categories', 'saran', 'kosongBersaran'));
+    }
+
+    /**
+     * Isi Stok Min. dari saran utk produk aktif yang minimumnya masih kosong — angka yang sudah diisi tak ditimpa.
+     * Tiap produk tercatat di Audit Log (aksi sama dgn isian manual, ditandai sumber "saran").
+     */
+    public function applyMinStockSuggestions(HqStockReportService $laporan): RedirectResponse
+    {
+        $saran = $laporan->saranStokMinimum();
+        $produk = $this->minimumKosong()->whereIn('id', array_keys($saran))->get();
+        foreach ($produk as $p) {
+            $sebelum = $p->hq_min_stock;
+            $p->update(['hq_min_stock' => $saran[$p->id]['saran']]);
+            AuditService::log(action: 'update_product_min_stock', targetType: 'product', targetId: $p->id,
+                before: ['hq_min_stock' => $sebelum], after: ['hq_min_stock' => $p->hq_min_stock, 'sumber' => 'saran']);
+        }
+
+        return back()->with('status', $produk->isEmpty()
+            ? 'Tidak ada Stok Min. kosong yang punya saran.'
+            : "Stok Min. diisi dari saran untuk {$produk->count()} produk.");
+    }
+
+    /** Produk aktif yang Stok Min.-nya belum diisi (kosong / 0 = tanpa pengingat). */
+    private function minimumKosong()
+    {
+        return Product::where('status', Product::STATUS_ACTIVE)->where(fn ($q) => $q->whereNull('hq_min_stock')->orWhere('hq_min_stock', 0));
     }
 
     public function store(Request $request): RedirectResponse

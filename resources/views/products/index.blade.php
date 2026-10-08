@@ -21,7 +21,15 @@
         </select>
         <button class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-700 hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 20 20"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h14l-5.5 6.2v4.3l-3 1.5v-5.8L3 4Z"/></svg>Filter</button>
     </form>
-    <button type="button" onclick="openProduct()" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20"><path stroke-linecap="round" d="M10 4v12M4 10h12"/></svg>Tambah Produk</button>
+    <div class="flex flex-wrap items-center gap-2">
+        @if($kosongBersaran > 0)
+            {{-- Saran = rata-rata barang keluar 30 hari × 14 hari; hanya mengisi yang masih kosong. --}}
+            <form method="POST" action="{{ route('products.min-stock.saran') }}" onsubmit="return confirm('Isi Stok Min. dari saran untuk {{ $kosongBersaran }} produk yang masih kosong? Angka yang sudah diisi tidak diubah.')">@csrf
+                <button class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800 hover:bg-amber-100" title="Saran = rata-rata barang keluar 30 hari terakhir × 14 hari cadangan">Isi Stok Min. dari saran ({{ $kosongBersaran }})</button>
+            </form>
+        @endif
+        <button type="button" onclick="openProduct()" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"><svg aria-hidden="true" focusable="false" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 20 20"><path stroke-linecap="round" d="M10 4v12M4 10h12"/></svg>Tambah Produk</button>
+    </div>
 </div>
 
 <div class="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
@@ -92,6 +100,9 @@
                         @if($p->status !== 'deleted')
                             <input type="number" min="0" step="1" inputmode="numeric" value="{{ $p->hq_min_stock }}" placeholder="—" data-min-stock data-url="{{ route('products.min-stock', $p) }}" aria-label="Stok minimum pusat {{ $p->name }}" title="Stok minimum pusat — tersimpan otomatis. Kosong = tanpa pengingat." class="w-20 px-2 py-1 text-right border border-stone-300 rounded-md">
                             <span data-status-min class="block text-[10px]"></span>
+                            @if(($s = $saran[$p->id] ?? null) && (int) $p->hq_min_stock !== $s['saran'])
+                                <button type="button" data-saran="{{ $s['saran'] }}" class="text-[10px] text-stone-500 hover:text-stone-800 hover:underline" title="Rata-rata keluar {{ number_format($s['rata'], 1, ',', '.') }}/hari (30 hari terakhir) × 14 hari cadangan — klik untuk pakai">saran {{ number_format($s['saran'], 0, ',', '.') }}</button>
+                            @endif
                         @else <span class="text-stone-400">—</span> @endif
                     </td>
                     <td><span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $p->status==='active' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-stone-200 bg-stone-100 text-stone-600' }}"><span class="h-1.5 w-1.5 rounded-full {{ $p->status==='active' ? 'bg-emerald-600' : 'bg-stone-400' }}"></span>{{ $p->status }}</span></td>
@@ -222,6 +233,8 @@
                 Object.values(KELAS_STOK).forEach(k => stok.classList.remove(...k.split(' ')));
                 stok.classList.add(...KELAS_STOK[data.stok <= 0 ? 'merah' : (data.menipis ? 'menipis' : 'biasa')].split(' '));
                 tr.querySelector('[data-tanda-menipis]').classList.toggle('hidden', !data.menipis);
+                const saran = tr.querySelector('[data-saran]');
+                if (saran) saran.classList.toggle('hidden', String(data.hq_min_stock ?? '') === saran.dataset.saran);
                 status.className = 'block text-[10px] text-emerald-700';
                 status.textContent = '✓ tersimpan';
             } catch (e) {
@@ -232,5 +245,11 @@
             }
         });
     });
+    // Klik "saran N" → isi kolom Stok Min. & simpan otomatis (jalur sama dgn ketik manual).
+    document.querySelectorAll('[data-saran]').forEach(btn => btn.addEventListener('click', () => {
+        const inp = btn.closest('td').querySelector('[data-min-stock]');
+        inp.value = btn.dataset.saran;
+        inp.dispatchEvent(new Event('change'));
+    }));
 </script>
 @endpush

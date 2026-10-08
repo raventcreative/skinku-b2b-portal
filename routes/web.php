@@ -738,6 +738,8 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
         // Stok minimum pusat diisi langsung di tabel Produk Master (tersimpan otomatis, JSON).
         Route::patch('/products/{product}/stok-minimum', [ProductController::class, 'updateMinStock'])->name('products.min-stock');
+        // Isi Stok Min. dari saran (barang keluar 30 hari × 14 hari) utk produk yang minimumnya masih kosong.
+        Route::post('/products/stok-minimum/saran', [ProductController::class, 'applyMinStockSuggestions'])->name('products.min-stock.saran');
         Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     });
 
