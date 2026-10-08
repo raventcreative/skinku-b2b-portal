@@ -25,7 +25,7 @@ class KolPipelineController extends Controller
 
         $cards = KolPipelineCard::track($track)->with('kol')->orderBy('next_action_at')->get();
         $today = now()->startOfDay();
-        $besok = $today->copy()->addDay()->endOfDay();
+        $stat = KolPipelineCard::statistik($cards, $today);
 
         $taken = KolPipelineCard::where('track', $track)->pluck('kol_id');
 
@@ -37,10 +37,10 @@ class KolPipelineController extends Controller
             'terminals' => KolPipelineCard::TERMINAL_STAGES,
             'today' => $today,
             'total' => $cards->count(),
-            'statAktif' => $cards->filter->isActive()->count(),
-            'statTerlambat' => $cards->filter(fn ($c) => $c->isActive() && $c->next_action_at?->lt($today))->count(),
-            'statDekat' => $cards->filter(fn ($c) => $c->isActive() && $c->next_action_at?->between($today, $besok))->count(),
-            'statTanpaAksi' => $cards->filter(fn ($c) => $c->isActive() && ! $c->next_action_at)->count(),
+            'statAktif' => $stat['aktif'],
+            'statTerlambat' => $stat['terlambat'],
+            'statDekat' => $stat['dekat'],
+            'statTanpaAksi' => $stat['tanpa_aksi'],
             'countKol' => KolPipelineCard::track(KolPipelineCard::TRACK_KOL)->count(),
             'countAffiliate' => KolPipelineCard::track(KolPipelineCard::TRACK_AFFILIATE)->count(),
             'kolsTanpaKartu' => Kol::whereNotIn('id', $taken)->orderBy('tiktok_username')->get(['id', 'tiktok_username']),

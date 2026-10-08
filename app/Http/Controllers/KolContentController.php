@@ -7,8 +7,8 @@ use App\Models\Kol;
 use App\Models\KolContent;
 use App\Models\KolContentSnapshot;
 use App\Models\KolDeal;
-use App\Models\KolMonthlyTarget;
 use App\Services\AuditService;
+use App\Services\KolKontenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,40 +23,15 @@ use Illuminate\Validation\Rule;
  */
 class KolContentController extends Controller
 {
-    private const TARGET_KEY = 'kol_views_target';
-
-    public function index(Request $request)
+    public function index(Request $request, KolKontenService $konten)
     {
         $month = $this->month($request);
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $filters = $request->only(['creator', 'platform', 'label', 'type']);
 
-        $contents = KolContent::with(['kol', 'deal', 'latestSnapshot'])
-            ->whereBetween('posted_at', [$start, $start->copy()->endOfMonth()])
-            ->when($filters['creator'] ?? null, fn ($q, $v) => $q->where('kol_id', $v))
-            ->when($filters['platform'] ?? null, fn ($q, $v) => $q->where('platform', $v))
-            ->when($filters['label'] ?? null, fn ($q, $v) => $q->where('label', $v))
-            ->when($filters['type'] ?? null, fn ($q, $v) => $q->where('content_type', $v))
-            ->orderByDesc('posted_at')->get();
-
-        $views = fn ($c) => (int) ($c->latestSnapshot->views ?? 0);
-        $total = $contents->sum($views);
-        $paid = $contents->where('label', 'paid')->sum($views);
-        // Override target per-bulan menang atas setelan global (bila diisi).
-        $target = KolMonthlyTarget::forMonth($start)?->views_target ?? (int) AppSetting::get(self::TARGET_KEY, '1000000');
-        $isCurrent = $month === now()->format('Y-m');
-        $proj = $isCurrent ? (int) round($total * ($start->daysInMonth / max(1, now()->day))) : $total;
-
-        // Kebutuhan views/hari untuk kejar target (bulan berjalan).
-        $daysLeft = $isCurrent ? max(1, $start->daysInMonth - now()->day + 1) : 0;
-        $perDayNeeded = ($isCurrent && $target > $total) ? (int) ceil(($target - $total) / $daysLeft) : 0;
-
-        return view('kols.konten.index', [
-            'month' => $month, 'contents' => $contents, 'total' => $total,
-            'paid' => $paid, 'earned' => $total - $paid,
-            'target' => $target, 'proj' => $proj, 'isCurrent' => $isCurrent,
-            'aman' => $target > 0 && $proj >= 0.95 * $target,
-            'daysLeft' => $daysLeft, 'perDayNeeded' => $perDayNeeded,
+        // contents, total, paid, earned, target, proj, isCurrent, aman, daysLeft, perDayNeeded.
+        return view('kols.konten.index', $konten->bulan($start, $filters) + [
+            'month' => $month,
             'filters' => $filters,
             'kols' => Kol::orderBy('tiktok_username')->get(['id', 'tiktok_username', 'role', 'status', 'followers']),
             'platforms' => config('kol.platforms'),
@@ -194,7 +169,7 @@ class KolContentController extends Controller
     public function updateTarget(Request $request): RedirectResponse
     {
         $d = $request->validate(['target' => ['required', 'integer', 'min:0']]);
-        AppSetting::put(self::TARGET_KEY, (string) $d['target']);
+        AppSetting::put(KolKontenService::TARGET_KEY, (string) $d['target']);
 
         return back()->with('status', 'Target views disimpan.');
     }
