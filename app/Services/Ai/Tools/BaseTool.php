@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Tools;
 
 use App\Models\User;
+use Illuminate\Support\Carbon;
 
 /**
  * Default aman untuk alat: BACA, tanpa izin khusus, tanpa validasi/konfirmasi.
@@ -39,6 +40,23 @@ abstract class BaseTool implements AiTool
     protected function tanggal(?string $v): ?string
     {
         return is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null;
+    }
+
+    /** Bulan laporan dari AI (aturan sama dgn menu Laporan): 'YYYY-MM' → bulan itu, 'semua' → null, lainnya → bulan ini. */
+    protected function bulanLaporan(mixed $v): ?Carbon
+    {
+        if ($v === 'semua') {
+            return null;
+        }
+
+        return is_string($v) && preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $v)
+            ? Carbon::createFromFormat('Y-m-d', $v.'-01')->startOfMonth()
+            : Carbon::now()->startOfMonth();
+    }
+
+    protected function labelBulan(?Carbon $bulan): string
+    {
+        return $bulan ? $bulan->translatedFormat('F Y') : 'Semua periode';
     }
 
     public function validate(array $args, User $user): ?string
