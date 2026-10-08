@@ -227,6 +227,10 @@
                                     <label class="label">Referensi</label>
                                     <input type="text" name="drafts[{{ $i }}][reference]" value="{{ $draft['reference'] }}" class="field">
                                 </div>
+                                <button type="button" data-reverse class="btn-ghost btn-sm mb-0.5"
+                                        title="Tukar sisi debit dan kredit seluruh baris — untuk bukti transfer yang arahnya kebalik">
+                                    ⇄ Balik debit/kredit
+                                </button>
                             </div>
 
                             <div class="overflow-x-auto">

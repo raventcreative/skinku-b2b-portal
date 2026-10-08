@@ -69,6 +69,7 @@
 
         <div class="mt-4 flex items-center gap-2">
             <button type="button" data-add-line="#journal-lines" class="btn-ghost btn-sm">+ Baris</button>
+            <button type="button" data-reverse class="btn-ghost btn-sm" title="Tukar sisi debit dan kredit seluruh baris">⇄ Balik debit/kredit</button>
             <span class="grow"></span>
             <a href="{{ route('journals.index', $client) }}" class="btn-ghost">Batal</a>
             <button class="btn-primary">Posting jurnal</button>

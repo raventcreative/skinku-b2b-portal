@@ -55,6 +55,35 @@ function wireExclusiveSides(root) {
     });
 }
 
+/**
+ * Tukar sisi debit dan kredit seluruh baris dalam satu jurnal.
+ *
+ * Arah transaksi adalah kesalahan paling sering saat AI membaca screenshot
+ * mutasi: bukti transfer tidak selalu menunjukkan siapa pengirimnya. Daripada
+ * mengetik ulang semua nominal, satu klik membalik seluruh blok. Jurnal tetap
+ * balance karena total kedua sisi hanya bertukar tempat.
+ */
+function wireReverse() {
+    document.querySelectorAll('[data-reverse]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const root = btn.closest('[data-journal]');
+            if (!root) return;
+
+            root.querySelectorAll('[data-line]').forEach((row) => {
+                const debit = row.querySelector('[data-money="debit"]');
+                const credit = row.querySelector('[data-money="credit"]');
+                if (!debit || !credit) return;
+                [debit.value, credit.value] = [credit.value, debit.value];
+            });
+
+            // Hitung ulang total & status balance setelah nilai bertukar.
+            root.querySelectorAll('[data-money]').forEach((el) =>
+                el.dispatchEvent(new Event('input', { bubbles: true })),
+            );
+        });
+    });
+}
+
 /** Tambah baris kosong di form jurnal manual. */
 function wireAddLine() {
     document.querySelectorAll('[data-add-line]').forEach((btn) => {
@@ -87,4 +116,5 @@ document.addEventListener('DOMContentLoaded', () => {
         wireExclusiveSides(root);
     });
     wireAddLine();
+    wireReverse();
 });
