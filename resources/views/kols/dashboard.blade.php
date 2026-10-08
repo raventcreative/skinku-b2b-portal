@@ -11,7 +11,7 @@
         <p class="text-sm text-stone-500">Ringkasan pipeline, views, budget &amp; affiliate.</p>
         <div class="flex items-center gap-2 text-sm">
             <a href="{{ route('kol-dashboard.index', ['bulan' => $prevMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">←</a>
-            <span class="font-semibold text-stone-700">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}{{ $isCurrent ? '' : ' (arsip)' }}</span>
+            <span class="font-semibold text-stone-700">{{ \Illuminate\Support\Carbon::createFromFormat('!Y-m', $month)->translatedFormat('F Y') }}{{ $isCurrent ? '' : ' (arsip)' }}</span>
             <a href="{{ route('kol-dashboard.index', ['bulan' => $nextMonth]) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
         </div>
     </div>

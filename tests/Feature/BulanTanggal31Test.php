@@ -83,9 +83,11 @@ class BulanTanggal31Test extends TestCase
     {
         // createFromFormat('Y-m') mengisi tanggal dari hari ini → wajib '!Y-m' (atau tambahkan '-01').
         $sisa = [];
-        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(app_path())) as $f) {
-            if ($f->isFile() && $f->getExtension() === 'php' && preg_match('/createFromFormat\(\s*[\'"]Y-m[\'"]/', file_get_contents($f->getPathname()))) {
-                $sisa[] = $f->getPathname();
+        foreach ([app_path(), resource_path('views')] as $dir) {
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir)) as $f) {
+                if ($f->isFile() && $f->getExtension() === 'php' && preg_match('/createFromFormat\(\s*[\'"]Y-m[\'"]/', file_get_contents($f->getPathname()))) {
+                    $sisa[] = $f->getPathname();
+                }
             }
         }
         $this->assertSame([], $sisa);

@@ -13,7 +13,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="inline-flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-1.5 text-sm shadow-sm">
             <a aria-label="Bulan sebelumnya" title="Bulan sebelumnya" href="{{ route('kol-konten.index', ['bulan' => $prevMonth]) }}" class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-stone-600 hover:bg-stone-100"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg></a>
-            <span class="font-semibold text-stone-800 min-w-32 text-center">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}</span>
+            <span class="font-semibold text-stone-800 min-w-32 text-center">{{ \Illuminate\Support\Carbon::createFromFormat('!Y-m', $month)->translatedFormat('F Y') }}</span>
             <a aria-label="Bulan berikutnya" title="Bulan berikutnya" href="{{ route('kol-konten.index', ['bulan' => $nextMonth]) }}" class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-stone-600 hover:bg-stone-100"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg></a>
         </div>
         @if($canManage)

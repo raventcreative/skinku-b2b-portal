@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kol;
-use App\Models\KolCreatorContent;
 use App\Models\KolGapokPayment;
 use App\Models\KolGapokSalary;
 use App\Models\KolUsernameAlias;
@@ -106,20 +105,18 @@ class KolGapokController extends Controller
     }
 
     /** Detail konten (video/LIVE) satu kreator untuk satu bulan — daftar + link. */
-    public function contents(Request $request, Kol $kol)
+    public function contents(Request $request, Kol $kol, KolGapokService $svc)
     {
-        $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('bulan'))
-            ? (string) $request->query('bulan') : now()->format('Y-m');
-        $period = Carbon::createFromFormat('!Y-m', $month)->startOfMonth()->toDateString();
-
-        $items = KolCreatorContent::where('kol_id', $kol->id)->where('period', $period)
-            ->orderByDesc('gmv')->get();
+        // Rentang sama dgn tabel Tim Gapok (bulan / preset / custom) → daftar = angka Video & LIVE di barisnya.
+        [$from, $to, , $label] = $this->resolveRange($request);
+        $konten = $svc->konten($kol, $from, $to);
 
         return view('kols.gapok.contents', [
             'kol' => $kol,
-            'month' => $month,
-            'videos' => $items->where('type', 'video')->values(),
-            'lives' => $items->where('type', 'live')->values(),
+            'periodLabel' => $label,
+            'kembali' => $request->only(['bulan', 'dari', 'sampai', 'preset']),
+            'videos' => $konten['videos'],
+            'lives' => $konten['lives'],
             'focus' => in_array($request->query('type'), ['video', 'live'], true) ? (string) $request->query('type') : 'video',
         ]);
     }

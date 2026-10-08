@@ -17,7 +17,7 @@
             <a href="{{ route('kol-affiliate.index', ['bulan' => $month]) }}" class="text-xs text-stone-500 hover:text-stone-800">← Ranking</a>
             <span class="text-stone-300">·</span>
             <a href="{{ route('kol-affiliate.transactions', array_merge(request()->query(), ['bulan' => $prevMonth])) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">←</a>
-            <span class="font-semibold text-stone-700">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}</span>
+            <span class="font-semibold text-stone-700">{{ \Illuminate\Support\Carbon::createFromFormat('!Y-m', $month)->translatedFormat('F Y') }}</span>
             <a href="{{ route('kol-affiliate.transactions', array_merge(request()->query(), ['bulan' => $nextMonth])) }}" class="px-2 py-1 rounded-lg border border-stone-300 text-stone-600 hover:bg-stone-50">→</a>
         </div>
     </div>
