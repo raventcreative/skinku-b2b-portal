@@ -1,6 +1,14 @@
 {{-- Uji chat pembeli (tab Chat E-commerce): balasan AI dari isian form di kiri (belum disimpan pun), lewat mesin yang
      sama dgn chat TikTok/Shopee sungguhan. Tidak dikirim ke pembeli & tidak disimpan. --}}
-<div id="ujiChat" data-url="{{ route('ai.knowledge.test-chat') }}" class="bg-white rounded-2xl border border-stone-200 p-4 space-y-3 sticky top-4">
+{{-- Tinggi tetap: HP = kotak pesan 24rem; layar lebar = setinggi kolom form di kiri. Pesan banyak di-scroll di dalam kotak. --}}
+<style>
+    #ujiChat [data-pesan] { height: 24rem; }
+    @media (min-width: 1024px) {
+        #ujiChat { align-self: stretch; }
+        #ujiChat [data-pesan] { height: 0; flex: 1 1 0; min-height: 12rem; }
+    }
+</style>
+<div id="ujiChat" data-url="{{ route('ai.knowledge.test-chat') }}" class="bg-white rounded-2xl border border-stone-200 p-4 space-y-3 flex flex-col">
     <div class="flex items-center justify-between gap-2">
         <p class="text-sm font-bold text-stone-800">💬 Uji chat pembeli</p>
         <button type="button" data-ulang class="text-xs text-stone-500 hover:text-stone-800">↻ Ulang</button>
@@ -11,7 +19,7 @@
             <button type="button" data-cepat="{{ $q }}" class="px-2.5 py-1 text-[11px] border border-stone-300 rounded-full text-stone-600 hover:bg-stone-50">{{ $q }}</button>
         @endforeach
     </div>
-    <div data-pesan class="space-y-2 max-h-[60vh] overflow-y-auto">
+    <div data-pesan class="space-y-2 overflow-y-auto">
         <p data-kosong class="text-xs text-stone-400 text-center py-6">Ketik pertanyaan seperti pembeli — balasan AI muncul di sini.</p>
     </div>
     <form data-kirim class="flex items-center gap-2 border-t border-stone-100 pt-3">
