@@ -5,7 +5,8 @@
 @section('content')
 @php($activeTab = request('tab', 'sistem'))
 @php($activeTab = (is_string($activeTab) && array_key_exists($activeTab, $groups)) ? $activeTab : 'sistem')
-<div class="max-w-3xl">
+{{-- Tab Chat E-commerce: form kiri + panel Uji chat pembeli di kanan (ai/_uji_chat). --}}
+<div class="{{ $activeTab === 'chat' ? 'max-w-6xl' : 'max-w-3xl' }}">
     <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 mb-5">
         <p class="text-sm font-bold text-indigo-900">Ini "memori" asisten kamu 🧠</p>
         <p class="text-xs text-indigo-700 mt-1"><b>Sistem</b> = konteks buat Asisten AI internal & OKR. <b>Chat E-commerce</b> = pengetahuan buat balas chat pembeli (TikTok, nanti Shopee). Isi seadanya dulu juga nggak apa — makin lengkap, makin pintar.</p>
@@ -20,7 +21,8 @@
         @endforeach
     </div>
 
-    <form method="POST" action="{{ route('ai.knowledge.save') }}" class="space-y-4">
+    <div class="{{ $activeTab === 'chat' ? 'grid gap-5 items-start lg:grid-cols-[minmax(0,1fr)_22rem]' : '' }}">
+    <form method="POST" action="{{ route('ai.knowledge.save') }}" class="space-y-4" data-pengetahuan>
         @csrf
         <input type="hidden" name="group" value="{{ $activeTab }}">
         @foreach($sectionsByGroup[$activeTab] as $key => $meta)
@@ -36,9 +38,13 @@
         @endforeach
 
         <div class="flex items-center gap-2 sticky bottom-4">
-            <button class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold shadow-sm">Simpan {{ $groups[$activeTab] }}</button>
+            <button class="px-5 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold shadow-sm whitespace-nowrap">Simpan {{ $groups[$activeTab] }}</button>
             <span class="text-[11px] text-stone-400">Tersimpan langsung dipakai di obrolan/chat berikutnya.</span>
         </div>
     </form>
+    @if($activeTab === 'chat')
+        @include('ai._uji_chat')
+    @endif
+    </div>
 </div>
 @endsection

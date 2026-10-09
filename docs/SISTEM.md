@@ -845,6 +845,8 @@ Tool write selalu lewat alur confirm; tool read eksekusi inline.
 ### Knowledge base — `AiKnowledge` (`ai_knowledge`, `000060`)
 1 baris per seksi terpandu (business/products/team/workflow/priorities/okr_strategy/rules/notes). `document()` gabung seksi terisi (≤6000 char) jadi blok "PENGETAHUAN BISNIS" di system prompt — **eksplisit dibingkai sebagai data, bukan instruksi** (hardening prompt-injection).
 
+**Uji chat pembeli** (2026-10-09, tab Chat E-commerce): panel kanan `ai/_uji_chat.blade.php` → `POST /asisten/pengetahuan/uji-chat` (`ai.knowledge.test-chat`, grup sama dgn simpan pengetahuan: `use_ai_assistant` + `internal`, `throttle:20,1`). Pengetahuan dirangkai dari isian form saat itu lewat `AiKnowledge::documentFrom('chat', …)` (belum disimpan pun; `document()` kini memakai fungsi yang sama), riwayat uji dikirim dari browser, lalu `EcomChatDrafter::uji()` — prompt, aturan keputusan (`auto_send`/`to_staff`) & fail-safe SAMA dgn `draft()` chat sungguhan. Hasil {reply, decision, reason} ditampilkan dgn label "Terkirim otomatis"/"Diteruskan ke staf" + alasan. Tidak menyimpan & tidak mengirim apa pun. Test: `tests/Feature/UjiChatEcommerceTest.php`.
+
 **Izin:** `use_ai_assistant` (default: staf + semua role mitra).
 
 ---

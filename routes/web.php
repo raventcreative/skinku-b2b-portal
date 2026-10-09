@@ -843,6 +843,9 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::middleware('internal')->group(function () {
             Route::get('/asisten/pengetahuan', [AiAssistantController::class, 'knowledge'])->name('ai.knowledge');
             Route::post('/asisten/pengetahuan', [AiAssistantController::class, 'saveKnowledge'])->name('ai.knowledge.save');
+            // Uji chat pembeli (tab Chat E-commerce): tiap kirim = 1 panggilan AI → dibatasi 20/menit.
+            Route::post('/asisten/pengetahuan/uji-chat', [AiAssistantController::class, 'testChat'])
+                ->middleware('throttle:20,1')->name('ai.knowledge.test-chat');
         });
     });
 
