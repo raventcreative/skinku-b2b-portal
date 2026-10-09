@@ -132,10 +132,18 @@ class AiKnowledge extends Model
      */
     public static function document(string $group = 'sistem'): string
     {
-        $map = static::map();
+        return static::documentFrom($group, static::map());
+    }
+
+    /**
+     * Sama dgn document() tapi dari isian $values [section => teks] — dipakai Uji chat pembeli (isian form yang
+     * belum disimpan) supaya hasil uji = yang akan dipakai setelah disimpan.
+     */
+    public static function documentFrom(string $group, array $values): string
+    {
         $parts = [];
         foreach (self::sectionsOf($group) as $key => [$title]) {
-            $content = trim((string) ($map[$key] ?? ''));
+            $content = trim((string) ($values[$key] ?? ''));
             if ($content !== '') {
                 $parts[] = "## {$title}\n{$content}";
             }

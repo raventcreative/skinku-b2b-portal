@@ -6,11 +6,13 @@ use App\Models\AiKnowledge;
 use App\Services\Ai\AiAgentService;
 use App\Services\Ai\AiException;
 use App\Services\Ai\AiProvider;
+use App\Services\Ai\EcomChatDrafter;
 use App\Services\Ai\Tools\ToolRegistry;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -162,6 +164,33 @@ class AiAssistantController extends Controller
         AuditService::log(action: 'save_ai_knowledge', targetType: 'ai_knowledge', after: ['grup' => $group, 'terisi' => count(array_filter($input, fn ($v) => filled($v)))]);
 
         return redirect()->route('ai.knowledge', ['tab' => $group])->with('status', 'Pengetahuan disimpan. Langsung dipakai di obrolan/chat berikutnya.');
+    }
+
+    /**
+     * Uji chat pembeli (tab Chat E-commerce): balasan AI memakai isian form saat itu (belum disimpan pun) + chat
+     * uji, lewat EcomChatDrafter yang sama dgn chat TikTok/Shopee sungguhan. Tidak menyimpan & tidak mengirim apa pun.
+     */
+    public function testChat(Request $request, EcomChatDrafter $drafter): JsonResponse
+    {
+        // JSON 422 manual: ValidationException di route web = redirect, bukan JSON.
+        $v = Validator::make($request->all(), [
+            'content' => ['nullable', 'array'],
+            'content.*' => ['nullable', 'string', 'max:8000'],
+            'pesan' => ['required', 'array', 'min:1', 'max:40'],
+            'pesan.*.dari' => ['required', 'in:pembeli,ai'],
+            'pesan.*.teks' => ['required', 'string', 'max:2000'],
+        ], ['pesan.required' => 'Ketik pesan pembeli dulu.']);
+        if ($v->fails()) {
+            return response()->json(['message' => $v->errors()->first()], 422);
+        }
+        $pesan = array_values((array) $request->input('pesan'));
+        if (end($pesan)['dari'] !== 'pembeli') {
+            return response()->json(['message' => 'Pesan terakhir harus dari pembeli.'], 422);
+        }
+
+        $pengetahuan = AiKnowledge::documentFrom('chat', (array) $request->input('content', []));
+
+        return response()->json($drafter->uji($pengetahuan, $pesan));
     }
 
     /** Ringkasan percakapan buat frontend (thread + preview konfirmasi bila ada). */

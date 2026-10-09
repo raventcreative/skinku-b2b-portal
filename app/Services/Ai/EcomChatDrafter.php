@@ -22,8 +22,36 @@ class EcomChatDrafter
     /** @return array{reply:string,decision:string,reason:string} */
     public function draft(EcomChatConversation $conv): array
     {
+        $riwayat = $conv->messages()->orderBy('id')->get()->slice(-self::HISTORY)
+            ->map(fn ($m) => ['role' => $m->sender === 'buyer' ? 'user' : 'assistant', 'content' => (string) $m->text])
+            ->values()->all();
+
+        return $this->jalankan(AiKnowledge::document('chat'), $riwayat);
+    }
+
+    /**
+     * Uji chat pembeli dari halaman Pengetahuan AI: pengetahuan = isian form (boleh belum disimpan), riwayat = chat
+     * uji. Prompt, aturan keputusan & fail-safe SAMA dgn draft() → hasil uji = balasan yang diterima pembeli.
+     *
+     * @param  array<int,array{dari:string,teks:string}>  $pesan  dari: pembeli | ai
+     * @return array{reply:string,decision:string,reason:string}
+     */
+    public function uji(string $pengetahuan, array $pesan): array
+    {
+        $riwayat = array_map(fn (array $p) => ['role' => $p['dari'] === 'pembeli' ? 'user' : 'assistant', 'content' => (string) $p['teks']],
+            array_slice(array_values($pesan), -self::HISTORY));
+
+        return $this->jalankan($pengetahuan, $riwayat);
+    }
+
+    /**
+     * @param  array<int,array{role:string,content:string}>  $riwayat
+     * @return array{reply:string,decision:string,reason:string}
+     */
+    private function jalankan(string $pengetahuan, array $riwayat): array
+    {
         try {
-            $turn = $this->provider->chat($this->messages($conv), []);
+            $turn = $this->provider->chat([['role' => 'system', 'content' => $this->systemPrompt($pengetahuan)], ...$riwayat], []);
             $parsed = $this->parse((string) ($turn->text ?? ''));
         } catch (Throwable $e) {
             return $this->escalate('AI gagal: '.$e->getMessage());
@@ -48,22 +76,6 @@ class EcomChatDrafter
 
         // to_staff (atau apa pun selain auto_send valid): simpan reply sbg draft usulan.
         return ['reply' => $reply, 'decision' => 'to_staff', 'reason' => (string) ($parsed['reason'] ?? 'diteruskan ke staf')];
-    }
-
-    /** @return array<int,array<string,string>> */
-    private function messages(EcomChatConversation $conv): array
-    {
-        $knowledge = AiKnowledge::document('chat');
-        $system = $this->systemPrompt($knowledge);
-
-        $out = [['role' => 'system', 'content' => $system]];
-        $history = $conv->messages()->orderBy('id')->get()->slice(-self::HISTORY);
-        foreach ($history as $m) {
-            $role = $m->sender === 'buyer' ? 'user' : 'assistant';
-            $out[] = ['role' => $role, 'content' => (string) $m->text];
-        }
-
-        return $out;
     }
 
     private function systemPrompt(string $knowledge): string
