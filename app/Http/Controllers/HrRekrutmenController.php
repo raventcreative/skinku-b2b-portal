@@ -127,10 +127,9 @@ class HrRekrutmenController extends Controller
         BacaCvJob::antri($token);
         $request->session()->put(self::SESI_CV, ['token' => $token, 'path' => $path, 'nama' => $file->getClientOriginalName(), 'mime' => $mime]);
         AuditService::log(action: 'read_candidate_cv_ai', targetType: 'candidate', after: ['file' => $file->getClientOriginalName()]);
-        // Langsung diproses begitu halaman terkirim ke browser (tak menunggu worker antrean tiap menit) …
-        BacaCvJob::dispatchAfterResponse($token, $path, $mime);
-        // … dan cadangan di antrean bila proses langsung itu terputus; dilewati bila hasil sudah ada.
-        BacaCvJob::dispatch($token, $path, $mime)->delay(now()->addMinutes(3));
+        // Hanya lewat antrean (worker tiap 15 detik). JANGAN dispatchAfterResponse: di hosting (LiteSpeed) browser tetap
+        // ditahan sampai AI selesai → upload berikutnya macet & ERR_HTTP2_PROTOCOL_ERROR (terbukti 2026-10-10).
+        BacaCvJob::dispatch($token, $path, $mime);
 
         return redirect()->route('hr.rekrutmen.kandidat.create')
             ->with('status', 'CV diterima — AI sedang membaca, form di bawah terisi otomatis begitu selesai.');

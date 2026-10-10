@@ -921,8 +921,8 @@ model `JobOpening`, `Candidate` (soft delete), `PsychotestSession`; migrasi `000
   interview & catatan, CV koleksi `hr_cv` di **disk privat** (unduh lewat route berizin + cek kepemilikan; ikut backup
   dokumen karena berawalan `hr_`), kartu psikotes.
 - **Baca CV dengan AI** (`hr.rekrutmen.baca-cv`, throttle 20/menit): PDF/foto CV disimpan apa adanya di `cv_sementara/`
-  (disk privat) → `BacaCvJob` langsung sesudah respons (`dispatchAfterResponse`) + cadangan antrean tertunda 3 menit
-  (hasil di cache `baca-cv:{token}`, job hanya jalan selama status "antri") → `BacaCvService`: teks PDF dibaca portal
+  (disk privat) → `BacaCvJob` di antrean (worker tiap 15 detik; JANGAN `dispatchAfterResponse` — browser tertahan di
+  LiteSpeed; hasil di cache `baca-cv:{token}`, job hanya jalan selama status "antri") → `BacaCvService`: teks PDF dibaca portal
   (`App\Support\PdfUnicodeText` — CMap ToUnicode untuk font CID Canva/Google Docs/Word, object stream; lalu
   `PdfTextExtractor`) dan dikirim sebagai teks; PDF scan/foto = berkas via `ReportAi::readFile` (foto `image_url`, PDF
   `cv.pdf`) → form Tambah kandidat polling `hr.rekrutmen.baca-cv.status` lalu mengisi kolom kosong: nama, HP, email,
@@ -988,6 +988,7 @@ Didefinisikan di `routes/console.php`:
 | Harian 01:30 | `shopee:sync --settlements` | Settlement/escrow Shopee |
 | Harian 01:45 | `shopee:sync --wallet` | Wallet Shopee |
 | Tiap 5 menit | `marketplace:push-stock` | Push stok+harga Produk Master (§9c) yang berubah ke TikTok & Shopee |
+| Tiap 15 detik | `queue:work --stop-when-empty --tries=1 --timeout=290` | Worker antrean (draf OKR, Baca CV dengan AI) — sub-menit: `schedule:run` jalan sampai akhir menit |
 | Harian 02:30 | `db:backup` | Backup DB (safety-net) |
 
 **Manual/CLI only (tanpa cron):** `tiktok:backfill`, `tiktok:audit`, `shopee:ping`, `stock:reconcile-hq`, `po:purge`. Posting jurnal akuntansi **tetap manual/opt-in** (saklar `journal_enabled`, tombol post) — bukan cron.

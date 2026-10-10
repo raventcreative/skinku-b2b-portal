@@ -30,7 +30,7 @@
                 <p class="text-sm text-indigo-800"><b>✨ CV “{{ $cvAi['nama'] }}”</b></p>
                 <p data-pesan class="text-sm {{ $statusAi === 'gagal' ? 'text-rose-700' : 'text-indigo-800' }}">
                     @if($statusAi === 'antri')
-                        <span class="animate-pulse">⏳</span> AI sedang membaca CV… <span data-detik>0</span> detik (biasanya 10–30 detik).
+                        <span class="animate-pulse">⏳</span> AI sedang membaca CV… <span data-detik>0</span> detik (biasanya 15–40 detik).
                         Boleh mulai mengisi — kolom yang masih kosong akan diisi otomatis.
                     @elseif($statusAi === 'selesai')
                         Form sudah diisi AI — periksa lagi sebelum disimpan, AI bisa keliru.
