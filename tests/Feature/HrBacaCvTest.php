@@ -82,14 +82,19 @@ class HrBacaCvTest extends TestCase
         $this->aiBalas("```json\n".json_encode([
             'nama' => 'Rina Putri', 'telepon' => '0812-3456-7890', 'email' => 'rina@mail.test', 'posisi_dilamar' => 'Staf Gudang',
             'lowongan_id' => $gudang->id, 'domisili' => 'Surabaya', 'tanggal_lahir' => '1998-04-12', 'gaji_diharapkan' => 'Rp4.500.000',
-            'pengalaman' => [
-                ['jabatan' => 'Admin Gudang', 'perusahaan' => 'PT Maju Jaya', 'periode' => 'Jan 2019 – Des 2024',
-                    'poin' => ['Mencatat barang masuk & keluar harian', 'Stock opname bulanan 1.200 SKU']],
-                ['jabatan' => 'Staf Packing', 'perusahaan' => 'CV Sinar', 'periode' => '2017 – 2018', 'poin' => []],
+            // Bagian mengikuti CV aslinya (judul & urutan), maks 3 poin per bagian / entri.
+            'bagian' => [
+                ['judul' => 'Tentang Saya', 'poin' => ['Staf gudang berpengalaman 5 tahun', 'Teliti dan cekatan', 'Terbiasa target harian', 'Poin keempat dibuang']],
+                ['judul' => 'Pengalaman Kerja', 'item' => [
+                    ['judul' => 'Admin Gudang — PT Maju Jaya (Jan 2019 – Des 2024)',
+                        'poin' => ['Mencatat barang masuk & keluar harian', 'Stock opname bulanan 1.200 SKU', 'Membuat laporan stok mingguan', 'Poin keempat dibuang']],
+                    ['judul' => 'Staf Packing — CV Sinar (2017 – 2018)', 'poin' => []],
+                ]],
+                ['judul' => 'Pengalaman Organisasi & Volunteer', 'item' => [['judul' => 'Panitia Hari Tani — Divisi Logistik (2023)', 'poin' => ['Pengadaan & inventarisasi logistik acara']]]],
+                ['judul' => 'Ketrampilan Utama', 'poin' => ['Excel, stock opname, forklift']],
+                ['judul' => '', 'poin' => ['bagian tanpa judul dibuang']],
             ],
-            'pendidikan' => [['jenjang' => 'SMK Akuntansi', 'institusi' => 'SMKN 1 Surabaya', 'tahun' => '2016']],
-            'keahlian' => ['Excel', 'Stock opname'], 'sertifikat' => ['K3 Gudang (2022)'], 'bahasa' => ['Indonesia', 'Inggris'],
-            'organisasi' => [], 'ringkasan' => 'Kandidat sangat cocok.',
+            'ringkasan' => 'Kandidat sangat cocok.',
         ])."\n```");
 
         $this->actingAs($sa)->post(route('hr.rekrutmen.baca-cv'), ['cv' => UploadedFile::fake()->image('cv-rina.jpg', 1200, 1700)])
@@ -102,24 +107,26 @@ class HrBacaCvTest extends TestCase
         $this->assertSame(implode("\n", [
             'Melamar: Staf Gudang · Domisili: Surabaya · Lahir: 12-04-1998 · Gaji diharapkan: Rp4.500.000',
             '',
+            'TENTANG SAYA',
+            '- Staf gudang berpengalaman 5 tahun',
+            '- Teliti dan cekatan',
+            '- Terbiasa target harian',
+            '',
             'PENGALAMAN KERJA',
-            '• Admin Gudang — PT Maju Jaya (Jan 2019 – Des 2024)',
+            '- Admin Gudang — PT Maju Jaya (Jan 2019 – Des 2024)',
             '   - Mencatat barang masuk & keluar harian',
             '   - Stock opname bulanan 1.200 SKU',
-            '• Staf Packing — CV Sinar (2017 – 2018)',
+            '   - Membuat laporan stok mingguan',
+            '- Staf Packing — CV Sinar (2017 – 2018)',
             '',
-            'PENDIDIKAN',
-            '• SMK Akuntansi — SMKN 1 Surabaya (2016)',
+            'PENGALAMAN ORGANISASI & VOLUNTEER',
+            '- Panitia Hari Tani — Divisi Logistik (2023)',
+            '   - Pengadaan & inventarisasi logistik acara',
             '',
-            'KEAHLIAN',
-            'Excel, Stock opname',
-            '',
-            'BAHASA',
-            'Indonesia, Inggris',
-            '',
-            'SERTIFIKAT / PELATIHAN',
-            '• K3 Gudang (2022)',
+            'KETRAMPILAN UTAMA',
+            '- Excel, stock opname, forklift',
         ]), $baca['hasil']['cv_summary']);
+        Http::assertSent(fn (HttpRequest $r) => str_contains($r->data()['messages'][0]['content'][0]['text'], 'JANGAN memaksakan template'));
         $this->assertStringNotContainsString('sangat cocok', $baca['hasil']['cv_summary']);   // tanpa kesimpulan AI
 
         // Foto dikirim apa adanya sebagai image_url; daftar lowongan yang BUKA saja ikut di instruksi.
@@ -133,7 +140,7 @@ class HrBacaCvTest extends TestCase
 
         // Form terisi dari hasil (muat ulang halaman), polling mengembalikan hasil yang sama.
         $this->actingAs($sa)->get(route('hr.rekrutmen.kandidat.create'))->assertOk()
-            ->assertSee('cv-rina.jpg')->assertSee('value="Rina Putri"', false)->assertSee('PENGALAMAN KERJA')->assertSee('Form sudah diisi AI');
+            ->assertSee('cv-rina.jpg')->assertSee('value="Rina Putri"', false)->assertSee('TENTANG SAYA')->assertSee('Form sudah diisi AI');
         $this->actingAs($sa)->getJson(route('hr.rekrutmen.baca-cv.status', session('hr_cv_ai.token')))
             ->assertOk()->assertJsonPath('status', 'selesai')->assertJsonPath('hasil.name', 'Rina Putri');
 
@@ -165,6 +172,8 @@ class HrBacaCvTest extends TestCase
 
         $this->actingAs($sa)->post(route('hr.rekrutmen.baca-cv'), ['cv' => UploadedFile::fake()->image('cv.jpg')])
             ->assertRedirect(route('hr.rekrutmen.kandidat.create'));
+        // Dua jalur: langsung sesudah respons + cadangan antrean tertunda (yang belakangan dilewati bila hasil sudah ada).
+        Queue::assertPushed(BacaCvJob::class, 2);
         Queue::assertPushed(BacaCvJob::class, fn ($job) => $job->token === session('hr_cv_ai.token') && $job->mime === 'image/jpeg');
         Http::assertNothingSent();
         $this->assertSame('antri', $this->hasilBaca()['status']);
@@ -192,10 +201,33 @@ class HrBacaCvTest extends TestCase
         Http::assertSent(function (HttpRequest $r) {
             $isi = $r->data()['messages'][0]['content'] ?? null;
 
-            return is_array($isi) && $isi[1]['type'] === 'file' && str_starts_with($isi[1]['file']['file_data'], 'data:application/pdf;base64,');
+            return is_array($isi) && $isi[1]['type'] === 'file' && $isi[1]['file']['filename'] === 'cv.pdf'
+                && str_starts_with($isi[1]['file']['file_data'], 'data:application/pdf;base64,');
         });
         // Membaca CV baru membuang CV sementara sebelumnya di sesi yang sama.
         $this->assertCount(1, Storage::disk('local')->files('cv_sementara'));
+    }
+
+    public function test_pdf_canva_font_cid_dibaca_portal_lalu_dikirim_sebagai_teks(): void
+    {
+        $sa = $this->user(User::ROLE_SUPER_ADMIN, 'sa');
+        $this->aiBalas("Berikut data CV-nya:\n".json_encode(['nama' => 'Rina ABC'])."\nSemoga membantu!");   // kalimat pembuka tetap terbaca
+        // Font Identity-H + CMap ToUnicode (gaya Canva): kode 2-byte 0001=R 0002=i 0003=n 0004=a, 0005=spasi, 0010..0012=A..C.
+        $cmap = gzcompress("begincmap\n1 begincodespacerange <0000> <FFFF> endcodespacerange\n5 beginbfchar <0001> <0052> <0002> <0069> <0003> <006E> <0004> <0061> <0005> <0020> endbfchar\n1 beginbfrange <0010> <0012> <0041> endbfrange\nendcmap");
+        $baris2 = str_repeat('<0010000200030004>', 10);   // "Aina" ×10 → teks cukup panjang untuk dianggap terbaca
+        $konten = gzcompress("BT /F1 12 Tf 1 0 0 -1 10 20 Tm <00010002000300040005001000110012> Tj ET BT /F1 9 Tf 1 0 0 -1 10 40 Tm [{$baris2}] TJ ET");
+        $pdf = "%PDF-1.4\n3 0 obj\n<< /Type /Page /Resources << /Font << /F1 4 0 R >> >> /Contents 6 0 R >>\nendobj\n"
+            ."4 0 obj\n<< /Type /Font /Subtype /Type0 /Encoding /Identity-H /ToUnicode 5 0 R >>\nendobj\n"
+            ."5 0 obj\n<< /Length ".strlen($cmap)." /Filter /FlateDecode >>\nstream\n{$cmap}\nendstream\nendobj\n"
+            ."6 0 obj\n<< /Length ".strlen($konten)." /Filter /FlateDecode >>\nstream\n{$konten}\nendstream\nendobj\n%%EOF";
+
+        $this->actingAs($sa)->post(route('hr.rekrutmen.baca-cv'), ['cv' => UploadedFile::fake()->createWithContent('cv-canva.pdf', $pdf)]);
+
+        $this->assertSame('Rina ABC', $this->hasilBaca()['hasil']['name']);
+        Http::assertSent(fn (HttpRequest $r) => $r->data()['messages'][0]['role'] === 'system'
+            && $r->data()['messages'][1]['content'] === "Rina ABC\n".str_repeat('Aina', 10)
+            && $r->data()['max_tokens'] === 3000);   // batas jawaban dinaikkan untuk ringkasan berpoin …
+        $this->assertSame(1500, (int) config('services.ai.max_output_tokens'));   // … lalu dikembalikan
     }
 
     public function test_hasil_ai_disaring_lowongan_tutup_dan_email_rusak_tidak_dipakai(): void
@@ -203,7 +235,7 @@ class HrBacaCvTest extends TestCase
         $tutup = JobOpening::create(['title' => 'Host Live', 'status' => 'tutup']);
         $sa = $this->user(User::ROLE_SUPER_ADMIN, 'sa');
         $this->aiBalas(json_encode(['nama' => 'Dewi Ayu', 'email' => 'bukan email', 'telepon' => 'WA: 0857 1111 2222',
-            'lowongan_id' => $tutup->id, 'pengalaman' => 'bukan daftar', 'pendidikan' => [['institusi' => 'tanpa jenjang']]]));
+            'lowongan_id' => $tutup->id, 'bagian' => [['judul' => 'Pengalaman', 'item' => [['poin' => ['entri tanpa judul']]]], 'bukan bagian']]));
 
         $this->actingAs($sa)->post(route('hr.rekrutmen.baca-cv'), ['cv' => UploadedFile::fake()->image('cv.png')]);
         $this->assertSame(['name' => 'Dewi Ayu', 'phone' => '0857 1111 2222', 'email' => null, 'job_opening_id' => null, 'cv_summary' => null],
@@ -223,8 +255,7 @@ class HrBacaCvTest extends TestCase
         $this->actingAs($sa)->get(route('hr.rekrutmen.kandidat.create'))->assertOk()->assertSee('AI belum bisa membaca CV')->assertSee('Lampirkan file CV ini');
 
         $this->actingAs($sa)->post(route('hr.rekrutmen.baca-cv'), ['cv' => UploadedFile::fake()->image('cv-2.jpg')]);
-        $this->assertSame(['gagal', 'AI tidak menemukan data kandidat di file ini — silakan isi form secara manual.'],
-            [$this->hasilBaca()['status'], $this->hasilBaca()['pesan']]);
+        $this->assertSame(['gagal', 'AI tidak menemukan data kandidat di file ini.'], [$this->hasilBaca()['status'], $this->hasilBaca()['pesan']]);
 
         // HR isi manual; CV tetap terlampir.
         $this->actingAs($sa)->post(route('hr.rekrutmen.kandidat.store'), ['name' => 'Fajar', 'lampirkan_cv' => '1'])->assertRedirect();

@@ -17,6 +17,8 @@ use Throwable;
  * "Baca CV dengan AI" di BACKGROUND (pola GenerateOkrDraftJob): request web cuma menyimpan CV & menjadwalkan job ini,
  * form Tambah kandidat menunggu hasilnya lewat polling. Proses AI yang lama (berkas besar, pindah ke AI cadangan) tak
  * lagi memutus koneksi web (ERR_HTTP2_PROTOCOL_ERROR di hosting). Hasil di cache "baca-cv:{token}".
+ * Dua jalur: langsung sesudah respons terkirim (cepat, tanpa menunggu worker tiap menit) + cadangan antrean tertunda
+ * (bila jalur langsung terputus); jalur yang datang belakangan dilewati karena hasil sudah ada.
  */
 class BacaCvJob implements ShouldQueue
 {
@@ -45,9 +47,16 @@ class BacaCvJob implements ShouldQueue
 
     public function handle(BacaCvService $baca): void
     {
+        // Dijalankan dua jalur (langsung sesudah halaman terkirim + cadangan antrean): hanya proses selama masih "antri" —
+        // sudah selesai/gagal, atau sudah dibuang (kandidat disimpan / kedaluwarsa) → lewati.
+        if ((Cache::get(self::kunci($this->token))['status'] ?? null) !== 'antri') {
+            return;
+        }
+        ignore_user_abort(true);   // jalur "sesudah respons": jangan berhenti walau browser sudah pindah halaman
+
         $disk = Storage::disk(Employee::DISK);
         if (! $disk->exists($this->path)) {
-            $this->simpan('gagal', pesan: 'File CV sudah tidak ada — silakan baca ulang.');
+            $this->simpan('gagal', pesan: 'File CV sudah tidak ada.');
 
             return;
         }
@@ -55,19 +64,19 @@ class BacaCvJob implements ShouldQueue
         try {
             $hasil = $baca->baca($disk->path($this->path), $this->mime);
         } catch (Throwable $e) {
-            $this->simpan('gagal', pesan: 'AI belum bisa membaca CV — '.Str::limit($e->getMessage(), 300, ''));
+            $this->simpan('gagal', pesan: 'AI belum bisa membaca CV ('.Str::limit($e->getMessage(), 300, '').').');
 
             return;
         }
 
         array_filter($hasil)
             ? $this->simpan('selesai', $hasil)
-            : $this->simpan('gagal', pesan: 'AI tidak menemukan data kandidat di file ini — silakan isi form secara manual.');
+            : $this->simpan('gagal', pesan: 'AI tidak menemukan data kandidat di file ini.');
     }
 
     public function failed(Throwable $e): void
     {
-        $this->simpan('gagal', pesan: 'AI belum bisa membaca CV — '.Str::limit($e->getMessage(), 300, ''));
+        $this->simpan('gagal', pesan: 'AI belum bisa membaca CV ('.Str::limit($e->getMessage(), 300, '').').');
     }
 
     /** @param  array<string,mixed>|null  $hasil */
