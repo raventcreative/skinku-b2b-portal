@@ -39,6 +39,7 @@ Kalau kamu baru pertama baca: mulai dari [Ringkasan](#0-ringkasan) → [Konvensi
 - [17b. Rekomendasi AI (Discovery)](#17b-rekomendasi-ai-discovery)
 - [18. SKINKU Academy (LMS)](#18-skinku-academy-lms)
 - [19. Material, Produksi, Supplier](#19-material-produksi-supplier)
+- [19b. HR — Karyawan, Rekrutmen, Payroll](#19b-hr--karyawan-rekrutmen-payroll)
 
 **Operasional**
 - [20. Cron / Terjadwal](#20-cron--terjadwal)
@@ -891,6 +892,31 @@ Bagian **Materials & Production** (izin `manage_production`, routes/web.php ~L21
 
 ---
 
+## 19b. HR — Karyawan, Rekrutmen, Payroll
+
+Spec: `docs/superpowers/specs/2026-10-10-hr-design.md` (disetujui user 2026-10-10). Bertahap: **Fase 1 Karyawan
+(SELESAI)** → Fase 2 Rekrutmen + Psikotes → Fase 3 Payroll. Grup sidebar **HR** (setelah Produktivitas), semua route
+`/hr/*` di balik `internal` (mitra diblok keras) + izin.
+
+**Fase 1 — Karyawan** (`HrEmployeeController`, `App\Models\Employee`, migrasi `000162` tabel `employees`):
+- Kode `KRY-0001` otomatis (event `created`), tautan opsional ke akun portal staf (`user_id` unik, akun mitra ditolak),
+  status kerja (percobaan/kontrak/tetap/magang/harian) + status aktif/keluar (keluar wajib tanggal).
+- **Data identitas** `Employee::SENSITIF` (NIK, NPWP, alamat, no/atas nama rekening, BPJS, kontak darurat) cast
+  `encrypted` + `$hidden`; tampil & bisa diubah hanya dgn `hr.manage`.
+- **Onboarding**: checklist tetap `Employee::ONBOARDING` (KTP & KK, NPWP, Rekening, BPJS, Kontrak) di kolom JSON
+  `onboarding` (`{item: {selesai, oleh}}`) + dokumen per item via `ImageService::attach(..., disk: 'local')` (parameter
+  disk baru, default tetap `public`) → koleksi `hr_{item}` di **disk privat**, diunduh lewat
+  `hr.employees.documents.show` (cek kepemilikan file, `hr.manage`), bukan URL publik.
+- **Pengingat**: masa percobaan / kontrak berakhir ≤ 30 hari (atau lewat) → kartu ringkas + label di daftar & detail.
+- **Audit**: `create_employee` / `update_employee` (nilai non-sensitif sebelum → sesudah; kolom identitas hanya
+  namanya di `data_identitas_diisi`/`data_identitas_diubah`), `employee_onboarding`, `upload_/view_/delete_employee_document`.
+- Tidak ada alat Asisten AI untuk HR (data pribadi).
+
+**Izin:** `hr.view` (data kerja, default `admin`), `hr.manage` (kelola + identitas & dokumen, default super admin).
+Test: `tests/Feature/HrEmployeeTest.php`.
+
+---
+
 ## 20. Cron / Terjadwal
 
 Didefinisikan di `routes/console.php`:
@@ -944,6 +970,7 @@ Dari `app/Support/Permissions.php`. super_admin selalu punya semua (terkunci). D
 | `use_ai_assistant` | staf + mitra | AI Assistant |
 | `view_learning` / `manage_learning` | luas / admin | SKINKU Academy |
 | `system_settings` | admin | Pengaturan sistem (termasuk Report Bot) |
+| `hr.view` / `hr.manage` | admin / — | HR → Karyawan: data kerja / kelola + data identitas & dokumen (§19b) |
 
 > Nilai default persisnya lihat `DEFAULTS` di `app/Support/Permissions.php` — tabel ini ringkasan fungsi, bukan salinan verbatim.
 

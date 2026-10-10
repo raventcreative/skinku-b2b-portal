@@ -70,6 +70,8 @@ class Permissions
         'content.manage' => 'Lihat dan kelola pipeline semua creator',
         'content.publish.manage' => 'Kelola Publikasi Konten (retry, tandai terbit manual)',
         'social.connect' => 'Hubungkan Akun Sosial Media Brand (FB/IG/Threads/TikTok)',
+        'hr.view' => 'HR: Lihat data karyawan (tanpa data identitas & dokumen)',
+        'hr.manage' => 'HR: Kelola karyawan & onboarding (termasuk NIK, NPWP, rekening, BPJS & dokumen)',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -161,6 +163,10 @@ class Permissions
         // Keputusan HQ 2026-09-25: content creator yang menghubungkan akun brand (super_admin selalu lolos).
         // Publish tanpa approval; kontrol target dibatasi kepemilikan di controller.
         'social.connect' => ['content_creator'],
+        // HR (2026-10-10): data pribadi karyawan (UU PDP). Admin lihat data kerja saja; identitas & dokumen
+        // khusus super admin kecuali diberi izin hr.manage.
+        'hr.view' => [User::ROLE_ADMIN],
+        'hr.manage' => [],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */
