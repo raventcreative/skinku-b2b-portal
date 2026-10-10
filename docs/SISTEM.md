@@ -910,7 +910,8 @@ Produktivitas), semua route `/hr/*` di balik `internal` (mitra diblok keras) + i
 - **Pengingat**: masa percobaan / kontrak berakhir ≤ 30 hari (atau lewat) → kartu ringkas + label di daftar & detail.
 - **Audit**: `create_employee` / `update_employee` (nilai non-sensitif sebelum → sesudah; kolom identitas hanya
   namanya di `data_identitas_diisi`/`data_identitas_diubah`), `employee_onboarding`, `upload_/view_/delete_employee_document`.
-- Tidak ada alat Asisten AI untuk HR (data pribadi).
+- Tidak ada alat Asisten AI untuk HR (data pribadi). Satu-satunya jalur ke AI: tombol "Baca CV dengan AI" di Rekrutmen
+  (atas klik HR, lihat Fase 2).
 - **Backup dokumen**: `db:backup` (tiap malam 02:30 / tombol Pengaturan Sistem) juga menjalankan `DokumenKaryawanBackup` → zip semua file disk privat berawalan `hr_` ke `storage/app/backups/dokumen-karyawan-*.zip`, **hanya bila isinya berubah** (sidik jari path+ukuran+waktu di nama file), simpan 7 terakhir. Tampil & unduh di Pengaturan Sistem khusus `hr.manage` (selain `system_settings`).
 
 **Fase 2 — Rekrutmen + Psikotes** (`HrRekrutmenController`, `HrPsikotesController`, `PsikotesPublikController`;
@@ -919,6 +920,10 @@ model `JobOpening`, `Candidate` (soft delete), `PsychotestSession`; migrasi `000
   interview → diterima / ditolak (chip hitungan per tahap, saring lowongan/nama). Detail kandidat: pindah tahap, jadwal
   interview & catatan, CV koleksi `hr_cv` di **disk privat** (unduh lewat route berizin + cek kepemilikan; ikut backup
   dokumen karena berawalan `hr_`), kartu psikotes.
+- **Baca CV dengan AI** (`hr.rekrutmen.baca-cv`, `BacaCvService`, throttle 20/menit): PDF/foto CV → disimpan sementara
+  `cv_sementara/` (disk privat) → AI provider portal (PDF berteks = teks via `PdfTextExtractor`, PDF scan/foto = berkas
+  via `ReportAi::readFile`, foto dikirim sebagai `image_url`) → form Tambah kandidat terisi (nama, HP, email, lowongan
+  yang buka, catatan ringkas). Simpan → CV dipindah ke koleksi `hr_cv` bila "Lampirkan" dicentang (sesi `hr_cv_ai`).
 - **"Jadikan karyawan"** (butuh `hr.manage` juga): buat `Employee` (nama, jabatan = judul lowongan, divisi, kontak,
   percobaan, mulai hari ini) → kandidat `diterima` + `employee_id` → diarahkan ke form karyawan. Klik ulang tak menggandakan.
 - **Psikotes**: tombol "Buat link psikotes" → `PsychotestSession::buatUntuk()` token acak 48 karakter, berlaku 7 hari,
