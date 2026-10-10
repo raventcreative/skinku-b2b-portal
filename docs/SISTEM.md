@@ -923,8 +923,9 @@ model `JobOpening`, `Candidate` (soft delete), `PsychotestSession`; migrasi `000
 - **Baca CV dengan AI** (`hr.rekrutmen.baca-cv`, throttle 20/menit): PDF/foto CV disimpan apa adanya di `cv_sementara/`
   (disk privat) → `BacaCvJob` di antrean (worker tiap 15 detik; JANGAN `dispatchAfterResponse` — browser tertahan di
   LiteSpeed; hasil di cache `baca-cv:{token}`, job hanya jalan selama status "antri") → `BacaCvService`: teks PDF dibaca portal
-  (`App\Support\PdfUnicodeText` — CMap ToUnicode untuk font CID Canva/Google Docs/Word, object stream; lalu
-  `PdfTextExtractor`) dan dikirim sebagai teks; PDF scan/foto = berkas via `ReportAi::readFile` (foto `image_url`, PDF
+  (`App\Support\PdfUnicodeText` — CMap ToUnicode untuk font CID Canva/Google Docs/Word, font dicari per halaman/Form lewat
+  Resources, font sederhana selalu 1 byte, object stream, stream gambar/font dilewati, baris dari posisi vertikal; serta
+  `PdfTextExtractor` — dipilih yang skor "kata wajar"-nya terbaik) dan dikirim sebagai teks; PDF scan/foto = berkas via `ReportAi::readFile` (foto `image_url`, PDF
   `cv.pdf`) → form Tambah kandidat polling `hr.rekrutmen.baca-cv.status` lalu mengisi kolom kosong: nama, HP, email,
   lowongan yang buka, **Ringkasan CV** (`candidates.cv_summary`, migrasi `000165`, tampil di detail kandidat): bagian sesuai
   judul CV aslinya, maks 3 poin per bagian/entri, "Tentang Saya" ikut, tanpa kesimpulan AI. Simpan → CV dipindah ke

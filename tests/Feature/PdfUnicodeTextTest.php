@@ -72,6 +72,68 @@ class PdfUnicodeTextTest extends TestCase
         $this->assertSame("Rina ABC\nHalo dunia\nbaris (dua)", PdfUnicodeText::extract($this->pdf($objek)));
     }
 
+    public function test_stream_gambar_dilewati_walau_bytenya_mirip_teks(): void
+    {
+        $objek = $this->objekDasar();
+        // JPEG lampiran scan yang kebetulan memuat byte "BT (…) Tj" — dulu muncul sebagai teks sampah.
+        $jpeg = "\xFF\xD8\xFF\xE0 BT (SAMPAH BINER) Tj ET \xFF\xD9";
+        $objek[9] = '<</Subtype/Image/Type/XObject/Filter/DCTDecode/Length '.strlen($jpeg).">>\nstream\n{$jpeg}\nendstream";
+
+        $teks = PdfUnicodeText::extract($this->pdf($objek));
+        $this->assertStringNotContainsString('SAMPAH', $teks);
+        $this->assertStringContainsString('Rina ABC', $teks);
+    }
+
+    public function test_baris_ditentukan_posisi_vertikal(): void
+    {
+        $konten = implode("\n", [
+            // Tiap kata di blok BT sendiri (gaya pembuat lamaran dart_pdf): segaris → digabung dengan spasi.
+            'BT /F2 12 Tf 10 700 Td (Nama) Tj ET BT /F2 12 Tf 60 700 Td (Lengkap) Tj ET BT /F2 12 Tf 10 680 Td (Baris) Tj ET',
+            // Tiap huruf digeser Td di blok yang sama (gaya Canva): tanpa spasi tambahan.
+            'BT /F1 12 Tf 1 0 0 -1 10 600 Tm (\\000\\001) Tj 7 0 Td (\\000\\002) Tj 5 0 Td <0020> Tj ET',
+            // Posisi lewat CTM (cm) di dalam q/Q: Td sama, baris beda.
+            'q 1 0 0 1 0 500 cm BT /F2 12 Tf 0 0 Td (atas) Tj ET Q q 1 0 0 1 0 480 cm BT /F2 12 Tf 0 0 Td (bawah) Tj ET Q',
+        ]);
+        $objek = $this->objekDasar();
+        $objek[7] = $this->stream($konten);
+
+        $this->assertSame("Nama Lengkap\nBaris\nRin\natas\nbawah", PdfUnicodeText::extract($this->pdf($objek)));
+    }
+
+    public function test_font_sederhana_tetap_1_byte_walau_codespace_2_byte(): void
+    {
+        // Gaya Word: TrueType WinAnsi + ToUnicode ber-codespacerange <0000> <FFFF> tapi kodenya 1 byte.
+        $cmap = "begincmap\n1 begincodespacerange <0000> <FFFF> endcodespacerange\n"
+            ."6 beginbfchar <20> <0020> <49> <0049> <4E> <004E> <4F> <004F> <50> <0050> <52> <0052> endbfchar\nendcmap";
+        $objek = [
+            3 => '<</Type/Page/Resources<</Font<</TT0 4 0 R>>>>/Contents 6 0 R>>',
+            4 => '<</BaseFont/ABCDEF+Calibri/Encoding/WinAnsiEncoding/Subtype/TrueType/ToUnicode 5 0 R/Type/Font>>',
+            5 => $this->stream($cmap),
+            6 => $this->stream('BT /TT0 1 Tf 12 0 0 12 50 700 Tm [(P)-5 (ON)1.6 ( I)-10 (RON)]TJ ET'),
+        ];
+
+        $this->assertSame('PON IRON', PdfUnicodeText::extract($this->pdf($objek)));
+    }
+
+    public function test_nama_font_sama_beda_halaman_pakai_resources_masing_masing(): void
+    {
+        $cmapA = "begincmap\n1 begincodespacerange <0000> <FFFF> endcodespacerange\n1 beginbfchar <0001> <0041> endbfchar\nendcmap";
+        $cmapB = "begincmap\n1 begincodespacerange <0000> <FFFF> endcodespacerange\n1 beginbfchar <0001> <0042> endbfchar\nendcmap";
+        $objek = [
+            2 => '<</Type/Pages/Kids[3 0 R 7 0 R]/Count 2>>',
+            3 => '<</Type/Page/Parent 2 0 R/Resources<</Font<</F1 4 0 R>>>>/Contents 6 0 R>>',
+            4 => '<</Type/Font/Subtype/Type0/Encoding/Identity-H/ToUnicode 5 0 R>>',
+            5 => $this->stream($cmapA),
+            6 => $this->stream('BT /F1 12 Tf 10 700 Td <00010001> Tj ET'),
+            7 => '<</Type/Page/Parent 2 0 R/Resources<</Font<</F1 8 0 R>>>>/Contents 10 0 R>>',
+            8 => '<</Type/Font/Subtype/Type0/Encoding/Identity-H/ToUnicode 9 0 R>>',
+            9 => $this->stream($cmapB),
+            10 => $this->stream('BT /F1 12 Tf 10 700 Td <000100010001> Tj ET'),
+        ];
+
+        $this->assertSame("AA\nBBB", PdfUnicodeText::extract($this->pdf($objek)));
+    }
+
     public function test_pdf_tanpa_teks_kosong(): void
     {
         $this->assertSame('', PdfUnicodeText::extract($this->pdf([1 => '<< /Type /Catalog >>', 2 => $this->stream('q 1 0 0 1 0 0 cm Q')])));
