@@ -921,11 +921,15 @@ model `JobOpening`, `Candidate` (soft delete), `PsychotestSession`; migrasi `000
   interview & catatan, CV koleksi `hr_cv` di **disk privat** (unduh lewat route berizin + cek kepemilikan; ikut backup
   dokumen karena berawalan `hr_`), kartu psikotes.
 - **Baca CV dengan AI** (`hr.rekrutmen.baca-cv`, throttle 20/menit): PDF/foto CV disimpan apa adanya di `cv_sementara/`
-  (disk privat) → `BacaCvJob` (antrean, timeout 300 dtk, hasil di cache `baca-cv:{token}`) → `BacaCvService` → AI provider
-  portal (PDF berteks = teks via `PdfTextExtractor`, PDF scan/foto = berkas via `ReportAi::readFile`, foto sebagai
-  `image_url`) → form Tambah kandidat polling `hr.rekrutmen.baca-cv.status` lalu mengisi kolom kosong: nama, HP, email,
-  lowongan yang buka, **Ringkasan CV** berpoin tanpa kesimpulan AI (`candidates.cv_summary`, migrasi `000165`, tampil di
-  detail kandidat). Simpan → CV dipindah ke koleksi `hr_cv` bila "Lampirkan" dicentang (sesi `hr_cv_ai`).
+  (disk privat) → `BacaCvJob` langsung sesudah respons (`dispatchAfterResponse`) + cadangan antrean tertunda 3 menit
+  (hasil di cache `baca-cv:{token}`, job hanya jalan selama status "antri") → `BacaCvService`: teks PDF dibaca portal
+  (`App\Support\PdfUnicodeText` — CMap ToUnicode untuk font CID Canva/Google Docs/Word, object stream; lalu
+  `PdfTextExtractor`) dan dikirim sebagai teks; PDF scan/foto = berkas via `ReportAi::readFile` (foto `image_url`, PDF
+  `cv.pdf`) → form Tambah kandidat polling `hr.rekrutmen.baca-cv.status` lalu mengisi kolom kosong: nama, HP, email,
+  lowongan yang buka, **Ringkasan CV** (`candidates.cv_summary`, migrasi `000165`, tampil di detail kandidat): bagian sesuai
+  judul CV aslinya, maks 3 poin per bagian/entri, "Tentang Saya" ikut, tanpa kesimpulan AI. Simpan → CV dipindah ke
+  koleksi `hr_cv` bila "Lampirkan" dicentang (sesi `hr_cv_ai`). `ReportAi::decodeJson` kini juga membaca JSON yang
+  terselip di antara kalimat.
 - **"Jadikan karyawan"** (butuh `hr.manage` juga): buat `Employee` (nama, jabatan = judul lowongan, divisi, kontak,
   percobaan, mulai hari ini) → kandidat `diterima` + `employee_id` → diarahkan ke form karyawan. Klik ulang tak menggandakan.
 - **Psikotes**: tombol "Buat link psikotes" → `PsychotestSession::buatUntuk()` token acak 48 karakter, berlaku 7 hari,

@@ -30,12 +30,12 @@
                 <p class="text-sm text-indigo-800"><b>✨ CV “{{ $cvAi['nama'] }}”</b></p>
                 <p data-pesan class="text-sm {{ $statusAi === 'gagal' ? 'text-rose-700' : 'text-indigo-800' }}">
                     @if($statusAi === 'antri')
-                        <span class="animate-pulse">⏳</span> AI sedang membaca CV… <span data-detik>0</span> detik (biasanya kurang dari 1–2 menit).
+                        <span class="animate-pulse">⏳</span> AI sedang membaca CV… <span data-detik>0</span> detik (biasanya 10–30 detik).
                         Boleh mulai mengisi — kolom yang masih kosong akan diisi otomatis.
                     @elseif($statusAi === 'selesai')
                         Form sudah diisi AI — periksa lagi sebelum disimpan, AI bisa keliru.
                     @else
-                        {{ $bacaAi['pesan'] ?? 'AI tidak bisa membaca CV ini.' }} Isi form secara manual; CV tetap bisa dilampirkan.
+                        {{ $bacaAi['pesan'] ?? 'AI tidak bisa membaca CV ini.' }} Silakan isi form secara manual — CV tetap bisa dilampirkan.
                     @endif
                 </p>
                 <label class="flex items-center gap-2 text-sm text-indigo-800">
@@ -102,13 +102,13 @@
                 return;
             }
             if (data.status === 'gagal') {
-                tulis((data.pesan || 'AI tidak bisa membaca CV ini.') + ' Isi form secara manual; CV tetap bisa dilampirkan.', true);
+                tulis((data.pesan || 'AI tidak bisa membaca CV ini.') + ' Silakan isi form secara manual — CV tetap bisa dilampirkan.', true);
                 return;
             }
         } catch (e) { /* jaringan putus sesaat → coba lagi */ }
-        setTimeout(cek, 3000);
+        setTimeout(cek, 2000);
     };
-    setTimeout(cek, 2000);
+    setTimeout(cek, 1500);
 })();
 </script>
 @endpush

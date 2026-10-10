@@ -26,7 +26,7 @@ class ReportAi
      *
      * @return array<mixed>
      */
-    public function readFile(string $bytes, string $mime, string $instruction): array
+    public function readFile(string $bytes, string $mime, string $instruction, string $filename = 'doc'): array
     {
         $dataUrl = 'data:'.$mime.';base64,'.base64_encode($bytes);
         $userMessage = [
@@ -35,7 +35,7 @@ class ReportAi
                 ['type' => 'text', 'text' => $instruction],
                 str_starts_with($mime, 'image/')
                     ? ['type' => 'image_url', 'image_url' => ['url' => $dataUrl]]
-                    : ['type' => 'file', 'file' => ['filename' => 'doc', 'file_data' => $dataUrl]],
+                    : ['type' => 'file', 'file' => ['filename' => $filename, 'file_data' => $dataUrl]],
             ],
         ];
 
@@ -77,8 +77,10 @@ class ReportAi
 
     /**
      * json_decode toleran: model kadang membungkus balasan dengan pagar kode
-     * ```json ... ``` — lepas pagar itu (kalau ada) sebelum decode. Balikin
-     * array kosong bila hasil decode bukan array (gagal parse / bukan objek).
+     * ```json ... ``` — lepas pagar itu (kalau ada) sebelum decode — atau
+     * menyelipkan JSON di antara kalimat ("Berikut datanya: {...}") — ambil
+     * dari "{" pertama sampai "}" terakhir. Balikin array kosong bila hasil
+     * decode bukan array (gagal parse / bukan objek).
      *
      * @return array<mixed>
      */
@@ -91,6 +93,9 @@ class ReportAi
         }
 
         $decoded = json_decode($text, true);
+        if (! is_array($decoded) && ($awal = strpos($text, '{')) !== false && ($akhir = strrpos($text, '}')) > $awal) {
+            $decoded = json_decode(substr($text, $awal, $akhir - $awal + 1), true);
+        }
 
         return is_array($decoded) ? $decoded : [];
     }
