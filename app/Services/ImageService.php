@@ -20,14 +20,14 @@ class ImageService
      * Store an uploaded file against a model's polymorphic file collection.
      * Images are resized; other file types are stored as-is. Returns the File row.
      */
-    public function attach(Model $model, UploadedFile $file, string $collection, int $maxDim = 1280, int $quality = 80): File
+    public function attach(Model $model, UploadedFile $file, string $collection, int $maxDim = 1280, int $quality = 80, string $disk = 'public'): File
     {
         $isImage = str_starts_with((string) $file->getClientMimeType(), 'image/')
             && @getimagesize($file->getRealPath()) !== false;
 
         $path = $isImage
-            ? $this->storeResized($file, $collection, $maxDim, $quality)
-            : $file->store($collection, 'public');
+            ? $this->storeResized($file, $collection, $maxDim, $quality, $disk)
+            : $file->store($collection, $disk);
 
         $nextSort = (int) ($model->files()->where('collection', $collection)->max('sort_order'));
         if ($model->files()->where('collection', $collection)->exists()) {
@@ -36,7 +36,7 @@ class ImageService
 
         return $model->files()->create([
             'collection' => $collection,
-            'disk' => 'public',
+            'disk' => $disk,
             'path' => $path,
             'original_name' => $file->getClientOriginalName(),
             // MIME hasil deteksi isi file (server), bukan klaim browser; gambar yang di-resize selalu JPEG.
@@ -47,16 +47,16 @@ class ImageService
     }
 
     /**
-     * Store an uploaded image resized to fit within $maxDim (px) on the
-     * public disk under $dir. Returns the stored relative path.
+     * Store an uploaded image resized to fit within $maxDim (px) on $disk
+     * (default public) under $dir. Returns the stored relative path.
      */
-    public function storeResized(UploadedFile $file, string $dir, int $maxDim = 1280, int $quality = 80): string
+    public function storeResized(UploadedFile $file, string $dir, int $maxDim = 1280, int $quality = 80, string $disk = 'public'): string
     {
         $tmp = $file->getRealPath();
         $info = @getimagesize($tmp);
 
         if ($info === false) {
-            return $file->store($dir, 'public'); // not an image we can read — store as-is
+            return $file->store($dir, $disk); // not an image we can read — store as-is
         }
 
         [$width, $height, $type] = $info;
@@ -70,7 +70,7 @@ class ImageService
         };
 
         if (! $src) {
-            return $file->store($dir, 'public');
+            return $file->store($dir, $disk);
         }
 
         // Respect EXIF orientation from phone cameras (JPEG only).
@@ -94,8 +94,8 @@ class ImageService
         imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $width, $height);
 
         $relative = trim($dir, '/').'/'.Str::uuid()->toString().'.jpg';
-        Storage::disk('public')->makeDirectory($dir);
-        imagejpeg($dst, Storage::disk('public')->path($relative), $quality);
+        Storage::disk($disk)->makeDirectory($dir);
+        imagejpeg($dst, Storage::disk($disk)->path($relative), $quality);
 
         imagedestroy($src);
         imagedestroy($dst);

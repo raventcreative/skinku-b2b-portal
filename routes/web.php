@@ -18,6 +18,7 @@ use App\Http\Controllers\DownlineOrderController;
 use App\Http\Controllers\EcomChatController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HqStockReportController;
+use App\Http\Controllers\HrEmployeeController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\JaringanSayaController;
@@ -586,6 +587,22 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::post('/okr/{okr}/approve', [OkrController::class, 'approve'])->name('okr.approve');
             Route::delete('/okr/{okr}', [OkrController::class, 'destroy'])->name('okr.destroy');
         });
+    });
+
+    /* ---------------- HR (Fase 1: Karyawan) — data pribadi karyawan, mitra diblok keras ---------------- */
+    Route::middleware(['permission:hr.view', 'internal'])->prefix('hr')->name('hr.')->group(function () {
+        Route::get('/karyawan', [HrEmployeeController::class, 'index'])->name('employees.index');
+        Route::middleware('permission:hr.manage')->group(function () {
+            Route::get('/karyawan/baru', [HrEmployeeController::class, 'create'])->name('employees.create');
+            Route::post('/karyawan', [HrEmployeeController::class, 'store'])->name('employees.store');
+            Route::get('/karyawan/{employee}/ubah', [HrEmployeeController::class, 'edit'])->name('employees.edit');
+            Route::put('/karyawan/{employee}', [HrEmployeeController::class, 'update'])->name('employees.update');
+            Route::post('/karyawan/{employee}/onboarding/{item}', [HrEmployeeController::class, 'onboarding'])->name('employees.onboarding');
+            Route::post('/karyawan/{employee}/onboarding/{item}/dokumen', [HrEmployeeController::class, 'uploadDocument'])->name('employees.documents.store');
+            Route::get('/karyawan/{employee}/dokumen/{file}', [HrEmployeeController::class, 'document'])->name('employees.documents.show');
+            Route::delete('/karyawan/{employee}/dokumen/{file}', [HrEmployeeController::class, 'destroyDocument'])->name('employees.documents.destroy');
+        });
+        Route::get('/karyawan/{employee}', [HrEmployeeController::class, 'show'])->name('employees.show');
     });
 
     /* ---------------- Integrasi TikTok Shop ---------------- */

@@ -31,6 +31,10 @@ Cara audit ulang: `php artisan route:list`, `ls app/Http/Controllers/*.php`, `ls
 - **Akuntansi/GL** — laporan keuangan (Laba Rugi, Neraca, Arus Kas, dll.) butuh izin Lihat HPP sejak 2026-10-08, jurnal/COA/impor cukup `view_accounting`. Accounting, AccAccount, AccTemplate + Acc* model; FinancialReport/Ledger/CashFlow/ComparativeReport Service (double-entry, L/R, neraca, mutasi bank).
 - **Sistem** — Auth, User, Permission/Role, Announcement, AuditLog (kolom Perubahan = `AuditLog::ringkasPerubahan()` before → after, target bernama: kreator/user/produk/PO), Setting (+ backup DB), Impersonation, Dashboard, Export, Supplier.
 
+### HR (2026-10-10, bertahap — spec `docs/superpowers/specs/2026-10-10-hr-design.md`)
+- **Karyawan (Fase 1)** — `HrEmployeeController` + `Employee` (`000162`): database karyawan, identitas terenkripsi, checklist onboarding + dokumen di disk privat, pengingat percobaan/kontrak; izin `hr.view`/`hr.manage`, route `/hr/*` di balik `internal`.
+- Berikutnya: Rekrutmen + Psikotes (Fase 2), Payroll (Fase 3).
+
 ### Jaringan Mitra (MLM) — model AKTIF = Model A (margin/inter-partner)
 Model komisi terpusat lama → **dorman (revivable)**. Semua ke-wire (route+nav+logika+tes):
 - **Model A** — `DownlineOrderController` (`pesanan-downline` + fulfill/reject/verify-payment). Inti: `PurchaseOrderService::resolveSeller()` — distributor stockist dgn upline stockist (GD) → PO ke GD (inter-partner, transfer stok antar gudang); selain itu → HQ. **Dormant-safe:** `upline_id` null = semua ke HQ (perilaku lama). Gate `process_downline_po`.
