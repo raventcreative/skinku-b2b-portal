@@ -131,18 +131,20 @@
         @error('rate_percent')<p class="text-[11px] text-rose-600 mt-2">{{ $message }}</p>@enderror
     </div>
 
-    {{-- Backup DB — jaring pengaman terakhir --}}
+    {{-- Backup DB + dokumen karyawan (zip, khusus izin Kelola karyawan) — jaring pengaman terakhir --}}
     <div class="bg-white rounded-2xl border border-stone-200 p-6 mt-6">
         <div class="flex flex-wrap items-center gap-3 mb-3">
-            <h3 class="text-sm font-bold text-stone-900">Backup Database</h3>
+            <h3 class="text-sm font-bold text-stone-900">Backup Database &amp; Dokumen Karyawan</h3>
             <form method="POST" action="{{ route('settings.backup') }}" class="ml-auto">@csrf
                 <button class="px-3 py-1.5 text-xs bg-stone-800 text-white rounded-lg hover:bg-stone-900"> Backup Sekarang</button>
             </form>
         </div>
 
         <div class="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] mb-3">
-            ⚠️ Backup otomatis tiap malam <b>02:30</b>, disimpan 14 terakhir. Tapi filenya ada di <b>server yang sama</b> —
-            itu melindungi dari salah hapus, <b>bukan</b> dari server rusak. <b>Unduh berkala</b> dan simpan di Drive/laptop.
+            ⚠️ Backup otomatis tiap malam <b>02:30</b>, disimpan 14 terakhir. Dokumen karyawan (KTP, NPWP, kontrak, CV) ikut
+            di-zip ke folder backup yang sama bila ada yang berubah (7 zip terakhir, unduh khusus izin Kelola karyawan).
+            Tapi filenya ada di <b>server yang sama</b> — itu melindungi dari salah hapus, <b>bukan</b> dari server rusak.
+            <b>Unduh berkala</b> dan simpan di Drive/laptop.
         </div>
 
         @if(count($backups))
@@ -150,6 +152,7 @@
                 @foreach($backups as $b)
                     <div class="flex items-center gap-3 py-2 text-xs">
                         <span class="font-mono text-stone-700">{{ $b['name'] }}</span>
+                        @if($b['dokumen'])<span class="px-1.5 py-0.5 rounded-sm bg-amber-50 text-amber-800 text-[10px] font-semibold">dokumen karyawan</span>@endif
                         <span class="text-stone-400">{{ $b['size'] }}</span>
                         <span class="text-stone-400">{{ $b['at'] }}</span>
                         <a href="{{ route('settings.backup.download', $b['name']) }}"

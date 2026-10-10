@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\DokumenKaryawanBackup;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -18,13 +19,22 @@ class DbBackupCommand extends Command
 {
     protected $signature = 'db:backup {--keep=14 : Simpan N backup terakhir}';
 
-    protected $description = 'Backup database ke storage/app/backups (.sql.gz), buang yang lama';
+    protected $description = 'Backup database (.sql.gz) + dokumen karyawan (.zip, bila berubah) ke storage/app/backups, buang yang lama';
 
     public function handle(): int
     {
         $db = config('database.connections.mysql');
         $dir = storage_path('app/backups');
         File::ensureDirectoryExists($dir);
+
+        // Dokumen karyawan (menu HR, disk privat) ikut ke folder backup yang sama — tetap jalan walau dump DB gagal.
+        try {
+            $dokumen = app(DokumenKaryawanBackup::class)->jalankan($dir);
+        } catch (\Throwable $e) {
+            $dokumen = 'Dokumen karyawan GAGAL di-backup: '.$e->getMessage();
+            Log::error('[db:backup] '.$dokumen);
+        }
+        $this->line($dokumen);
 
         // Nama file pakai waktu server; aman diurutkan secara leksikografis.
         $file = $dir.DIRECTORY_SEPARATOR.'db-'.now()->format('Y-m-d_His').'.sql.gz';
