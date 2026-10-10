@@ -177,6 +177,15 @@
                 </div>
                 <button class="px-4 py-2 text-sm font-semibold bg-red-700 text-white rounded-lg hover:bg-red-800">Simpan</button>
             </form>
+
+            {{-- Kandidat yang sudah jadi karyawan tak bisa dihapus (riwayat rekrutmennya disimpan). --}}
+            @unless($candidate->employee_id)
+                <form method="POST" action="{{ route('hr.rekrutmen.kandidat.destroy', $candidate) }}" class="text-right"
+                      onsubmit="return confirm(@js('Hapus permanen kandidat '.$candidate->name.' beserta CV & hasil psikotesnya? Tidak bisa dibatalkan.'))">
+                    @csrf @method('DELETE')
+                    <button class="px-3 py-2 text-sm text-rose-600 hover:underline">Hapus kandidat</button>
+                </form>
+            @endunless
         </div>
     </div>
 </div>
