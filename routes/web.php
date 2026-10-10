@@ -19,6 +19,8 @@ use App\Http\Controllers\EcomChatController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\HrEmployeeController;
+use App\Http\Controllers\HrPsikotesController;
+use App\Http\Controllers\HrRekrutmenController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\JaringanSayaController;
@@ -54,6 +56,7 @@ use App\Http\Controllers\PartnerSaleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionController;
+use App\Http\Controllers\PsikotesPublikController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RecruitController;
 use App\Http\Controllers\ReportBotAdminController;
@@ -122,6 +125,13 @@ Route::post('/webhooks/shopee/push', [ShopeePushController::class, 'handle'])->n
 Route::post('/api/kol-agent/affiliate', [KolAgentController::class, 'affiliate'])->name('kol-agent.affiliate');
 
 Route::get('/', fn () => redirect()->route('dashboard'));
+
+// Psikotes kandidat (PUBLIK, tanpa login): token acak 48 karakter, berlaku 7 hari, sekali pakai — dibatasi laju.
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/tes/{token}', [PsikotesPublikController::class, 'mulai'])->name('psikotes.publik');
+    Route::get('/tes/{token}/{tes}', [PsikotesPublikController::class, 'tes'])->whereIn('tes', ['kepribadian', 'disc', 'logika'])->name('psikotes.publik.tes');
+    Route::post('/tes/{token}/{tes}', [PsikotesPublikController::class, 'simpan'])->whereIn('tes', ['kepribadian', 'disc', 'logika'])->name('psikotes.publik.simpan');
+});
 
 // Halaman publik Kebijakan Privasi & Syarat Layanan — wajib untuk review app TikTok/Meta.
 Route::view('/privacy', 'legal.privacy')->name('legal.privacy');
@@ -603,6 +613,26 @@ Route::middleware(['auth', 'role'])->group(function () {
             Route::delete('/karyawan/{employee}/dokumen/{file}', [HrEmployeeController::class, 'destroyDocument'])->name('employees.documents.destroy');
         });
         Route::get('/karyawan/{employee}', [HrEmployeeController::class, 'show'])->name('employees.show');
+    });
+
+    /* ---------------- HR (Fase 2: Rekrutmen + Psikotes) ---------------- */
+    Route::middleware(['permission:hr.recruit', 'internal'])->prefix('hr')->name('hr.')->group(function () {
+        Route::get('/rekrutmen', [HrRekrutmenController::class, 'index'])->name('rekrutmen.index');
+        Route::post('/rekrutmen/lowongan', [HrRekrutmenController::class, 'storeLowongan'])->name('rekrutmen.lowongan.store');
+        Route::put('/rekrutmen/lowongan/{lowongan}', [HrRekrutmenController::class, 'updateLowongan'])->name('rekrutmen.lowongan.update');
+        Route::get('/rekrutmen/kandidat/baru', [HrRekrutmenController::class, 'createKandidat'])->name('rekrutmen.kandidat.create');
+        Route::post('/rekrutmen/kandidat', [HrRekrutmenController::class, 'storeKandidat'])->name('rekrutmen.kandidat.store');
+        Route::get('/rekrutmen/kandidat/{kandidat}', [HrRekrutmenController::class, 'showKandidat'])->name('rekrutmen.kandidat.show');
+        Route::put('/rekrutmen/kandidat/{kandidat}', [HrRekrutmenController::class, 'updateKandidat'])->name('rekrutmen.kandidat.update');
+        Route::post('/rekrutmen/kandidat/{kandidat}/tahap', [HrRekrutmenController::class, 'tahap'])->name('rekrutmen.kandidat.tahap');
+        Route::post('/rekrutmen/kandidat/{kandidat}/psikotes', [HrRekrutmenController::class, 'buatPsikotes'])->name('rekrutmen.kandidat.psikotes');
+        Route::post('/rekrutmen/kandidat/{kandidat}/cv', [HrRekrutmenController::class, 'uploadCv'])->name('rekrutmen.kandidat.cv.store');
+        Route::get('/rekrutmen/kandidat/{kandidat}/cv/{file}', [HrRekrutmenController::class, 'cv'])->name('rekrutmen.kandidat.cv.show');
+        Route::delete('/rekrutmen/kandidat/{kandidat}/cv/{file}', [HrRekrutmenController::class, 'destroyCv'])->name('rekrutmen.kandidat.cv.destroy');
+        Route::post('/rekrutmen/kandidat/{kandidat}/jadikan-karyawan', [HrRekrutmenController::class, 'jadikanKaryawan'])
+            ->middleware('permission:hr.manage')->name('rekrutmen.kandidat.karyawan');
+        Route::get('/psikotes', [HrPsikotesController::class, 'index'])->name('psikotes.index');
+        Route::get('/psikotes/soal', [HrPsikotesController::class, 'soal'])->name('psikotes.soal');
     });
 
     /* ---------------- Integrasi TikTok Shop ---------------- */

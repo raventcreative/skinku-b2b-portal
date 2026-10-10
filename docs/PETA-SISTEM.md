@@ -33,7 +33,8 @@ Cara audit ulang: `php artisan route:list`, `ls app/Http/Controllers/*.php`, `ls
 
 ### HR (2026-10-10, bertahap — spec `docs/superpowers/specs/2026-10-10-hr-design.md`)
 - **Karyawan (Fase 1)** — `HrEmployeeController` + `Employee` (`000162`): database karyawan, identitas terenkripsi, checklist onboarding + dokumen di disk privat, pengingat percobaan/kontrak; izin `hr.view`/`hr.manage`, route `/hr/*` di balik `internal`.
-- Berikutnya: Rekrutmen + Psikotes (Fase 2), Payroll (Fase 3).
+- **Rekrutmen + Psikotes (Fase 2)** — `HrRekrutmenController` / `HrPsikotesController` + `JobOpening`, `Candidate`, `PsychotestSession` (`000163`): lowongan, kandidat & tahap seleksi, CV privat, "Jadikan karyawan" (+`hr.manage`); psikotes publik `PsikotesPublikController` `/tes/{token}` (tanpa login, 7 hari, sekali pakai) — bank soal `App\Support\Psikotes\BankSoal`, skor `PsikotesService`; izin `hr.recruit`.
+- Berikutnya: Payroll (Fase 3).
 
 ### Jaringan Mitra (MLM) — model AKTIF = Model A (margin/inter-partner)
 Model komisi terpusat lama → **dorman (revivable)**. Semua ke-wire (route+nav+logika+tes):
