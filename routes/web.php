@@ -19,6 +19,7 @@ use App\Http\Controllers\EcomChatController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HqStockReportController;
 use App\Http\Controllers\HrEmployeeController;
+use App\Http\Controllers\HrPayrollController;
 use App\Http\Controllers\HrPsikotesController;
 use App\Http\Controllers\HrRekrutmenController;
 use App\Http\Controllers\ImpersonationController;
@@ -633,6 +634,26 @@ Route::middleware(['auth', 'role'])->group(function () {
             ->middleware('permission:hr.manage')->name('rekrutmen.kandidat.karyawan');
         Route::get('/psikotes', [HrPsikotesController::class, 'index'])->name('psikotes.index');
         Route::get('/psikotes/soal', [HrPsikotesController::class, 'soal'])->name('psikotes.soal');
+    });
+
+    /* ---------------- HR (Fase 3: Payroll) — angka gaji: payroll.view lihat, payroll.manage kelola ---------------- */
+    Route::middleware(['permission:payroll.view', 'internal'])->prefix('hr/payroll')->name('hr.payroll.')->group(function () {
+        Route::get('/', [HrPayrollController::class, 'index'])->name('index');
+        Route::get('/data-gaji', [HrPayrollController::class, 'komponen'])->name('komponen');
+        Route::get('/{run}', [HrPayrollController::class, 'show'])->whereNumber('run')->name('show');
+        Route::get('/{run}/slip', [HrPayrollController::class, 'slip'])->whereNumber('run')->name('slip');
+        Route::get('/{run}/slip/{item}', [HrPayrollController::class, 'slip'])->whereNumber(['run', 'item'])->name('slip.item');
+        Route::middleware('permission:payroll.manage')->group(function () {
+            Route::put('/data-gaji', [HrPayrollController::class, 'simpanKomponen'])->name('komponen.update');
+            Route::put('/saldo-awal', [HrPayrollController::class, 'simpanSaldoAwal'])->name('saldo-awal.update');
+            Route::put('/setelan', [HrPayrollController::class, 'simpanSetelan'])->name('setelan.update');
+            Route::post('/', [HrPayrollController::class, 'store'])->name('store');
+            Route::put('/{run}', [HrPayrollController::class, 'update'])->whereNumber('run')->name('update');
+            Route::post('/{run}/ambil-ulang', [HrPayrollController::class, 'ambilUlang'])->whereNumber('run')->name('ambil-ulang');
+            Route::post('/{run}/kunci', [HrPayrollController::class, 'kunci'])->whereNumber('run')->name('kunci');
+            Route::post('/{run}/buka-kunci', [HrPayrollController::class, 'bukaKunci'])->whereNumber('run')->name('buka-kunci');
+            Route::delete('/{run}', [HrPayrollController::class, 'destroy'])->whereNumber('run')->name('destroy');
+        });
     });
 
     /* ---------------- Integrasi TikTok Shop ---------------- */

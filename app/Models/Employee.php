@@ -86,6 +86,12 @@ class Employee extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /** Komponen gaji (menu Payroll) — hanya untuk izin payroll.*. */
+    public function payrollProfile()
+    {
+        return $this->hasOne(PayrollProfile::class);
+    }
+
     public function aktif(): bool
     {
         return $this->status === 'aktif';

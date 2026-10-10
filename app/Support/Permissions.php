@@ -73,6 +73,8 @@ class Permissions
         'hr.view' => 'HR: Lihat data karyawan (tanpa data identitas & dokumen)',
         'hr.manage' => 'HR: Kelola karyawan & onboarding (termasuk NIK, NPWP, rekening, BPJS & dokumen)',
         'hr.recruit' => 'HR: Rekrutmen & psikotes (lowongan, kandidat, CV, link tes & hasil)',
+        'payroll.view' => 'Payroll: Lihat angka gaji, payroll bulanan & slip gaji',
+        'payroll.manage' => 'Payroll: Kelola data gaji, jalankan, kunci & buka kunci payroll',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -169,6 +171,9 @@ class Permissions
         'hr.view' => [User::ROLE_ADMIN],
         'hr.manage' => [],
         'hr.recruit' => [],
+        // Angka gaji khusus super admin kecuali diberi izin (pola view_hpp).
+        'payroll.view' => [],
+        'payroll.manage' => [],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */
