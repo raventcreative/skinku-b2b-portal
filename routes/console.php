@@ -92,14 +92,15 @@ Schedule::command('tiktok:marketplace-sync --limit=20 --sleep=12')->dailyAt('07:
 Schedule::command('tiktok:kol-performance-sync --limit=30 --sleep=10')->weeklyOn(1, '13:15')->withoutOverlapping(60);
 
 /*
- * Pekerja antrean OKR (generate draf di background). Numpang cron scheduler yang
- * sudah ada — tanpa worker permanen. Tiap menit: proses job yang ada lalu berhenti
- * begitu antrean kosong (--stop-when-empty). --timeout=290 memberi ruang job AI
+ * Pekerja antrean (draf OKR, Baca CV dengan AI) di background. Numpang cron scheduler yang
+ * sudah ada — tanpa worker permanen. Tiap 15 detik (sub-menit: schedule:run tetap jalan
+ * sampai akhir menit; dulu tiap menit → Baca CV menunggu sampai 60 dtk): proses job yang ada
+ * lalu berhenti begitu antrean kosong (--stop-when-empty). --timeout=290 memberi ruang job AI
  * yang lambat (otak cadangan bisa lambat) — jangan pakai default 60 dtk yang bakal
  * membunuh job di tengah. withoutOverlapping mencegah dua worker jalan bersamaan.
  */
 Schedule::command('queue:work --stop-when-empty --tries=1 --timeout=290')
-    ->everyMinute()->name('okr-queue-worker')->withoutOverlapping(10);
+    ->everyFifteenSeconds()->name('okr-queue-worker')->withoutOverlapping(10);
 
 // Dormansi member: bekukan akun tak aktif sesuai aturan per-role (aturan default
 // OFF → nol efek sampai HQ nyalakan). Harian, di luar jam sync berat.

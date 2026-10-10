@@ -8,6 +8,7 @@ use App\Models\Candidate;
 use App\Models\File;
 use App\Models\JobOpening;
 use App\Models\User;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
@@ -172,8 +173,8 @@ class HrBacaCvTest extends TestCase
 
         $this->actingAs($sa)->post(route('hr.rekrutmen.baca-cv'), ['cv' => UploadedFile::fake()->image('cv.jpg')])
             ->assertRedirect(route('hr.rekrutmen.kandidat.create'));
-        // Dua jalur: langsung sesudah respons + cadangan antrean tertunda (yang belakangan dilewati bila hasil sudah ada).
-        Queue::assertPushed(BacaCvJob::class, 2);
+        // Satu job ke antrean saja — bukan dispatchAfterResponse (di hosting LiteSpeed browser tetap ditahan sampai AI selesai).
+        Queue::assertPushed(BacaCvJob::class, 1);
         Queue::assertPushed(BacaCvJob::class, fn ($job) => $job->token === session('hr_cv_ai.token') && $job->mime === 'image/jpeg');
         Http::assertNothingSent();
         $this->assertSame('antri', $this->hasilBaca()['status']);
@@ -282,6 +283,16 @@ class HrBacaCvTest extends TestCase
         $this->assertSame([0, []], [File::count(), $disk->files('cv_sementara')]);
         $this->assertNull(Cache::get(BacaCvJob::kunci($token)));
         $this->assertSame('Eko Prasetyo', Candidate::sole()->name);
+    }
+
+    public function test_worker_antrean_jalan_tiap_15_detik(): void
+    {
+        // Baca CV menunggu worker antrean → jangan tiap menit (bisa 60 dtk) dan jangan diproses di request web.
+        $worker = collect(app(Schedule::class)->events())
+            ->first(fn ($e) => str_contains((string) $e->command, 'queue:work'));
+        $this->assertNotNull($worker);
+        $this->assertSame([true, 15], [$worker->isRepeatable(), $worker->repeatSeconds]);
+        $this->assertStringContainsString('--timeout=290', (string) $worker->command);
     }
 
     public function test_hanya_izin_hr_recruit(): void

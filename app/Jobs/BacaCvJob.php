@@ -16,9 +16,8 @@ use Throwable;
 /**
  * "Baca CV dengan AI" di BACKGROUND (pola GenerateOkrDraftJob): request web cuma menyimpan CV & menjadwalkan job ini,
  * form Tambah kandidat menunggu hasilnya lewat polling. Proses AI yang lama (berkas besar, pindah ke AI cadangan) tak
- * lagi memutus koneksi web (ERR_HTTP2_PROTOCOL_ERROR di hosting). Hasil di cache "baca-cv:{token}".
- * Dua jalur: langsung sesudah respons terkirim (cepat, tanpa menunggu worker tiap menit) + cadangan antrean tertunda
- * (bila jalur langsung terputus); jalur yang datang belakangan dilewati karena hasil sudah ada.
+ * lagi memutus koneksi web (ERR_HTTP2_PROTOCOL_ERROR di hosting). Hasil di cache "baca-cv:{token}". Hanya lewat
+ * antrean (worker scheduler tiap 15 detik) — dispatchAfterResponse tetap menahan browser di LiteSpeed hosting.
  */
 class BacaCvJob implements ShouldQueue
 {
@@ -47,12 +46,11 @@ class BacaCvJob implements ShouldQueue
 
     public function handle(BacaCvService $baca): void
     {
-        // Dijalankan dua jalur (langsung sesudah halaman terkirim + cadangan antrean): hanya proses selama masih "antri" —
-        // sudah selesai/gagal, atau sudah dibuang (kandidat disimpan / kedaluwarsa) → lewati.
+        // Hanya proses selama masih "antri" — sudah selesai/gagal, atau sudah dibuang (kandidat disimpan, CV lain dibaca,
+        // kedaluwarsa) → lewati, tak perlu memanggil AI.
         if ((Cache::get(self::kunci($this->token))['status'] ?? null) !== 'antri') {
             return;
         }
-        ignore_user_abort(true);   // jalur "sesudah respons": jangan berhenti walau browser sudah pindah halaman
 
         $disk = Storage::disk(Employee::DISK);
         if (! $disk->exists($this->path)) {
