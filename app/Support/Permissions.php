@@ -72,6 +72,7 @@ class Permissions
         'social.connect' => 'Hubungkan Akun Sosial Media Brand (FB/IG/Threads/TikTok)',
         'hr.view' => 'HR: Lihat data karyawan (tanpa data identitas & dokumen)',
         'hr.manage' => 'HR: Kelola karyawan & onboarding (termasuk NIK, NPWP, rekening, BPJS & dokumen)',
+        'hr.recruit' => 'HR: Rekrutmen & psikotes (lowongan, kandidat, CV, link tes & hasil)',
     ];
 
     /** Default roles that hold each permission (super_admin is implicit/locked). */
@@ -167,6 +168,7 @@ class Permissions
         // khusus super admin kecuali diberi izin hr.manage.
         'hr.view' => [User::ROLE_ADMIN],
         'hr.manage' => [],
+        'hr.recruit' => [],
     ];
 
     /** Fallback role list if the roles table is empty (pre-seed). */

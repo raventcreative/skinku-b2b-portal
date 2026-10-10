@@ -895,8 +895,8 @@ Bagian **Materials & Production** (izin `manage_production`, routes/web.php ~L21
 ## 19b. HR — Karyawan, Rekrutmen, Payroll
 
 Spec: `docs/superpowers/specs/2026-10-10-hr-design.md` (disetujui user 2026-10-10). Bertahap: **Fase 1 Karyawan
-(SELESAI)** → Fase 2 Rekrutmen + Psikotes → Fase 3 Payroll. Grup sidebar **HR** (setelah Produktivitas), semua route
-`/hr/*` di balik `internal` (mitra diblok keras) + izin.
+(SELESAI)** → **Fase 2 Rekrutmen + Psikotes (SELESAI)** → Fase 3 Payroll. Grup sidebar **HR** (setelah Produktivitas),
+semua route `/hr/*` di balik `internal` (mitra diblok keras) + izin.
 
 **Fase 1 — Karyawan** (`HrEmployeeController`, `App\Models\Employee`, migrasi `000162` tabel `employees`):
 - Kode `KRY-0001` otomatis (event `created`), tautan opsional ke akun portal staf (`user_id` unik, akun mitra ditolak),
@@ -913,8 +913,30 @@ Spec: `docs/superpowers/specs/2026-10-10-hr-design.md` (disetujui user 2026-10-1
 - Tidak ada alat Asisten AI untuk HR (data pribadi).
 - **Backup dokumen**: `db:backup` (tiap malam 02:30 / tombol Pengaturan Sistem) juga menjalankan `DokumenKaryawanBackup` → zip semua file disk privat berawalan `hr_` ke `storage/app/backups/dokumen-karyawan-*.zip`, **hanya bila isinya berubah** (sidik jari path+ukuran+waktu di nama file), simpan 7 terakhir. Tampil & unduh di Pengaturan Sistem khusus `hr.manage` (selain `system_settings`).
 
-**Izin:** `hr.view` (data kerja, default `admin`), `hr.manage` (kelola + identitas & dokumen, default super admin).
-Test: `tests/Feature/HrEmployeeTest.php`.
+**Fase 2 — Rekrutmen + Psikotes** (`HrRekrutmenController`, `HrPsikotesController`, `PsikotesPublikController`;
+model `JobOpening`, `Candidate` (soft delete), `PsychotestSession`; migrasi `000163`):
+- **Rekrutmen** (`/hr/rekrutmen`): lowongan (buka/tutup) + kandidat dengan tahap `Candidate::STAGES` lamar → psikotes →
+  interview → diterima / ditolak (chip hitungan per tahap, saring lowongan/nama). Detail kandidat: pindah tahap, jadwal
+  interview & catatan, CV koleksi `hr_cv` di **disk privat** (unduh lewat route berizin + cek kepemilikan; ikut backup
+  dokumen karena berawalan `hr_`), kartu psikotes.
+- **"Jadikan karyawan"** (butuh `hr.manage` juga): buat `Employee` (nama, jabatan = judul lowongan, divisi, kontak,
+  percobaan, mulai hari ini) → kandidat `diterima` + `employee_id` → diarahkan ke form karyawan. Klik ulang tak menggandakan.
+- **Psikotes**: tombol "Buat link psikotes" → `PsychotestSession::buatUntuk()` token acak 48 karakter, berlaku 7 hari,
+  sekali pakai (kandidat tahap Lamar otomatis pindah ke Psikotes). Link disalin / dikirim lewat `wa.me` (08xx → 62xx).
+  Halaman publik `/tes/{token}` (tanpa login, `throttle:60,1`, `noindex`, hanya nama depan kandidat): 3 tes berurutan
+  tetap (`PsikotesService::TES`) — **Kepribadian 16 tipe** (40 pernyataan skala 1–5, bukan "MBTI"), **Gaya kerja DISC**
+  (24 kelompok kata, pilih paling & paling tidak — wajib beda), **Logika & hitung** (20 soal, **15 menit dihitung server**
+  sejak halaman dibuka, kirim otomatis saat habis, lewat batas + 60 dtk → `progress.logika.lewat_waktu`). Kepribadian &
+  DISC wajib lengkap; logika boleh kosong (= salah). Bank soal: `App\Support\Psikotes\BankSoal` (tambah soal di akhir
+  saja — jawaban tersimpan per indeks); skor murni di `PsikotesService` (tanpa DB). Hasil di detail kandidat + daftar
+  `/hr/psikotes`; `/hr/psikotes/soal` = pratinjau bank soal + kunci logika.
+- **Audit**: `create_/update_job_opening`, `create_/update_candidate`, `candidate_stage` (tahap sebelum → sesudah),
+  `create_psychotest`, `upload_/view_/delete_candidate_cv`, `create_employee` (+`dari_kandidat`) — **tanpa** nomor HP /
+  email kandidat.
+
+**Izin:** `hr.view` (data kerja, default `admin`), `hr.manage` (kelola + identitas & dokumen, default super admin),
+`hr.recruit` (rekrutmen & psikotes, default super admin). Test: `tests/Feature/HrEmployeeTest.php`,
+`HrRekrutmenTest.php`, `PsikotesTest.php`.
 
 ---
 
@@ -972,6 +994,7 @@ Dari `app/Support/Permissions.php`. super_admin selalu punya semua (terkunci). D
 | `view_learning` / `manage_learning` | luas / admin | SKINKU Academy |
 | `system_settings` | admin | Pengaturan sistem (termasuk Report Bot) |
 | `hr.view` / `hr.manage` | admin / — | HR → Karyawan: data kerja / kelola + data identitas & dokumen (§19b) |
+| `hr.recruit` | — | HR → Rekrutmen & Psikotes: lowongan, kandidat, CV, link tes & hasil (§19b) |
 
 > Nilai default persisnya lihat `DEFAULTS` di `app/Support/Permissions.php` — tabel ini ringkasan fungsi, bukan salinan verbatim.
 
