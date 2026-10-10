@@ -895,8 +895,8 @@ Bagian **Materials & Production** (izin `manage_production`, routes/web.php ~L21
 ## 19b. HR — Karyawan, Rekrutmen, Payroll
 
 Spec: `docs/superpowers/specs/2026-10-10-hr-design.md` (disetujui user 2026-10-10). Bertahap: **Fase 1 Karyawan
-(SELESAI)** → **Fase 2 Rekrutmen + Psikotes (SELESAI)** → Fase 3 Payroll. Grup sidebar **HR** (setelah Produktivitas),
-semua route `/hr/*` di balik `internal` (mitra diblok keras) + izin.
+(SELESAI)** → **Fase 2 Rekrutmen + Psikotes (SELESAI)** → **Fase 3 Payroll (SELESAI)**. Grup sidebar **HR** (setelah
+Produktivitas), semua route `/hr/*` di balik `internal` (mitra diblok keras) + izin.
 
 **Fase 1 — Karyawan** (`HrEmployeeController`, `App\Models\Employee`, migrasi `000162` tabel `employees`):
 - Kode `KRY-0001` otomatis (event `created`), tautan opsional ke akun portal staf (`user_id` unik, akun mitra ditolak),
@@ -934,9 +934,31 @@ model `JobOpening`, `Candidate` (soft delete), `PsychotestSession`; migrasi `000
   `create_psychotest`, `upload_/view_/delete_candidate_cv`, `create_employee` (+`dari_kandidat`) — **tanpa** nomor HP /
   email kandidat.
 
+**Fase 3 — Payroll** (`HrPayrollController`, `PayrollService`, tarif `App\Support\Payroll\Pajak`; model
+`PayrollProfile`, `PayrollRun`, `PayrollItem`; migrasi `000164`; rincian aturan & sumber di spec):
+- **Data gaji** (`/hr/payroll/data-gaji`): per karyawan aktif gaji pokok, tunjangan tetap, ikut BPJS Kesehatan / TK
+  (JHT+JKK+JKM) / JP, kelompok biaya operasional / produksi — tabel `payroll_profiles`, terpisah dari `employees`
+  supaya angka gaji hanya untuk izin payroll. Setelan BPJS (`app_settings` `payroll_kes_cap`, `payroll_jp_cap`,
+  `payroll_jkk_bps`; bawaan Rp12 jt / Rp11.086.300 / 0,24%). Saldo awal tahun = bulan yang digaji di luar portal.
+- **Run bulanan** (`/hr/payroll`, `/hr/payroll/{run}`): buat per bulan (unik) → baris tiap peserta (`PayrollService::peserta`)
+  dengan BPJS + PPh 21 otomatis (`PayrollService::hitung`): Jan–Nov TER × bruto (bruto termasuk BPJS Kesehatan 4%, JKK,
+  JKM), Desember / bulan keluar = hitung ulang setahun Pasal 17 dari bulan **terkunci** + saldo awal (minus =
+  dikembalikan). Draf bisa diubah (pokok/tunjangan, lembur, bonus/THR, kasbon, koreksi PPh, catatan; gaji bersih tak
+  boleh minus) & "Ambil ulang data gaji"; peringatan (belum ada data gaji, PTKP kosong, data bulan tahun ini kurang,
+  bulan sebelumnya masih draf) + pratinjau jurnal.
+- **Kunci** (bulan sebelumnya di tahun itu wajib terkunci): angka beku + jurnal `AccountingService::record` (ref
+  `PAYROLL YYYY-MM`, `source_type` payroll_run): Dr 6002/5004 Beban Gaji, Cr 2003/2002 Hutang Gaji, 2004 Hutang Pajak,
+  2009 Hutang BPJS, 1105 Piutang Karyawan (kasbon) — akun per kode, dibuat bila belum ada. **Buka kunci** = jurnal void,
+  kembali draf (tak boleh bila bulan sesudahnya terkunci). Hapus hanya draf.
+- **Slip** (`/hr/payroll/{run}/slip[/{item}]`): halaman cetak tanpa layout (Simpan PDF dari browser), satu karyawan per
+  halaman, draf bertanda "DRAF".
+- **Audit** tanpa nominal gaji: `update_payroll_component` / `update_payroll_opening` (nama kolom saja),
+  `update_payroll_settings`, `create_/refresh_/delete_payroll_run`, `update_payroll_items`, `lock_/unlock_payroll`.
+
 **Izin:** `hr.view` (data kerja, default `admin`), `hr.manage` (kelola + identitas & dokumen, default super admin),
-`hr.recruit` (rekrutmen & psikotes, default super admin). Test: `tests/Feature/HrEmployeeTest.php`,
-`HrRekrutmenTest.php`, `PsikotesTest.php`.
+`hr.recruit` (rekrutmen & psikotes, default super admin), `payroll.view` (lihat angka gaji & slip) / `payroll.manage`
+(data gaji, jalankan, kunci) — default super admin. Test: `tests/Feature/HrEmployeeTest.php`, `HrRekrutmenTest.php`,
+`PsikotesTest.php`, `PayrollPajakTest.php`, `PayrollTest.php`.
 
 ---
 
@@ -995,6 +1017,7 @@ Dari `app/Support/Permissions.php`. super_admin selalu punya semua (terkunci). D
 | `system_settings` | admin | Pengaturan sistem (termasuk Report Bot) |
 | `hr.view` / `hr.manage` | admin / — | HR → Karyawan: data kerja / kelola + data identitas & dokumen (§19b) |
 | `hr.recruit` | — | HR → Rekrutmen & Psikotes: lowongan, kandidat, CV, link tes & hasil (§19b) |
+| `payroll.view` / `payroll.manage` | — / — | HR → Payroll: lihat angka gaji & slip / data gaji, jalankan, kunci & buka kunci (§19b) |
 
 > Nilai default persisnya lihat `DEFAULTS` di `app/Support/Permissions.php` — tabel ini ringkasan fungsi, bukan salinan verbatim.
 
