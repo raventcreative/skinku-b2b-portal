@@ -7,13 +7,17 @@ use App\Models\ContentPost;
 use App\Models\ContentPostTarget;
 use App\Models\SocialConnection;
 use App\Models\User;
+use App\Services\Ai\AiException;
+use App\Services\Ai\ContentReviewer;
 use App\Services\AuditService;
 use App\Services\ContentPostService;
 use App\Services\Social\MetaClient;
 use App\Services\Social\TikTokContentClient;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -94,6 +98,33 @@ class ContentPostController extends Controller
         $post = new ContentPost(['type' => 'image', 'scheduled_at' => $request->query('scheduled_at')]);
 
         return $this->formView($request, $post, [], []);
+    }
+
+    /**
+     * Nilai draft (isian form saat itu, belum disimpan pun) untuk TikTok & Instagram dengan AI — teks saja.
+     * Tidak menyimpan & tidak menerbitkan apa pun.
+     */
+    public function aiReview(Request $request, ContentReviewer $reviewer): JsonResponse
+    {
+        // JSON 422 manual: ValidationException di route web = redirect, bukan JSON.
+        $v = Validator::make($request->all(), [
+            'type' => ['required', Rule::in(array_keys(ContentPost::TYPES))],
+            'caption' => ['required', 'string', 'max:63206'],
+            'platforms' => ['nullable', 'array'],
+            'platforms.*' => ['string'],
+            'captions' => ['nullable', 'array'],
+            'captions.*' => ['nullable', 'string', 'max:63206'],
+        ], ['caption.required' => 'Tulis caption dulu sebelum dinilai AI.']);
+        if ($v->fails()) {
+            return response()->json(['message' => $v->errors()->first()], 422);
+        }
+
+        try {
+            return response()->json($reviewer->review($request->input('type'), $request->input('caption'),
+                (array) $request->input('platforms', []), array_filter((array) $request->input('captions', []), 'is_string')));
+        } catch (AiException $e) {
+            return response()->json(['message' => $e->getMessage()], 502);
+        }
     }
 
     public function store(Request $request): RedirectResponse
