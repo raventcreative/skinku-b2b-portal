@@ -62,16 +62,27 @@ class BacaCvService
         return $hasil;
     }
 
-    /** Teks PDF yang terbaca ('' bila hasil scan / tak terbaca → kirim berkas): ToUnicode dulu, lalu ekstraktor lama. */
+    /**
+     * Teks PDF terbaik dari dua ekstraktor ('' bila hasil scan / tak terbaca → kirim berkas). Format PDF beda-beda, jadi
+     * keduanya dicoba lalu dinilai jumlah "kata wajar"-nya; PdfUnicodeText diutamakan (susunan barisnya lebih rapi)
+     * kecuali ekstraktor lama jauh lebih lengkap.
+     */
     private function teksPdf(string $path): string
     {
-        foreach ([PdfUnicodeText::extract($path), PdfTextExtractor::extract($path)] as $teks) {
-            if (mb_strlen($teks) >= 40 && ! PdfTextExtractor::looksUnreadable($teks)) {
-                return $teks;
-            }
-        }
+        $rapi = fn (string $t) => trim((string) preg_replace(["/[ \t]+/", "/ *\n */", "/\n{3,}/"], [' ', "\n", "\n\n"], $t));
+        [$baru, $lama] = array_map(function (string $t) use ($rapi) {
+            $t = $rapi($t);
 
-        return '';
+            return mb_strlen($t) >= 40 && ! PdfTextExtractor::looksUnreadable($t) ? $t : '';
+        }, [PdfUnicodeText::extract($path), PdfTextExtractor::extract($path)]);
+
+        return $this->skorTeks($lama) > 1.25 * $this->skorTeks($baru) ? $lama : $baru;
+    }
+
+    /** Jumlah kata wajar (2–20 huruf, boleh diakhiri tanda baca) — teks yang hurufnya hilang / sampah skornya rendah. */
+    private function skorTeks(string $teks): int
+    {
+        return (int) preg_match_all('/(?<!\S)\p{L}[\p{L}\'’-]{1,19}[.,;:!?)]?(?!\S)/u', $teks);
     }
 
     /** Naikkan sementara batas token jawaban AI (config dibaca AiProviderFactory saat dibuat), lalu kembalikan. */
