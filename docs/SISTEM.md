@@ -911,6 +911,7 @@ Spec: `docs/superpowers/specs/2026-10-10-hr-design.md` (disetujui user 2026-10-1
 - **Audit**: `create_employee` / `update_employee` (nilai non-sensitif sebelum → sesudah; kolom identitas hanya
   namanya di `data_identitas_diisi`/`data_identitas_diubah`), `employee_onboarding`, `upload_/view_/delete_employee_document`.
 - Tidak ada alat Asisten AI untuk HR (data pribadi).
+- **Backup dokumen**: `db:backup` (tiap malam 02:30 / tombol Pengaturan Sistem) juga menjalankan `DokumenKaryawanBackup` → zip semua file disk privat berawalan `hr_` ke `storage/app/backups/dokumen-karyawan-*.zip`, **hanya bila isinya berubah** (sidik jari path+ukuran+waktu di nama file), simpan 7 terakhir. Tampil & unduh di Pengaturan Sistem khusus `hr.manage` (selain `system_settings`).
 
 **Izin:** `hr.view` (data kerja, default `admin`), `hr.manage` (kelola + identitas & dokumen, default super admin).
 Test: `tests/Feature/HrEmployeeTest.php`.

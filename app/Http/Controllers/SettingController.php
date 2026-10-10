@@ -8,6 +8,7 @@ use App\Models\VolumeIncentiveTier;
 use App\Services\Ai\AiProviderFactory;
 use App\Services\AuditService;
 use App\Services\CommissionService;
+use App\Services\DokumenKaryawanBackup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -39,7 +40,8 @@ class SettingController extends Controller
 
         return view('settings.index', [
             'info' => $info,
-            'backups' => $this->backupList(),
+            // Zip dokumen karyawan berisi KTP/NPWP dll → hanya utk izin hr.manage.
+            'backups' => collect($this->backupList())->reject(fn ($b) => $b['dokumen'] && ! auth()->user()->canDo('hr.manage'))->values()->all(),
             'ai' => [
                 'available' => $available,
                 'provider' => AppSetting::get('ai_provider', (string) config('services.ai.provider')),
@@ -184,12 +186,14 @@ class SettingController extends Controller
     public function backupDownload(string $file): BinaryFileResponse
     {
         // Cocokkan ke daftar nyata: menutup path traversal (../) sekaligus.
-        abort_unless(collect($this->backupList())->contains('name', $file), 404);
+        $backup = collect($this->backupList())->firstWhere('name', $file);
+        abort_unless($backup, 404);
+        abort_if($backup['dokumen'] && ! auth()->user()->canDo('hr.manage'), 403);
 
         return response()->download(storage_path('app/backups/'.$file));
     }
 
-    /** @return array<int, array{name:string, size:string, at:string}> */
+    /** Backup database (.sql.gz) + zip dokumen karyawan, terbaru dulu. @return array<int, array{name:string, size:string, at:string, dokumen:bool}> */
     private function backupList(): array
     {
         $dir = storage_path('app/backups');
@@ -198,12 +202,14 @@ class SettingController extends Controller
         }
 
         return collect(File::files($dir))
-            ->filter(fn ($f) => str_ends_with($f->getFilename(), '.sql.gz'))
-            ->sortByDesc(fn ($f) => $f->getFilename())
+            ->filter(fn ($f) => str_ends_with($f->getFilename(), '.sql.gz')
+                || (str_starts_with($f->getFilename(), DokumenKaryawanBackup::AWALAN) && str_ends_with($f->getFilename(), '.zip')))
+            ->sortByDesc(fn ($f) => $f->getMTime().'|'.$f->getFilename())
             ->map(fn ($f) => [
                 'name' => $f->getFilename(),
                 'size' => number_format($f->getSize() / 1048576, 2).' MB',
                 'at' => date('d M Y H:i', $f->getMTime()),
+                'dokumen' => str_ends_with($f->getFilename(), '.zip'),
             ])->values()->all();
     }
 }
