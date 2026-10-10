@@ -623,6 +623,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::put('/rekrutmen/lowongan/{lowongan}', [HrRekrutmenController::class, 'updateLowongan'])->name('rekrutmen.lowongan.update');
         Route::get('/rekrutmen/kandidat/baru', [HrRekrutmenController::class, 'createKandidat'])->name('rekrutmen.kandidat.create');
         Route::post('/rekrutmen/baca-cv', [HrRekrutmenController::class, 'bacaCv'])->middleware('throttle:20,1')->name('rekrutmen.baca-cv');
+        Route::get('/rekrutmen/baca-cv/{token}', [HrRekrutmenController::class, 'statusBacaCv'])->where('token', '[A-Za-z0-9]{32}')->name('rekrutmen.baca-cv.status');
         Route::post('/rekrutmen/kandidat', [HrRekrutmenController::class, 'storeKandidat'])->name('rekrutmen.kandidat.store');
         Route::get('/rekrutmen/kandidat/{kandidat}', [HrRekrutmenController::class, 'showKandidat'])->name('rekrutmen.kandidat.show');
         Route::put('/rekrutmen/kandidat/{kandidat}', [HrRekrutmenController::class, 'updateKandidat'])->name('rekrutmen.kandidat.update');

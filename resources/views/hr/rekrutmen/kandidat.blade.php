@@ -139,6 +139,12 @@
         </div>
 
         <div class="space-y-4">
+            @if($candidate->cv_summary)
+                <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+                    <div class="px-5 py-3 border-b border-stone-100"><h3 class="text-sm font-bold text-stone-800">Ringkasan CV</h3></div>
+                    <div class="px-5 py-4 text-sm leading-relaxed text-stone-700 whitespace-pre-wrap">{{ $candidate->cv_summary }}</div>
+                </div>
+            @endif
             <div class="bg-white rounded-2xl border border-stone-200 overflow-hidden">
                 <div class="px-5 py-3 border-b border-stone-100"><h3 class="text-sm font-bold text-stone-800">CV &amp; berkas lamaran</h3></div>
                 <div class="p-5 space-y-2">
