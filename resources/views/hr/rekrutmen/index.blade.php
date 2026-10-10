@@ -13,8 +13,12 @@
 @endphp
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <p class="text-sm text-stone-500">Lowongan, kandidat &amp; tahap seleksi. Link psikotes (tanpa login) dibuat dari halaman kandidat.</p>
-        <a href="{{ route('hr.rekrutmen.kandidat.create', array_filter(['lowongan' => $filters['lowongan']])) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-red-700 text-white rounded-lg hover:bg-red-800">+ Tambah kandidat</a>
+        <p class="text-sm text-stone-500">Lowongan, kandidat &amp; tahap seleksi. Link psikotes (tanpa login) dibuat dari halaman kandidat.<br>
+            <span class="text-xs text-stone-400">Punya file CV? Klik <b>Baca CV dengan AI</b> — data kandidat terisi otomatis dari PDF / foto CV.</span></p>
+        <div class="flex flex-wrap items-center gap-2">
+            @include('hr.rekrutmen._baca-cv')
+            <a href="{{ route('hr.rekrutmen.kandidat.create', array_filter(['lowongan' => $filters['lowongan']])) }}" class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-red-700 text-white rounded-lg hover:bg-red-800">+ Tambah kandidat</a>
+        </div>
     </div>
 
     <div class="flex flex-wrap gap-2">
