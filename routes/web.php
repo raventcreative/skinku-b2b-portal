@@ -718,6 +718,7 @@ Route::middleware(['auth', 'role'])->group(function () {
         Route::get('/content/calendar', [ContentPostController::class, 'calendar'])->name('content.calendar');
         Route::get('/content/create', [ContentPostController::class, 'create'])->name('content.create');
         Route::post('/content', [ContentPostController::class, 'store'])->name('content.store');
+        Route::post('/content/ai-review', [ContentPostController::class, 'aiReview'])->middleware('throttle:20,1')->name('content.ai-review');
         Route::get('/content/{post}/edit', [ContentPostController::class, 'edit'])->name('content.edit');
         Route::put('/content/{post}', [ContentPostController::class, 'update'])->name('content.update');
         Route::delete('/content/{post}', [ContentPostController::class, 'destroy'])->name('content.destroy');

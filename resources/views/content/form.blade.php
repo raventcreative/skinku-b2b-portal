@@ -74,6 +74,15 @@
                         <textarea name="caption" rows="6" id="mainCaption" class="mt-1.5 block w-full px-3 py-2.5 text-sm" placeholder="Tulis pesan utama untuk konten ini">{{ old('caption', $post->caption) }}</textarea>
                         <span class="mt-1 block text-[11px] text-stone-500">Batas caption berbeda per platform. Anda dapat membuat versi khusus setelah memilih kanal.</span>
                     </label>
+
+                    {{-- Penilai AI (teks saja) untuk TikTok & Instagram — hanya saran, tidak menyimpan/menerbitkan. --}}
+                    <div class="rounded-xl border border-stone-200 bg-stone-50/70 p-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-semibold text-stone-700">Nilai konten dengan AI <span class="font-normal text-stone-500">· TikTok &amp; Instagram, dari caption</span></span>
+                            <button type="button" id="aiReviewButton" data-url="{{ route('content.ai-review') }}" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-700 hover:bg-stone-50">Nilai dengan AI</button>
+                        </div>
+                        <div id="aiReviewResult" class="mt-3 space-y-1.5 text-xs leading-5 text-stone-700" aria-live="polite" hidden></div>
+                    </div>
                 </div>
             </section>
 
@@ -182,6 +191,41 @@
         var label = document.getElementById('publishLabel');
         if (caption && count) caption.addEventListener('input', function () { count.textContent = caption.value.length; });
         if (schedule && label) schedule.addEventListener('input', function () { label.textContent = schedule.value ? 'Jadwalkan publikasi' : 'Terbitkan sekarang'; });
+
+        // Penilai AI: kirim isian form saat ini (tanpa media) → tampilkan skor & saran. Semua teks AI dirender
+        // lewat textContent (bukan innerHTML) agar aman.
+        var aiBtn = document.getElementById('aiReviewButton'), aiOut = document.getElementById('aiReviewResult');
+        if (aiBtn && aiOut) aiBtn.addEventListener('click', function () {
+            var f = aiBtn.form, data = new FormData();
+            data.append('_token', f.querySelector('[name=_token]').value);
+            data.append('caption', f.querySelector('[name=caption]').value);
+            data.append('type', (f.querySelector('[name=type]:checked') || {}).value || 'video');
+            f.querySelectorAll('[name="platforms[]"]:checked').forEach(function (c) { data.append('platforms[]', c.value); });
+            f.querySelectorAll('[name^="captions["]').forEach(function (c) { if (c.value) data.append(c.name, c.value); });
+            var line = function (text, cls) { var p = document.createElement('p'); p.textContent = text; if (cls) p.className = cls; aiOut.appendChild(p); };
+            aiBtn.disabled = true; aiBtn.textContent = 'Menilai…'; aiOut.hidden = false; aiOut.replaceChildren(); line('AI sedang membaca caption…', 'text-stone-500');
+            fetch(aiBtn.dataset.url, { method: 'POST', body: data, headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                .then(function (res) {
+                    aiOut.replaceChildren();
+                    if (!res.ok) { line(res.j.message || 'AI gagal menilai.', 'font-semibold text-rose-700'); return; }
+                    var j = res.j, names = { tiktok: 'TikTok', instagram: 'Instagram' };
+                    line('Skor ' + j.score + '/100 — ' + j.summary, 'font-semibold text-stone-900');
+                    Object.keys(j.platforms).forEach(function (p) { line(names[p] + ' ' + j.platforms[p].score + '/100: ' + j.platforms[p].notes.join(' · ')); });
+                    j.suggestions.forEach(function (s) { line('• ' + s); });
+                    if (j.caption) {
+                        line('Usulan caption:', 'font-semibold text-stone-900');
+                        line(j.caption, 'whitespace-pre-line rounded-lg border border-stone-200 bg-white p-2');
+                        var use = document.createElement('button');
+                        use.type = 'button'; use.textContent = 'Pakai caption ini';
+                        use.className = 'rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50';
+                        use.addEventListener('click', function () { var c = f.querySelector('[name=caption]'); c.value = j.caption; c.dispatchEvent(new Event('input')); });
+                        aiOut.appendChild(use);
+                    }
+                })
+                .catch(function () { aiOut.replaceChildren(); line('Tidak bisa menghubungi server — cek koneksi lalu coba lagi.', 'font-semibold text-rose-700'); })
+                .finally(function () { aiBtn.disabled = false; aiBtn.textContent = 'Nilai dengan AI'; });
+        });
 
         // Media: tolak file kebesaran sebelum upload (di atas batas PHP form terbuang tanpa pesan),
         // lalu tunjukkan sedang mengunggah agar upload video besar tidak terlihat macet.
