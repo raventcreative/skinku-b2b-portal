@@ -72,6 +72,18 @@ class HrRekrutmenController extends Controller
         return back()->with('status', "Lowongan \"{$lowongan->title}\" disimpan.");
     }
 
+    /** Hapus lowongan — hanya yang belum punya kandidat (yang sudah ada kandidatnya cukup diubah jadi Tutup). */
+    public function destroyLowongan(JobOpening $lowongan): RedirectResponse
+    {
+        if ($n = $lowongan->candidates()->count()) {
+            return back()->with('error', "Lowongan \"{$lowongan->title}\" masih punya {$n} kandidat — hapus kandidatnya dulu, atau ubah status lowongan jadi Tutup.");
+        }
+        AuditService::log(action: 'delete_job_opening', targetType: 'job_opening', targetId: $lowongan->id, before: ['judul' => $lowongan->title]);
+        $lowongan->delete();
+
+        return redirect()->route('hr.rekrutmen.index')->with('status', "Lowongan \"{$lowongan->title}\" dihapus.");
+    }
+
     public function createKandidat(Request $request): View
     {
         $candidate = new Candidate(['stage' => 'lamar', 'job_opening_id' => (int) $request->query('lowongan') ?: null]);
@@ -164,6 +176,25 @@ class HrRekrutmenController extends Controller
         AuditService::log(action: 'update_candidate', targetType: 'candidate', targetId: $kandidat->id, after: ['nama' => $kandidat->name]);
 
         return back()->with('status', 'Data kandidat disimpan.');
+    }
+
+    /**
+     * Hapus kandidat PERMANEN (data uji coba, permintaan hapus data pribadi — UU PDP): CV di disk privat & sesi psikotes
+     * ikut terhapus, bukan sekadar disembunyikan (soft delete). Kandidat yang sudah jadi karyawan tak bisa dihapus —
+     * riwayat rekrutmen karyawan itu tetap disimpan.
+     */
+    public function destroyKandidat(Candidate $kandidat): RedirectResponse
+    {
+        if ($kandidat->employee_id) {
+            return back()->with('error', 'Kandidat yang sudah menjadi karyawan tidak bisa dihapus.');
+        }
+        AuditService::log(action: 'delete_candidate', targetType: 'candidate', targetId: $kandidat->id,
+            before: ['nama' => $kandidat->name, 'tahap' => $kandidat->stageLabel(), 'lowongan' => $kandidat->opening?->title]);
+        $kandidat->files()->get()->each->delete(); // File::deleting ikut menghapus berkas fisiknya
+        PsychotestSession::where('candidate_id', $kandidat->id)->delete();
+        $kandidat->forceDelete();
+
+        return redirect()->route('hr.rekrutmen.index')->with('status', "Kandidat {$kandidat->name} dihapus.");
     }
 
     /** Pindah tahap seleksi (lamar → psikotes → interview → diterima / ditolak). */

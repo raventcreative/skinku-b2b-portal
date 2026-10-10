@@ -213,4 +213,63 @@ class HrRekrutmenTest extends TestCase
         $sesi->results = ['kepribadian' => ['tipe' => 'ENFP'], 'disc' => ['utama' => 'I', 'kedua' => 'S'], 'logika' => ['skor' => 75]];
         $this->assertSame('ENFP · DISC I/S · Logika 75', $sesi->ringkasan());
     }
+
+    public function test_hapus_kandidat_permanen_beserta_cv_dan_psikotes(): void
+    {
+        Storage::fake('local');
+        $c = $this->kandidat();
+        $this->kandidat(['name' => 'Budi Santoso']);
+        $sa = $this->user(User::ROLE_SUPER_ADMIN, 'sa');
+        $this->actingAs($sa)->post(route('hr.rekrutmen.kandidat.cv.store', $c), ['cv' => UploadedFile::fake()->create('cv-rina.pdf', 300, 'application/pdf')]);
+        $this->actingAs($sa)->post(route('hr.rekrutmen.kandidat.psikotes', $c));
+        $f = File::sole();
+
+        // Tanpa izin hr.recruit → ditolak, data utuh.
+        $this->actingAs($this->user(User::ROLE_ADMIN, 'adm'))->delete(route('hr.rekrutmen.kandidat.destroy', $c))->assertForbidden();
+        $this->actingAs($sa)->get(route('hr.rekrutmen.kandidat.show', $c))->assertSee('Hapus kandidat');
+
+        $this->actingAs($sa)->delete(route('hr.rekrutmen.kandidat.destroy', $c))
+            ->assertRedirect(route('hr.rekrutmen.index'))->assertSessionHas('status', 'Kandidat Rina Putri dihapus.');
+
+        // Permanen (bukan soft delete): baris, CV di disk privat & sesi psikotes ikut hilang; kandidat lain utuh.
+        $this->assertNull(Candidate::withTrashed()->find($c->id));
+        $this->assertSame(0, File::count());
+        Storage::disk('local')->assertMissing($f->path);
+        $this->assertSame(0, PsychotestSession::count());
+        $this->assertSame(['Budi Santoso'], Candidate::pluck('name')->all());
+        $log = AuditLog::where('action', 'delete_candidate')->sole();
+        $this->assertSame(['nama' => 'Rina Putri', 'tahap' => 'Psikotes', 'lowongan' => 'Admin Gudang'], $log->before_data);
+    }
+
+    public function test_kandidat_yang_sudah_jadi_karyawan_tidak_bisa_dihapus(): void
+    {
+        $c = $this->kandidat(['stage' => 'interview']);
+        $sa = $this->user(User::ROLE_SUPER_ADMIN, 'sa');
+        $this->actingAs($sa)->post(route('hr.rekrutmen.kandidat.karyawan', $c));
+
+        $this->actingAs($sa)->get(route('hr.rekrutmen.kandidat.show', $c))->assertOk()->assertDontSee('Hapus kandidat');
+        $this->actingAs($sa)->delete(route('hr.rekrutmen.kandidat.destroy', $c))->assertSessionHas('error');
+        $this->assertNotNull($c->fresh());
+        $this->assertSame(0, AuditLog::where('action', 'delete_candidate')->count());
+    }
+
+    public function test_hapus_lowongan_hanya_bila_tanpa_kandidat(): void
+    {
+        $c = $this->kandidat();
+        $kosong = JobOpening::create(['title' => 'CFO', 'status' => 'buka']);
+        $sa = $this->user(User::ROLE_SUPER_ADMIN, 'sa');
+
+        // Tombol hapus hanya muncul di lowongan tanpa kandidat.
+        $this->actingAs($sa)->get(route('hr.rekrutmen.index'))->assertOk()
+            ->assertSee('Hapus lowongan CFO?')->assertDontSee('Hapus lowongan Admin Gudang?');
+
+        $this->actingAs($sa)->delete(route('hr.rekrutmen.lowongan.destroy', $c->opening))->assertSessionHas('error');
+        $this->assertNotNull($c->opening->fresh());
+        $this->assertSame($c->opening->id, $c->fresh()->job_opening_id);
+
+        $this->actingAs($sa)->delete(route('hr.rekrutmen.lowongan.destroy', $kosong))
+            ->assertRedirect(route('hr.rekrutmen.index'))->assertSessionHas('status', 'Lowongan "CFO" dihapus.');
+        $this->assertNull($kosong->fresh());
+        $this->assertSame(['judul' => 'CFO'], AuditLog::where('action', 'delete_job_opening')->sole()->before_data);
+    }
 }

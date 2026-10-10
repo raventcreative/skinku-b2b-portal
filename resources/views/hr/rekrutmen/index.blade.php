@@ -101,7 +101,7 @@
                         <summary class="flex items-start justify-between gap-2 cursor-pointer list-none">
                             <div class="min-w-0">
                                 <p class="text-sm font-semibold text-stone-800 truncate">{{ $o->title }}</p>
-                                <p class="text-[11px] text-stone-400">{{ $o->department ?: 'Tanpa divisi' }} · {{ $o->candidates_count }} kandidat · ubah</p>
+                                <p class="text-[11px] text-stone-400">{{ $o->department ?: 'Tanpa divisi' }} · {{ $o->candidates_count }} kandidat · ubah{{ $o->candidates_count ? '' : ' / hapus' }}</p>
                             </div>
                             <span class="shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $o->status === 'buka' ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500' }}">{{ \App\Models\JobOpening::STATUSES[$o->status] ?? $o->status }}</span>
                         </summary>
@@ -122,6 +122,14 @@
                                 <a href="{{ route('hr.rekrutmen.index', ['lowongan' => $o->id]) }}" class="text-xs text-red-700 hover:underline">Lihat kandidatnya →</a>
                             </div>
                         </form>
+                        {{-- Hanya lowongan tanpa kandidat yang bisa dihapus; yang sudah ada kandidatnya cukup ditutup. --}}
+                        @unless($o->candidates_count)
+                            <form method="POST" action="{{ route('hr.rekrutmen.lowongan.destroy', $o) }}" class="mt-2 text-right"
+                                  onsubmit="return confirm(@js('Hapus lowongan '.$o->title.'?'))">
+                                @csrf @method('DELETE')
+                                <button class="text-xs text-rose-600 hover:underline">Hapus lowongan</button>
+                            </form>
+                        @endunless
                     </details>
                 @empty
                     <p class="px-4 py-6 text-center text-sm text-stone-400">Belum ada lowongan.</p>

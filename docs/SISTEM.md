@@ -920,6 +920,10 @@ model `JobOpening`, `Candidate` (soft delete), `PsychotestSession`; migrasi `000
   interview → diterima / ditolak (chip hitungan per tahap, saring lowongan/nama). Detail kandidat: pindah tahap, jadwal
   interview & catatan, CV koleksi `hr_cv` di **disk privat** (unduh lewat route berizin + cek kepemilikan; ikut backup
   dokumen karena berawalan `hr_`), kartu psikotes.
+- **Hapus** (`hr.rekrutmen.kandidat.destroy`, `hr.rekrutmen.lowongan.destroy`): kandidat dihapus **permanen**
+  (`forceDelete` — bukan soft delete) beserta CV (berkas fisik ikut terhapus lewat `File::deleting`) & sesi psikotes;
+  kandidat yang sudah jadi karyawan (`employee_id`) tak bisa dihapus. Lowongan hanya bisa dihapus bila belum punya
+  kandidat (selebihnya cukup diubah jadi Tutup). Konfirmasi browser sebelum hapus.
 - **Baca CV dengan AI** (`hr.rekrutmen.baca-cv`, throttle 20/menit): PDF/foto CV disimpan apa adanya di `cv_sementara/`
   (disk privat) → `BacaCvJob` di antrean (worker tiap 15 detik; JANGAN `dispatchAfterResponse` — browser tertahan di
   LiteSpeed; hasil di cache `baca-cv:{token}`, job hanya jalan selama status "antri") → `BacaCvService`: teks PDF dibaca portal
@@ -943,7 +947,8 @@ model `JobOpening`, `Candidate` (soft delete), `PsychotestSession`; migrasi `000
   saja — jawaban tersimpan per indeks); skor murni di `PsikotesService` (tanpa DB). Hasil di detail kandidat + daftar
   `/hr/psikotes`; `/hr/psikotes/soal` = pratinjau bank soal + kunci logika.
 - **Audit**: `create_/update_job_opening`, `create_/update_candidate`, `candidate_stage` (tahap sebelum → sesudah),
-  `create_psychotest`, `upload_/view_/delete_candidate_cv`, `create_employee` (+`dari_kandidat`) — **tanpa** nomor HP /
+  `create_psychotest`, `upload_/view_/delete_candidate_cv`, `delete_candidate` (nama, tahap, lowongan),
+  `delete_job_opening`, `create_employee` (+`dari_kandidat`) — **tanpa** nomor HP /
   email kandidat.
 
 **Fase 3 — Payroll** (`HrPayrollController`, `PayrollService`, tarif `App\Support\Payroll\Pajak`; model
