@@ -22,7 +22,7 @@ class Candidate extends Model
         'ditolak' => 'Ditolak',
     ];
 
-    protected $fillable = ['job_opening_id', 'name', 'phone', 'email', 'source', 'stage', 'interview_at', 'notes', 'employee_id', 'created_by'];
+    protected $fillable = ['job_opening_id', 'name', 'phone', 'email', 'source', 'stage', 'interview_at', 'notes', 'cv_summary', 'employee_id', 'created_by'];
 
     protected function casts(): array
     {

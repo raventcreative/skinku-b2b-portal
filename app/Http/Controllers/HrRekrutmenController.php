@@ -2,18 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\BacaCvJob;
 use App\Models\Candidate;
 use App\Models\Employee;
 use App\Models\File;
 use App\Models\JobOpening;
 use App\Models\PsychotestSession;
-use App\Services\Ai\AiException;
 use App\Services\AuditService;
-use App\Services\BacaCvService;
 use App\Services\ImageService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -21,7 +23,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * Menu HR → Rekrutmen (Fase 2, izin hr.recruit + internal): lowongan, kandidat & tahap seleksi, CV di disk privat,
  * link psikotes, dan "Jadikan karyawan" (butuh hr.manage juga). Kontak kandidat tak dicatat nilainya di audit.
- * "Baca CV dengan AI": CV disimpan sementara (privat) → AI mengisi form tambah kandidat → CV ikut terlampir saat disimpan.
+ * "Baca CV dengan AI": CV disimpan sementara (privat) → dibaca AI di antrean (BacaCvJob) → form tambah kandidat terisi
+ * lewat polling → CV ikut terlampir saat disimpan.
  */
 class HrRekrutmenController extends Controller
 {
@@ -71,10 +74,19 @@ class HrRekrutmenController extends Controller
 
     public function createKandidat(Request $request): View
     {
+        $candidate = new Candidate(['stage' => 'lamar', 'job_opening_id' => (int) $request->query('lowongan') ?: null]);
+        $cvAi = $request->session()->get(self::SESI_CV);
+        $bacaAi = $cvAi ? (Cache::get(BacaCvJob::kunci((string) ($cvAi['token'] ?? ''))) ?? ['status' => 'gagal', 'hasil' => null,
+            'pesan' => 'Hasil baca CV sudah kedaluwarsa — silakan baca ulang.']) : null;
+        if (($bacaAi['status'] ?? null) === 'selesai') {
+            $candidate->fill(array_filter((array) $bacaAi['hasil'], fn ($v) => $v !== null));
+        }
+
         return view('hr.rekrutmen.kandidat-form', [
-            'candidate' => new Candidate(['stage' => 'lamar', 'job_opening_id' => (int) $request->query('lowongan') ?: null]),
+            'candidate' => $candidate,
             'openings' => JobOpening::where('status', 'buka')->latest('id')->get(),
-            'cvAi' => $request->session()->get(self::SESI_CV),
+            'cvAi' => $cvAi,
+            'bacaAi' => $bacaAi,
         ]);
     }
 
@@ -88,16 +100,18 @@ class HrRekrutmenController extends Controller
         // CV dari "Baca CV dengan AI" ikut terlampir (atau dibuang bila HR tak mencentang).
         if ($cv = $request->session()->pull(self::SESI_CV)) {
             $request->boolean('lampirkan_cv') ? $this->lampirkanCvSementara($kandidat, $cv) : Storage::disk(Employee::DISK)->delete($cv['path']);
+            Cache::forget(BacaCvJob::kunci((string) ($cv['token'] ?? '')));
         }
 
         return redirect()->route('hr.rekrutmen.kandidat.show', $kandidat)->with('status', "Kandidat {$kandidat->name} ditambahkan.");
     }
 
     /**
-     * "Baca CV dengan AI": CV (PDF/foto) disimpan sementara di disk privat, dibaca AI (BacaCvService) → form tambah
-     * kandidat terisi (nama, kontak, lowongan, ringkasan). HR memeriksa lalu menyimpan; CV ikut terlampir.
+     * "Baca CV dengan AI": CV (PDF/foto) disimpan apa adanya di disk privat (tanpa olah gambar → hemat memori), lalu
+     * dibaca AI di antrean (BacaCvJob). Form tambah kandidat langsung terbuka & terisi otomatis saat AI selesai
+     * (polling statusBacaCv). Request web tak pernah menunggu AI → tak diputus server walau AI lama.
      */
-    public function bacaCv(Request $request, ImageService $images, BacaCvService $baca): RedirectResponse
+    public function bacaCv(Request $request): RedirectResponse
     {
         $request->validate(['cv' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120']], [
             'cv.required' => 'Pilih file CV dulu.',
@@ -105,31 +119,27 @@ class HrRekrutmenController extends Controller
             'cv.max' => 'Ukuran CV maksimal 5 MB.',
         ]);
         $file = $request->file('cv');
-        $disk = Storage::disk(Employee::DISK);
         $this->buangCvSementara($request);
-        $path = $images->storeResized($file, self::CV_SEMENTARA, 1600, 85, Employee::DISK);   // foto diperkecil → hemat token AI
-        $mime = $disk->mimeType($path) ?: (string) $file->getMimeType();
+        $path = $file->store(self::CV_SEMENTARA, Employee::DISK);
+        $mime = Storage::disk(Employee::DISK)->mimeType($path) ?: (string) $file->getMimeType();
+        $token = Str::random(32);
 
-        try {
-            $hasil = $baca->baca($disk->path($path), $mime);
-        } catch (AiException $e) {
-            $disk->delete($path);
-
-            return back()->with('error', 'AI belum bisa membaca CV — '.$e->getMessage());
-        }
-        if (! array_filter($hasil)) {
-            $disk->delete($path);
-
-            return back()->with('error', 'AI tidak menemukan data kandidat di file ini — silakan isi form secara manual.');
-        }
-
-        $request->session()->put(self::SESI_CV, ['path' => $path, 'nama' => $file->getClientOriginalName(), 'mime' => $mime]);
-        AuditService::log(action: 'read_candidate_cv_ai', targetType: 'candidate',
-            after: ['file' => $file->getClientOriginalName(), 'lowongan_cocok' => $hasil['job_opening_id'] !== null]);
+        BacaCvJob::antri($token);
+        $request->session()->put(self::SESI_CV, ['token' => $token, 'path' => $path, 'nama' => $file->getClientOriginalName(), 'mime' => $mime]);
+        AuditService::log(action: 'read_candidate_cv_ai', targetType: 'candidate', after: ['file' => $file->getClientOriginalName()]);
+        BacaCvJob::dispatch($token, $path, $mime);
 
         return redirect()->route('hr.rekrutmen.kandidat.create')
-            ->withInput(array_filter($hasil, fn ($v) => $v !== null))
-            ->with('status', 'CV sudah dibaca AI — periksa isiannya dulu, lalu klik Simpan kandidat.');
+            ->with('status', 'CV diterima — AI sedang membaca, form di bawah terisi otomatis begitu selesai.');
+    }
+
+    /** Status baca CV (polling form Tambah kandidat). Hanya untuk token milik sesi ini. */
+    public function statusBacaCv(Request $request, string $token): JsonResponse
+    {
+        abort_unless(($request->session()->get(self::SESI_CV)['token'] ?? null) === $token, 404);
+
+        return response()->json(Cache::get(BacaCvJob::kunci($token))
+            ?? ['status' => 'gagal', 'hasil' => null, 'pesan' => 'Hasil baca CV sudah kedaluwarsa — silakan baca ulang.']);
     }
 
     public function showKandidat(Request $request, Candidate $kandidat): View
@@ -250,6 +260,7 @@ class HrRekrutmenController extends Controller
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:120'],
             'source' => ['nullable', 'string', 'max:60'],
+            'cv_summary' => ['nullable', 'string', 'max:5000'],
         ]);
     }
 
@@ -282,6 +293,7 @@ class HrRekrutmenController extends Controller
         $disk = Storage::disk(Employee::DISK);
         if ($lama = $request->session()->pull(self::SESI_CV)) {
             $disk->delete($lama['path']);
+            Cache::forget(BacaCvJob::kunci((string) ($lama['token'] ?? '')));
         }
         foreach ($disk->files(self::CV_SEMENTARA) as $p) {
             if ($disk->lastModified($p) < now()->subDay()->getTimestamp()) {
