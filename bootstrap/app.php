@@ -26,11 +26,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // Webhook Telegram: request publik dari server Telegram, tak pernah
         // membawa CSRF token. Keamanan dijaga oleh verifikasi secret token di
         // TelegramWebhookController, bukan oleh CSRF.
+        // Psikotes kandidat (tes/*): token acak 48 karakter di URL sudah jadi kunci aksesnya — CSRF tak menambah
+        // keamanan, malah membuat jawaban hilang ("Page Expired") bila halaman tes dibiarkan terbuka > umur sesi.
         $middleware->validateCsrfTokens(except: [
             'telegram/webhook',
             'api/kol-agent/*',
             'webhooks/tiktok/chat',
             'webhooks/shopee/push',
+            'tes/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
